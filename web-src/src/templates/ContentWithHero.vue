@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <section class="hero is-light is-bold fd-page fd-content">
+  <div class="fd-page">
+    <section class="hero is-light is-bold">
       <div class="hero-body">
         <div class="container">
           <div class="columns is-centered">
@@ -22,7 +22,7 @@
         </div>
       </div>
     </section>
-    <section class="section fd-content">
+    <section class="section">
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths">

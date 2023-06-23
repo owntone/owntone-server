@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page">
     <content-with-heading>
       <template #options>
         <index-button-list :index="tracks.indexList" />

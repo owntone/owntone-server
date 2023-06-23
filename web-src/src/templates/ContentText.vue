@@ -1,5 +1,5 @@
 <template>
-  <section class="section fd-content py-3">
+  <section class="section py-3">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">

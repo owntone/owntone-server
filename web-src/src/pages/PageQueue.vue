@@ -1,100 +1,102 @@
 <template>
-  <content-with-heading>
-    <template #heading-left>
-      <p class="title is-4" v-text="$t('page.queue.title')" />
-      <p
-        class="heading"
-        v-text="$t('page.queue.count', { count: queue.count })"
-      />
-    </template>
-    <template #heading-right>
-      <div class="buttons is-centered">
-        <a
-          class="button is-small"
-          :class="{ 'is-info': show_only_next_items }"
-          @click="update_show_next_items"
-        >
-          <span class="icon"
-            ><mdicon name="arrow-collapse-down" size="16"
-          /></span>
-          <span v-text="$t('page.queue.hide-previous')" />
-        </a>
-        <a class="button is-small" @click="open_add_stream_dialog">
-          <span class="icon"><mdicon name="web" size="16" /></span>
-          <span v-text="$t('page.queue.add-stream')" />
-        </a>
-        <a
-          class="button is-small"
-          :class="{ 'is-info': edit_mode }"
-          @click="edit_mode = !edit_mode"
-        >
-          <span class="icon"><mdicon name="pencil" size="16" /></span>
-          <span v-text="$t('page.queue.edit')" />
-        </a>
-        <a class="button is-small" @click="queue_clear">
-          <span class="icon"><mdicon name="delete-empty" size="16" /></span>
-          <span v-text="$t('page.queue.clear')" />
-        </a>
-        <a
-          v-if="is_queue_save_allowed"
-          class="button is-small"
-          :disabled="queue_items.length === 0"
-          @click="save_dialog"
-        >
-          <span class="icon"><mdicon name="content-save" size="16" /></span>
-          <span v-text="$t('page.queue.save')" />
-        </a>
-      </div>
-    </template>
-    <template #content>
-      <draggable
-        v-model="queue_items"
-        handle=".handle"
-        item-key="id"
-        @end="move_item"
-      >
-        <template #item="{ element, index }">
-          <list-item-queue-item
-            :item="element"
-            :position="index"
-            :current_position="current_position"
-            :show_only_next_items="show_only_next_items"
-            :edit_mode="edit_mode"
+  <div class="fd-page">
+    <content-with-heading>
+      <template #heading-left>
+        <p class="title is-4" v-text="$t('page.queue.title')" />
+        <p
+          class="heading"
+          v-text="$t('page.queue.count', { count: queue.count })"
+        />
+      </template>
+      <template #heading-right>
+        <div class="buttons is-centered">
+          <a
+            class="button is-small"
+            :class="{ 'is-info': show_only_next_items }"
+            @click="update_show_next_items"
           >
-            <template #actions>
-              <a v-if="!edit_mode" @click.prevent.stop="open_dialog(element)">
-                <span class="icon has-text-dark"
-                  ><mdicon name="dots-vertical" size="16"
-                /></span>
-              </a>
-              <a
-                v-if="element.id !== state.item_id && edit_mode"
-                @click.prevent.stop="remove(element)"
-              >
-                <span class="icon has-text-grey"
-                  ><mdicon name="delete" size="18"
-                /></span>
-              </a>
-            </template>
-          </list-item-queue-item>
-        </template>
-      </draggable>
-      <modal-dialog-queue-item
-        :show="show_details_modal"
-        :item="selected_item"
-        @close="show_details_modal = false"
-      />
-      <modal-dialog-add-url-stream
-        :show="show_url_modal"
-        @close="show_url_modal = false"
-      />
-      <modal-dialog-playlist-save
-        v-if="is_queue_save_allowed"
-        :show="show_pls_save_modal"
-        @close="show_pls_save_modal = false"
-      />
-    </template>
-  </content-with-heading>
+            <span class="icon"
+              ><mdicon name="arrow-collapse-down" size="16"
+            /></span>
+            <span v-text="$t('page.queue.hide-previous')" />
+          </a>
+          <a class="button is-small" @click="open_add_stream_dialog">
+            <span class="icon"><mdicon name="web" size="16" /></span>
+            <span v-text="$t('page.queue.add-stream')" />
+          </a>
+          <a
+            class="button is-small"
+            :class="{ 'is-info': edit_mode }"
+            @click="edit_mode = !edit_mode"
+          >
+            <span class="icon"><mdicon name="pencil" size="16" /></span>
+            <span v-text="$t('page.queue.edit')" />
+          </a>
+          <a class="button is-small" @click="queue_clear">
+            <span class="icon"><mdicon name="delete-empty" size="16" /></span>
+            <span v-text="$t('page.queue.clear')" />
+          </a>
+          <a
+            v-if="is_queue_save_allowed"
+            class="button is-small"
+            :disabled="queue_items.length === 0"
+            @click="save_dialog"
+          >
+            <span class="icon"><mdicon name="content-save" size="16" /></span>
+            <span v-text="$t('page.queue.save')" />
+          </a>
+        </div>
+      </template>
+      <template #content>
+        <draggable
+          v-model="queue_items"
+          handle=".handle"
+          item-key="id"
+          @end="move_item"
+        >
+          <template #item="{ element, index }">
+            <list-item-queue-item
+              :item="element"
+              :position="index"
+              :current_position="current_position"
+              :show_only_next_items="show_only_next_items"
+              :edit_mode="edit_mode"
+            >
+              <template #actions>
+                <a v-if="!edit_mode" @click.prevent.stop="open_dialog(element)">
+                  <span class="icon has-text-dark"
+                    ><mdicon name="dots-vertical" size="16"
+                  /></span>
+                </a>
+                <a
+                  v-if="element.id !== state.item_id && edit_mode"
+                  @click.prevent.stop="remove(element)"
+                >
+                  <span class="icon has-text-grey"
+                    ><mdicon name="delete" size="18"
+                  /></span>
+                </a>
+              </template>
+            </list-item-queue-item>
+          </template>
+        </draggable>
+        <modal-dialog-queue-item
+          :show="show_details_modal"
+          :item="selected_item"
+          @close="show_details_modal = false"
+        />
+        <modal-dialog-add-url-stream
+          :show="show_url_modal"
+          @close="show_url_modal = false"
+        />
+        <modal-dialog-playlist-save
+          v-if="is_queue_save_allowed"
+          :show="show_pls_save_modal"
+          @close="show_pls_save_modal = false"
+        />
+      </template>
+    </content-with-heading>
+  </div>
 </template>
 
 <script>

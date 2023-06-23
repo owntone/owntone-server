@@ -1,57 +1,65 @@
 <template>
-  <content-with-heading>
-    <template #options>
-      <div class="columns">
-        <div class="column">
-          <p
-            class="heading"
-            style="margin-bottom: 24px"
-            v-text="$t('page.artist.sort-by.title')"
-          />
-          <dropdown-menu
-            v-model="selected_groupby_option_id"
-            :options="groupby_options"
-          />
+  <div class="fd-page">
+    <content-with-heading>
+      <template #options>
+        <div class="columns">
+          <div class="column">
+            <p
+              class="heading"
+              style="margin-bottom: 24px"
+              v-text="$t('page.artist.sort-by.title')"
+            />
+            <dropdown-menu
+              v-model="selected_groupby_option_id"
+              :options="groupby_options"
+            />
+          </div>
         </div>
-      </div>
-    </template>
-    <template #heading-left>
-      <p class="title is-4" v-text="artist.name" />
-    </template>
-    <template #heading-right>
-      <div class="buttons is-centered">
-        <a
-          class="button is-small is-light is-rounded"
-          @click="show_artist_details_modal = true"
-        >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
-        </a>
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="shuffle" size="16" /></span>
-          <span v-text="$t('page.artist.shuffle')" />
-        </a>
-      </div>
-    </template>
-    <template #content>
-      <p class="heading has-text-centered-mobile">
-        <span
-          v-text="$t('page.artist.album-count', { count: artist.album_count })"
+      </template>
+      <template #heading-left>
+        <p class="title is-4" v-text="artist.name" />
+      </template>
+      <template #heading-right>
+        <div class="buttons is-centered">
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_artist_details_modal = true"
+          >
+            <span class="icon"
+              ><mdicon name="dots-horizontal" size="16"
+            /></span>
+          </a>
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <span class="icon"><mdicon name="shuffle" size="16" /></span>
+            <span v-text="$t('page.artist.shuffle')" />
+          </a>
+        </div>
+      </template>
+      <template #content>
+        <p class="heading has-text-centered-mobile">
+          <span
+            v-text="
+              $t('page.artist.album-count', { count: artist.album_count })
+            "
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <a
+            class="has-text-link"
+            @click="open_tracks"
+            v-text="
+              $t('page.artist.track-count', { count: artist.track_count })
+            "
+          />
+        </p>
+        <list-albums :albums="albums" :hide_group_title="true" />
+        <modal-dialog-artist
+          :show="show_artist_details_modal"
+          :artist="artist"
+          @close="show_artist_details_modal = false"
         />
-        <span>&nbsp;|&nbsp;</span>
-        <a
-          class="has-text-link"
-          @click="open_tracks"
-          v-text="$t('page.artist.track-count', { count: artist.track_count })"
-        />
-      </p>
-      <list-albums :albums="albums" :hide_group_title="true" />
-      <modal-dialog-artist
-        :show="show_artist_details_modal"
-        :artist="artist"
-        @close="show_artist_details_modal = false"
-      />
-    </template>
-  </content-with-heading>
+      </template>
+    </content-with-heading>
+  </div>
 </template>
 
 <script>

@@ -1,39 +1,43 @@
 <template>
-  <content-with-heading>
-    <template #heading-left>
-      <p class="title is-4" v-text="artist.name" />
-    </template>
-    <template #heading-right>
-      <div class="buttons is-centered">
-        <a
-          class="button is-small is-light is-rounded"
-          @click="show_artist_details_modal = true"
-        >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
-        </a>
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="play" size="16" /></span>
-          <span v-text="$t('page.audiobooks.artist.play')" />
-        </a>
-      </div>
-    </template>
-    <template #content>
-      <p
-        class="heading has-text-centered-mobile"
-        v-text="
-          $t('page.audiobooks.artist.album-count', {
-            count: artist.album_count
-          })
-        "
-      />
-      <list-albums :albums="albums" />
-      <modal-dialog-artist
-        :show="show_artist_details_modal"
-        :artist="artist"
-        @close="show_artist_details_modal = false"
-      />
-    </template>
-  </content-with-heading>
+  <div class="fd-page">
+    <content-with-heading>
+      <template #heading-left>
+        <p class="title is-4" v-text="artist.name" />
+      </template>
+      <template #heading-right>
+        <div class="buttons is-centered">
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_artist_details_modal = true"
+          >
+            <span class="icon"
+              ><mdicon name="dots-horizontal" size="16"
+            /></span>
+          </a>
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <span class="icon"><mdicon name="play" size="16" /></span>
+            <span v-text="$t('page.audiobooks.artist.play')" />
+          </a>
+        </div>
+      </template>
+      <template #content>
+        <p
+          class="heading has-text-centered-mobile"
+          v-text="
+            $t('page.audiobooks.artist.album-count', {
+              count: artist.album_count
+            })
+          "
+        />
+        <list-albums :albums="albums" />
+        <modal-dialog-artist
+          :show="show_artist_details_modal"
+          :artist="artist"
+          @close="show_artist_details_modal = false"
+        />
+      </template>
+    </content-with-heading>
+  </div>
 </template>
 
 <script>

@@ -1,7 +1,7 @@
 <template>
-  <div>
+  <div class="fd-page">
     <!-- Search field + recent searches -->
-    <section class="section pb-0 fd-page">
+    <section class="section pb-0">
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths">
@@ -37,7 +37,7 @@
     </section>
     <tabs-search :query="search_query" />
     <!-- Tracks -->
-    <content-with-heading v-if="show_tracks && tracks.total">
+    <content-with-heading v-if="show_tracks && tracks.total" class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.spotify.search.tracks')" />
       </template>
@@ -86,7 +86,7 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_tracks && !tracks.total" class="mt-6">
+    <content-text v-if="show_tracks && !tracks.total" class="pt-0">
       <template #content>
         <p><i v-text="$t('page.spotify.search.no-tracks')" /></p>
       </template>

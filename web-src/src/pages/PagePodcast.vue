@@ -1,58 +1,62 @@
 <template>
-  <content-with-heading>
-    <template #heading-left>
-      <div class="title is-4" v-text="album.name" />
-    </template>
-    <template #heading-right>
-      <div class="buttons is-centered">
-        <a
-          class="button is-small is-light is-rounded"
-          @click="show_details_modal = true"
+  <div class="fd-page">
+    <content-with-heading>
+      <template #heading-left>
+        <div class="title is-4" v-text="album.name" />
+      </template>
+      <template #heading-right>
+        <div class="buttons is-centered">
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_details_modal = true"
+          >
+            <span class="icon"
+              ><mdicon name="dots-horizontal" size="16"
+            /></span>
+          </a>
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <span class="icon"><mdicon name="play" size="16" /></span>
+            <span v-text="$t('page.podcast.play')" />
+          </a>
+        </div>
+      </template>
+      <template #content>
+        <p
+          class="heading has-text-centered-mobile"
+          v-text="$t('page.podcast.track-count', { count: album.track_count })"
+        />
+        <list-tracks
+          :tracks="tracks"
+          :show_progress="true"
+          @play-count-changed="reload_tracks"
+        />
+        <modal-dialog-album
+          :show="show_details_modal"
+          :album="album"
+          :media_kind="'podcast'"
+          :new_tracks="new_tracks"
+          @close="show_details_modal = false"
+          @play-count-changed="reload_tracks"
+          @remove-podcast="open_remove_podcast_dialog"
+        />
+        <modal-dialog
+          :show="show_remove_podcast_modal"
+          :title="$t('page.podcast.remove-podcast')"
+          :delete_action="$t('page.podcast.remove')"
+          @close="show_remove_podcast_modal = false"
+          @delete="remove_podcast"
         >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
-        </a>
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="play" size="16" /></span>
-          <span v-text="$t('page.podcast.play')" />
-        </a>
-      </div>
-    </template>
-    <template #content>
-      <p
-        class="heading has-text-centered-mobile"
-        v-text="$t('page.podcast.track-count', { count: album.track_count })"
-      />
-      <list-tracks
-        :tracks="tracks"
-        :show_progress="true"
-        @play-count-changed="reload_tracks"
-      />
-      <modal-dialog-album
-        :show="show_details_modal"
-        :album="album"
-        :media_kind="'podcast'"
-        :new_tracks="new_tracks"
-        @close="show_details_modal = false"
-        @play-count-changed="reload_tracks"
-        @remove-podcast="open_remove_podcast_dialog"
-      />
-      <modal-dialog
-        :show="show_remove_podcast_modal"
-        :title="$t('page.podcast.remove-podcast')"
-        :delete_action="$t('page.podcast.remove')"
-        @close="show_remove_podcast_modal = false"
-        @delete="remove_podcast"
-      >
-        <template #modal-content>
-          <p v-text="$t('page.podcast.remove-info-1')" />
-          <p class="is-size-7">
-            (<span v-text="$t('page.podcast.remove-info-2')" />
-            <b v-text="rss_playlist_to_remove.name" />)
-          </p>
-        </template>
-      </modal-dialog>
-    </template>
-  </content-with-heading>
+          <template #modal-content>
+            <p v-text="$t('page.podcast.remove-info-1')" />
+            <p class="is-size-7">
+              (<span v-text="$t('page.podcast.remove-info-2')" />
+              <b v-text="rss_playlist_to_remove.name" />)
+            </p>
+          </template>
+        </modal-dialog>
+      </template>
+    </content-with-heading>
+  </div>
 </template>
 
 <script>

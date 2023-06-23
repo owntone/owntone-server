@@ -72,14 +72,6 @@ a.navbar-item {
   width: 100%;
 }
 
-section.fd-tabs-section + section.fd-content {
-  margin-top: 24px;
-}
-
-section.hero + section.fd-content {
-  padding-top: 0;
-}
-
 .fd-progress-bar {
   top: 52px !important;
 }
@@ -101,19 +93,6 @@ section.hero + section.fd-content {
 /* Set minimum height to hide "option" section */
 .fd-content-with-option {
   min-height: calc(100vh - 3.25rem - 3.25rem);
-}
-
-/* Now playing page */
-.fd-is-fullheight {
-  height: calc(100vh - 3.25rem - 3.25rem);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.fd-is-fullheight .fd-is-expanded {
-  padding: 1.5rem;
-  overflow: hidden;
 }
 
 .fd-cover {
