@@ -285,6 +285,9 @@ hr.fd-navbar-divider {
 input[type='range'].slider {
   --sh: 0.5rem;
   --th: calc(var(--sh) * 1.75);
+  @include mobile {
+    --th: calc(var(--sh) * 2.5);
+  }
   --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
   -webkit-appearance: none;
   min-width: 250px;
