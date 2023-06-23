@@ -139,13 +139,13 @@ export const router = createRouter({
       path: '/music/composers/:composer/albums',
       name: 'ComposerAlbums',
       component: PageComposer,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/music/composers/:composer/tracks',
       name: 'ComposerTracks',
       component: PageComposerTracks,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
+      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/podcasts',
