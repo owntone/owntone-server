@@ -11,8 +11,8 @@
         />
         <input
           v-model.number="item_progress_ms"
-          :step="1000"
-          :max="is_live ? 1000 : track.length_ms"
+          :step="INTERVAL"
+          :max="is_live ? INTERVAL : track.length_ms"
           type="range"
           class="slider mt-5"
           :style="{ '--ratio': progress }"
@@ -30,15 +30,15 @@
             v-text="$filters.durationInHours(track.length_ms)"
           />
         </div>
-        <h1 class="title is-5" v-text="track.title" />
-        <h2 class="title is-6" v-text="track.artist" />
-        <h2
+        <p class="title is-5" v-text="track.title" />
+        <p class="title is-6" v-text="track.artist" />
+        <p
           v-if="composer"
           class="subtitle is-6 has-text-grey has-text-weight-bold"
           v-text="composer"
         />
-        <h3 class="subtitle is-6" v-text="track.album" />
-        <h3
+        <p v-if="track.album" class="subtitle is-6" v-text="track.album" />
+        <p
           v-if="filepath"
           class="subtitle is-6 has-text-grey"
           v-text="filepath"
@@ -65,6 +65,8 @@ import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
+const INTERVAL = 1000
+
 export default {
   name: 'PageNowPlaying',
   components: {
@@ -74,6 +76,7 @@ export default {
 
   data() {
     return {
+      INTERVAL,
       item_progress_ms: 0,
       interval_id: 0,
       is_dragged: false,
@@ -147,7 +150,7 @@ export default {
       }
       this.item_progress_ms = this.player.item_progress_ms
       if (this.player.state === 'play') {
-        this.interval_id = window.setInterval(this.tick, 1000)
+        this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
     }
   },
@@ -157,7 +160,7 @@ export default {
     webapi.player_status().then(({ data }) => {
       this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
       if (this.player.state === 'play') {
-        this.interval_id = window.setInterval(this.tick, 1000)
+        this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
     })
   },
@@ -173,11 +176,11 @@ export default {
     tick() {
       if (!this.is_dragged) {
         if (this.is_live) {
-          this.item_progress_ms += 1000
-        } else if (this.item_progress_ms + 1000 > this.track.length_ms) {
+          this.item_progress_ms += INTERVAL
+        } else if (this.item_progress_ms + INTERVAL > this.track.length_ms) {
           this.item_progress_ms = this.track.length_ms
         } else {
-          this.item_progress_ms += 1000
+          this.item_progress_ms += INTERVAL
         }
       }
     },
