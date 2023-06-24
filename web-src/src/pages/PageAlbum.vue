@@ -1,45 +1,49 @@
 <template>
-  <content-with-hero>
-    <template #heading-left>
-      <h1 class="title is-5" v-text="album.name" />
-      <h2 class="subtitle is-6 has-text-link has-text-weight-normal">
-        <a class="has-text-link" @click="open_artist" v-text="album.artist" />
-      </h2>
-      <div class="buttons fd-is-centered-mobile fd-has-margin-top">
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="shuffle" size="16" /></span>
-          <span v-text="$t('page.album.shuffle')" />
-        </a>
-        <a
-          class="button is-small is-light is-rounded"
+  <div class="fd-page">
+    <content-with-hero>
+      <template #heading-left>
+        <h1 class="title is-5" v-text="album.name" />
+        <h2 class="subtitle is-6 has-text-link has-text-weight-normal">
+          <a class="has-text-link" @click="open_artist" v-text="album.artist" />
+        </h2>
+        <div class="buttons fd-is-centered-mobile fd-has-margin-top">
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <span class="icon"><mdicon name="shuffle" size="16" /></span>
+            <span v-text="$t('page.album.shuffle')" />
+          </a>
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_album_details_modal = true"
+          >
+            <span class="icon"
+              ><mdicon name="dots-horizontal" size="16"
+            /></span>
+          </a>
+        </div>
+      </template>
+      <template #heading-right>
+        <cover-artwork
+          :artwork_url="album.artwork_url"
+          :artist="album.artist"
+          :album="album.name"
+          class="is-clickable fd-has-shadow fd-cover fd-cover-medium-image"
           @click="show_album_details_modal = true"
-        >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
-        </a>
-      </div>
-    </template>
-    <template #heading-right>
-      <cover-artwork
-        :artwork_url="album.artwork_url"
-        :artist="album.artist"
-        :album="album.name"
-        class="is-clickable fd-has-shadow fd-cover fd-cover-medium-image"
-        @click="show_album_details_modal = true"
-      />
-    </template>
-    <template #content>
-      <p
-        class="heading is-7 has-text-centered-mobile fd-has-margin-top"
-        v-text="$t('page.album.track-count', { count: album.track_count })"
-      />
-      <list-tracks :tracks="tracks" :uris="album.uri" />
-      <modal-dialog-album
-        :show="show_album_details_modal"
-        :album="album"
-        @close="show_album_details_modal = false"
-      />
-    </template>
-  </content-with-hero>
+        />
+      </template>
+      <template #content>
+        <p
+          class="heading is-7 has-text-centered-mobile fd-has-margin-top"
+          v-text="$t('page.album.track-count', { count: album.track_count })"
+        />
+        <list-tracks :tracks="tracks" :uris="album.uri" />
+        <modal-dialog-album
+          :show="show_album_details_modal"
+          :album="album"
+          @close="show_album_details_modal = false"
+        />
+      </template>
+    </content-with-hero>
+  </div>
 </template>
 
 <script>
