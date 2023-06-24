@@ -290,6 +290,7 @@ input[type='range'].slider {
     @include track;
   }
   &.is-inactive {
+    cursor: not-allowed;
     &::-webkit-slider-thumb {
       background-color: $grey-light;
     }
