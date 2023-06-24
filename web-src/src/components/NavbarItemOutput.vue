@@ -1,8 +1,8 @@
 <template>
   <div class="navbar-item">
     <div class="level is-mobile">
-      <div class="level-left fd-expanded">
-        <div class="level-item" style="flex-grow: 0">
+      <div class="level-left is-flex-grow-1">
+        <div class="level-item is-flex-grow-0">
           <a class="button is-white is-small">
             <span
               class="icon is-clickable"
@@ -12,8 +12,8 @@
             /></span>
           </a>
         </div>
-        <div class="level-item fd-expanded">
-          <div class="fd-expanded">
+        <div class="level-item">
+          <div class="is-flex-grow-1">
             <p
               class="heading"
               :class="{ 'has-text-grey-light': !output.selected }"

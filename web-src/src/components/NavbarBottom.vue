@@ -9,7 +9,7 @@
     role="navigation"
     aria-label="player controls"
   >
-    <div class="navbar-brand fd-expanded">
+    <div class="navbar-brand is-flex-grow-1">
       <!-- Link to queue -->
       <navbar-item-link to="/" exact>
         <span class="icon"><mdicon name="playlist-play" size="24" /></span>
@@ -99,8 +99,8 @@
           <div class="navbar-item">
             <!-- Outputs: master volume -->
             <div class="level is-mobile">
-              <div class="level-left fd-expanded">
-                <div class="level-item" style="flex-grow: 0">
+              <div class="level-left is-flex-grow-1">
+                <div class="level-item is-flex-grow-0">
                   <a
                     class="button is-white is-small"
                     @click="toggle_mute_volume"
@@ -112,8 +112,8 @@
                     /></span>
                   </a>
                 </div>
-                <div class="level-item fd-expanded">
-                  <div class="fd-expanded">
+                <div class="level-item">
+                  <div>
                     <p class="heading" v-text="$t('navigation.volume')" />
                     <input
                       v-model="player.volume"
@@ -139,8 +139,8 @@
           <hr class="fd-navbar-divider" />
           <div class="navbar-item">
             <div class="level is-mobile">
-              <div class="level-left fd-expanded">
-                <div class="level-item" style="flex-grow: 0">
+              <div class="level-left is-flex-grow-1">
+                <div class="level-item is-flex-grow-0">
                   <a
                     class="button is-white is-small"
                     :class="{ 'is-loading': loading }"
@@ -155,17 +155,14 @@
                     /></span>
                   </a>
                 </div>
-                <div class="level-item fd-expanded">
-                  <div class="fd-expanded">
+                <div class="level-item">
+                  <div class="is-flex-grow-1">
                     <p
                       class="heading"
                       :class="{ 'has-text-grey-light': !playing }"
                     >
                       <span v-text="$t('navigation.stream')" />
-                      <a
-                        href="stream.mp3"
-                        style="margin-left: 5px"
-                        target="_blank"
+                      <a href="stream.mp3" class="ml-2" target="_blank"
                         ><span class="icon"
                           ><mdicon
                             name="open-in-new"
@@ -191,8 +188,8 @@
           </div>
           <!-- Playback controls -->
           <hr class="fd-navbar-divider" />
-          <div class="navbar-item">
-            <div class="level is-mobile fd-expanded">
+          <div class="navbar-item is-justify-content-center">
+            <div class="level">
               <div class="level-item">
                 <div class="buttons has-addons">
                   <player-button-repeat class="button" />
@@ -224,8 +221,8 @@
         <!-- Outputs: master volume -->
         <div class="navbar-item">
           <div class="level is-mobile">
-            <div class="level-left fd-expanded">
-              <div class="level-item" style="flex-grow: 0">
+            <div class="level-left is-flex-grow-1">
+              <div class="level-item is-flex-grow-0">
                 <a class="button is-white is-small" @click="toggle_mute_volume">
                   <span class="icon"
                     ><mdicon
@@ -234,8 +231,8 @@
                   /></span>
                 </a>
               </div>
-              <div class="level-item fd-expanded">
-                <div class="fd-expanded">
+              <div class="level-item">
+                <div class="is-flex-grow-1">
                   <p class="heading" v-text="$t('navigation.volume')" />
                   <input
                     v-model="player.volume"
@@ -260,8 +257,8 @@
         <hr class="fd-navbar-divider" />
         <div class="navbar-item mb-5">
           <div class="level is-mobile">
-            <div class="level-left fd-expanded">
-              <div class="level-item" style="flex-grow: 0">
+            <div class="level-left is-flex-grow-1">
+              <div class="level-item is-flex-grow-0">
                 <a
                   class="button is-white is-small"
                   :class="{ 'is-loading': loading }"
@@ -277,17 +274,14 @@
                   </span>
                 </a>
               </div>
-              <div class="level-item fd-expanded">
-                <div class="fd-expanded">
+              <div class="level-item">
+                <div class="is-flex-grow-1">
                   <p
                     class="heading"
                     :class="{ 'has-text-grey-light': !playing }"
                   >
                     <span v-text="$t('navigation.stream')" />
-                    <a
-                      href="stream.mp3"
-                      style="margin-left: 5px"
-                      target="_blank"
+                    <a href="stream.mp3" class="ml-2" target="_blank"
                       ><span class="icon"
                         ><mdicon
                           name="open-in-new"
