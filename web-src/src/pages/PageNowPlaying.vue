@@ -10,25 +10,20 @@
           @click="open_dialog(track)"
         />
         <input
-          v-model.number="item_progress_ms"
-          :step="INTERVAL"
-          :max="is_live ? INTERVAL : track.length_ms"
+          v-model.number="track_progress"
+          :max="track_progress_max"
           type="range"
           class="slider mt-5"
-          :style="{ '--ratio': progress }"
+          :class="{ 'is-inactive': is_live }"
+          :style="{ '--ratio': track_progress_ratio }"
+          :disabled="is_live"
           @change="seek"
-          @touchstart="start_dragging"
-          @touchend="end_dragging"
+          @mousedown="start_dragging"
+          @mouseup="end_dragging"
         />
         <div class="is-flex is-justify-content-space-between">
-          <p
-            class="subtitle is-7"
-            v-text="$filters.durationInHours(item_progress_ms)"
-          />
-          <p
-            class="subtitle is-7"
-            v-text="$filters.durationInHours(track.length_ms)"
-          />
+          <p class="subtitle is-7" v-text="track_elapsed_time" />
+          <p class="subtitle is-7" v-text="track_total_time" />
         </div>
         <p class="title is-5" v-text="track.title" />
         <p class="title is-6" v-text="track.artist" />
@@ -77,22 +72,29 @@ export default {
   data() {
     return {
       INTERVAL,
-      item_progress_ms: 0,
       interval_id: 0,
       is_dragged: false,
-
       show_details_modal: false,
       selected_item: {}
     }
   },
 
   computed: {
-    progress() {
-      return this.is_live ? 2 : this.item_progress_ms / this.track.length_ms
+    is_live() {
+      return this.track.length_ms === 0
     },
 
-    is_live() {
-      return this.track.length_ms == 0
+    track_progress: {
+      get() {
+        return Math.floor(this.player.item_progress_ms / INTERVAL)
+      },
+      set(value) {
+        this.player.item_progress_ms = value * INTERVAL
+      }
+    },
+
+    track_progress_ratio() {
+      return this.track_progress / this.track_progress_max
     },
 
     player() {
@@ -101,6 +103,20 @@ export default {
 
     track() {
       return this.$store.getters.now_playing
+    },
+
+    track_progress_max() {
+      return this.is_live ? 1 : Math.floor(this.track.length_ms / INTERVAL)
+    },
+
+    track_elapsed_time() {
+      return this.$filters.durationInHours(this.track_progress * INTERVAL)
+    },
+
+    track_total_time() {
+      return this.is_live
+        ? this.$t('page.now-playing.live')
+        : this.$filters.durationInHours(this.track.length_ms)
     },
 
     settings_option_show_composer_now_playing() {
@@ -148,7 +164,6 @@ export default {
         window.clearTimeout(this.interval_id)
         this.interval_id = 0
       }
-      this.item_progress_ms = this.player.item_progress_ms
       if (this.player.state === 'play') {
         this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
@@ -156,7 +171,6 @@ export default {
   },
 
   created() {
-    this.item_progress_ms = this.player.item_progress_ms
     webapi.player_status().then(({ data }) => {
       this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
       if (this.player.state === 'play') {
@@ -175,13 +189,7 @@ export default {
   methods: {
     tick() {
       if (!this.is_dragged) {
-        if (this.is_live) {
-          this.item_progress_ms += INTERVAL
-        } else if (this.item_progress_ms + INTERVAL > this.track.length_ms) {
-          this.item_progress_ms = this.track.length_ms
-        } else {
-          this.item_progress_ms += INTERVAL
-        }
+        this.track_progress += 1
       }
     },
 
@@ -195,9 +203,7 @@ export default {
 
     seek() {
       if (!this.is_live) {
-        webapi.player_seek_to_pos(this.item_progress_ms).catch(() => {
-          this.item_progress_ms = this.player.item_progress_ms
-        })
+        webapi.player_seek_to_pos(this.track_progress * INTERVAL)
       }
     },
 

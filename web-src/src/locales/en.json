@@ -367,6 +367,7 @@
     },
     "now-playing": {
       "info": "Add some tracks by browsing your library",
+      "live": "Live",
       "title": "Your play queue is empty"
     },
     "playlist": {

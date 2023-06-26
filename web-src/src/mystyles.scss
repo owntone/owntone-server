@@ -240,9 +240,10 @@ hr.fd-navbar-divider {
   -webkit-appearance: none;
   width: var(--th);
   height: var(--th);
+  box-sizing: border-box;
   border-radius: 50%;
-  background: $dark;
-  border: none;
+  background: $light;
+  border: 1px solid $dark;
 }
 
 @mixin track {
@@ -252,15 +253,15 @@ hr.fd-navbar-divider {
 }
 
 input[type='range'].slider {
-  --sh: 0.5rem;
-  --th: calc(var(--sh) * 1.75);
+  --sh: 0.25rem;
+  --th: calc(var(--sh) * 3);
   @include mobile {
-    --th: calc(var(--sh) * 2.5);
+    --th: calc(var(--sh) * 4);
   }
   --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
   -webkit-appearance: none;
   min-width: 250px;
-  height: calc(var(--sh) * 3);
+  height: calc(var(--sh) * 5);
   width: 100% !important;
   cursor: grab;
   &:active {
@@ -282,7 +283,9 @@ input[type='range'].slider {
   &.is-inactive {
     cursor: not-allowed;
     &::-webkit-slider-thumb {
-      background-color: $grey-light;
+      box-sizing: border-box;
+      background-color: $light;
+      border: 1px $grey-light solid;
     }
     &::-webkit-slider-runnable-track {
       background: linear-gradient(
@@ -292,7 +295,9 @@ input[type='range'].slider {
       );
     }
     &::-moz-range-thumb {
-      background-color: $grey-light;
+      box-sizing: border-box;
+      background-color: $light;
+      border: 1px $grey-light solid;
     }
     &::-moz-range-track {
       background: linear-gradient(

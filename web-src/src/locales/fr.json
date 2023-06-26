@@ -367,6 +367,7 @@
     },
     "now-playing": {
       "info": "Ajoutez des pistes en parcourant votre bibliothèque",
+      "live": "En direct",
       "title": "La file d’attente est vide"
     },
     "playlist": {

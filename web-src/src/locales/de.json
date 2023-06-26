@@ -367,6 +367,7 @@
     },
     "now-playing": {
       "info": "Tracks durch Auswählen aus der Bibliothek anfügen",
+      "live": "Live",
       "title": "Deine Playliste ist leer."
     },
     "playlist": {
