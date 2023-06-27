@@ -243,7 +243,7 @@ hr.fd-navbar-divider {
   box-sizing: border-box;
   border-radius: 50%;
   background: $light;
-  border: 1px solid $dark;
+  border: 1px solid $grey-light;
 }
 
 @mixin track {
@@ -254,9 +254,9 @@ hr.fd-navbar-divider {
 
 input[type='range'].slider {
   --sh: 0.25rem;
-  --th: calc(var(--sh) * 3);
+  --th: calc(var(--sh) * 4);
   @include mobile {
-    --th: calc(var(--sh) * 4);
+    --th: calc(var(--sh) * 5);
   }
   --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
   -webkit-appearance: none;
@@ -285,7 +285,6 @@ input[type='range'].slider {
     &::-webkit-slider-thumb {
       box-sizing: border-box;
       background-color: $light;
-      border: 1px $grey-light solid;
     }
     &::-webkit-slider-runnable-track {
       background: linear-gradient(
@@ -297,7 +296,6 @@ input[type='range'].slider {
     &::-moz-range-thumb {
       box-sizing: border-box;
       background-color: $light;
-      border: 1px $grey-light solid;
     }
     &::-moz-range-track {
       background: linear-gradient(
