@@ -178,7 +178,10 @@
                       :class="{ 'is-inactive': !playing }"
                       max="100"
                       type="range"
-                      :style="{ '--ratio': stream_volume / 100 }"
+                      :style="{
+                        '--ratio': stream_volume / 100,
+                        '--cursor': $filters.cursor(this.cursor)
+                      }"
                       @change="change_stream_volume"
                     />
                   </div>
@@ -239,7 +242,7 @@
                     class="slider"
                     max="100"
                     type="range"
-                    :style="{ '--ratio': player.volume / 100 }"
+                    :style="{ '--ratio': player.volume }"
                     @change="change_volume"
                   />
                 </div>
@@ -297,7 +300,10 @@
                     :class="{ 'is-inactive': !playing }"
                     max="100"
                     type="range"
-                    :style="{ '--ratio': stream_volume / 100 }"
+                    :style="{
+                      '--ratio': stream_volume / 100,
+                      '--cursor': $filters.cursor(this.cursor)
+                    }"
                     @change="change_stream_volume"
                   />
                 </div>
@@ -313,6 +319,7 @@
 <script>
 import webapi from '@/webapi'
 import _audio from '@/audio'
+import { mdiCancel } from '@mdi/js'
 import NavbarItemLink from './NavbarItemLink.vue'
 import NavbarItemOutput from './NavbarItemOutput.vue'
 import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause.vue'
@@ -342,6 +349,7 @@ export default {
 
   data() {
     return {
+      cursor: mdiCancel,
       old_volume: 0,
       playing: false,
       loading: false,
