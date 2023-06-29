@@ -26,7 +26,10 @@
               :class="{ 'is-inactive': !output.selected }"
               max="100"
               type="range"
-              :style="{ '--ratio': volume / 100 }"
+              :style="{
+                '--ratio': volume / 100,
+                '--cursor': $filters.cursor(this.cursor)
+              }"
               @change="change_volume"
             />
           </div>
@@ -37,6 +40,7 @@
 </template>
 
 <script>
+import { mdiCancel } from '@mdi/js'
 import webapi from '@/webapi'
 
 export default {
@@ -46,7 +50,8 @@ export default {
 
   data() {
     return {
-      volume: this.output.selected ? this.output.volume : 0
+      volume: this.output.selected ? this.output.volume : 0,
+      cursor: mdiCancel
     }
   },
 

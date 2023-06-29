@@ -281,7 +281,7 @@ input[type='range'].slider {
     @include track;
   }
   &.is-inactive {
-    cursor: not-allowed;
+    cursor: var(--cursor, not-allowed);
     &::-webkit-slider-thumb {
       box-sizing: border-box;
       background-color: $light;

@@ -15,7 +15,10 @@
           type="range"
           class="slider mt-5"
           :class="{ 'is-inactive': is_live }"
-          :style="{ '--ratio': track_progress_ratio }"
+          :style="{
+            '--ratio': track_progress_ratio,
+            '--cursor': $filters.cursor(this.cursor)
+          }"
           :disabled="is_live"
           @change="seek"
           @mousedown="start_dragging"
@@ -55,8 +58,9 @@
 </template>
 
 <script>
-import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
+import { mdiCancel } from '@mdi/js'
+import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 
@@ -71,6 +75,7 @@ export default {
 
   data() {
     return {
+      cursor: mdiCancel,
       INTERVAL,
       interval_id: 0,
       is_dragged: false,
