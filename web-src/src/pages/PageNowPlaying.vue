@@ -17,7 +17,7 @@
           :class="{ 'is-inactive': is_live }"
           :style="{
             '--ratio': track_progress_ratio,
-            '--cursor': $filters.cursor(this.cursor)
+            '--cursor': $filters.cursor(cursor)
           }"
           :disabled="is_live"
           @change="seek"

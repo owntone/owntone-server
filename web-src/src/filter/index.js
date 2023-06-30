@@ -71,6 +71,6 @@ export const filters = {
   cursor(path, size = 20) {
     const viewbox = 24
     const center = size / 2
-    return `url(\"data:image/svg+xml,%3Csvg width='${size}' height='${size}' viewBox='0 0 ${viewbox} ${viewbox}' xmlns='http://www.w3.org/2000/svg' %3E%3Cpath d='${path}'/%3E%3C/svg%3E\") ${center} ${center}, auto`
+    return `url("data:image/svg+xml,%3Csvg width='${size}' height='${size}' viewBox='0 0 ${viewbox} ${viewbox}' xmlns='http://www.w3.org/2000/svg' %3E%3Cpath d='${path}'/%3E%3C/svg%3E") ${center} ${center}, auto`
   }
 }

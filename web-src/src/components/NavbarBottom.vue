@@ -180,7 +180,7 @@
                       type="range"
                       :style="{
                         '--ratio': stream_volume / 100,
-                        '--cursor': $filters.cursor(this.cursor)
+                        '--cursor': $filters.cursor(cursor)
                       }"
                       @change="change_stream_volume"
                     />
@@ -302,7 +302,7 @@
                     type="range"
                     :style="{
                       '--ratio': stream_volume / 100,
-                      '--cursor': $filters.cursor(this.cursor)
+                      '--cursor': $filters.cursor(cursor)
                     }"
                     @change="change_stream_volume"
                   />

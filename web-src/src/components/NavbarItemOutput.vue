@@ -28,7 +28,7 @@
               type="range"
               :style="{
                 '--ratio': volume / 100,
-                '--cursor': $filters.cursor(this.cursor)
+                '--cursor': $filters.cursor(cursor)
               }"
               @change="change_volume"
             />
