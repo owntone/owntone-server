@@ -11,12 +11,10 @@
             class="button is-small is-light is-rounded"
             @click="show_details_modal = true"
           >
-            <span class="icon"
-              ><mdicon name="dots-horizontal" size="16"
-            /></span>
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><mdicon name="play" size="16" /></span>
+            <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.files.play')" />
           </a>
         </div>

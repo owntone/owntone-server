@@ -1,9 +1,11 @@
 <template>
   <div v-if="is_next || !show_only_next_items" class="media">
     <div v-if="edit_mode" class="media-left">
-      <span class="icon has-text-grey fd-is-movable handle"
-        ><mdicon name="drag-horizontal" size="16"
-      /></span>
+      <mdicon
+        class="icon has-text-grey fd-is-movable handle"
+        name="drag-horizontal"
+        size="16"
+      />
     </div>
     <div class="media-content is-clickable is-clipped" @click="play">
       <h1

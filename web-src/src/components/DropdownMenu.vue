@@ -12,7 +12,7 @@
         @click="is_active = !is_active"
       >
         <span v-text="option.name" />
-        <span class="icon"><mdicon name="chevron-down" size="16" /></span>
+        <mdicon class="icon" name="chevron-down" size="16" />
       </button>
     </div>
     <div id="dropdown-menu" class="dropdown-menu" role="menu">

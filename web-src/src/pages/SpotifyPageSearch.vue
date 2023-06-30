@@ -16,9 +16,8 @@
                     :placeholder="$t('page.spotify.search.placeholder')"
                     autocomplete="off"
                   />
-                  <span class="icon is-left"
-                    ><mdicon name="magnify" size="16"
-                  /></span>
+
+                  <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
               </div>
             </form>
@@ -51,9 +50,11 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_track_dialog(track)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-track>
@@ -104,9 +105,11 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_artist_dialog(artist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-artist>
@@ -167,9 +170,11 @@
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-album>
@@ -219,9 +224,11 @@
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
         </spotify-list-item-playlist>

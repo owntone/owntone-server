@@ -7,18 +7,14 @@
     @click="open_playlist(playlist.item)"
   >
     <figure class="media-left is-clickable">
-      <span class="icon"
-        ><mdicon :name="icon_name(playlist.item)" size="16"
-      /></span>
+      <mdicon class="icon" :name="icon_name(playlist.item)" size="16" />
     </figure>
     <div class="media-content is-clickable is-clipped">
       <h1 class="title is-6" v-text="playlist.item.name" />
     </div>
     <div class="media-right">
       <a @click.prevent.stop="open_dialog(playlist.item)">
-        <span class="icon has-text-dark"
-          ><mdicon name="dots-vertical" size="16"
-        /></span>
+        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
       </a>
     </div>
   </div>

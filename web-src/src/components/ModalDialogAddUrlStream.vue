@@ -18,16 +18,14 @@
                       :placeholder="$t('dialog.add.stream.placeholder')"
                       :disabled="loading"
                     />
-                    <span class="icon is-left"
-                      ><mdicon name="web" size="16"
-                    /></span>
+                    <mdicon class="icon is-left" name="web" size="16" />
                   </p>
                 </div>
               </form>
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item has-text-dark">
-                <span class="icon"><mdicon name="web" size="16" /></span>
+                <mdicon class="icon" name="web" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.add.stream.loading')"
@@ -39,23 +37,21 @@
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <span class="icon"><mdicon name="cancel" size="16" /></span>
+                <mdicon class="icon" name="cancel" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.add.stream.cancel')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="add_stream">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.add.stream.add')" />
               </a>
               <a
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="play"
               >
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.add.stream.play')" />
               </a>
             </footer>

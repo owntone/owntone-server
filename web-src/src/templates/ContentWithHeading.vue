@@ -15,18 +15,14 @@
                 class="button is-small is-white"
                 @click="scroll_to_top"
               >
-                <span class="icon is-small"
-                  ><mdicon name="chevron-down" size="16"
-                /></span>
+                <mdicon class="icon is-small" name="chevron-down" size="16" />
               </a>
               <a
                 v-else
                 class="button is-small is-white"
                 @click="scroll_to_content"
               >
-                <span class="icon is-small"
-                  ><mdicon name="chevron-up" size="16"
-                /></span>
+                <mdicon class="icon is-small" name="chevron-up" size="16" />
               </a>
             </nav>
           </section>

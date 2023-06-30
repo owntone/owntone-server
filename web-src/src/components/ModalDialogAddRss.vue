@@ -18,9 +18,7 @@
                       :placeholder="$t('dialog.add.rss.placeholder')"
                       :disabled="loading"
                     />
-                    <span class="icon is-left"
-                      ><mdicon name="rss" size="16"
-                    /></span>
+                    <mdicon class="icon is-left" name="rss" size="16" />
                   </p>
                   <p class="help" v-text="$t('dialog.add.rss.help')" />
                 </div>
@@ -28,7 +26,7 @@
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item button is-loading">
-                <span class="icon"><mdicon name="web" size="16" /></span>
+                <mdicon class="icon" name="web" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.add.rss.processing')"
@@ -40,16 +38,14 @@
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <span class="icon"><mdicon name="cancel" size="16" /></span>
+                <mdicon class="icon" name="cancel" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.add.rss.cancel')" />
               </a>
               <a
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="add_stream"
               >
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.add.rss.add')" />
               </a>
             </footer>

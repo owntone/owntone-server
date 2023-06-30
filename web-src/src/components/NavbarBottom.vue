@@ -12,7 +12,7 @@
     <div class="navbar-brand is-flex-grow-1">
       <!-- Link to queue -->
       <navbar-item-link to="/" exact>
-        <span class="icon"><mdicon name="playlist-play" size="24" /></span>
+        <mdicon class="icon" name="playlist-play" size="24" />
       </navbar-item-link>
       <!-- Now playing artist/title (not visible on "now playing" page) -->
       <router-link
@@ -71,11 +71,11 @@
         class="navbar-item ml-auto is-hidden-desktop"
         @click="show_player_menu = !show_player_menu"
       >
-        <span class="icon"
-          ><mdicon
-            :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-            size="18"
-        /></span>
+        <mdicon
+          class="icon"
+          :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
+          size="18"
+        />
       </a>
       <!-- Player menu dropup menu (only visible on desktop) -->
       <div
@@ -86,11 +86,11 @@
           class="navbar-link is-arrowless"
           @click="show_player_menu = !show_player_menu"
         >
-          <span class="icon"
-            ><mdicon
-              :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-              size="18"
-          /></span>
+          <mdicon
+            class="icon"
+            :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
+            size="18"
+          />
         </a>
         <div
           class="navbar-dropdown is-right is-boxed"
@@ -142,17 +142,13 @@
               <div class="level-left is-flex-grow-1">
                 <div class="level-item is-flex-grow-0">
                   <a
-                    class="button is-white is-small"
-                    :class="{ 'is-loading': loading }"
-                    ><span
-                      class="icon is-clickable"
-                      :class="{
-                        'has-text-grey-light': !playing && !loading,
-                        'is-loading': loading
-                      }"
-                      @click="togglePlay"
-                      ><mdicon name="broadcast" size="18"
-                    /></span>
+                    class="button is-clickable is-white is-small"
+                    :class="{
+                      'has-text-grey-light': !playing && !loading,
+                      'is-loading': loading
+                    }"
+                    @click="togglePlay"
+                    ><mdicon class="icon" name="broadcast" size="18" />
                   </a>
                 </div>
                 <div class="level-item">
@@ -163,12 +159,12 @@
                     >
                       <span v-text="$t('navigation.stream')" />
                       <a href="stream.mp3" class="ml-2" target="_blank"
-                        ><span class="icon"
-                          ><mdicon
-                            name="open-in-new"
-                            size="16"
-                            style="vertical-align: middle"
-                        /></span>
+                        ><mdicon
+                          class="icon"
+                          name="open-in-new"
+                          size="16"
+                          style="vertical-align: middle"
+                        />
                       </a>
                     </p>
                     <input
@@ -227,11 +223,11 @@
             <div class="level-left is-flex-grow-1">
               <div class="level-item is-flex-grow-0">
                 <a class="button is-white is-small" @click="toggle_mute_volume">
-                  <span class="icon"
-                    ><mdicon
-                      :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
-                      size="18"
-                  /></span>
+                  <mdicon
+                    class="icon"
+                    :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
+                    size="18"
+                  />
                 </a>
               </div>
               <div class="level-item">
@@ -263,18 +259,13 @@
             <div class="level-left is-flex-grow-1">
               <div class="level-item is-flex-grow-0">
                 <a
-                  class="button is-white is-small"
-                  :class="{ 'is-loading': loading }"
-                >
-                  <span
-                    class="icon is-clickable"
-                    :class="{
-                      'has-text-grey-light': !playing && !loading,
-                      'is-loading': loading
-                    }"
-                    @click="togglePlay"
-                    ><mdicon name="radio-tower" size="16" />
-                  </span>
+                  class="button is-clickable is-white is-small"
+                  :class="{
+                    'has-text-grey-light': !playing && !loading,
+                    'is-loading': loading
+                  }"
+                  @click="togglePlay"
+                  ><mdicon class="icon" name="radio-tower" size="16" />
                 </a>
               </div>
               <div class="level-item">
@@ -285,12 +276,12 @@
                   >
                     <span v-text="$t('navigation.stream')" />
                     <a href="stream.mp3" class="ml-2" target="_blank"
-                      ><span class="icon"
-                        ><mdicon
-                          name="open-in-new"
-                          size="16"
-                          style="vertical-align: middle"
-                      /></span>
+                      ><mdicon
+                        class="icon"
+                        name="open-in-new"
+                        size="16"
+                        style="vertical-align: middle"
+                      />
                     </a>
                   </p>
                   <input

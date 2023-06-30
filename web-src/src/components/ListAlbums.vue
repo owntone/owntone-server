@@ -32,9 +32,7 @@
       </div>
       <div class="media-right" style="padding-top: 0.7rem">
         <a @click.prevent.stop="open_dialog(album.item)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>

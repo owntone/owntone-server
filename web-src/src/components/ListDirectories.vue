@@ -5,9 +5,7 @@
     @click="open_parent_directory()"
   >
     <figure class="media-left is-clickable">
-      <span class="icon"
-        ><mdicon name="subdirectory-arrow-left" size="16"
-      /></span>
+      <mdicon class="icon" name="subdirectory-arrow-left" size="16" />
     </figure>
     <div class="media-content is-clickable is-clipped">
       <h1 class="title is-6">..</h1>
@@ -19,7 +17,7 @@
   <template v-for="directory in directories" :key="directory.path">
     <div class="media" @click="open_directory(directory)">
       <figure class="media-left is-clickable">
-        <span class="icon"><mdicon name="folder" size="16" /></span>
+        <mdicon class="icon" name="folder" size="16" />
       </figure>
       <div class="media-content is-clickable is-clipped">
         <h1
@@ -30,9 +28,7 @@
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(directory)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>

@@ -3,13 +3,17 @@
     <div class="level is-mobile">
       <div class="level-left is-flex-grow-1">
         <div class="level-item is-flex-grow-0">
-          <a class="button is-white is-small">
-            <span
-              class="icon is-clickable"
-              :class="{ 'has-text-grey-light': !output.selected }"
-              @click="set_enabled"
-              ><mdicon :name="type_class" size="18" :title="output.type"
-            /></span>
+          <a
+            class="button is-clickable is-white is-small"
+            :class="{ 'has-text-grey-light': !output.selected }"
+            @click="set_enabled"
+          >
+            <mdicon
+              class="icon"
+              :name="type_class"
+              size="18"
+              :title="output.type"
+            />
           </a>
         </div>
         <div class="level-item">

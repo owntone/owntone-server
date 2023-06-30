@@ -1,11 +1,10 @@
 <template>
   <a :disabled="disabled" @click="toggle_play_pause">
-    <span class="icon"
-      ><mdicon
-        :name="icon_name"
-        :size="icon_size"
-        :title="$t('player.button.' + icon_name)"
-    /></span>
+    <mdicon
+      :name="icon_name"
+      :size="icon_size"
+      :title="$t('player.button.' + icon_name)"
+    />
   </a>
 </template>
 

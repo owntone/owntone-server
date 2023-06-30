@@ -16,9 +16,7 @@
                     :placeholder="$t('page.search.placeholder')"
                     autocomplete="off"
                   />
-                  <span class="icon is-left"
-                    ><mdicon name="magnify" size="16"
-                  /></span>
+                  <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
                 <p class="help has-text-centered">
                   <span v-html="$t('page.search.help')" />
