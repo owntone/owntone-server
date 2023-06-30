@@ -4287,7 +4287,8 @@ typedef enum mpd_command_result {
   CMD_RESULT_ERROR = 1,
 
   /**
-   * the client entered idle state.
+   * the client either entered idle state or was sent an idle response
+   * as a result of events already pending for idle command.
    * no response should be sent to the client.
    */
   CMD_RESULT_IDLE = 2,
@@ -4475,9 +4476,13 @@ mpd_process_line(char *line, struct evbuffer *output, struct mpd_client_ctx *cli
     {
       if (client_ctx->is_idle)
       {
-        // leave idle state and send OK
+        bool response_sent = 0 == mpd_notify_idle_client(client_ctx, client_ctx->events);
+        // leave idle state and send OK if not sent by mpd_notify_idle_client
         client_ctx->is_idle = false;
-        mpd_ok_response(output);
+        if (!response_sent)
+          {
+            mpd_ok_response(output);
+          }
       }
 
       return CMD_RESULT_OK;
@@ -4812,6 +4817,15 @@ mpd_accept_error_cb(struct evconnlistener *listener, void *ctx)
   DPRINTF(E_LOG, L_MPD, "Error occured %d (%s) on the listener.\n", err, evutil_socket_error_to_string(err));
 }
 
+/**
+ * If the client is in idle and events match any of client_ctx->events
+ * response is sent to the client with change events and followed with OK,
+ * otherwise the events are added to the client context and no response is sent.
+ *
+ * @param client_ctx client context
+ * @param events pending idle events
+ * @return 0 if idle response was sent to the client
+ */
 static int
 mpd_notify_idle_client(struct mpd_client_ctx *client_ctx, short events)
 {
