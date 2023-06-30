@@ -486,8 +486,8 @@
       },
       "services": {
         "lastfm": {
-          "grant-access": "<b>Last.fm</b> - melde Dich mit Deinem Last.fm-Usernamen und Password an, um Scrobbeln zu aktivieren",
-          "info": "OwnTone wird Usernamen und Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
+          "grant-access": "<b>Last.fm</b> - melde Dich mit Deinem Last.fm-Benutzernamen und Passwort an, um Scrobbeln zu aktivieren",
+          "info": "OwnTone wird den Benutzernamen und das Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
           "title": "Last.fm",
           "no-support": "OwnTone wurde ohne Unterstützung für Last.fm erstellt.",
           "stop-scrobbling": "Stop Scrobbling"
@@ -499,7 +499,7 @@
           "scopes": "Zugriff auf die Spotify Web-Api ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: ",
           "user": "Zugriff gestattet für ",
           "authorize": "Authorisiere Web-API-Zugriff",
-          "credentials": " - Anmelden mit dem Spotify Username und Passwort",
+          "credentials": " - Anmelden mit dem Spotify Benutzername und Passwort",
           "grant-access": "<b>Spotify Web-API</b> - Zugriff auf die Spotify Web-API gestatten",
           "help-1": "libspotify ermöglicht OwnTone, Spotify-Tracks abzuspielen.",
           "help-2": "OwnTone speichert das Passwort nicht, aber wird über libspotify dennoch einen automatischen Login über ein Login-Token ermöglichen.",
