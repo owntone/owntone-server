@@ -94,7 +94,7 @@
                     v-model="lastfm_login.user"
                     class="input"
                     type="text"
-                    placeholder="Username"
+                    :placeholder="$t('page.settings.services.username')"
                   />
                   <p class="help is-danger" v-text="lastfm_login.errors.user" />
                 </div>
@@ -103,7 +103,7 @@
                     v-model="lastfm_login.password"
                     class="input"
                     type="password"
-                    placeholder="Password"
+                    :placeholder="$t('page.settings.services.password')"
                   />
                   <p
                     class="help is-danger"

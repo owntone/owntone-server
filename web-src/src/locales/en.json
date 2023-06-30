@@ -80,6 +80,7 @@
       "type": "Type",
       "save": {
         "cancel": "Cancel",
+        "playlist-name": "Playlist name",
         "save": "Save",
         "saving": "Saving…",
         "title": "Save queue to playlist"
@@ -107,6 +108,7 @@
     "remote-pairing": {
       "cancel": "Cancel",
       "pair": "Pair Remote",
+      "pairing-code": "Pairing code",
       "title": "Remote pairing request"
     },
     "spotify": {
@@ -447,18 +449,20 @@
       },
       "devices": {
         "no-active-pairing": "No active pairing request.",
+        "pairing-code": "Pairing code",
         "pairing-request": "Remote pairing request from ",
         "pairing": "Remote Pairing",
         "send": "Send",
         "speaker-pairing-info": "If your speaker requires pairing then activate it below and enter the PIN that it displays.",
         "speaker-pairing": "Speaker pairing and device verification",
-        "verification-code": "Enter verification code",
+        "verification-code": "Verification code",
         "verify": "Verify"
       },
       "general": {
         "album-lists": "Album Lists",
         "audiobooks": "Audiobooks",
         "files": "Files",
+        "genres": "Genres",
         "language": "Language",
         "music": "Music",
         "navigation-item-selection-info": "If you select more items than can be shown on your screen then the burger menu will disappear.",
@@ -503,7 +507,9 @@
           "title": "Spotify"
         },
         "login": "Login",
-        "logout": "Logout"
+        "logout": "Logout",
+        "password": "Password",
+        "username": "Username"
       },
       "tabs": {
         "artwork": "Artwork",

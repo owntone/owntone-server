@@ -15,7 +15,7 @@
                       v-model="playlist_name"
                       class="input is-shadowless"
                       type="text"
-                      placeholder="Playlist name"
+                      :placeholder="$t('dialog.playlist.save.playlist-name')"
                       :disabled="loading"
                     />
                     <span class="icon is-left"

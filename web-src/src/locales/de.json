@@ -80,6 +80,7 @@
       "type": "Art",
       "save": {
         "cancel": "Abbrechen",
+        "playlist-name": "Playlistname",
         "save": "Speichern",
         "saving": "Speichere…",
         "title": "Warteschlange als Playlist speichern"
@@ -107,6 +108,7 @@
     "remote-pairing": {
       "cancel": "Abbrechen",
       "pair": "Remote paaren",
+      "pairing-code": "Pairing-Code",
       "title": "Remote-Paarungs-Anfrage"
     },
     "spotify": {
@@ -447,18 +449,20 @@
       },
       "devices": {
         "no-active-pairing": "Keine aktive Pairing-Anfrage",
+        "pairing-code": "Pairing-Code",
         "pairing-request": "Remote-Pairing-Anfrage von ",
         "pairing": "Pairing Remote",
         "send": "Senden",
         "speaker-pairing-info": "Wenn der Laufsprecher PIN-basiertes Pairing verlangt, aktiviere ihn hier und gib dann den hier PIN an, der am Lautsprecher angezeigt wird.",
         "speaker-pairing": "Lautsprecher-Pairing und Geräteverifikation",
-        "verification-code": "Verifikationscode eingeben",
+        "verification-code": "Verifikationscode",
         "verify": "Verifizieren"
       },
       "general": {
         "album-lists": "Album-Listen",
         "audiobooks": "Hörbücher",
         "files": "Dateien",
+        "genres": "Genres",
         "language": "Sprache",
         "music": "Musik",
         "navigation-item-selection-info": "Wenn mehr Dateien ausgewählt werden, als der Bildschirm anzeigen kann, verschwindet das Burger-Menü.",
@@ -503,7 +507,9 @@
           "title": "Spotify"
         },
         "login": "Einloggen",
-        "logout": "Ausloggen"
+        "logout": "Ausloggen",
+        "password": "Passwort",
+        "username": "Benutzername"
       },
       "tabs": {
         "artwork": "Artwork",

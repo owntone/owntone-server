@@ -19,7 +19,7 @@
                   v-model="pairing_req.pin"
                   class="input"
                   type="text"
-                  placeholder="Enter pairing code"
+                  :placeholder="$t('page.settings.devices.pairing-code')"
                 />
               </div>
               <div class="control">

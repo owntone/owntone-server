@@ -80,6 +80,7 @@
       "type": "Type",
       "save": {
         "cancel": "Annuler",
+        "playlist-name": "Nom de la liste de lecture",
         "save": "Enregistrer",
         "saving": "Enregistrement en cours…",
         "title": "Enregistrer la file d’attente dans une liste de lecture"
@@ -107,6 +108,7 @@
     "remote-pairing": {
       "cancel": "Annuler",
       "pair": "Jumeler la télécommande",
+      "pairing-code": "Code de jumelage",
       "title": "Demande de jumelage de télécommande"
     },
     "spotify": {
@@ -447,6 +449,7 @@
       },
       "devices": {
         "no-active-pairing": "Aucune demande de jumelage active.",
+        "pairing-code": "Code de jumelage",
         "pairing-request": "Demande de jumelage de télécommande ",
         "pairing": "Jumelage de télécommande",
         "send": "Envoyer",
@@ -459,6 +462,7 @@
         "album-lists": "Listes d’album",
         "audiobooks": "Livres audio",
         "files": "Fichiers",
+        "genres": "Genres",
         "language": "Langue",
         "music": "Musique",
         "navigation-item-selection-info": "Si vous sélectionnez plus d’éléments que ce qui peut être affiché sur votre écran, le menu disparaîtra.",
@@ -503,7 +507,9 @@
           "title": "Spotify"
         },
         "login": "Se connecter",
-        "logout": "Se déconnecter"
+        "logout": "Se déconnecter",
+        "password": "Mot de passe",
+        "username": "Nom d’utilisateur"
       },
       "tabs": {
         "artwork": "Illustrations",

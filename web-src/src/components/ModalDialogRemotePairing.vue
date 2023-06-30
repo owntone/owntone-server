@@ -19,7 +19,7 @@
                       v-model="pairing_req.pin"
                       class="input"
                       type="text"
-                      placeholder="Enter pairing code"
+                      :placeholder="$t('dialog.remote-pairing.pairing-code')"
                     />
                   </div>
                 </div>

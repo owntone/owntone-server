@@ -124,7 +124,7 @@
           category_name="webinterface"
           option_name="show_composer_for_genre"
           :disabled="!settings_option_show_composer_now_playing"
-          placeholder="Genres"
+          :placeholder="$t('page.settings.general.genres')"
         >
           <template #label>
             <span v-text="$t('page.settings.general.show-composer-genres')" />
