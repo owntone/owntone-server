@@ -64,9 +64,7 @@ export default {
     return {
       composers: new GroupByList()
     }
-  },
-
-  methods: {}
+  }
 }
 </script>
 

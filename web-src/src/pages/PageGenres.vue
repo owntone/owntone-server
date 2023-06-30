@@ -65,11 +65,7 @@ export default {
     return {
       genres: new GroupByList()
     }
-  },
-
-  computed: {},
-
-  methods: {}
+  }
 }
 </script>
 

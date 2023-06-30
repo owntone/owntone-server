@@ -69,9 +69,7 @@ export default {
     return {
       albums: new GroupByList()
     }
-  },
-
-  methods: {}
+  }
 }
 </script>
 

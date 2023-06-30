@@ -79,9 +79,7 @@ export default {
       this.artists_list.group(byName('name_sort', true))
       return this.artists_list
     }
-  },
-
-  methods: {}
+  }
 }
 </script>
 
