@@ -1,6 +1,6 @@
 <template>
   <nav
-    class="fd-top-navbar navbar is-light is-fixed-top"
+    class="navbar is-light is-fixed-top"
     :style="zindex"
     role="navigation"
     aria-label="main navigation"

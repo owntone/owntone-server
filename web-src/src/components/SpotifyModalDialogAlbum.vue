@@ -10,7 +10,7 @@
                 :artwork_url="artwork_url"
                 :artist="album.artist"
                 :album="album.name"
-                class="fd-has-shadow fd-has-margin-bottom fd-cover fd-cover-normal-image"
+                class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
                 @load="artwork_loaded"
                 @error="artwork_error"
               />

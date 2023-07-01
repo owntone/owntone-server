@@ -6,7 +6,7 @@
         <h2 class="subtitle is-6 has-text-link has-text-weight-normal">
           <a class="has-text-link" @click="open_artist" v-text="album.artist" />
         </h2>
-        <div class="buttons fd-is-centered-mobile fd-has-margin-top">
+        <div class="buttons fd-is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.album.shuffle')" />
@@ -30,7 +30,7 @@
       </template>
       <template #content>
         <p
-          class="heading is-7 has-text-centered-mobile fd-has-margin-top"
+          class="heading is-7 has-text-centered-mobile mt-5"
           v-text="$t('page.album.track-count', { count: album.track_count })"
         />
         <list-tracks :tracks="tracks" :uris="album.uri" />

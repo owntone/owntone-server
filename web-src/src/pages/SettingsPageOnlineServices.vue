@@ -16,7 +16,7 @@
           <div class="notification is-size-7">
             <span v-text="$t('page.settings.services.spotify.requirements')" />
           </div>
-          <div class="fd-has-margin-top">
+          <div class="mt-5">
             <p
               class="content"
               v-html="$t('page.settings.services.spotify.grant-access')"
@@ -29,7 +29,7 @@
               <span v-text="$t('page.settings.services.spotify.reauthorize')" />
               <code v-text="spotify_missing_scope.join()" />
             </p>
-            <div class="field fd-has-margin-top">
+            <div class="field mt-5">
               <div class="control">
                 <a
                   class="button"
@@ -49,7 +49,7 @@
             </p>
             <div
               v-if="spotify.webapi_token_valid"
-              class="field fd-has-margin-top"
+              class="field mt-5"
             >
               <div class="control">
                 <a

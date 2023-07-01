@@ -66,7 +66,7 @@
           </div>
           <form
             v-if="output.needs_auth_key"
-            class="fd-has-margin-bottom"
+            class="mb-5"
             @submit.prevent="kickoff_verification(output.id)"
           >
             <div class="field is-grouped">

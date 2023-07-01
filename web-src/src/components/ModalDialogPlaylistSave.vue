@@ -7,7 +7,7 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4" v-text="$t('dialog.playlist.save.title')" />
-              <form class="fd-has-margin-bottom" @submit.prevent="save">
+              <form class="mb-5" @submit.prevent="save">
                 <div class="field">
                   <p class="control is-expanded has-icons-left">
                     <input
