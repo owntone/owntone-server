@@ -155,13 +155,6 @@ import * as types from '@/store/mutation_types'
 export default {
   name: 'PageAbout',
 
-  data() {
-    return {
-      show_update_dropdown: false,
-      show_update_library: false
-    }
-  },
-
   computed: {
     config() {
       return this.$store.state.config
@@ -172,9 +165,6 @@ export default {
   },
 
   methods: {
-    onClickOutside(event) {
-      this.show_update_dropdown = false
-    },
     showUpdateDialog() {
       this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
     }
