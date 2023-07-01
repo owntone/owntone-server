@@ -16,7 +16,6 @@
                     :placeholder="$t('page.spotify.search.placeholder')"
                     autocomplete="off"
                   />
-
                   <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
               </div>
@@ -78,8 +77,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_tracks"
               v-text="
-                $t('page.spotify.search.show-all-tracks', {
-                  count: tracks.total.toLocaleString($i18n.locale)
+                $t('page.spotify.search.show-all-tracks', tracks.total, {
+                  count: $filters.number(tracks.total)
                 })
               "
             />
@@ -132,8 +131,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_artists"
               v-text="
-                $t('page.spotify.search.show-all-artists', {
-                  count: artists.total.toLocaleString($i18n.locale)
+                $t('page.spotify.search.show-all-artists', artists.total, {
+                  count: $filters.number(artists.total)
                 })
               "
             />
@@ -197,8 +196,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_albums"
               v-text="
-                $t('page.spotify.search.show-all-albums', {
-                  count: albums.total.toLocaleString($i18n.locale)
+                $t('page.spotify.search.show-all-albums', albums.total, {
+                  count: $filters.number(albums.total)
                 })
               "
             />
@@ -251,8 +250,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_playlists"
               v-text="
-                $t('page.spotify.search.show-all-playlists', {
-                  count: playlists.total.toLocaleString($i18n.locale)
+                $t('page.spotify.search.show-all-playlists', playlists.total, {
+                  count: $filters.number(playlists.total)
                 })
               "
             />

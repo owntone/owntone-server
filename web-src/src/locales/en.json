@@ -250,10 +250,10 @@
     },
     "album": {
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks"
+      "track-count": "{count} track|{count} tracks"
     },
     "albums": {
-      "count": "{count} albums",
+      "count": "{count} album|{count} albums",
       "filter": "Filter",
       "hide-singles-help": "If active, hides singles and albums with tracks that only appear in playlists.",
       "hide-singles": "Hide singles",
@@ -268,9 +268,9 @@
       }
     },
     "artist": {
-      "album-count": "{count} albums",
+      "album-count": "{count} album|{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks",
+      "track-count": "{count} track|{count} tracks",
       "sort-by": {
         "title": "Sort by",
         "name": "Name",
@@ -279,7 +279,7 @@
       }
     },
     "artists": {
-      "count": "{count} artists",
+      "count": "{count} artist|{count} artists",
       "filter": "Filter",
       "sort-by": {
         "title": "Sort by",
@@ -295,18 +295,18 @@
     "audiobooks": {
       "album": {
         "play": "Play",
-        "track-count": "{count} tracks"
+        "track-count": "{count} track|{count} tracks"
       },
       "albums": {
-        "count": "{count} audiobooks",
+        "count": "{count} audiobook|{count} audiobooks",
         "title": "Audiobooks"
       },
       "artist": {
-        "album-count": "{count} albums",
+        "album-count": "{count} album|{count} albums",
         "play": "Play"
       },
       "artists": {
-        "count": "{count} authors",
+        "count": "{count} author|{count} authors",
         "title": "Authors"
       },
       "tabs": {
@@ -336,9 +336,9 @@
       }
     },
     "composer": {
-      "album-count": "{count} albums",
+      "album-count": "{count} album|{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks",
+      "track-count": "{count} track|{count} tracks",
       "sort-by": {
         "title": "Sort by",
         "name": "Name",
@@ -346,7 +346,7 @@
       }
     },
     "composers": {
-      "count": "{count} composers",
+      "count": "{count} composer|{count} composers",
       "title": "Composers"
     },
     "files": {
@@ -354,9 +354,9 @@
       "title": "Files"
     },
     "genre": {
-      "album-count": "{count} albums",
+      "album-count": "{count} album|{count} albums",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks",
+      "track-count": "{count} track|{count} tracks",
       "sort-by": {
         "title": "Sort by",
         "name": "Name",
@@ -364,7 +364,7 @@
       }
     },
     "genres": {
-      "count": "{count} genres",
+      "count": "{count} genre|{count} genres",
       "title": "Genres"
     },
     "now-playing": {
@@ -375,10 +375,10 @@
     "playlist": {
       "length": "{length} tracks",
       "shuffle": "Shuffle",
-      "track-count": "{count} tracks"
+      "track-count": "{count} track|{count} tracks"
     },
     "playlists": {
-      "count": "{count} playlists"
+      "count": "{count} playlist|{count} playlists"
     },
     "podcast": {
       "play": "Play",
@@ -386,11 +386,11 @@
       "remove-info-1": "Permanently remove this podcast from your library?",
       "remove-info-2": "This will also remove the RSS playlist ",
       "remove-podcast": "Remove podcast",
-      "track-count": "{count} tracks"
+      "track-count": "{count} track|{count} tracks"
     },
     "podcasts": {
       "add": "Add",
-      "count": "{count} podcasts",
+      "count": "{count} podcast|{count} podcasts",
       "mark-all-played": "Mark All Played",
       "new-episodes": "New Episodes",
       "title": "Podcasts",
@@ -399,14 +399,14 @@
     "queue": {
       "add-stream": "Add stream",
       "clear": "Clear",
-      "count": "{count} tracks",
+      "count": "{count} track|{count} tracks",
       "edit": "Edit",
       "hide-previous": "Hide previous",
       "title": "Queue",
       "save": "Save"
     },
     "radio": {
-      "count": "{count} stations",
+      "count": "{count} station|{count} stations",
       "title": "Radio"
     },
     "search": {
@@ -425,13 +425,13 @@
       "placeholder": "Search",
       "playlists": "Playlists",
       "podcasts": "Podcasts",
-      "show-albums": "Show all {count} albums",
-      "show-artists": "Show all {count} artists",
-      "show-audiobooks": "Show all {count} audiobooks",
-      "show-composers": "Show all {count} composers",
-      "show-playlists": "Show all {count} playlists",
-      "show-podcasts": "Show all {count} podcasts",
-      "show-tracks": "Show all {count} tracks",
+      "show-albums": "Show the album|Show all {count} albums",
+      "show-artists": "Show the artist|Show all {count} artists",
+      "show-audiobooks": "Show the audiobook|Show all {count} audiobooks",
+      "show-composers": "Show the composer|Show all {count} composers",
+      "show-playlists": "Show the playlist|Show all {count} playlists",
+      "show-podcasts": "Show the podcast|Show all {count} podcasts",
+      "show-tracks": "Show the track|Show all {count} tracks",
       "tracks": "Tracks",
       "tabs": {
         "library": "Library",
@@ -521,10 +521,10 @@
     "spotify": {
       "album": {
         "shuffle": "Shuffle",
-        "track-count": "{count} tracks"
+        "track-count": "{count} track|{count} tracks"
       },
       "artist": {
-        "album-count": "{count} albums",
+        "album-count": "{count} album|{count} albums",
         "shuffle": "Shuffle"
       },
       "browse": {
@@ -533,7 +533,7 @@
         "show-more": "Show More"
       },
       "playlist": {
-        "count": "{count} tracks",
+        "count": "{count} track|{count} tracks",
         "shuffle": "Shuffle"
       },
       "search": {
@@ -545,10 +545,10 @@
         "no-tracks": "No tracks found",
         "placeholder": "Search",
         "playlists": "Playlists",
-        "show-all-albums": "Show all {count} albums",
-        "show-all-artists": "Show all {count} artists",
-        "show-all-playlists": "Show all {count} playlists",
-        "show-all-tracks": "Show all {count} tracks",
+        "show-all-albums": "Show the album|Show all {count} albums",
+        "show-all-artists": "Show the artist|Show all {count} artists",
+        "show-all-playlists": "Show the playlist|Show all {count} playlists",
+        "show-all-tracks": "Show the track|Show all {count} tracks",
         "tracks": "Tracks"
       }
     }
@@ -585,7 +585,7 @@
     "missing-port": "Missing websocket port",
     "request-failed": "Request failed (status: {status} {cause} {url})",
     "queue-saved": "Queue saved to playlist {name}",
-    "appended-tracks": "{count} tracks appended to the queue",
+    "appended-tracks": "{count} track appended to the queue|{count} tracks appended to the queue",
     "empty-queue": "Queue is empty"
   },
   "group-by-list": {
@@ -596,6 +596,6 @@
   "filter": {
     "mono": "mono",
     "stereo": "stereo",
-    "channels": "{count} channels"
+    "channels": "{count} channel|{count} channels"
   }
 }

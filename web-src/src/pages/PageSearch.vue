@@ -52,8 +52,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_tracks"
               v-text="
-                $t('page.search.show-tracks', {
-                  count: tracks.total.toLocaleString($i18n.locale)
+                $t('page.search.show-tracks', tracks.total, {
+                  count: $filters.number(tracks.total)
                 })
               "
             />
@@ -81,8 +81,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_artists"
               v-text="
-                $t('page.search.show-artists', {
-                  count: artists.total.toLocaleString($i18n.locale)
+                $t('page.search.show-artists', artists.total, {
+                  count: $filters.number(artists.total)
                 })
               "
             />
@@ -110,8 +110,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_albums"
               v-text="
-                $t('page.search.show-albums', {
-                  count: albums.total.toLocaleString($i18n.locale)
+                $t('page.search.show-albums', albums.total, {
+                  count: $filters.number(albums.total)
                 })
               "
             />
@@ -139,8 +139,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_composers"
               v-text="
-                $t('page.search.show-composers', {
-                  count: composers.total.toLocaleString($i18n.locale)
+                $t('page.search.show-composers', composers.total, {
+                  count: $filters.number(composers.total)
                 })
               "
             />
@@ -168,8 +168,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_playlists"
               v-text="
-                $t('page.search.show-playlists', {
-                  count: playlists.total.toLocaleString($i18n.locale)
+                $t('page.search.show-playlists', playlists.total, {
+                  count: $filters.number(playlists.total)
                 })
               "
             />
@@ -197,8 +197,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_podcasts"
               v-text="
-                $t('page.search.show-podcasts', {
-                  count: podcasts.total.toLocaleString($i18n.locale)
+                $t('page.search.show-podcasts', podcasts.total, {
+                  count: $filters.number(podcasts.total)
                 })
               "
             />
@@ -227,8 +227,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_audiobooks"
               v-text="
-                $t('page.search.show-audiobooks', {
-                  count: audiobooks.total.toLocaleString($i18n.locale)
+                $t('page.search.show-audiobooks', audiobooks.total, {
+                  count: $filters.number(audiobooks.total)
                 })
               "
             />
