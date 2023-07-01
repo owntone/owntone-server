@@ -237,7 +237,7 @@
     "about": {
       "albums": "Albums",
       "artists": "Artistes",
-      "built-with": "Interface utilisateur construite avec <a href=\"https://bulma.io\">Bulma</a>, <a href=\"https://materialdesignicons.com/\">Material Design Icons</a>, <a href=\"https://vuejs.org/\">Vue.js</a>, <a href=\"https://github.com/mzabriskie/axios\">axios</a> et <a href=\"https://github.com/owntone/owntone-server/network/dependencies\">plus</a>.",
+      "built-with": "Interface utilisateur construite avec <a href=\"https://bulma.io\">Bulma</a>, <a href=\"https://pictogrammers.com/library/mdi/\">Material Design Icons</a>, <a href=\"https://vuejs.org/\">Vue.js</a>, <a href=\"https://github.com/mzabriskie/axios\">axios</a> et <a href=\"https://github.com/owntone/owntone-server/network/dependencies\">plus</a>.",
       "compiled-with": "Compilé avec les options {options}.",
       "library": "Bibliothèque",
       "total-playtime": "Durée totale de lecture",
