@@ -6,10 +6,7 @@
           <section v-if="$slots['options']">
             <div ref="options_ref" style="height: 1px" />
             <slot name="options" />
-            <nav
-              class="buttons is-centered"
-              style="margin-bottom: 6px; margin-top: 16px"
-            >
+            <nav class="buttons is-centered mt-4 mb-2">
               <a
                 v-if="!options_visible"
                 class="button is-small is-white"
@@ -42,7 +39,7 @@
               </div>
             </nav>
             <slot name="content" />
-            <div style="margin-top: 16px">
+            <div class="mt-4">
               <slot name="footer" />
             </div>
           </div>

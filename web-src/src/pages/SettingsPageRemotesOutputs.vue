@@ -57,7 +57,7 @@
                 <input
                   v-model="output.selected"
                   type="checkbox"
-                  style="margin-right: 5px"
+                  class="mr-2"
                   @change="output_toggle(output.id)"
                 />
                 <span v-text="output.name" />

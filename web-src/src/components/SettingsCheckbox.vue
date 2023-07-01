@@ -5,7 +5,7 @@
         ref="setting"
         type="checkbox"
         :checked="value"
-        style="margin-right: 5px"
+        class="mr-2"
         @change="set_update_timer"
       />
       <slot name="label" />

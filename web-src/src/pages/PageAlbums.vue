@@ -6,11 +6,7 @@
         <index-button-list :index="albums.indexList" />
         <div class="columns">
           <div class="column">
-            <p
-              class="heading"
-              style="margin-bottom: 24px"
-              v-text="$t('page.albums.filter')"
-            />
+            <p class="heading mb-5" v-text="$t('page.albums.filter')" />
             <div class="field">
               <div class="control">
                 <input
@@ -45,11 +41,7 @@
             </div>
           </div>
           <div class="column">
-            <p
-              class="heading"
-              style="margin-bottom: 24px"
-              v-text="$t('page.albums.sort-by.title')"
-            />
+            <p class="heading mb-5" v-text="$t('page.albums.sort-by.title')" />
             <dropdown-menu
               v-model="selected_groupby_option_id"
               :options="groupby_options"

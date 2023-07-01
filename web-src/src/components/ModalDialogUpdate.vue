@@ -32,11 +32,7 @@
         </div>
         <div class="field">
           <label class="checkbox is-size-7 is-small">
-            <input
-              v-model="rescan_metadata"
-              type="checkbox"
-              style="margin-right: 5px"
-            />
+            <input v-model="rescan_metadata" type="checkbox" class="mr-2" />
             <span v-text="$t('dialog.update.rescan-metadata')" />
           </label>
         </div>

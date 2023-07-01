@@ -5,11 +5,7 @@
         <index-button-list :index="tracks.indexList" />
         <div class="columns">
           <div class="column">
-            <p
-              class="heading"
-              style="margin-bottom: 24px"
-              v-text="$t('page.artist.sort-by.title')"
-            />
+            <p class="heading mb-5" v-text="$t('page.artist.sort-by.title')" />
             <dropdown-menu
               v-model="selected_groupby_option_id"
               :options="groupby_options"

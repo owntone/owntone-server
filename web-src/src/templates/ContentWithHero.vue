@@ -4,7 +4,7 @@
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths">
-            <div class="columns" style="flex-direction: row-reverse">
+            <div class="columns is-flex-direction-row-reverse">
               <div class="column fd-has-cover">
                 <!-- Slot heading right -->
                 <slot name="heading-right" />

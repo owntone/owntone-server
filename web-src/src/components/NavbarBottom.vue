@@ -92,10 +92,7 @@
             size="18"
           />
         </a>
-        <div
-          class="navbar-dropdown is-right is-boxed"
-          style="margin-right: 6px; margin-bottom: 6px; border-radius: 6px"
-        >
+        <div class="navbar-dropdown is-right">
           <div class="navbar-item">
             <!-- Outputs: master volume -->
             <div class="level is-mobile">
@@ -153,20 +150,19 @@
                 </div>
                 <div class="level-item">
                   <div class="is-flex-grow-1">
-                    <p
-                      class="heading"
+                    <div
+                      class="is-flex is-align-content-center"
                       :class="{ 'has-text-grey-light': !playing }"
                     >
-                      <span v-text="$t('navigation.stream')" />
-                      <a href="stream.mp3" class="ml-2" target="_blank"
+                      <p class="heading" v-text="$t('navigation.stream')" />
+                      <a href="stream.mp3" class="heading ml-2" target="_blank"
                         ><mdicon
-                          class="icon"
+                          class="icon is-small"
                           name="open-in-new"
                           size="16"
-                          style="vertical-align: middle"
                         />
                       </a>
-                    </p>
+                    </div>
                     <input
                       v-model="stream_volume"
                       :disabled="!playing"
@@ -238,7 +234,7 @@
                     class="slider"
                     max="100"
                     type="range"
-                    :style="{ '--ratio': player.volume }"
+                    :style="{ '--ratio': player.volume / 100 }"
                     @change="change_volume"
                   />
                 </div>
@@ -270,20 +266,19 @@
               </div>
               <div class="level-item">
                 <div class="is-flex-grow-1">
-                  <p
-                    class="heading"
+                  <div
+                    class="is-flex is-align-content-center"
                     :class="{ 'has-text-grey-light': !playing }"
                   >
-                    <span v-text="$t('navigation.stream')" />
-                    <a href="stream.mp3" class="ml-2" target="_blank"
+                    <p class="heading" v-text="$t('navigation.stream')" />
+                    <a href="stream.mp3" class="heading ml-2" target="_blank"
                       ><mdicon
-                        class="icon"
+                        class="icon is-small"
                         name="open-in-new"
                         size="16"
-                        style="vertical-align: middle"
                       />
                     </a>
-                  </p>
+                  </div>
                   <input
                     v-model="stream_volume"
                     :disabled="!playing"

@@ -47,10 +47,7 @@
               <span v-text="$t('page.settings.services.spotify.scopes')" />
               <code v-text="spotify_required_scope.join(', ')" />
             </p>
-            <div
-              v-if="spotify.webapi_token_valid"
-              class="field mt-5"
-            >
+            <div v-if="spotify.webapi_token_valid" class="field mt-5">
               <div class="control">
                 <a
                   class="button is-danger"

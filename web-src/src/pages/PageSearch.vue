@@ -23,7 +23,7 @@
                 </p>
               </div>
             </form>
-            <div class="tags" style="margin-top: 16px">
+            <div class="tags mt-4">
               <a
                 v-for="recent_search in recent_searches"
                 :key="recent_search"

@@ -12,10 +12,9 @@
       <div class="control">
         <input
           ref="setting"
-          class="input"
+          class="column input is-one-fifth"
           type="number"
           min="0"
-          style="width: 10em"
           :placeholder="placeholder"
           :value="value"
           @input="set_update_timer"

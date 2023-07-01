@@ -1,6 +1,6 @@
 <template>
   <section>
-    <nav class="buttons is-centered fd-is-square" style="margin-bottom: 16px">
+    <nav class="buttons is-centered mb-4 fd-is-square">
       <a
         v-for="char in index"
         :key="char"

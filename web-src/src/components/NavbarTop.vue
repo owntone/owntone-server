@@ -118,10 +118,7 @@
             <navbar-item-link to="/about">{{
               $t('navigation.about')
             }}</navbar-item-link>
-            <div
-              class="navbar-item is-hidden-desktop"
-              style="margin-bottom: 2.5rem"
-            />
+            <div class="navbar-item is-hidden-desktop" />
           </div>
         </div>
       </div>
@@ -129,7 +126,6 @@
     <div
       v-show="show_settings_menu"
       class="is-overlay"
-      style="z-index: 10; width: 100vw; height: 100vh"
       @click="show_settings_menu = false"
     />
   </nav>
