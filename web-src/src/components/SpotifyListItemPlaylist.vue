@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media is-align-items-center">
     <div class="media-content is-clickable is-clipped" @click="open_playlist">
       <h1 class="title is-6" v-text="playlist.name" />
       <h2 class="subtitle is-7" v-text="playlist.owner.display_name" />

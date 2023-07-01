@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media is-align-items-center">
     <div v-if="$slots['artwork']" class="media-left is-clickable">
       <slot name="artwork" />
     </div>

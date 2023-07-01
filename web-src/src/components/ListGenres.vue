@@ -9,7 +9,11 @@
         />
       </div>
     </div>
-    <div v-else-if="genre.isItem" class="media" @click="open_genre(genre.item)">
+    <div
+      v-else-if="genre.isItem"
+      class="media is-align-items-center"
+      @click="open_genre(genre.item)"
+    >
       <div class="media-content is-clickable is-clipped">
         <h1 class="title is-6" v-text="genre.item.name" />
       </div>

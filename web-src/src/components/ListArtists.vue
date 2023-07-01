@@ -11,7 +11,7 @@
     </div>
     <div
       v-else-if="artist.isItem"
-      class="media"
+      class="media is-align-items-center"
       @click="open_artist(artist.item)"
     >
       <div class="media-content is-clickable is-clipped">

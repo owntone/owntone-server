@@ -9,7 +9,7 @@
     </div>
     <div
       v-else-if="track.isItem"
-      class="media"
+      class="media is-align-items-center"
       :class="{ 'with-progress': show_progress }"
       @click="play_track(index, track.item)"
     >

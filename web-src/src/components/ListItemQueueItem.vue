@@ -1,5 +1,8 @@
 <template>
-  <div v-if="is_next || !show_only_next_items" class="media">
+  <div
+    v-if="is_next || !show_only_next_items"
+    class="media is-align-items-center"
+  >
     <div v-if="edit_mode" class="media-left">
       <mdicon
         class="icon has-text-grey fd-is-movable handle"

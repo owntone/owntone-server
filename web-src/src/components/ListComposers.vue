@@ -11,7 +11,7 @@
     </div>
     <div
       v-else-if="composer.isItem"
-      class="media"
+      class="media is-align-items-center"
       @click="open_composer(composer.item)"
     >
       <div class="media-content is-clickable is-clipped">

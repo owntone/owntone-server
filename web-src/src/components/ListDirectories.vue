@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="$route.query.directory"
-    class="media"
+    class="media is-align-items-center"
     @click="open_parent_directory()"
   >
     <figure class="media-left is-clickable">
@@ -15,7 +15,7 @@
     </div>
   </div>
   <template v-for="directory in directories" :key="directory.path">
-    <div class="media" @click="open_directory(directory)">
+    <div class="media is-align-items-center" @click="open_directory(directory)">
       <figure class="media-left is-clickable">
         <mdicon class="icon" name="folder" size="16" />
       </figure>

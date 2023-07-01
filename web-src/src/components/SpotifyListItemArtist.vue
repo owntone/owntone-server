@@ -1,5 +1,5 @@
 <template>
-  <div class="media">
+  <div class="media is-align-items-center">
     <div class="media-content is-clickable is-clipped" @click="open_artist">
       <h1 class="title is-6" v-text="artist.name" />
     </div>

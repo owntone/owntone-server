@@ -7,7 +7,11 @@
         v-text="album.groupKey"
       />
     </div>
-    <div v-else-if="album.isItem" class="media" @click="open_album(album.item)">
+    <div
+      v-else-if="album.isItem"
+      class="media is-align-items-center"
+      @click="open_album(album.item)"
+    >
       <div v-if="is_visible_artwork" class="media-left">
         <cover-artwork
           :artwork_url="album.item.artwork_url"
@@ -18,7 +22,7 @@
         />
       </div>
       <div class="media-content is-clickable is-clipped">
-        <div style="margin-top: 0.7rem">
+        <div>
           <h1 class="title is-6" v-text="album.item.name" />
           <h2 class="subtitle is-7 has-text-grey">
             <b v-text="album.item.artist" />
@@ -30,7 +34,7 @@
           />
         </div>
       </div>
-      <div class="media-right" style="padding-top: 0.7rem">
+      <div class="media-right">
         <a @click.prevent.stop="open_dialog(album.item)">
           <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>

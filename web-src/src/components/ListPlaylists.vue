@@ -2,7 +2,7 @@
   <div
     v-for="playlist in playlists"
     :key="playlist.itemId"
-    class="media"
+    class="media is-align-items-center"
     :playlist="playlist"
     @click="open_playlist(playlist.item)"
   >
