@@ -18,7 +18,6 @@
           :artist="album.item.artist"
           :album="album.item.name"
           class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
-          @click="show_album_details_modal = true"
         />
       </div>
       <div class="media-content is-clickable is-clipped">
