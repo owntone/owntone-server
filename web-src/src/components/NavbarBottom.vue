@@ -28,7 +28,7 @@
             <br />
             <span v-text="now_playing.artist" />
             <span
-              v-if="now_playing.data_kind === 'url'"
+              v-if="now_playing.album"
               v-text="
                 $t('navigation.now-playing', { album: now_playing.album })
               "
