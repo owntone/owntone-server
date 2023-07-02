@@ -154,7 +154,7 @@ export default {
     },
 
     play() {
-      webapi.player_play_uri(this.tracks_list.map((a) => a.uri).join(','), true)
+      webapi.player_play_uri(this.tracks_list.items.map((a) => a.uri).join(','), true)
     }
   }
 }
