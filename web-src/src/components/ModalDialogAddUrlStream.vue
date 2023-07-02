@@ -32,7 +32,7 @@
                 />
               </a>
             </footer>
-            <footer v-else class="card-footer">
+            <footer v-else class="card-footer is-clipped">
               <a
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"

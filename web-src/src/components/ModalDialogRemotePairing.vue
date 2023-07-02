@@ -25,7 +25,7 @@
                 </div>
               </form>
             </div>
-            <footer class="card-footer">
+            <footer class="card-footer is-clipped">
               <a
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"

@@ -9,7 +9,7 @@
               <p v-if="title" class="title is-4" v-text="title" />
               <slot name="modal-content" />
             </div>
-            <footer class="card-footer">
+            <footer class="card-footer is-clipped">
               <a class="card-footer-item has-text-dark" @click="$emit('close')">
                 <mdicon class="icon" name="cancel" size="16" />
                 <span
