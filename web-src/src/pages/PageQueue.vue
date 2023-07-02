@@ -10,19 +10,19 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a
+          <button
             class="button is-small"
             :class="{ 'is-info': show_only_next_items }"
             @click="update_show_next_items"
           >
             <mdicon class="icon" name="arrow-collapse-down" size="16" />
             <span v-text="$t('page.queue.hide-previous')" />
-          </a>
-          <a class="button is-small" @click="open_add_stream_dialog">
+          </button>
+          <button class="button is-small" @click="open_add_stream_dialog">
             <mdicon class="icon" name="web" size="16" />
             <span v-text="$t('page.queue.add-stream')" />
-          </a>
-          <a
+          </button>
+          <button
             class="button is-small"
             :class="{ 'is-info': edit_mode }"
             :disabled="queue_items.length === 0"
@@ -30,16 +30,16 @@
           >
             <mdicon class="icon" name="pencil" size="16" />
             <span v-text="$t('page.queue.edit')" />
-          </a>
-          <a
+          </button>
+          <button
             class="button is-small"
             :disabled="queue_items.length === 0"
             @click="queue_clear"
           >
             <mdicon class="icon" name="delete-empty" size="16" />
             <span v-text="$t('page.queue.clear')" />
-          </a>
-          <a
+          </button>
+          <button
             v-if="is_queue_save_allowed"
             class="button is-small"
             :disabled="queue_items.length === 0"
@@ -47,7 +47,7 @@
           >
             <mdicon class="icon" name="content-save" size="16" />
             <span v-text="$t('page.queue.save')" />
-          </a>
+          </button>
         </div>
       </template>
       <template #content>
