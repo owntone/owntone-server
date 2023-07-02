@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <navbar-top />
-    <vue-progress-bar class="fd-progress-bar" />
+    <vue-progress-bar class="fd-progress-bar has-background-info" />
     <router-view v-slot="{ Component }">
       <component :is="Component" />
     </router-view>

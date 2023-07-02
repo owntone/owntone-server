@@ -16,11 +16,7 @@ import './mystyles.scss'
 const app = createApp(App)
   .use(store)
   .use(router)
-  .use(VueProgressBar, {
-    color: 'hsl(204, 86%, 53%)',
-    failedColor: 'red',
-    height: '1px'
-  })
+  .use(VueProgressBar)
   .use(VueClickAway)
   .use(VueLazyLoad, {
     // Do not log errors, if image does not exist
