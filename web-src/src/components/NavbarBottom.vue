@@ -471,7 +471,6 @@ export default {
     },
 
     change_stream_volume() {
-      console.log(this.stream_volume)
       _audio.setVolume(this.stream_volume / 100)
     }
   }
