@@ -2,7 +2,7 @@
   "name": "owntone-web",
   "version": "2.0.1",
   "scripts": {
-    "serve": "vite",
+    "serve": "vite --port 3000",
     "build": "vite build --base='./'",
     "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
     "dev": "vite",
@@ -23,7 +23,7 @@
     "spotify-web-api-js": "^1.5.2",
     "string-to-color": "^2.2.2",
     "vue": "^3.3.4",
-    "vue-i18n": "^9.3.0-beta.19",
+    "vue-i18n": "^9.2.2",
     "vue-router": "^4.2.2",
     "vue-scrollto": "^2.20.0",
     "vue3-click-away": "^1.2.4",
@@ -32,13 +32,13 @@
     "vuex": "^4.1.0"
   },
   "devDependencies": {
-    "@intlify/vite-plugin-vue-i18n": "^7.0.0",
-    "@vitejs/plugin-vue": "^2.3.4",
+    "@intlify/unplugin-vue-i18n": "^0.12.0",
+    "@vitejs/plugin-vue": "^4.2.3",
     "eslint": "^8.42.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-vue": "^9.14.1",
     "prettier": "^2.8.8",
     "sass": "^1.63.6",
-    "vite": "^2.9.16"
+    "vite": "^4.3.9"
   }
 }
