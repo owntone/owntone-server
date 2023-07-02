@@ -18,9 +18,19 @@
                   />
                   <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
-                <p class="help has-text-centered">
-                  <span v-html="$t('page.search.help')" />
-                </p>
+                <i18n-t
+                  tag="p"
+                  class="help has-text-centered"
+                  keypath="page.search.help"
+                >
+                  <template #query><code>query:</code></template>
+                  <template #help
+                    ><a
+                      href="https://owntone.github.io/owntone-server/smart-playlists/"
+                      target="_blank"
+                      v-text="$t('page.search.expression')"
+                  /></template>
+                </i18n-t>
               </div>
             </form>
             <div class="tags mt-4">

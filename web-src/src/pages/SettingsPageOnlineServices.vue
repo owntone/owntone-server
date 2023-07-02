@@ -19,7 +19,7 @@
           <div class="mt-5">
             <p
               class="content"
-              v-html="$t('page.settings.services.spotify.grant-access')"
+              v-text="$t('page.settings.services.spotify.grant-access')"
             />
             <p v-if="spotify.webapi_token_valid">
               <span v-text="$t('page.settings.services.spotify.user')" />
@@ -74,7 +74,7 @@
         <div v-if="lastfm.enabled">
           <p
             class="content"
-            v-html="$t('page.settings.services.lastfm.grant-access')"
+            v-text="$t('page.settings.services.lastfm.grant-access')"
           />
           <div v-if="lastfm.scrobbling_enabled">
             <a

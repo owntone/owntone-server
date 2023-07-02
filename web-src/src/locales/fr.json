@@ -237,16 +237,17 @@
     "about": {
       "albums": "Albums",
       "artists": "Artistes",
-      "built-with": "Interface utilisateur construite avec <a href=\"https://bulma.io\">Bulma</a>, <a href=\"https://pictogrammers.com/library/mdi/\">Material Design Icons</a>, <a href=\"https://vuejs.org/\">Vue.js</a>, <a href=\"https://github.com/mzabriskie/axios\">axios</a> et <a href=\"https://github.com/owntone/owntone-server/network/dependencies\">plus</a>.",
+      "built-with": "Interface utilisateur construite avec {bulma}, {mdi}, {vuejs}, {axios} et {others}.",
       "compiled-with": "Compilé avec les options {options}.",
       "library": "Bibliothèque",
+      "more": "plus",
       "total-playtime": "Durée totale de lecture",
       "tracks": "Pistes",
       "update": "Actualiser",
       "updated-on": "il y a {time}",
       "updated": "Mis à jour",
       "uptime": "Temps de fonctionnement",
-      "name": "Version {version}"
+      "version": "Version {version}"
     },
     "album": {
       "shuffle": "Lecture aléatoire",
@@ -414,7 +415,8 @@
       "artists": "Artistes",
       "audiobooks": "Livres audio",
       "composers": "Compositeurs",
-      "help": "Astuce : en préfixant votre requête avec <code>query:</code>, vous pouvez effectuer une recherche avec une <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> du langage de requête de liste de lecture intelligente.",
+      "expression": "expression",
+      "help": "Astuce : vous pouvez effectuer une recherche avec une {help} du langage de requête de liste de lecture intelligente en préfixant votre requête avec {query}",
       "no-albums": "Aucun album trouvé",
       "no-artists": "Aucun artiste trouvé",
       "no-audiobooks": "Aucun livre audio trouvé",
@@ -486,7 +488,7 @@
       },
       "services": {
         "lastfm": {
-          "grant-access": "<b>Last.fm</b> - Connectez-vous avec votre nom d’utilisateur et votre mot de passe Last.fm pour activer le scrobbling.",
+          "grant-access": "Connectez-vous avec votre nom d’utilisateur et votre mot de passe Last.fm pour activer le scrobbling.",
           "info": "Le nom d’utilisateur et le mot de passe Last.fm ne sont pas enregistrés, uniquement la clé de session. La clé de session n’expire pas.",
           "title": "Last.fm",
           "no-support": "L’option Last.fm n’est pas présente.",
@@ -500,7 +502,7 @@
           "user": "Accès autorisé pour ",
           "authorize": "Autoriser l’accès à l’API",
           "credentials": " - Connectez-vous avec votre nom d’utilisateur et mot de passe Spotify",
-          "grant-access": "<b>Spotify</b> - Accordez l’accès à l’API de Spotify",
+          "grant-access": "Accordez l’accès à l’API de Spotify",
           "help-1": "La bibliothèque libspotify permet de lire les pistes de Spotify.",
           "help-2": "Votre nom d’utilisateur et votre mot de passe Spotify ne sont pas enregistrés, uniquement le jeton de connexion.",
           "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants :",
