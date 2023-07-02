@@ -25,12 +25,17 @@
           <a
             class="button is-small"
             :class="{ 'is-info': edit_mode }"
+            :disabled="queue_items.length === 0"
             @click="edit_mode = !edit_mode"
           >
             <mdicon class="icon" name="pencil" size="16" />
             <span v-text="$t('page.queue.edit')" />
           </a>
-          <a class="button is-small" @click="queue_clear">
+          <a
+            class="button is-small"
+            :disabled="queue_items.length === 0"
+            @click="queue_clear"
+          >
             <mdicon class="icon" name="delete-empty" size="16" />
             <span v-text="$t('page.queue.clear')" />
           </a>
@@ -190,11 +195,11 @@ export default {
       this.show_details_modal = true
     },
 
-    open_add_stream_dialog(item) {
+    open_add_stream_dialog() {
       this.show_url_modal = true
     },
 
-    save_dialog(item) {
+    save_dialog() {
       if (this.queue_items.length > 0) {
         this.show_pls_save_modal = true
       }
