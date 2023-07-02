@@ -13,8 +13,7 @@
                   id="switchHideSingles"
                   v-model="hide_singles"
                   type="checkbox"
-                  name="switchHideSingles"
-                  class="switch"
+                  class="switch is-rounded"
                 />
                 <label
                   for="switchHideSingles"
@@ -29,8 +28,7 @@
                   id="switchHideSpotify"
                   v-model="hide_spotify"
                   type="checkbox"
-                  name="switchHideSpotify"
-                  class="switch"
+                  class="switch is-rounded"
                 />
                 <label
                   for="switchHideSpotify"
