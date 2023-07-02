@@ -7,12 +7,12 @@ import { createI18n } from 'vue-i18n'
 import messages from '@intlify/unplugin-vue-i18n/messages'
 
 export default createI18n({
-  legacy: false,
-  globalInjection: true,
   availableLocales: ('de', 'en', 'fr'),
-  locale: navigator.language,
   fallbackLocale: 'en',
   fallbackWarn: false,
-  missingWarn: false,
-  messages
+  globalInjection: true,
+  legacy: false,
+  locale: navigator.language,
+  messages,
+  missingWarn: false
 })

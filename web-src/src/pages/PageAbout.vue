@@ -140,7 +140,12 @@
                   })
                 "
               />
-              <i18n-t tag="p" class="is-size-7" keypath="page.about.built-with">
+              <i18n-t
+                tag="p"
+                class="is-size-7"
+                keypath="page.about.built-with"
+                scope="global"
+              >
                 <template #bulma><a href="https://bulma.io">Bulma</a></template>
                 <template #mdi
                   ><a href="https://pictogrammers.com/library/mdi/"

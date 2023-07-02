@@ -22,6 +22,7 @@
                   tag="p"
                   class="help has-text-centered"
                   keypath="page.search.help"
+                  scope="global"
                 >
                   <template #query><code>query:</code></template>
                   <template #help
