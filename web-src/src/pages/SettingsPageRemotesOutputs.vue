@@ -53,15 +53,14 @@
         <div v-for="output in outputs" :key="output.id">
           <div class="field">
             <div class="control">
-              <label class="checkbox">
-                <input
-                  v-model="output.selected"
-                  type="checkbox"
-                  class="mr-2"
-                  @change="output_toggle(output.id)"
-                />
-                <span v-text="output.name" />
-              </label>
+              <input
+                :id="output.id"
+                v-model="output.selected"
+                type="checkbox"
+                class="switch is-rounded mr-2"
+                @change="output_toggle(output.id)"
+              />
+              <label :for="output.id" class="checkbox" v-text="output.name" />
             </div>
           </div>
           <form
