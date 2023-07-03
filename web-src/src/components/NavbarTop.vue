@@ -64,25 +64,25 @@
             </navbar-item-link>
             <navbar-item-link to="/music/artists">
               <span
-                class="fd-navbar-item-level2"
+                class="pl-5"
                 v-text="$t('navigation.artists')"
               />
             </navbar-item-link>
             <navbar-item-link to="/music/albums">
               <span
-                class="fd-navbar-item-level2"
+                class="pl-5"
                 v-text="$t('navigation.albums')"
               />
             </navbar-item-link>
             <navbar-item-link to="/music/genres">
               <span
-                class="fd-navbar-item-level2"
+                class="pl-5"
                 v-text="$t('navigation.genres')"
               />
             </navbar-item-link>
             <navbar-item-link v-if="spotify_enabled" to="/music/spotify">
               <span
-                class="fd-navbar-item-level2"
+                class="pl-5"
                 v-text="$t('navigation.spotify')"
               />
             </navbar-item-link>
@@ -106,7 +106,7 @@
               <mdicon class="icon" name="magnify" size="16" />
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
-            <hr class="fd-navbar-divider" />
+            <hr class="my-3" />
             <navbar-item-link to="/settings/webinterface">{{
               $t('navigation.settings')
             }}</navbar-item-link>

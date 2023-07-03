@@ -126,14 +126,14 @@
             </div>
           </div>
           <!-- Outputs: master volume -->
-          <hr class="fd-navbar-divider" />
+          <hr class="my-3" />
           <navbar-item-output
             v-for="output in outputs"
             :key="output.id"
             :output="output"
           />
           <!-- Outputs: stream volume -->
-          <hr class="fd-navbar-divider" />
+          <hr class="my-3" />
           <div class="navbar-item">
             <div class="level is-mobile">
               <div class="level-left is-flex-grow-1">
@@ -182,7 +182,7 @@
             </div>
           </div>
           <!-- Playback controls -->
-          <hr class="fd-navbar-divider" />
+          <hr class="my-3" />
           <div class="navbar-item is-justify-content-center">
             <div class="level">
               <div class="level-item">
@@ -212,7 +212,7 @@
             <player-button-consume class="button" :icon_size="18" />
           </div>
         </div>
-        <hr class="fd-navbar-divider" />
+        <hr class="my-3" />
         <!-- Outputs: master volume -->
         <div class="navbar-item">
           <div class="level is-mobile">
@@ -249,7 +249,7 @@
           :output="output"
         />
         <!-- Outputs: stream volume -->
-        <hr class="fd-navbar-divider" />
+        <hr class="my-3" />
         <div class="navbar-item mb-5">
           <div class="level is-mobile">
             <div class="level-left is-flex-grow-1">

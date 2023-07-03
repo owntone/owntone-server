@@ -165,17 +165,6 @@ a.navbar-item {
   max-height: calc(100vh - 200px);
   overflow: auto;
 }
-.fd-modal-card .card {
-  margin-left: 16px;
-  margin-right: 16px;
-}
-
-.navbar-item .fd-navbar-item-level2 {
-  padding-left: 1.5rem;
-}
-hr.fd-navbar-divider {
-  margin: 12px 0;
-}
 
 /* Show scrollbar for navbar menu in desktop mode if content exceeds the screen size */
 @media only screen and (min-width: 1024px) {
