@@ -24,7 +24,7 @@
                 </div>
               </form>
             </div>
-            <footer v-if="loading" class="card-footer is-clipped">
+            <footer v-if="loading" class="card-footer">
               <a class="card-footer-item button is-loading">
                 <mdicon class="icon" name="web" size="16" />
                 <span
@@ -33,7 +33,7 @@
                 />
               </a>
             </footer>
-            <footer v-else class="card-footer">
+            <footer v-else class="card-footer is-clipped">
               <a
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
