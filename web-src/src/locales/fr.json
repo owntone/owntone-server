@@ -251,10 +251,10 @@
     },
     "album": {
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} piste|{count} pistes"
+      "track-count": "{count} piste|{count} piste|{count} pistes"
     },
     "albums": {
-      "count": "{count} album|{count} albums",
+      "count": "{count} album|{count} album|{count} albums",
       "filter": "Filtre",
       "hide-singles-help": "Si actif, masque les singles et les albums dont les pistes n’apparaissent que dans les listes de lecture.",
       "hide-singles": "Masquer les singles",
@@ -269,9 +269,9 @@
       }
     },
     "artist": {
-      "album-count": "{count} album|{count} albums",
+      "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} piste|{count} pistes",
+      "track-count": "{count} piste|{count} piste|{count} pistes",
       "sort-by": {
         "title": "Trier par",
         "name": "Nom",
@@ -280,7 +280,7 @@
       }
     },
     "artists": {
-      "count": "{count} artiste|{count} artistes",
+      "count": "{count} artiste|{count} artiste|{count} artistes",
       "filter": "Filtre",
       "sort-by": {
         "title": "Trier par",
@@ -296,18 +296,18 @@
     "audiobooks": {
       "album": {
         "play": "Lire",
-        "track-count": "{count} piste|{count} pistes"
+        "track-count": "{count} piste|{count} piste|{count} pistes"
       },
       "albums": {
-        "count": "{count} livre audio|{count} livres audio",
+        "count": "{count} livre audio|{count} livre audio|{count} livres audio",
         "title": "Livres audio"
       },
       "artist": {
-        "album-count": "{count} album|{count} albums",
+        "album-count": "{count} album|{count} album|{count} albums",
         "play": "Lire"
       },
       "artists": {
-        "count": "{count} auteur|{count} auteurs",
+        "count": "{count} auteur|{count} auteur|{count} auteurs",
         "title": "Auteurs"
       },
       "tabs": {
@@ -337,9 +337,9 @@
       }
     },
     "composer": {
-      "album-count": "{count} album|{count} albums",
+      "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} piste|{count} pistes",
+      "track-count": "{count} piste|{count} piste|{count} pistes",
       "sort-by": {
         "title": "Trier par",
         "name": "Nom",
@@ -347,7 +347,7 @@
       }
     },
     "composers": {
-      "count": "{count} compositeur|{count} compositeurs",
+      "count": "{count} compositeur|{count} compositeur|{count} compositeurs",
       "title": "Compositeurs"
     },
     "files": {
@@ -355,9 +355,9 @@
       "title": "Fichiers"
     },
     "genre": {
-      "album-count": "{count} album|{count} albums",
+      "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} piste|{count} pistes",
+      "track-count": "{count} piste|{count} piste|{count} pistes",
       "sort-by": {
         "title": "Trier par",
         "name": "Nom",
@@ -365,7 +365,7 @@
       }
     },
     "genres": {
-      "count": "{count} genre|{count} genres",
+      "count": "{count} genre|{count} genre|{count} genres",
       "title": "Genres"
     },
     "now-playing": {
@@ -376,10 +376,10 @@
     "playlist": {
       "length": "{length} pistes",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} piste|{count} pistes"
+      "track-count": "{count} piste|{count} piste|{count} pistes"
     },
     "playlists": {
-      "count": "{count} liste de lecture|{count} listes de lecture"
+      "count": "{count} liste de lecture|{count} liste de lecture|{count} listes de lecture"
     },
     "podcast": {
       "play": "Lire",
@@ -387,11 +387,11 @@
       "remove-info-1": "Supprimer ce podcast de manière permanente de la bibliothèque ?",
       "remove-info-2": "Cela supprimera également la liste de lecture RSS ",
       "remove-podcast": "Supprimer le podcast",
-      "track-count": "{count} piste|{count} pistes"
+      "track-count": "{count} piste|{count} piste|{count} pistes"
     },
     "podcasts": {
       "add": "Ajouter",
-      "count": "{count} podcast|{count} podcasts",
+      "count": "{count} podcast|{count} podcast|{count} podcasts",
       "mark-all-played": "Marquer comme lus",
       "new-episodes": "Nouveaux épisodes",
       "title": "Podcasts",
@@ -400,14 +400,14 @@
     "queue": {
       "add-stream": "Ajouter un flux",
       "clear": "Effacer",
-      "count": "{count} piste|{count} pistes",
+      "count": "{count} piste|{count} piste|{count} pistes",
       "edit": "Éditer",
       "hide-previous": "Masquer l’historique",
       "queue": "File d’attente",
       "save": "Enregistrer"
     },
     "radio": {
-      "count": "{count} station|{count} stations",
+      "count": "{count} station|{count} station|{count} stations",
       "title": "Radio"
     },
     "search": {
@@ -523,10 +523,10 @@
     "spotify": {
       "album": {
         "shuffle": "Lecture aléatoire",
-        "track-count": "{count} piste|{count} pistes"
+        "track-count": "{count} piste|{count} piste|{count} pistes"
       },
       "artist": {
-        "album-count": "{count} album|{count} albums",
+        "album-count": "{count} album|{count} album|{count} albums",
         "shuffle": "Lecture aléatoire"
       },
       "browse": {
@@ -535,7 +535,7 @@
         "show-more": "Afficher plus"
       },
       "playlist": {
-        "count": "{count} piste|{count} pistes",
+        "count": "{count} piste|{count} piste|{count} pistes",
         "shuffle": "Lecture aléatoire"
       },
       "search": {

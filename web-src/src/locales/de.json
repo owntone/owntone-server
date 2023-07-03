@@ -251,10 +251,10 @@
     },
     "album": {
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Tracks"
+      "track-count": "{count} Track|{count} Track|{count} Tracks"
     },
     "albums": {
-      "count": "{count} Album|{count} Alben",
+      "count": "{count} Album|{count} Album|{count} Alben",
       "filter": "Filter",
       "hide-singles-help": "Nach Aktivierung werden keine Singles und Alben angezeigt, die nur in Playlisten enthalten sind.",
       "hide-singles": "Nach Aktivierung werden keine Singles angezeigt",
@@ -269,9 +269,9 @@
       }
     },
     "artist": {
-      "album-count": "{count} Album|{count} Alben",
+      "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Tracks",
+      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort-by": {
         "title": "Sortieren nach",
         "name": "Name",
@@ -296,18 +296,18 @@
     "audiobooks": {
       "album": {
         "play": "Spielen",
-        "track-count": "{count} Track|{count} Tracks"
+        "track-count": "{count} Track|{count} Track|{count} Tracks"
       },
       "albums": {
-        "count": "{count} Hörbuch|{count} Hörbücher",
+        "count": "{count} Hörbuch|{count} Hörbuch|{count} Hörbücher",
         "title": "Hörbücher"
       },
       "artist": {
-        "album-count": "{count} Album|{count} Alben",
+        "album-count": "{count} Album|{count} Album|{count} Alben",
         "play": "Spielen"
       },
       "artists": {
-        "count": "{count} Autor|{count} Autoren",
+        "count": "{count} Autor|{count} Autor|{count} Autoren",
         "title": "Autoren"
       },
       "tabs": {
@@ -337,9 +337,9 @@
       }
     },
     "composer": {
-      "album-count": "{count} Album|{count} Alben",
+      "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Tracks",
+      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort-by": {
         "title": "Sortieren nach",
         "name": "Name",
@@ -347,7 +347,7 @@
       }
     },
     "composers": {
-      "count": "{count} Komponist|{count} Komponisten",
+      "count": "{count} Komponist|{count} Komponist|{count} Komponisten",
       "title": "Komponisten"
     },
     "files": {
@@ -355,9 +355,9 @@
       "title": "Dateien"
     },
     "genre": {
-      "album-count": "{count} Album|{count} Alben",
+      "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Tracks",
+      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort-by": {
         "title": "Sortieren nach",
         "name": "Name",
@@ -365,7 +365,7 @@
       }
     },
     "genres": {
-      "count": "{count} Genre|{count} Genres",
+      "count": "{count} Genre|{count} Genre|{count} Genres",
       "title": "Genres"
     },
     "now-playing": {
@@ -400,14 +400,14 @@
     "queue": {
       "add-stream": "Stream hinzufügen",
       "clear": "Alle entfernen",
-      "count": "{count} Track|{count} Tracks",
+      "count": "{count} Track|{count} Track|{count} Tracks",
       "edit": "Bearbeiten",
       "hide-previous": "Vorherige verbergen",
       "title": "Warteschlange",
       "save": "Speichern"
     },
     "radio": {
-      "count": "{count} Station|{count} Stationen",
+      "count": "{count} Station|{count} Station|{count} Stationen",
       "title": "Radio"
     },
     "search": {
@@ -523,10 +523,10 @@
     "spotify": {
       "album": {
         "shuffle": "Zufallswiedergabe",
-        "track-count": "{count} Track|{count} Tracks"
+        "track-count": "{count} Track|{count} Track|{count} Tracks"
       },
       "artist": {
-        "album-count": "{count} Album|{count} Alben",
+        "album-count": "{count} Album|{count} Album|{count} Alben",
         "shuffle": "Zufallswiedergabe"
       },
       "browse": {
@@ -535,7 +535,7 @@
         "show-more": "Zeige mehr"
       },
       "playlist": {
-        "count": "{count} Track|{count} Tracks",
+        "count": "{count} Track|{count} Track|{count} Tracks",
         "shuffle": "Zufallswiedergabe"
       },
       "search": {
