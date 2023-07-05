@@ -112,12 +112,9 @@
                 <div class="level-item">
                   <div>
                     <p class="heading" v-text="$t('navigation.volume')" />
-                    <input
-                      v-model="player.volume"
-                      class="slider"
-                      max="100"
-                      type="range"
-                      :style="{ '--ratio': player.volume / 100 }"
+                    <control-slider
+                      v-model:value="player.volume"
+                      :max="100"
                       @change="change_volume"
                     />
                   </div>
@@ -163,17 +160,11 @@
                         />
                       </a>
                     </div>
-                    <input
-                      v-model="stream_volume"
+                    <control-slider
+                      v-model:value="stream_volume"
                       :disabled="!playing"
-                      class="slider"
-                      :class="{ 'is-inactive': !playing }"
-                      max="100"
-                      type="range"
-                      :style="{
-                        '--ratio': stream_volume / 100,
-                        '--cursor': $filters.cursor(cursor)
-                      }"
+                      :max="100"
+                      :cursor="cursor"
                       @change="change_stream_volume"
                     />
                   </div>
@@ -229,12 +220,9 @@
               <div class="level-item">
                 <div class="is-flex-grow-1">
                   <p class="heading" v-text="$t('navigation.volume')" />
-                  <input
-                    v-model="player.volume"
-                    class="slider"
-                    max="100"
-                    type="range"
-                    :style="{ '--ratio': player.volume / 100 }"
+                  <control-slider
+                    v-model:value="player.volume"
+                    :max="100"
                     @change="change_volume"
                   />
                 </div>
@@ -279,17 +267,11 @@
                       />
                     </a>
                   </div>
-                  <input
-                    v-model="stream_volume"
+                  <control-slider
+                    v-model:value="stream_volume"
                     :disabled="!playing"
-                    class="slider"
-                    :class="{ 'is-inactive': !playing }"
-                    max="100"
-                    type="range"
-                    :style="{
-                      '--ratio': stream_volume / 100,
-                      '--cursor': $filters.cursor(cursor)
-                    }"
+                    :max="100"
+                    :cursor="cursor"
                     @change="change_stream_volume"
                   />
                 </div>
@@ -303,8 +285,9 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
+import * as types from '@/store/mutation_types'
 import _audio from '@/audio'
+import ControlSlider from '@/components/ControlSlider.vue'
 import { mdiCancel } from '@mdi/js'
 import NavbarItemLink from './NavbarItemLink.vue'
 import NavbarItemOutput from './NavbarItemOutput.vue'
@@ -316,11 +299,12 @@ import PlayerButtonConsume from '@/components/PlayerButtonConsume.vue'
 import PlayerButtonRepeat from '@/components/PlayerButtonRepeat.vue'
 import PlayerButtonSeekBack from '@/components/PlayerButtonSeekBack.vue'
 import PlayerButtonSeekForward from '@/components/PlayerButtonSeekForward.vue'
-import * as types from '@/store/mutation_types'
+import webapi from '@/webapi'
 
 export default {
   name: 'NavbarBottom',
   components: {
+    ControlSlider,
     NavbarItemLink,
     NavbarItemOutput,
     PlayerButtonPlayPause,

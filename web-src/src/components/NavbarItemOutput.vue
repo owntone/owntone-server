@@ -23,17 +23,11 @@
               :class="{ 'has-text-grey-light': !output.selected }"
               v-text="output.name"
             />
-            <input
-              v-model="volume"
+            <control-slider
+              v-model:value="volume"
               :disabled="!output.selected"
-              class="slider"
-              :class="{ 'is-inactive': !output.selected }"
-              max="100"
-              type="range"
-              :style="{
-                '--ratio': volume / 100,
-                '--cursor': $filters.cursor(cursor)
-              }"
+              :max="100"
+              :cursor="cursor"
               @change="change_volume"
             />
           </div>
@@ -44,14 +38,16 @@
 </template>
 
 <script>
+import ControlSlider from '@/components/ControlSlider.vue'
 import { mdiCancel } from '@mdi/js'
 import webapi from '@/webapi'
 
 export default {
   name: 'NavbarItemOutput',
-
   props: ['output'],
-
+  components: {
+    ControlSlider
+  },
   data() {
     return {
       volume: this.output.selected ? this.output.volume : 0,

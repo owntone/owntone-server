@@ -63,28 +63,16 @@
               <b v-text="$t('navigation.music')" />
             </navbar-item-link>
             <navbar-item-link to="/music/artists">
-              <span
-                class="pl-5"
-                v-text="$t('navigation.artists')"
-              />
+              <span class="pl-5" v-text="$t('navigation.artists')" />
             </navbar-item-link>
             <navbar-item-link to="/music/albums">
-              <span
-                class="pl-5"
-                v-text="$t('navigation.albums')"
-              />
+              <span class="pl-5" v-text="$t('navigation.albums')" />
             </navbar-item-link>
             <navbar-item-link to="/music/genres">
-              <span
-                class="pl-5"
-                v-text="$t('navigation.genres')"
-              />
+              <span class="pl-5" v-text="$t('navigation.genres')" />
             </navbar-item-link>
             <navbar-item-link v-if="spotify_enabled" to="/music/spotify">
-              <span
-                class="pl-5"
-                v-text="$t('navigation.spotify')"
-              />
+              <span class="pl-5" v-text="$t('navigation.spotify')" />
             </navbar-item-link>
             <navbar-item-link to="/podcasts">
               <mdicon class="icon" name="microphone" size="16" />
@@ -132,8 +120,8 @@
 </template>
 
 <script>
-import NavbarItemLink from './NavbarItemLink.vue'
 import * as types from '@/store/mutation_types'
+import NavbarItemLink from './NavbarItemLink.vue'
 
 export default {
   name: 'NavbarTop',

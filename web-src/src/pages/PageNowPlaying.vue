@@ -9,17 +9,12 @@
           class="is-clickable fd-has-shadow fd-cover-big-image"
           @click="open_dialog(track)"
         />
-        <input
-          v-model.number="track_progress"
-          :max="track_progress_max"
-          type="range"
-          class="slider mt-5"
-          :class="{ 'is-inactive': is_live }"
-          :style="{
-            '--ratio': track_progress_ratio,
-            '--cursor': $filters.cursor(cursor)
-          }"
+        <control-slider
+          v-model:value="track_progress"
+          class="mt-5"
           :disabled="is_live"
+          :max="track_progress_max"
+          :cursor="cursor"
           @change="seek"
           @mousedown="start_dragging"
           @mouseup="end_dragging"
@@ -58,19 +53,21 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
+import ControlSlider from '@/components/ControlSlider.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import { mdiCancel } from '@mdi/js'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
 
 const INTERVAL = 1000
 
 export default {
   name: 'PageNowPlaying',
   components: {
-    ModalDialogQueueItem,
-    CoverArtwork
+    ControlSlider,
+    CoverArtwork,
+    ModalDialogQueueItem
   },
 
   data() {
@@ -79,8 +76,8 @@ export default {
       INTERVAL,
       interval_id: 0,
       is_dragged: false,
-      show_details_modal: false,
-      selected_item: {}
+      selected_item: {},
+      show_details_modal: false
     }
   },
 
@@ -96,10 +93,6 @@ export default {
       set(value) {
         this.player.item_progress_ms = value * INTERVAL
       }
-    },
-
-    track_progress_ratio() {
-      return this.track_progress / this.track_progress_max
     },
 
     player() {
