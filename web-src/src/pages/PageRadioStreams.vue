@@ -3,12 +3,12 @@
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.radio.title')" />
-      </template>
-      <template #content>
         <p
           class="heading has-text-centered-mobile"
           v-text="$t('page.radio.count', { count: tracks.total })"
         />
+      </template>
+      <template #content>
         <list-tracks :tracks="tracks" />
       </template>
     </content-with-heading>
