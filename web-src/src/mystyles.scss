@@ -18,9 +18,7 @@
 }
 
 a.navbar-item {
-  outline: 0;
-  line-height: 1.5;
-  padding: 0.5rem 1rem;
+  padding: 0 1rem;
 }
 
 .fd-is-not-allowed {
@@ -150,9 +148,6 @@ a.navbar-item {
 }
 
 /* Add a little bit of spacing between title and subtitle */
-.title:not(.is-spaced) + .subtitle {
-  margin-top: -1.3rem !important;
-}
 .title:not(.is-spaced) + .subtitle + .subtitle {
   margin-top: -1.3rem !important;
 }

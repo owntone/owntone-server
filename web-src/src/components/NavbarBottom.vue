@@ -11,7 +11,7 @@
   >
     <div class="navbar-brand is-flex-grow-1">
       <!-- Link to queue -->
-      <navbar-item-link to="/" exact>
+      <navbar-item-link to="/" exact class="mr-auto">
         <mdicon class="icon" name="playlist-play" size="24" />
       </navbar-item-link>
       <!-- Now playing artist/title (not visible on "now playing" page) -->
@@ -39,7 +39,7 @@
       <!-- Skip previous (not visible on "now playing" page) -->
       <player-button-previous
         v-if="is_now_playing_page"
-        class="navbar-item ml-auto"
+        class="navbar-item"
         :icon_size="24"
       />
       <player-button-seek-back
@@ -68,120 +68,106 @@
       />
       <!-- Player menu button (only visible on mobile and tablet) -->
       <a
-        class="navbar-item ml-auto is-hidden-desktop"
+        class="navbar-item ml-auto px-4"
         @click="show_player_menu = !show_player_menu"
       >
         <mdicon
           class="icon"
           :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-          size="18"
         />
       </a>
-      <!-- Player menu dropup menu (only visible on desktop) -->
-      <div
-        class="navbar-item has-dropdown has-dropdown-up ml-auto is-hidden-touch"
-        :class="{ 'is-active': show_player_menu }"
-      >
-        <a
-          class="navbar-link is-arrowless"
-          @click="show_player_menu = !show_player_menu"
-        >
-          <mdicon
-            class="icon"
-            :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-            size="18"
-          />
-        </a>
-        <div class="navbar-dropdown is-right">
-          <div class="navbar-item">
-            <!-- Outputs: master volume -->
-            <div class="level is-mobile">
-              <div class="level-left is-flex-grow-1">
-                <div class="level-item is-flex-grow-0">
-                  <a
-                    class="button is-white is-small"
-                    @click="toggle_mute_volume"
-                  >
-                    <span class="icon"
-                      ><mdicon
-                        :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
-                        size="18"
-                    /></span>
-                  </a>
-                </div>
-                <div class="level-item">
-                  <div>
-                    <p class="heading" v-text="$t('navigation.volume')" />
-                    <control-slider
-                      v-model:value="player.volume"
-                      :max="100"
-                      @change="change_volume"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+    </div>
+    <!-- Player menu dropup menu (only visible on desktop) -->
+    <div
+      class="navbar-item has-dropdown has-dropdown-up ml-auto is-hidden-touch"
+      :class="{ 'is-active': show_player_menu }"
+    >
+      <div class="navbar-dropdown is-right">
+        <div class="navbar-item">
           <!-- Outputs: master volume -->
-          <hr class="my-3" />
-          <navbar-item-output
-            v-for="output in outputs"
-            :key="output.id"
-            :output="output"
-          />
-          <!-- Outputs: stream volume -->
-          <hr class="my-3" />
-          <div class="navbar-item">
-            <div class="level is-mobile">
-              <div class="level-left is-flex-grow-1">
-                <div class="level-item is-flex-grow-0">
-                  <a
-                    class="button is-clickable is-white is-small"
-                    :class="{
-                      'has-text-grey-light': !playing && !loading,
-                      'is-loading': loading
-                    }"
-                    @click="togglePlay"
-                    ><mdicon class="icon" name="broadcast" size="18" />
-                  </a>
-                </div>
-                <div class="level-item">
-                  <div class="is-flex-grow-1">
-                    <div
-                      class="is-flex is-align-content-center"
-                      :class="{ 'has-text-grey-light': !playing }"
-                    >
-                      <p class="heading" v-text="$t('navigation.stream')" />
-                      <a href="stream.mp3" class="heading ml-2" target="_blank"
-                        ><mdicon
-                          class="icon is-small"
-                          name="open-in-new"
-                          size="16"
-                        />
-                      </a>
-                    </div>
-                    <control-slider
-                      v-model:value="stream_volume"
-                      :disabled="!playing"
-                      :max="100"
-                      :cursor="cursor"
-                      @change="change_stream_volume"
-                    />
-                  </div>
+          <div class="level is-mobile">
+            <div class="level-left is-flex-grow-1">
+              <div class="level-item is-flex-grow-0">
+                <a class="button is-white is-small" @click="toggle_mute_volume">
+                  <span class="icon"
+                    ><mdicon
+                      :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
+                      size="18"
+                  /></span>
+                </a>
+              </div>
+              <div class="level-item">
+                <div>
+                  <p class="heading" v-text="$t('navigation.volume')" />
+                  <control-slider
+                    v-model:value="player.volume"
+                    :max="100"
+                    @change="change_volume"
+                  />
                 </div>
               </div>
             </div>
           </div>
-          <!-- Playback controls -->
-          <hr class="my-3" />
-          <div class="navbar-item is-justify-content-center">
-            <div class="level">
+        </div>
+        <!-- Outputs: master volume -->
+        <hr class="my-3" />
+        <navbar-item-output
+          v-for="output in outputs"
+          :key="output.id"
+          :output="output"
+        />
+        <!-- Outputs: stream volume -->
+        <hr class="my-3" />
+        <div class="navbar-item">
+          <div class="level is-mobile">
+            <div class="level-left is-flex-grow-1">
+              <div class="level-item is-flex-grow-0">
+                <a
+                  class="button is-clickable is-white is-small"
+                  :class="{
+                    'has-text-grey-light': !playing && !loading,
+                    'is-loading': loading
+                  }"
+                  @click="togglePlay"
+                  ><mdicon class="icon" name="broadcast" size="18" />
+                </a>
+              </div>
               <div class="level-item">
-                <div class="buttons has-addons">
-                  <player-button-repeat class="button" />
-                  <player-button-shuffle class="button" />
-                  <player-button-consume class="button" />
+                <div class="is-flex-grow-1">
+                  <div
+                    class="is-flex is-align-content-center"
+                    :class="{ 'has-text-grey-light': !playing }"
+                  >
+                    <p class="heading" v-text="$t('navigation.stream')" />
+                    <a href="stream.mp3" class="heading ml-2" target="_blank"
+                      ><mdicon
+                        class="icon is-small"
+                        name="open-in-new"
+                        size="16"
+                      />
+                    </a>
+                  </div>
+                  <control-slider
+                    v-model:value="stream_volume"
+                    :disabled="!playing"
+                    :max="100"
+                    :cursor="cursor"
+                    @change="change_stream_volume"
+                  />
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Playback controls -->
+        <hr class="my-3" />
+        <div class="navbar-item is-justify-content-center">
+          <div class="level">
+            <div class="level-item">
+              <div class="buttons has-addons">
+                <player-button-repeat class="button" />
+                <player-button-shuffle class="button" />
+                <player-button-consume class="button" />
               </div>
             </div>
           </div>
@@ -197,10 +183,10 @@
       <div class="navbar-end">
         <!-- Repeat/shuffle/consume -->
         <div class="navbar-item">
-          <div class="buttons is-centered">
-            <player-button-repeat class="button" :icon_size="18" />
-            <player-button-shuffle class="button" :icon_size="18" />
-            <player-button-consume class="button" :icon_size="18" />
+          <div class="buttons has-addons is-centered">
+            <player-button-repeat class="button" />
+            <player-button-shuffle class="button" />
+            <player-button-consume class="button" />
           </div>
         </div>
         <hr class="my-3" />
@@ -230,6 +216,7 @@
             </div>
           </div>
         </div>
+        <hr class="my-3" />
         <!-- Outputs: speaker volumes -->
         <navbar-item-output
           v-for="output in outputs"
