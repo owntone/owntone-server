@@ -441,11 +441,6 @@ mpd {
 	# Whether to emit an output with plugin type "httpd" to tell clients
 	# that a stream is available for local playback.
 #	enable_httpd_plugin = false
-
-	# The maximum size of a command list in KB.
-	# It is the sum of lengths of all the command lines between command list begin and end.
-	# Default is 2048 (2 MiB).
-#	max_command_list_size = KBYTES
 }
 
 # SQLite configuration (allows to modify the operation of the SQLite databases)
