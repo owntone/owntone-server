@@ -6005,60 +6005,43 @@ db_queue_move_bypos(int pos_from, int pos_to)
 int
 db_queue_move_bypos_range(int range_begin, int range_end, int pos_to)
 {
+#define Q_TMPL "UPDATE queue SET pos = CASE WHEN pos < %d THEN pos + %d ELSE pos - %d END, queue_version = %d WHERE pos >= %d AND pos < %d;"
   int queue_version;
   char *query;
+  int count;
+  int update_begin;
+  int update_end;
   int ret;
-  int changes = 0;
+  int cut_off;
+  int offset_up;
+  int offset_down;
 
   queue_version = queue_transaction_begin();
 
-  int count = range_end - range_begin;
-  int update_begin = MIN(range_begin, pos_to);
-  int update_end = MAX(range_begin + count, pos_to + count);
-  int cut_off, offset_up, offset_down;
+  count = range_end - range_begin;
+  update_begin = MIN(range_begin, pos_to);
+  update_end = MAX(range_begin + count, pos_to + count);
 
-  if (range_begin < pos_to) {
-    cut_off = range_begin + count;
-    offset_up = pos_to - range_begin;
-    offset_down = count;
-  } else {
+  if (range_begin < pos_to)
+    {
+      cut_off = range_begin + count;
+      offset_up = pos_to - range_begin;
+      offset_down = count;
+    }
+  else
+    {
       cut_off = range_begin;
       offset_up = count;
       offset_down = range_begin - pos_to;
-  }
+    }
 
-  DPRINTF(E_DBG, L_DB, "db_queue_move_bypos_range: from = %d, to = %d,"
-                       " count = %d, cut_off = %d, offset_up = %d, offset_down = %d,"
-                       " begin = %d, end = %d\n",
-          range_begin, pos_to, count, cut_off, offset_up, offset_down, update_begin, update_end);
+  query = sqlite3_mprintf(Q_TMPL, cut_off, offset_up, offset_down, queue_version, update_begin, update_end);
+  ret = db_query_run(query, 1, 0);
 
-  query = "UPDATE queue SET pos ="
-          "     CASE"
-          "       WHEN pos < :cut_off THEN pos + :offset_up"
-          "       ELSE pos - :offset_down"
-          "     END,"
-          "   queue_version = :queue_version"
-          " WHERE"
-          "   pos >= :update_begin AND pos < :update_end;";
-
-  sqlite3_stmt *stmt;
-  if (SQLITE_OK != (ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL))) goto end_transaction;
-
-  if (SQLITE_OK != (ret = sqlite3_bind_int(stmt, 1, cut_off))) goto end_transaction;
-  if (SQLITE_OK != (ret = sqlite3_bind_int(stmt, 2, offset_up))) goto end_transaction;
-  if (SQLITE_OK != (ret = sqlite3_bind_int(stmt, 3, offset_down))) goto end_transaction;
-  if (SQLITE_OK != (ret = sqlite3_bind_int(stmt, 4, queue_version))) goto end_transaction;
-  if (SQLITE_OK != (ret = sqlite3_bind_int(stmt, 5, update_begin))) goto end_transaction;
-  if (SQLITE_OK != (ret = sqlite3_bind_int(stmt, 6, update_end))) goto end_transaction;
-
-  changes = db_statement_run(stmt, 0);
-
-  end_transaction:
-  DPRINTF(E_LOG, L_DB, "db_queue_move_bypos_range: changes = %d, res = %d: %s\n",
-          changes, ret, sqlite3_errstr(ret));
   queue_transaction_end(ret, queue_version);
 
-  return ret == SQLITE_OK && changes != -1 ? 0 : -1;
+  return ret;
+#undef Q_TMPL
 }
 
 /*
