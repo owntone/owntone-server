@@ -6,7 +6,7 @@
         <div class="title is-4" v-text="$t('page.settings.general.language')" />
       </template>
       <template #content>
-        <dropdown-menu v-model="locale" :options="locales" />
+        <control-dropdown v-model:value="locale" :options="locales" />
       </template>
     </content-with-heading>
     <content-with-heading>
@@ -179,21 +179,21 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsSettings from '@/components/TabsSettings.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
 import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
-import SettingsTextfield from '@/components/SettingsTextfield.vue'
 import SettingsIntfield from '@/components/SettingsIntfield.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
+import SettingsTextfield from '@/components/SettingsTextfield.vue'
+import TabsSettings from '@/components/TabsSettings.vue'
 
 export default {
   name: 'SettingsPageWebinterface',
   components: {
     ContentWithHeading,
-    TabsSettings,
+    ControlDropdown,
     SettingsCheckbox,
-    SettingsTextfield,
     SettingsIntfield,
-    DropdownMenu
+    SettingsTextfield,
+    TabsSettings,
   },
 
   computed: {
@@ -207,7 +207,7 @@ export default {
 
     locale: {
       get() {
-        let languages = this.$i18n.availableLocales
+        const languages = this.$i18n.availableLocales
         let locale = languages.find((lang) => lang === this.$i18n.locale)
         let partial = this.$i18n.locale.split('-')[0]
         if (!locale) {

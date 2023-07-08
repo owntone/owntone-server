@@ -5,8 +5,8 @@
         <div class="columns">
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.artist.sort-by.title')" />
-            <dropdown-menu
-              v-model="selected_groupby_option_id"
+            <control-dropdown
+              v-model:value="selected_groupby_option_id"
               :options="groupby_options"
             />
           </div>
@@ -58,9 +58,9 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import { GroupByList, byName, byYear } from '@/lib/GroupByList'
@@ -83,9 +83,9 @@ export default {
   name: 'PageArtist',
   components: {
     ContentWithHeading,
+    ControlDropdown,
     ListAlbums,
     ModalDialogArtist,
-    DropdownMenu
   },
 
   beforeRouteEnter(to, from, next) {

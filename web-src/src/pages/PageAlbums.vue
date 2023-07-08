@@ -40,8 +40,8 @@
           </div>
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.albums.sort-by.title')" />
-            <dropdown-menu
-              v-model="selected_groupby_option_id"
+            <control-dropdown
+              v-model:value="selected_groupby_option_id"
               :options="groupby_options"
             />
           </div>
@@ -63,14 +63,14 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
-import IndexButtonList from '@/components/IndexButtonList.vue'
-import ListAlbums from '@/components/ListAlbums.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
-import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
 import { GroupByList, byName, byYear } from '@/lib/GroupByList'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
+import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
@@ -86,10 +86,10 @@ export default {
   name: 'PageAlbums',
   components: {
     ContentWithHeading,
-    TabsMusic,
+    ControlDropdown,
     IndexButtonList,
     ListAlbums,
-    DropdownMenu
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {

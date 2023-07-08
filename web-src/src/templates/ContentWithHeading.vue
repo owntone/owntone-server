@@ -60,7 +60,7 @@ export default {
   },
 
   mounted() {
-    if (this.$slots['options']) {
+    if (this.$slots.options) {
       this.observer = new IntersectionObserver(this.onElementObserved, {
         rootMargin: '-82px 0px 0px 0px',
         threshold: 1.0

@@ -6,8 +6,8 @@
         <div class="columns">
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.artist.sort-by.title')" />
-            <dropdown-menu
-              v-model="selected_groupby_option_id"
+            <control-dropdown
+              v-model:value="selected_groupby_option_id"
               :options="groupby_options"
             />
           </div>
@@ -60,14 +60,14 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
+import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {
@@ -87,7 +87,7 @@ export default {
   name: 'PageComposerTracks',
   components: {
     ContentWithHeading,
-    DropdownMenu,
+    ControlDropdown,
     IndexButtonList,
     ListTracks,
     ModalDialogComposer

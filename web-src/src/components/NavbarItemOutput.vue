@@ -44,10 +44,11 @@ import webapi from '@/webapi'
 
 export default {
   name: 'NavbarItemOutput',
-  props: ['output'],
   components: {
     ControlSlider
   },
+  props: ['output'],
+
   data() {
     return {
       volume: this.output.selected ? this.output.volume : 0,
