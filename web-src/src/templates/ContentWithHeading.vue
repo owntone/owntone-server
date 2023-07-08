@@ -3,7 +3,7 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <section v-if="$slots['options']">
+          <section v-if="$slots.options">
             <div ref="options_ref" style="height: 1px" />
             <slot name="options" />
             <nav class="buttons is-centered mt-4 mb-2">
@@ -23,11 +23,13 @@
               </a>
             </nav>
           </section>
-          <div :class="{ 'fd-content-with-option': $slots['options'] }">
-            <nav id="top" class="level">
+          <div :class="{ 'fd-content-with-option': $slots.options }">
+            <nav id="top" class="level is-clipped">
               <!-- Left side -->
-              <div class="level-left">
-                <div class="level-item has-text-centered-mobile">
+              <div class="level-left is-flex-shrink-1">
+                <div
+                  class="level-item is-flex-shrink-1 has-text-centered-mobile"
+                >
                   <div>
                     <slot name="heading-left" />
                   </div>

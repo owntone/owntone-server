@@ -1,6 +1,6 @@
 <template>
   <nav
-    class="fd-bottom-navbar navbar is-white is-fixed-bottom"
+    class="navbar is-block is-white is-fixed-bottom fd-bottom-navbar"
     :style="zindex"
     :class="{
       'is-transparent': is_now_playing_page,
@@ -9,80 +9,12 @@
     role="navigation"
     aria-label="player controls"
   >
-    <div class="navbar-brand is-flex-grow-1">
-      <!-- Link to queue -->
-      <navbar-item-link to="/" exact class="mr-auto">
-        <mdicon class="icon" name="playlist-play" size="24" />
-      </navbar-item-link>
-      <!-- Now playing artist/title (not visible on "now playing" page) -->
-      <router-link
-        v-if="!is_now_playing_page"
-        to="/now-playing"
-        class="navbar-item is-expanded is-clipped"
-        active-class="is-active"
-        exact
-      >
-        <div class="is-clipped">
-          <p class="is-size-7 fd-is-text-clipped">
-            <strong v-text="now_playing.title" />
-            <br />
-            <span v-text="now_playing.artist" />
-            <span
-              v-if="now_playing.album"
-              v-text="
-                $t('navigation.now-playing', { album: now_playing.album })
-              "
-            />
-          </p>
-        </div>
-      </router-link>
-      <!-- Skip previous (not visible on "now playing" page) -->
-      <player-button-previous
-        v-if="is_now_playing_page"
-        class="navbar-item"
-        :icon_size="24"
-      />
-      <player-button-seek-back
-        v-if="is_now_playing_page"
-        :seek_ms="10000"
-        class="navbar-item"
-        :icon_size="24"
-      />
-      <!-- Play/pause -->
-      <player-button-play-pause
-        class="navbar-item"
-        :icon_size="36"
-        show_disabled_message
-      />
-      <player-button-seek-forward
-        v-if="is_now_playing_page"
-        :seek_ms="30000"
-        class="navbar-item"
-        :icon_size="24"
-      />
-      <!-- Skip next (not visible on "now playing" page) -->
-      <player-button-next
-        v-if="is_now_playing_page"
-        class="navbar-item"
-        :icon_size="24"
-      />
-      <!-- Player menu button (only visible on mobile and tablet) -->
-      <a
-        class="navbar-item ml-auto px-4"
-        @click="show_player_menu = !show_player_menu"
-      >
-        <mdicon
-          class="icon"
-          :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-        />
-      </a>
-    </div>
-    <!-- Player menu dropup menu (only visible on desktop) -->
+    <!-- Player menu for desktop -->
     <div
-      class="navbar-item has-dropdown has-dropdown-up ml-auto is-hidden-touch"
+      class="navbar-item has-dropdown has-dropdown-up is-hidden-touch"
       :class="{ 'is-active': show_player_menu }"
     >
-      <div class="navbar-dropdown is-right">
+      <div class="navbar-dropdown is-right fd-width-auto">
         <div class="navbar-item">
           <!-- Outputs: master volume -->
           <div class="level is-mobile">
@@ -174,7 +106,64 @@
         </div>
       </div>
     </div>
-    <!-- Player menu (only visible on mobile and tablet) -->
+    <div class="navbar-brand is-flex-grow-1">
+      <navbar-item-link to="/" exact class="mr-auto">
+        <mdicon class="icon" name="playlist-play" size="24" />
+      </navbar-item-link>
+      <navbar-item-link
+        v-if="!is_now_playing_page"
+        to="/now-playing"
+        exact
+        class="navbar-item fd-is-text-clipped is-expanded is-clipped is-size-7"
+      >
+        <div class="fd-is-text-clipped">
+          <strong v-text="now_playing.title" />
+          <br />
+          <span v-text="now_playing.artist" />
+          <span
+            v-if="now_playing.album"
+            v-text="$t('navigation.now-playing', { album: now_playing.album })"
+          />
+        </div>
+      </navbar-item-link>
+      <player-button-previous
+        v-if="is_now_playing_page"
+        class="navbar-item px-2"
+        :icon_size="24"
+      />
+      <player-button-seek-back
+        v-if="is_now_playing_page"
+        :seek_ms="10000"
+        class="navbar-item px-2"
+        :icon_size="24"
+      />
+      <player-button-play-pause
+        class="navbar-item px-2"
+        :icon_size="36"
+        show_disabled_message
+      />
+      <player-button-seek-forward
+        v-if="is_now_playing_page"
+        :seek_ms="30000"
+        class="navbar-item px-2"
+        :icon_size="24"
+      />
+      <player-button-next
+        v-if="is_now_playing_page"
+        class="navbar-item px-2"
+        :icon_size="24"
+      />
+      <a
+        class="navbar-item ml-auto"
+        @click="show_player_menu = !show_player_menu"
+      >
+        <mdicon
+          class="icon"
+          :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
+        />
+      </a>
+    </div>
+    <!-- Player menu for mobile and tablet -->
     <div
       class="navbar-menu is-hidden-desktop"
       :class="{ 'is-active': show_player_menu }"

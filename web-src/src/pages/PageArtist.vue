@@ -85,7 +85,7 @@ export default {
     ContentWithHeading,
     ControlDropdown,
     ListAlbums,
-    ModalDialogArtist,
+    ModalDialogArtist
   },
 
   beforeRouteEnter(to, from, next) {

@@ -89,7 +89,7 @@ export default {
     ControlDropdown,
     IndexButtonList,
     ListArtists,
-    TabsMusic,
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {

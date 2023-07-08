@@ -161,6 +161,10 @@ a.navbar-item {
   overflow: auto;
 }
 
+.fd-width-auto {
+  min-width: auto;
+}
+
 /* Show scrollbar for navbar menu in desktop mode if content exceeds the screen size */
 @media only screen and (min-width: 1024px) {
   .navbar-dropdown {

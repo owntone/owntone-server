@@ -193,7 +193,7 @@ export default {
     SettingsCheckbox,
     SettingsIntfield,
     SettingsTextfield,
-    TabsSettings,
+    TabsSettings
   },
 
   computed: {
