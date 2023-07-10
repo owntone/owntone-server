@@ -28,13 +28,13 @@ import PagePlaylists from '@/pages/PagePlaylists.vue'
 import PagePlaylist from '@/pages/PagePlaylist.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
+import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
 import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse.vue'
 import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases.vue'
 import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists.vue'
 import SpotifyPageArtist from '@/pages/SpotifyPageArtist.vue'
 import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum.vue'
 import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist.vue'
-import SpotifyPageSearch from '@/pages/SpotifyPageSearch.vue'
 import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface.vue'
 import SettingsPageArtwork from '@/pages/SettingsPageArtwork.vue'
 import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices.vue'
@@ -226,6 +226,11 @@ export const router = createRouter({
       path: '/search/library'
     },
     {
+      component: PageSearchSpotify,
+      name: 'search-spotify',
+      path: '/search/spotify',
+    },
+    {
       path: '/music/spotify',
       name: 'Spotify',
       component: SpotifyPageBrowse,
@@ -260,11 +265,6 @@ export const router = createRouter({
       name: 'Spotify Playlist',
       component: SpotifyPagePlaylist,
       meta: { show_progress: true }
-    },
-    {
-      path: '/search/spotify',
-      name: 'Spotify Search',
-      component: SpotifyPageSearch
     },
     {
       path: '/settings/webinterface',

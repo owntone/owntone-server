@@ -268,41 +268,41 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ContentText from '@/templates/ContentText.vue'
-import TabsSearch from '@/components/TabsSearch.vue'
-import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
-import SpotifyListItemArtist from '@/components/SpotifyListItemArtist.vue'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
-import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
-import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
-import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
+import ContentText from '@/templates/ContentText.vue'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
+import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
+import SpotifyListItemArtist from '@/components/SpotifyListItemArtist.vue'
+import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
+import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
+import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
+import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
+import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
+import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
+import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
+import webapi from '@/webapi'
+import TabsSearch from '@/components/TabsSearch.vue'
 
 const PAGE_SIZE = 50
 
 export default {
-  name: 'SpotifyPageSearch',
+  name: 'PageSearchSpotify',
   components: {
-    ContentWithHeading,
     ContentText,
-    TabsSearch,
-    SpotifyListItemTrack,
-    SpotifyListItemArtist,
+    ContentWithHeading,
+    CoverArtwork,
     SpotifyListItemAlbum,
+    SpotifyListItemArtist,
     SpotifyListItemPlaylist,
-    SpotifyModalDialogTrack,
-    SpotifyModalDialogArtist,
+    SpotifyListItemTrack,
     SpotifyModalDialogAlbum,
+    SpotifyModalDialogArtist,
     SpotifyModalDialogPlaylist,
+    SpotifyModalDialogTrack,
     VueEternalLoading,
-    CoverArtwork
+    TabsSearch
   },
 
   data() {
@@ -491,7 +491,7 @@ export default {
       }
 
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'track,artist,album,playlist,audiobook,podcast',
           query: this.search_query,
@@ -504,7 +504,7 @@ export default {
 
     open_search_tracks() {
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'track',
           query: this.$route.query.query
@@ -514,7 +514,7 @@ export default {
 
     open_search_artists() {
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'artist',
           query: this.$route.query.query
@@ -524,7 +524,7 @@ export default {
 
     open_search_albums() {
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'album',
           query: this.$route.query.query
@@ -534,7 +534,7 @@ export default {
 
     open_search_playlists() {
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'playlist',
           query: this.$route.query.query
