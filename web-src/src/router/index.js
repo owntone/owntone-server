@@ -27,7 +27,7 @@ import PagePlaylists from '@/pages/PagePlaylists.vue'
 import PagePlaylist from '@/pages/PagePlaylist.vue'
 import PageFiles from '@/pages/PageFiles.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
-import PageSearch from '@/pages/PageSearch.vue'
+import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse.vue'
 import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases.vue'
 import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists.vue'
@@ -216,13 +216,14 @@ export const router = createRouter({
       path: '/'
     },
     {
+      name: 'search',
       path: '/search',
       redirect: '/search/library'
     },
     {
-      path: '/search/library',
-      name: 'Search Library',
-      component: PageSearch
+      component: PageSearchLibrary,
+      name: 'search-library',
+      path: '/search/library'
     },
     {
       path: '/music/spotify',

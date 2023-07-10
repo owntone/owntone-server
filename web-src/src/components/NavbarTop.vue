@@ -30,7 +30,7 @@
       <navbar-item-link v-if="is_visible_files" :to="{ path: '/files' }">
         <mdicon class="icon" name="folder-open" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_search" :to="{ path: '/search' }">
+      <navbar-item-link v-if="is_visible_search" :to="{ name: 'search' }">
         <mdicon class="icon" name="magnify" size="16" />
       </navbar-item-link>
       <div
@@ -99,7 +99,7 @@
               <mdicon class="icon" name="folder-open" size="16" />
               <b v-text="$t('navigation.files')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ path: '/search' }">
+            <navbar-item-link :to="{ name: 'search' }">
               <mdicon class="icon" name="magnify" size="16" />
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>

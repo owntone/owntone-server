@@ -256,29 +256,29 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import * as types from '@/store/mutation_types'
 import ContentText from '@/templates/ContentText.vue'
-import TabsSearch from '@/components/TabsSearch.vue'
-import ListTracks from '@/components/ListTracks.vue'
-import ListArtists from '@/components/ListArtists.vue'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
+import ListArtists from '@/components/ListArtists.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
+import ListTracks from '@/components/ListTracks.vue'
+import TabsSearch from '@/components/TabsSearch.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import { GroupByList } from '@/lib/GroupByList'
 
 export default {
-  name: 'PageSearch',
+  name: 'PageSearchLibrary',
   components: {
-    ContentWithHeading,
     ContentText,
-    TabsSearch,
-    ListTracks,
-    ListArtists,
+    ContentWithHeading,
     ListAlbums,
+    ListArtists,
+    ListComposers,
     ListPlaylists,
-    ListComposers
+    ListTracks,
+    TabsSearch,
   },
 
   data() {
@@ -498,7 +498,7 @@ export default {
 
     open_search_tracks() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'track',
           query: this.$route.query.query
@@ -508,7 +508,7 @@ export default {
 
     open_search_artists() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'artist',
           query: this.$route.query.query
@@ -518,7 +518,7 @@ export default {
 
     open_search_albums() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'album',
           query: this.$route.query.query
@@ -528,7 +528,7 @@ export default {
 
     open_search_composers() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'tracks',
           query: this.$route.query.query
@@ -538,7 +538,7 @@ export default {
 
     open_search_playlists() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'playlist',
           query: this.$route.query.query
@@ -548,7 +548,7 @@ export default {
 
     open_search_audiobooks() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'audiobook',
           query: this.$route.query.query
@@ -558,7 +558,7 @@ export default {
 
     open_search_podcasts() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'podcast',
           query: this.$route.query.query
