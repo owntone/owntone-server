@@ -224,7 +224,10 @@ export default {
     },
 
     open_album_artist() {
-      this.$router.push({ path: '/music/artists/' + this.item.album_artist_id })
+      this.$router.push({
+        name: 'music-artist',
+        params: { id: this.item.album_artist_id }
+      })
     },
 
     open_genre() {

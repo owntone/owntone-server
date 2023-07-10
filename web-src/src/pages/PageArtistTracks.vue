@@ -70,8 +70,8 @@ import webapi from '@/webapi'
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_artist(to.params.artist_id),
-      webapi.library_artist_tracks(to.params.artist_id)
+      webapi.library_artist(to.params.id),
+      webapi.library_artist_tracks(to.params.id)
     ])
   },
 
@@ -150,7 +150,10 @@ export default {
   methods: {
     open_artist() {
       this.show_details_modal = false
-      this.$router.push({ path: '/music/artists/' + this.artist.id })
+      this.$router.push({
+        name: 'music-artist',
+        params: { id: this.artist.id }
+      })
     },
 
     play() {

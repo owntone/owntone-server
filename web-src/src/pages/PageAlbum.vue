@@ -46,11 +46,11 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {
@@ -94,7 +94,10 @@ export default {
   methods: {
     open_artist() {
       this.show_details_modal = false
-      this.$router.push({ path: '/music/artists/' + this.album.artist_id })
+      this.$router.push({
+        name: 'music-artist',
+        params: { id: this.album.artist_id }
+      })
     },
 
     play() {

@@ -1,8 +1,15 @@
 import * as types from '@/store/mutation_types'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import PageAbout from '@/pages/PageAbout.vue'
+import PageAlbum from '@/pages/PageAlbum.vue'
+import PageAlbums from '@/pages/PageAlbums.vue'
+import PageArtist from '@/pages/PageArtist.vue'
+import PageArtistTracks from '@/pages/PageArtistTracks.vue'
+import PageArtists from '@/pages/PageArtists.vue'
 import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
 import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
+import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
+import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageFiles from '@/pages/PageFiles.vue'
 import PagePlaylist from '@/pages/PagePlaylist.vue'
 import PagePlaylistSpotify from '@/pages/PagePlaylistSpotify.vue'
@@ -14,19 +21,12 @@ import PageQueue from '@/pages/PageQueue.vue'
 import PageBrowse from '@/pages/PageBrowse.vue'
 import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
 import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
-import PageArtists from '@/pages/PageArtists.vue'
-import PageArtist from '@/pages/PageArtist.vue'
-import PageAlbums from '@/pages/PageAlbums.vue'
-import PageAlbum from '@/pages/PageAlbum.vue'
 import PageGenres from '@/pages/PageGenres.vue'
 import PageGenre from '@/pages/PageGenre.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
-import PageArtistTracks from '@/pages/PageArtistTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
 import PageComposer from '@/pages/PageComposer.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
-import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
-import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
@@ -49,11 +49,30 @@ export const router = createRouter({
       name: 'about',
       path: '/about'
     },
+
+    {
+      component: PageArtist,
+      meta: { show_progress: true, has_index: true },
+      name: 'music-artist',
+      path: '/music/artists/:id'
+    },
+    {
+      component: PageArtists,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'music-artists',
+      path: '/music/artists'
+    },
+    {
+      component: PageArtistTracks,
+      meta: { has_index: true, show_progress: true },
+      name: 'music-artist-tracks',
+      path: '/music/artists/:id/tracks'
+    },
     {
       component: PageAudiobooksAlbum,
       meta: { show_progress: true },
       name: 'audiobooks-album',
-      path: '/audiobooks/album/:id'
+      path: '/audiobooks/albums/:id'
     },
     {
       component: PageAudiobooksAlbums,
@@ -65,7 +84,7 @@ export const router = createRouter({
       component: PageAudiobooksArtist,
       meta: { show_progress: true },
       name: 'audiobooks-artist',
-      path: '/audiobooks/artist/:id'
+      path: '/audiobooks/artists/:id'
     },
     {
       component: PageAudiobooksArtists,
@@ -99,24 +118,6 @@ export const router = createRouter({
       name: 'Browse Recently Played',
       component: PageBrowseRecentlyPlayed,
       meta: { show_progress: true, has_tabs: true }
-    },
-    {
-      path: '/music/artists',
-      name: 'Artists',
-      component: PageArtists,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/music/artists/:artist_id',
-      name: 'Artist',
-      component: PageArtist,
-      meta: { show_progress: true, has_index: true }
-    },
-    {
-      path: '/music/artists/:artist_id/tracks',
-      name: 'Tracks',
-      component: PageArtistTracks,
-      meta: { show_progress: true, has_index: true }
     },
     {
       path: '/music/albums',
@@ -179,31 +180,31 @@ export const router = createRouter({
     },
     {
       name: 'playlists',
-      redirect: '/playlist/0'
+      redirect: '/playlists/0'
     },
     {
       component: PagePlaylist,
       meta: { show_progress: true },
       name: 'playlist',
-      path: '/playlist/:id'
+      path: '/playlists/:id'
     },
     {
       component: PagePlaylistSpotify,
       meta: { show_progress: true },
       name: 'playlist-spotify',
-      path: '/playlist/spotify/:id'
+      path: '/playlists/spotify/:id'
     },
     {
       component: PagePlaylistTracks,
       meta: { show_progress: true },
       name: 'playlist-tracks',
-      path: '/playlist/:id/tracks'
+      path: '/playlists/:id/tracks'
     },
     {
       component: PagePodcast,
       meta: { show_progress: true },
       name: 'podcast',
-      path: '/podcast/:id'
+      path: '/podcasts/:id'
     },
     {
       component: PagePodcasts,

@@ -65,7 +65,7 @@ export default {
           params: { id: artist.id }
         })
       } else {
-        this.$router.push({ path: '/music/artists/' + artist.id })
+        this.$router.push({ name: 'music-artist', params: { id: artist.id } })
       }
     },
 

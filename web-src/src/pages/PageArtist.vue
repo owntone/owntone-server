@@ -57,19 +57,19 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupByList, byName, byYear } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import { GroupByList, byName, byYear } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_artist(to.params.artist_id),
-      webapi.library_artist_albums(to.params.artist_id)
+      webapi.library_artist(to.params.id),
+      webapi.library_artist_albums(to.params.id)
     ])
   },
 
@@ -146,7 +146,8 @@ export default {
   methods: {
     open_tracks() {
       this.$router.push({
-        path: '/music/artists/' + this.artist.id + '/tracks'
+        name: 'music-artist-tracks',
+        params: { id: this.artist.id }
       })
     },
 

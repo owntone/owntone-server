@@ -65,7 +65,7 @@
               <mdicon class="icon" name="music" size="16" />
               <b v-text="$t('navigation.music')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ path: '/music/artists' }">
+            <navbar-item-link :to="{ name: 'music-artists' }">
               <span class="pl-5" v-text="$t('navigation.artists')" />
             </navbar-item-link>
             <navbar-item-link :to="{ path: '/music/albums' }">

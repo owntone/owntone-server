@@ -90,7 +90,10 @@ export default {
 
     open_artist() {
       this.$emit('close')
-      this.$router.push({ path: '/music/artists/' + this.artist.id })
+      this.$router.push({
+        name: 'music-artist',
+        params: { id: this.artist.id }
+      })
     }
   }
 }

@@ -177,7 +177,10 @@ export default {
           params: { id: this.album.artist_id }
         })
       } else {
-        this.$router.push({ path: '/music/artists/' + this.album.artist_id })
+        this.$router.push({
+          name: 'music-artist',
+          params: { id: this.album.artist_id }
+        })
       }
     },
 
