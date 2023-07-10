@@ -54,7 +54,7 @@ export default {
   data() {
     return {
       show_details_modal: false,
-      selected_directory: {}
+      selected_directory: ''
     }
   },
 
@@ -77,10 +77,10 @@ export default {
         parent === '' ||
         this.$store.state.config.directories.includes(this.current_directory)
       ) {
-        this.$router.push({ path: '/files' })
+        this.$router.push({ name: 'files' })
       } else {
         this.$router.push({
-          path: '/files',
+          name: 'files',
           query: {
             directory: this.current_directory.slice(
               0,
@@ -93,13 +93,13 @@ export default {
 
     open_directory(directory) {
       this.$router.push({
-        path: '/files',
+        name: 'files',
         query: { directory: directory.path }
       })
     },
 
     open_dialog(directory) {
-      this.selected_directory = directory
+      this.selected_directory = directory.path
       this.show_details_modal = true
     }
   }

@@ -3,6 +3,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import PageAbout from '@/pages/PageAbout.vue'
 import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
 import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
+import PageFiles from '@/pages/PageFiles.vue'
 import PagePodcast from '@/pages/PagePodcast.vue'
 import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PageNowPlaying from '@/pages/PageNowPlaying.vue'
@@ -25,7 +26,6 @@ import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
 import PagePlaylists from '@/pages/PagePlaylists.vue'
 import PagePlaylist from '@/pages/PagePlaylist.vue'
-import PageFiles from '@/pages/PageFiles.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse.vue'
@@ -108,6 +108,12 @@ export const router = createRouter({
       meta: { show_progress: true }
     },
     {
+      component: PageFiles,
+      meta: { show_progress: true },
+      name: 'files',
+      path: '/files'
+    },
+    {
       path: '/music/genres',
       name: 'Genres',
       component: PageGenres,
@@ -186,12 +192,6 @@ export const router = createRouter({
       path: '/radio',
       name: 'Radio',
       component: PageRadioStreams,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/files',
-      name: 'Files',
-      component: PageFiles,
       meta: { show_progress: true }
     },
     {

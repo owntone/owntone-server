@@ -27,7 +27,7 @@
       <navbar-item-link v-if="is_visible_radio" :to="{ path: '/radio' }">
         <mdicon class="icon" name="radio" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_files" :to="{ path: '/files' }">
+      <navbar-item-link v-if="is_visible_files" :to="{ name: 'files' }">
         <mdicon class="icon" name="folder-open" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_search" :to="{ name: 'search' }">
@@ -95,7 +95,7 @@
               <mdicon class="icon" name="radio" size="16" />
               <b v-text="$t('navigation.radio')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ path: '/files' }">
+            <navbar-item-link :to="{ name: 'files' }">
               <mdicon class="icon" name="folder-open" size="16" />
               <b v-text="$t('navigation.files')" />
             </navbar-item-link>
