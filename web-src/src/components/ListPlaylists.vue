@@ -46,9 +46,12 @@ export default {
   methods: {
     open_playlist(playlist) {
       if (playlist.type !== 'folder') {
-        this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
+        this.$router.push({
+          name: 'playlist-tracks',
+          params: { id: playlist.id }
+        })
       } else {
-        this.$router.push({ path: '/playlists/' + playlist.id })
+        this.$router.push({ name: 'playlist', params: { id: playlist.id } })
       }
     },
 

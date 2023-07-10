@@ -6,10 +6,7 @@
     aria-label="main navigation"
   >
     <div class="navbar-brand">
-      <navbar-item-link
-        v-if="is_visible_playlists"
-        :to="{ path: '/playlists' }"
-      >
+      <navbar-item-link v-if="is_visible_playlists" :to="{ name: 'playlists' }">
         <mdicon class="icon" name="music-box-multiple" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_music" :to="{ path: '/music' }">
@@ -60,7 +57,7 @@
             />
           </a>
           <div class="navbar-dropdown is-right">
-            <navbar-item-link :to="{ path: '/playlists' }">
+            <navbar-item-link :to="{ name: 'playlists' }">
               <mdicon class="icon" name="music-box-multiple" size="16" />
               <b v-text="$t('navigation.playlists')" />
             </navbar-item-link>

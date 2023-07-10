@@ -51,7 +51,7 @@
           :album="selected_track.album"
           @close="show_track_details_modal = false"
         />
-        <spotify-modal-dialog-playlist
+        <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="playlist"
           @close="show_playlist_details_modal = false"
@@ -63,9 +63,9 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
 import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
 import store from '@/store'
 import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -78,8 +78,8 @@ const dataObject = {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
     return Promise.all([
-      spotifyApi.getPlaylist(to.params.playlist_id),
-      spotifyApi.getPlaylistTracks(to.params.playlist_id, {
+      spotifyApi.getPlaylist(to.params.id),
+      spotifyApi.getPlaylistTracks(to.params.id, {
         limit: PAGE_SIZE,
         offset: 0,
         market: store.state.spotify.webapi_country
@@ -97,12 +97,12 @@ const dataObject = {
 }
 
 export default {
-  name: 'SpotifyPagePlaylist',
+  name: 'PagePlaylistSpotify',
   components: {
     ContentWithHeading,
+    ModalDialogPlaylistSpotify,
     SpotifyListItemTrack,
     SpotifyModalDialogTrack,
-    SpotifyModalDialogPlaylist,
     VueEternalLoading
   },
 

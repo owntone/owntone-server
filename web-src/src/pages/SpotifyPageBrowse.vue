@@ -75,7 +75,7 @@
             </a>
           </template>
         </spotify-list-item-playlist>
-        <spotify-modal-dialog-playlist
+        <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="selected_playlist"
           @close="show_playlist_details_modal = false"
@@ -99,10 +99,10 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
+import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
 import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import store from '@/store'
 import * as types from '@/store/mutation_types'
@@ -146,12 +146,12 @@ export default {
   name: 'SpotifyPageBrowse',
   components: {
     ContentWithHeading,
-    TabsMusic,
+    CoverArtwork,
+    ModalDialogPlaylistSpotify,
     SpotifyListItemAlbum,
     SpotifyListItemPlaylist,
     SpotifyModalDialogAlbum,
-    SpotifyModalDialogPlaylist,
-    CoverArtwork
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {

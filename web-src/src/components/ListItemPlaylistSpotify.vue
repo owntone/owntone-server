@@ -12,13 +12,14 @@
 
 <script>
 export default {
-  name: 'SpotifyListItemPlaylist',
+  name: 'ListItemPlaylistSpotify',
   props: ['playlist'],
 
   methods: {
     open_playlist() {
       this.$router.push({
-        path: '/music/spotify/playlists/' + this.playlist.id
+        name: 'playlist-spotify',
+        params: { id: this.playlist.id }
       })
     }
   }

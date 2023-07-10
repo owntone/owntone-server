@@ -4,6 +4,9 @@ import PageAbout from '@/pages/PageAbout.vue'
 import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
 import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
 import PageFiles from '@/pages/PageFiles.vue'
+import PagePlaylist from '@/pages/PagePlaylist.vue'
+import PagePlaylistSpotify from '@/pages/PagePlaylistSpotify.vue'
+import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
 import PagePodcast from '@/pages/PagePodcast.vue'
 import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PageNowPlaying from '@/pages/PageNowPlaying.vue'
@@ -24,8 +27,6 @@ import PageComposer from '@/pages/PageComposer.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
-import PagePlaylists from '@/pages/PagePlaylists.vue'
-import PagePlaylist from '@/pages/PagePlaylist.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
@@ -34,7 +35,6 @@ import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases.v
 import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists.vue'
 import SpotifyPageArtist from '@/pages/SpotifyPageArtist.vue'
 import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum.vue'
-import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist.vue'
 import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface.vue'
 import SettingsPageArtwork from '@/pages/SettingsPageArtwork.vue'
 import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices.vue'
@@ -152,7 +152,29 @@ export const router = createRouter({
     {
       component: PageNowPlaying,
       name: 'now-playing',
-      path: '/now-playing',
+      path: '/now-playing'
+    },
+    {
+      name: 'playlists',
+      redirect: '/playlist/0'
+    },
+    {
+      component: PagePlaylist,
+      meta: { show_progress: true },
+      name: 'playlist',
+      path: '/playlist/:id'
+    },
+    {
+      component: PagePlaylistSpotify,
+      meta: { show_progress: true },
+      name: 'playlist-spotify',
+      path: '/playlist/spotify/:id'
+    },
+    {
+      component: PagePlaylistTracks,
+      meta: { show_progress: true },
+      name: 'playlist-tracks',
+      path: '/playlist/:id/tracks'
     },
     {
       component: PagePodcast,
@@ -164,7 +186,7 @@ export const router = createRouter({
       component: PagePodcasts,
       meta: { show_progress: true },
       name: 'podcasts',
-      path: '/podcasts',
+      path: '/podcasts'
     },
     {
       path: '/audiobooks',
@@ -195,22 +217,6 @@ export const router = createRouter({
       meta: { show_progress: true }
     },
     {
-      path: '/playlists',
-      redirect: '/playlists/0'
-    },
-    {
-      path: '/playlists/:playlist_id',
-      name: 'Playlists',
-      component: PagePlaylists,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/playlists/:playlist_id/tracks',
-      name: 'Playlist',
-      component: PagePlaylist,
-      meta: { show_progress: true }
-    },
-    {
       component: PageQueue,
       name: 'queue',
       path: '/'
@@ -228,7 +234,7 @@ export const router = createRouter({
     {
       component: PageSearchSpotify,
       name: 'search-spotify',
-      path: '/search/spotify',
+      path: '/search/spotify'
     },
     {
       path: '/music/spotify',
@@ -258,12 +264,6 @@ export const router = createRouter({
       path: '/music/spotify/albums/:album_id',
       name: 'Spotify Album',
       component: SpotifyPageAlbum,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/music/spotify/playlists/:playlist_id',
-      name: 'Spotify Playlist',
-      component: SpotifyPagePlaylist,
       meta: { show_progress: true }
     },
     {

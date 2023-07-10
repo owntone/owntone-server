@@ -89,7 +89,10 @@ export default {
 
     open_playlist() {
       this.$emit('close')
-      this.$router.push({ path: '/playlists/' + this.playlist.id + '/tracks' })
+      this.$router.push({
+        name: 'playlist-tracks',
+        params: { id: this.playlist.id }
+      })
     }
   }
 }

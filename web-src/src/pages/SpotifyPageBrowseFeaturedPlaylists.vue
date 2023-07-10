@@ -24,7 +24,7 @@
             </a>
           </template>
         </spotify-list-item-playlist>
-        <spotify-modal-dialog-playlist
+        <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="selected_playlist"
           @close="show_playlist_details_modal = false"
@@ -35,13 +35,13 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
-import store from '@/store'
 import * as types from '@/store/mutation_types'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
+import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import store from '@/store'
+import TabsMusic from '@/components/TabsMusic.vue'
 
 const dataObject = {
   load(to) {
@@ -68,9 +68,9 @@ export default {
   name: 'SpotifyPageBrowseFeaturedPlaylists',
   components: {
     ContentWithHeading,
-    TabsMusic,
+    ModalDialogPlaylistSpotify,
     SpotifyListItemPlaylist,
-    SpotifyModalDialogPlaylist
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {

@@ -79,7 +79,7 @@
 import webapi from '@/webapi'
 
 export default {
-  name: 'SpotifyModalDialogPlaylist',
+  name: 'ModalDialogPlaylistSpotify',
   props: ['show', 'playlist'],
   emits: ['close'],
 
@@ -100,8 +100,10 @@ export default {
     },
 
     open_playlist() {
+      this.$emit('close')
       this.$router.push({
-        path: '/music/spotify/playlists/' + this.playlist.id
+        name: 'playlist-spotify',
+        params: { id: this.playlist.id }
       })
     }
   }

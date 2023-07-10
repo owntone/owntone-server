@@ -278,7 +278,7 @@ export default {
     ListComposers,
     ListPlaylists,
     ListTracks,
-    TabsSearch,
+    TabsSearch
   },
 
   data() {
@@ -574,7 +574,7 @@ export default {
     },
 
     open_playlist(playlist) {
-      this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
+      this.$router.push({ name: 'playlist', params: { id: playlist.id } })
     },
 
     open_recent_search(query) {

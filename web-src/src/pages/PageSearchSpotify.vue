@@ -237,7 +237,7 @@
         >
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-playlist
+        <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="selected_playlist"
           @close="show_playlist_details_modal = false"
@@ -272,13 +272,13 @@ import * as types from '@/store/mutation_types'
 import ContentText from '@/templates/ContentText.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
+import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
 import SpotifyListItemArtist from '@/components/SpotifyListItemArtist.vue'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
 import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
 import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
 import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
@@ -293,13 +293,13 @@ export default {
     ContentText,
     ContentWithHeading,
     CoverArtwork,
+    ModalDialogPlaylistSpotify,
     SpotifyListItemAlbum,
     SpotifyListItemArtist,
     SpotifyListItemPlaylist,
     SpotifyListItemTrack,
     SpotifyModalDialogAlbum,
     SpotifyModalDialogArtist,
-    SpotifyModalDialogPlaylist,
     SpotifyModalDialogTrack,
     VueEternalLoading,
     TabsSearch
