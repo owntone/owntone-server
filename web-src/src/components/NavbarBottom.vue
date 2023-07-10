@@ -112,7 +112,7 @@
       </navbar-item-link>
       <navbar-item-link
         v-if="!is_now_playing_page"
-        :to="{ path: '/now-playing' }"
+        :to="{ name: 'now-playing' }"
         exact
         class="navbar-item fd-is-text-clipped is-expanded is-clipped is-size-7"
       >
@@ -330,7 +330,7 @@ export default {
       return this.$store.getters.now_playing
     },
     is_now_playing_page() {
-      return this.$route.path === '/now-playing'
+      return this.$route.name === 'now-playing'
     },
     outputs() {
       return this.$store.state.outputs

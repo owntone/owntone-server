@@ -56,11 +56,6 @@ export const router = createRouter({
       path: '/audiobook/:id'
     },
     {
-      path: '/now-playing',
-      name: 'Now playing',
-      component: PageNowPlaying
-    },
-    {
       path: '/music',
       redirect: '/music/browse'
     },
@@ -147,6 +142,11 @@ export const router = createRouter({
       name: 'ComposerTracks',
       component: PageComposerTracks,
       meta: { show_progress: true, has_index: true }
+    },
+    {
+      component: PageNowPlaying,
+      name: 'now-playing',
+      path: '/now-playing',
     },
     {
       component: PagePodcast,
