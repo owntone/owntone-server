@@ -50,11 +50,6 @@ export const router = createRouter({
       path: '/about'
     },
     {
-      path: '/',
-      name: 'PageQueue',
-      component: PageQueue
-    },
-    {
       component: PageAudiobooksAlbum,
       meta: { show_progress: true },
       name: 'audiobook',
@@ -214,6 +209,11 @@ export const router = createRouter({
       name: 'Playlist',
       component: PagePlaylist,
       meta: { show_progress: true }
+    },
+    {
+      component: PageQueue,
+      name: 'queue',
+      path: '/'
     },
     {
       path: '/search',

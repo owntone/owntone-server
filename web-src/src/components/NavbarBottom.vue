@@ -107,7 +107,7 @@
       </div>
     </div>
     <div class="navbar-brand is-flex-grow-1">
-      <navbar-item-link :to="{ path: '/' }" exact class="mr-auto">
+      <navbar-item-link :to="{ name: 'queue' }" exact class="mr-auto">
         <mdicon class="icon" name="playlist-play" size="24" />
       </navbar-item-link>
       <navbar-item-link
