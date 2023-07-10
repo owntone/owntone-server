@@ -55,8 +55,8 @@ import webapi from '@/webapi'
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_album(to.params.album_id),
-      webapi.library_album_tracks(to.params.album_id)
+      webapi.library_album(to.params.id),
+      webapi.library_album_tracks(to.params.id)
     ])
   },
 

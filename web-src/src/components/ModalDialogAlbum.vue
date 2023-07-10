@@ -165,7 +165,10 @@ export default {
           params: { id: this.album.id }
         })
       } else {
-        this.$router.push({ path: '/music/albums/' + this.album.id })
+        this.$router.push({
+          name: 'music-album',
+          params: { id: this.album.id }
+        })
       }
     },
 

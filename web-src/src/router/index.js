@@ -49,7 +49,18 @@ export const router = createRouter({
       name: 'about',
       path: '/about'
     },
-
+    {
+      component: PageAlbum,
+      meta: { show_progress: true },
+      name: 'music-album',
+      path: '/music/albums/:id'
+    },
+    {
+      component: PageAlbums,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'music-albums',
+      path: '/music/albums'
+    },
     {
       component: PageArtist,
       meta: { show_progress: true, has_index: true },
@@ -118,18 +129,6 @@ export const router = createRouter({
       name: 'Browse Recently Played',
       component: PageBrowseRecentlyPlayed,
       meta: { show_progress: true, has_tabs: true }
-    },
-    {
-      path: '/music/albums',
-      name: 'Albums',
-      component: PageAlbums,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/music/albums/:album_id',
-      name: 'Album',
-      component: PageAlbum,
-      meta: { show_progress: true }
     },
     {
       component: PageFiles,

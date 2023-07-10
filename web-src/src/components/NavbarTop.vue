@@ -68,7 +68,7 @@
             <navbar-item-link :to="{ name: 'music-artists' }">
               <span class="pl-5" v-text="$t('navigation.artists')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ path: '/music/albums' }">
+            <navbar-item-link :to="{ name: 'music-albums' }">
               <span class="pl-5" v-text="$t('navigation.albums')" />
             </navbar-item-link>
             <navbar-item-link :to="{ path: '/music/genres' }">

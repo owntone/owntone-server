@@ -193,8 +193,8 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
+import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrack',
@@ -253,7 +253,10 @@ export default {
           params: { id: this.track.album_id }
         })
       } else {
-        this.$router.push({ path: '/music/albums/' + this.track.album_id })
+        this.$router.push({
+          name: 'music-album',
+          params: { id: this.track.album_id }
+        })
       }
     },
 

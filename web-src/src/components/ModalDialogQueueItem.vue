@@ -166,8 +166,8 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
+import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogQueueItem',
@@ -219,7 +219,10 @@ export default {
           params: { id: this.item.album_id }
         })
       } else {
-        this.$router.push({ path: '/music/albums/' + this.item.album_id })
+        this.$router.push({
+          name: 'music-album',
+          params: { id: this.item.album_id }
+        })
       }
     },
 
