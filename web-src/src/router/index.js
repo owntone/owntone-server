@@ -19,8 +19,8 @@ import PageArtistTracks from '@/pages/PageArtistTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
 import PageComposer from '@/pages/PageComposer.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
-import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PagePodcast from '@/pages/PagePodcast.vue'
+import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
 import PagePlaylists from '@/pages/PagePlaylists.vue'
@@ -154,15 +154,15 @@ export const router = createRouter({
       meta: { show_progress: true, has_index: true }
     },
     {
+      component: PagePodcast,
+      meta: { show_progress: true },
+      name: 'podcast',
+      path: '/podcast/:id'
+    },
+    {
       path: '/podcasts',
       name: 'Podcasts',
       component: PagePodcasts,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/podcasts/:album_id',
-      name: 'Podcast',
-      component: PagePodcast,
       meta: { show_progress: true }
     },
     {

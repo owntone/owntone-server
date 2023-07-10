@@ -209,7 +209,10 @@ export default {
 
     open_album() {
       if (this.media_kind === 'podcast') {
-        this.$router.push({ path: '/podcasts/' + this.item.album_id })
+        this.$router.push({
+          name: 'podcast',
+          params: { id: this.item.album_id }
+        })
       } else if (this.media_kind === 'audiobook') {
         this.$router.push({
           name: 'audiobook',

@@ -59,17 +59,17 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListTracks from '@/components/ListTracks.vue'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
-import ModalDialog from '@/components/ModalDialog.vue'
-import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
+import ListTracks from '@/components/ListTracks.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_album(to.params.album_id),
-      webapi.library_podcast_episodes(to.params.album_id)
+      webapi.library_album(to.params.id),
+      webapi.library_podcast_episodes(to.params.id)
     ])
   },
 
@@ -84,8 +84,8 @@ export default {
   components: {
     ContentWithHeading,
     ListTracks,
-    ModalDialogAlbum,
-    ModalDialog
+    ModalDialog,
+    ModalDialogAlbum
   },
 
   beforeRouteEnter(to, from, next) {
