@@ -11,6 +11,9 @@ import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageFiles from '@/pages/PageFiles.vue'
+import PageGenre from '@/pages/PageGenre.vue'
+import PageGenreTracks from '@/pages/PageGenreTracks.vue'
+import PageGenres from '@/pages/PageGenres.vue'
 import PagePlaylist from '@/pages/PagePlaylist.vue'
 import PagePlaylistSpotify from '@/pages/PagePlaylistSpotify.vue'
 import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
@@ -21,9 +24,6 @@ import PageQueue from '@/pages/PageQueue.vue'
 import PageBrowse from '@/pages/PageBrowse.vue'
 import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
 import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
-import PageGenres from '@/pages/PageGenres.vue'
-import PageGenre from '@/pages/PageGenre.vue'
-import PageGenreTracks from '@/pages/PageGenreTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
 import PageComposer from '@/pages/PageComposer.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
@@ -137,22 +137,22 @@ export const router = createRouter({
       path: '/files'
     },
     {
-      path: '/music/genres',
-      name: 'Genres',
-      component: PageGenres,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/music/genres/:genre',
-      name: 'Genre',
       component: PageGenre,
-      meta: { show_progress: true, has_index: true }
+      meta: { has_index: true, show_progress: true },
+      path: '/music/genres/:genre',
+      name: 'music-genre'
     },
     {
       path: '/music/genres/:genre/tracks',
-      name: 'GenreTracks',
+      name: 'music-genre-tracks',
       component: PageGenreTracks,
       meta: { show_progress: true, has_index: true }
+    },
+    {
+      component: PageGenres,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      path: '/music/genres',
+      name: 'music-genres'
     },
     {
       path: '/music/composers',

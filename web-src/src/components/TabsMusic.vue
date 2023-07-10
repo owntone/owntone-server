@@ -19,7 +19,7 @@
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/music/artists"
+                :to="{ name: 'music-artists' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
@@ -35,7 +35,7 @@
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/music/albums"
+                :to="{ name: 'music-albums' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
@@ -47,7 +47,7 @@
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/music/genres"
+                :to="{ name: 'music-genres' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">

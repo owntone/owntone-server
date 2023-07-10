@@ -55,9 +55,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
@@ -146,7 +146,10 @@ export default {
   methods: {
     open_genre() {
       this.show_details_modal = false
-      this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
+      this.$router.push({
+        name: 'music-genre',
+        params: { genre: this.genre.name }
+      })
     },
 
     play() {

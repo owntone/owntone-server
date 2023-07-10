@@ -106,7 +106,7 @@ export default {
     open_tracks() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'GenreTracks',
+        name: 'music-genre-tracks',
         params: { genre: this.genre.name }
       })
     },

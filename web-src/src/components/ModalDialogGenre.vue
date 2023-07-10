@@ -90,7 +90,10 @@ export default {
 
     open_genre() {
       this.$emit('close')
-      this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
+      this.$router.push({
+        name: 'music-genre',
+        params: { genre: this.genre.name }
+      })
     }
   }
 }

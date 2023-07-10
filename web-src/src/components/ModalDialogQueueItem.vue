@@ -234,7 +234,10 @@ export default {
     },
 
     open_genre() {
-      this.$router.push({ name: 'Genre', params: { genre: this.item.genre } })
+      this.$router.push({
+        name: 'music-genre',
+        params: { genre: this.item.genre }
+      })
     },
 
     open_spotify_artist() {
