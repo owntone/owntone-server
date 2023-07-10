@@ -9,7 +9,7 @@
         />
       </template>
       <template #content>
-        <spotify-list-item-playlist
+        <list-item-playlist-spotify
           v-for="playlist in featured_playlists"
           :key="playlist.id"
           :playlist="playlist"
@@ -23,7 +23,7 @@
               />
             </a>
           </template>
-        </spotify-list-item-playlist>
+        </list-item-playlist-spotify>
         <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="selected_playlist"
@@ -37,8 +37,8 @@
 <script>
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import store from '@/store'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -68,8 +68,8 @@ export default {
   name: 'SpotifyPageBrowseFeaturedPlaylists',
   components: {
     ContentWithHeading,
+    ListItemPlaylistSpotify,
     ModalDialogPlaylistSpotify,
-    SpotifyListItemPlaylist,
     TabsMusic
   },
 

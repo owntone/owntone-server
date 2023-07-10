@@ -216,7 +216,7 @@
         <p class="title is-4" v-text="$t('page.spotify.search.playlists')" />
       </template>
       <template #content>
-        <spotify-list-item-playlist
+        <list-item-playlist-spotify
           v-for="playlist in playlists.items"
           :key="playlist.id"
           :playlist="playlist"
@@ -230,7 +230,7 @@
               />
             </a>
           </template>
-        </spotify-list-item-playlist>
+        </list-item-playlist-spotify>
         <VueEternalLoading
           v-if="query.type === 'playlist'"
           :load="search_playlists_next"
@@ -272,11 +272,11 @@ import * as types from '@/store/mutation_types'
 import ContentText from '@/templates/ContentText.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
+import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
 import SpotifyListItemArtist from '@/components/SpotifyListItemArtist.vue'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
 import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
 import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
@@ -293,10 +293,10 @@ export default {
     ContentText,
     ContentWithHeading,
     CoverArtwork,
+    ListItemPlaylistSpotify,
     ModalDialogPlaylistSpotify,
     SpotifyListItemAlbum,
     SpotifyListItemArtist,
-    SpotifyListItemPlaylist,
     SpotifyListItemTrack,
     SpotifyModalDialogAlbum,
     SpotifyModalDialogArtist,

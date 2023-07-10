@@ -60,7 +60,7 @@
         />
       </template>
       <template #content>
-        <spotify-list-item-playlist
+        <list-item-playlist-spotify
           v-for="playlist in featured_playlists"
           :key="playlist.id"
           :playlist="playlist"
@@ -74,7 +74,7 @@
               />
             </a>
           </template>
-        </spotify-list-item-playlist>
+        </list-item-playlist-spotify>
         <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="selected_playlist"
@@ -97,16 +97,16 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
+import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
-import store from '@/store'
-import * as types from '@/store/mutation_types'
 import SpotifyWebApi from 'spotify-web-api-js'
+import store from '@/store'
+import TabsMusic from '@/components/TabsMusic.vue'
 
 const dataObject = {
   load(to) {
@@ -147,9 +147,9 @@ export default {
   components: {
     ContentWithHeading,
     CoverArtwork,
+    ListItemPlaylistSpotify,
     ModalDialogPlaylistSpotify,
     SpotifyListItemAlbum,
-    SpotifyListItemPlaylist,
     SpotifyModalDialogAlbum,
     TabsMusic
   },
