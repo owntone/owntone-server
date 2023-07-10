@@ -69,13 +69,13 @@
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ListAlbums',
-  components: { CoverArtwork, ModalDialogAlbum, ModalDialog },
+  components: { CoverArtwork, ModalDialog, ModalDialogAlbum },
   props: ['albums', 'media_kind', 'hide_group_title'],
   emits: ['play-count-changed', 'podcast-deleted'],
 
@@ -107,7 +107,7 @@ export default {
       if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ path: '/podcasts/' + album.id })
       } else if (this.media_kind_resolved === 'audiobook') {
-        this.$router.push({ path: '/audiobooks/' + album.id })
+        this.$router.push({ name: 'audiobook', params: { id: album.id } })
       } else {
         this.$router.push({ path: '/music/albums/' + album.id })
       }

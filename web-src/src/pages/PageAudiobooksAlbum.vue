@@ -51,17 +51,17 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_album(to.params.album_id),
-      webapi.library_album_tracks(to.params.album_id)
+      webapi.library_album(to.params.id),
+      webapi.library_album_tracks(to.params.id)
     ])
   },
 
@@ -73,7 +73,7 @@ const dataObject = {
 
 export default {
   name: 'PageAudiobooksAlbum',
-  components: { ContentWithHero, ListTracks, ModalDialogAlbum, CoverArtwork },
+  components: { ContentWithHero, CoverArtwork, ListTracks, ModalDialogAlbum },
 
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {

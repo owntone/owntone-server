@@ -1,6 +1,8 @@
+import * as types from '@/store/mutation_types'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import store from '@/store'
-import * as types from '@/store/mutation_types'
+import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
+import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
 import PageQueue from '@/pages/PageQueue.vue'
 import PageNowPlaying from '@/pages/PageNowPlaying.vue'
 import PageBrowse from '@/pages/PageBrowse.vue'
@@ -19,10 +21,8 @@ import PageComposer from '@/pages/PageComposer.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PagePodcast from '@/pages/PagePodcast.vue'
-import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
-import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
 import PagePlaylists from '@/pages/PagePlaylists.vue'
 import PagePlaylist from '@/pages/PagePlaylist.vue'
 import PageFiles from '@/pages/PageFiles.vue'
@@ -53,6 +53,12 @@ export const router = createRouter({
       path: '/about',
       name: 'About',
       component: PageAbout
+    },
+    {
+      component: PageAudiobooksAlbum,
+      meta: { show_progress: true },
+      name: 'audiobook',
+      path: '/audiobook/:id'
     },
     {
       path: '/now-playing',
@@ -180,12 +186,6 @@ export const router = createRouter({
       name: 'AudiobooksAlbums',
       component: PageAudiobooksAlbums,
       meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/audiobooks/:album_id',
-      name: 'Audiobook',
-      component: PageAudiobooksAlbum,
-      meta: { show_progress: true }
     },
     {
       path: '/radio',
