@@ -3,8 +3,10 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import PageAbout from '@/pages/PageAbout.vue'
 import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
 import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
-import PageQueue from '@/pages/PageQueue.vue'
+import PagePodcast from '@/pages/PagePodcast.vue'
+import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PageNowPlaying from '@/pages/PageNowPlaying.vue'
+import PageQueue from '@/pages/PageQueue.vue'
 import PageBrowse from '@/pages/PageBrowse.vue'
 import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
 import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
@@ -19,8 +21,6 @@ import PageArtistTracks from '@/pages/PageArtistTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
 import PageComposer from '@/pages/PageComposer.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
-import PagePodcast from '@/pages/PagePodcast.vue'
-import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
 import PagePlaylists from '@/pages/PagePlaylists.vue'
@@ -155,10 +155,10 @@ export const router = createRouter({
       path: '/podcast/:id'
     },
     {
-      path: '/podcasts',
-      name: 'Podcasts',
       component: PagePodcasts,
-      meta: { show_progress: true }
+      meta: { show_progress: true },
+      name: 'podcasts',
+      path: '/podcasts',
     },
     {
       path: '/audiobooks',

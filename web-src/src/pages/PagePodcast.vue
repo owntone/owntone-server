@@ -139,7 +139,7 @@ export default {
       webapi
         .library_playlist_delete(this.rss_playlist_to_remove.id)
         .then(() => {
-          this.$router.replace({ path: '/podcasts' })
+          this.$router.replace({ name: 'podcasts' })
         })
     },
 

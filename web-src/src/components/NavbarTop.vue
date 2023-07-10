@@ -15,7 +15,7 @@
       <navbar-item-link v-if="is_visible_music" :to="{ path: '/music' }">
         <mdicon class="icon" name="music" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_podcasts" :to="{ path: '/podcasts' }">
+      <navbar-item-link v-if="is_visible_podcasts" :to="{ name: 'podcasts' }">
         <mdicon class="icon" name="microphone" size="16" />
       </navbar-item-link>
       <navbar-item-link
@@ -83,7 +83,7 @@
             >
               <span class="pl-5" v-text="$t('navigation.spotify')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ path: '/podcasts' }">
+            <navbar-item-link :to="{ name: 'podcasts' }">
               <mdicon class="icon" name="microphone" size="16" />
               <b v-text="$t('navigation.podcasts')" />
             </navbar-item-link>
