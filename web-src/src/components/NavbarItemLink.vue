@@ -15,7 +15,7 @@ import * as types from '@/store/mutation_types'
 export default {
   name: 'NavbarItemLink',
   props: {
-    to: String,
+    to: Object,
     exact: Boolean
   },
 
@@ -54,7 +54,7 @@ export default {
       if (this.show_player_menu) {
         this.$store.commit(types.SHOW_PLAYER_MENU, false)
       }
-      this.$router.push({ path: this.to })
+      this.$router.push(this.to)
     },
 
     full_path() {

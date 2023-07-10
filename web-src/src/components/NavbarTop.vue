@@ -6,25 +6,31 @@
     aria-label="main navigation"
   >
     <div class="navbar-brand">
-      <navbar-item-link v-if="is_visible_playlists" to="/playlists">
+      <navbar-item-link
+        v-if="is_visible_playlists"
+        :to="{ path: '/playlists' }"
+      >
         <mdicon class="icon" name="music-box-multiple" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_music" to="/music">
+      <navbar-item-link v-if="is_visible_music" :to="{ path: '/music' }">
         <mdicon class="icon" name="music" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_podcasts" to="/podcasts">
+      <navbar-item-link v-if="is_visible_podcasts" :to="{ path: '/podcasts' }">
         <mdicon class="icon" name="microphone" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_audiobooks" to="/audiobooks">
+      <navbar-item-link
+        v-if="is_visible_audiobooks"
+        :to="{ path: '/audiobooks' }"
+      >
         <mdicon class="icon" name="book-open-variant" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_radio" to="/radio">
+      <navbar-item-link v-if="is_visible_radio" :to="{ path: '/radio' }">
         <mdicon class="icon" name="radio" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_files" to="/files">
+      <navbar-item-link v-if="is_visible_files" :to="{ path: '/files' }">
         <mdicon class="icon" name="folder-open" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_search" to="/search">
+      <navbar-item-link v-if="is_visible_search" :to="{ path: '/search' }">
         <mdicon class="icon" name="magnify" size="16" />
       </navbar-item-link>
       <div
@@ -54,48 +60,51 @@
             />
           </a>
           <div class="navbar-dropdown is-right">
-            <navbar-item-link to="/playlists">
+            <navbar-item-link :to="{ path: '/playlists' }">
               <mdicon class="icon" name="music-box-multiple" size="16" />
               <b v-text="$t('navigation.playlists')" />
             </navbar-item-link>
-            <navbar-item-link to="/music" exact>
+            <navbar-item-link :to="{ path: '/music' }" exact>
               <mdicon class="icon" name="music" size="16" />
               <b v-text="$t('navigation.music')" />
             </navbar-item-link>
-            <navbar-item-link to="/music/artists">
+            <navbar-item-link :to="{ path: '/music/artists' }">
               <span class="pl-5" v-text="$t('navigation.artists')" />
             </navbar-item-link>
-            <navbar-item-link to="/music/albums">
+            <navbar-item-link :to="{ path: '/music/albums' }">
               <span class="pl-5" v-text="$t('navigation.albums')" />
             </navbar-item-link>
-            <navbar-item-link to="/music/genres">
+            <navbar-item-link :to="{ path: '/music/genres' }">
               <span class="pl-5" v-text="$t('navigation.genres')" />
             </navbar-item-link>
-            <navbar-item-link v-if="spotify_enabled" to="/music/spotify">
+            <navbar-item-link
+              v-if="spotify_enabled"
+              :to="{ path: '/music/spotify' }"
+            >
               <span class="pl-5" v-text="$t('navigation.spotify')" />
             </navbar-item-link>
-            <navbar-item-link to="/podcasts">
+            <navbar-item-link :to="{ path: '/podcasts' }">
               <mdicon class="icon" name="microphone" size="16" />
               <b v-text="$t('navigation.podcasts')" />
             </navbar-item-link>
-            <navbar-item-link to="/audiobooks">
+            <navbar-item-link :to="{ path: '/audiobooks' }">
               <mdicon class="icon" name="book-open-variant" size="16" />
               <b v-text="$t('navigation.audiobooks')" />
             </navbar-item-link>
-            <navbar-item-link to="/radio">
+            <navbar-item-link :to="{ path: '/radio' }">
               <mdicon class="icon" name="radio" size="16" />
               <b v-text="$t('navigation.radio')" />
             </navbar-item-link>
-            <navbar-item-link to="/files">
+            <navbar-item-link :to="{ path: '/files' }">
               <mdicon class="icon" name="folder-open" size="16" />
               <b v-text="$t('navigation.files')" />
             </navbar-item-link>
-            <navbar-item-link to="/search">
+            <navbar-item-link :to="{ path: '/search' }">
               <mdicon class="icon" name="magnify" size="16" />
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
             <hr class="my-3" />
-            <navbar-item-link to="/settings/webinterface">{{
+            <navbar-item-link :to="{ path: '/settings/webinterface' }">{{
               $t('navigation.settings')
             }}</navbar-item-link>
             <a
@@ -103,7 +112,7 @@
               @click.stop.prevent="open_update_dialog()"
               v-text="$t('navigation.update-library')"
             />
-            <navbar-item-link to="/about">{{
+            <navbar-item-link :to="{ name: 'about' }">{{
               $t('navigation.about')
             }}</navbar-item-link>
             <div class="navbar-item is-hidden-desktop" />

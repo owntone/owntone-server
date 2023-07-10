@@ -107,12 +107,12 @@
       </div>
     </div>
     <div class="navbar-brand is-flex-grow-1">
-      <navbar-item-link to="/" exact class="mr-auto">
+      <navbar-item-link :to="{ path: '/' }" exact class="mr-auto">
         <mdicon class="icon" name="playlist-play" size="24" />
       </navbar-item-link>
       <navbar-item-link
         v-if="!is_now_playing_page"
-        to="/now-playing"
+        :to="{ path: '/now-playing' }"
         exact
         class="navbar-item fd-is-text-clipped is-expanded is-clipped is-size-7"
       >
@@ -267,14 +267,14 @@ import ControlSlider from '@/components/ControlSlider.vue'
 import { mdiCancel } from '@mdi/js'
 import NavbarItemLink from './NavbarItemLink.vue'
 import NavbarItemOutput from './NavbarItemOutput.vue'
-import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause.vue'
-import PlayerButtonNext from '@/components/PlayerButtonNext.vue'
-import PlayerButtonPrevious from '@/components/PlayerButtonPrevious.vue'
-import PlayerButtonShuffle from '@/components/PlayerButtonShuffle.vue'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume.vue'
+import PlayerButtonNext from '@/components/PlayerButtonNext.vue'
+import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause.vue'
+import PlayerButtonPrevious from '@/components/PlayerButtonPrevious.vue'
 import PlayerButtonRepeat from '@/components/PlayerButtonRepeat.vue'
 import PlayerButtonSeekBack from '@/components/PlayerButtonSeekBack.vue'
 import PlayerButtonSeekForward from '@/components/PlayerButtonSeekForward.vue'
+import PlayerButtonShuffle from '@/components/PlayerButtonShuffle.vue'
 import webapi from '@/webapi'
 
 export default {
@@ -283,14 +283,14 @@ export default {
     ControlSlider,
     NavbarItemLink,
     NavbarItemOutput,
-    PlayerButtonPlayPause,
-    PlayerButtonNext,
-    PlayerButtonPrevious,
-    PlayerButtonShuffle,
     PlayerButtonConsume,
+    PlayerButtonNext,
+    PlayerButtonPlayPause,
+    PlayerButtonPrevious,
     PlayerButtonRepeat,
+    PlayerButtonSeekBack,
     PlayerButtonSeekForward,
-    PlayerButtonSeekBack
+    PlayerButtonShuffle
   },
 
   data() {

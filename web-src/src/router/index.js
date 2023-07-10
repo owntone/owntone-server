@@ -1,6 +1,6 @@
 import * as types from '@/store/mutation_types'
 import { createRouter, createWebHashHistory } from 'vue-router'
-import store from '@/store'
+import PageAbout from '@/pages/PageAbout.vue'
 import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
 import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
 import PageQueue from '@/pages/PageQueue.vue'
@@ -28,7 +28,6 @@ import PagePlaylist from '@/pages/PagePlaylist.vue'
 import PageFiles from '@/pages/PageFiles.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearch from '@/pages/PageSearch.vue'
-import PageAbout from '@/pages/PageAbout.vue'
 import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse.vue'
 import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases.vue'
 import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists.vue'
@@ -40,19 +39,20 @@ import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface.vue'
 import SettingsPageArtwork from '@/pages/SettingsPageArtwork.vue'
 import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices.vue'
 import SettingsPageRemotesOutputs from '@/pages/SettingsPageRemotesOutputs.vue'
+import store from '@/store'
 
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
+      component: PageAbout,
+      name: 'about',
+      path: '/about'
+    },
+    {
       path: '/',
       name: 'PageQueue',
       component: PageQueue
-    },
-    {
-      path: '/about',
-      name: 'About',
-      component: PageAbout
     },
     {
       component: PageAudiobooksAlbum,
