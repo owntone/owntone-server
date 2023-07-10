@@ -189,6 +189,12 @@ export const router = createRouter({
       path: '/podcasts'
     },
     {
+      component: PageRadioStreams,
+      meta: { show_progress: true },
+      name: 'radio',
+      path: '/radio'
+    },
+    {
       path: '/audiobooks',
       redirect: '/audiobooks/artists'
     },
@@ -209,12 +215,6 @@ export const router = createRouter({
       name: 'AudiobooksAlbums',
       component: PageAudiobooksAlbums,
       meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/radio',
-      name: 'Radio',
-      component: PageRadioStreams,
-      meta: { show_progress: true }
     },
     {
       component: PageQueue,

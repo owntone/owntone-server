@@ -21,7 +21,7 @@
       >
         <mdicon class="icon" name="book-open-variant" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_radio" :to="{ path: '/radio' }">
+      <navbar-item-link v-if="is_visible_radio" :to="{ name: 'radio' }">
         <mdicon class="icon" name="radio" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_files" :to="{ name: 'files' }">
@@ -88,7 +88,7 @@
               <mdicon class="icon" name="book-open-variant" size="16" />
               <b v-text="$t('navigation.audiobooks')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ path: '/radio' }">
+            <navbar-item-link :to="{ name: 'radio' }">
               <mdicon class="icon" name="radio" size="16" />
               <b v-text="$t('navigation.radio')" />
             </navbar-item-link>
