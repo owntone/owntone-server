@@ -17,7 +17,7 @@
       </navbar-item-link>
       <navbar-item-link
         v-if="is_visible_audiobooks"
-        :to="{ path: '/audiobooks' }"
+        :to="{ name: 'audiobooks' }"
       >
         <mdicon class="icon" name="book-open-variant" size="16" />
       </navbar-item-link>
@@ -84,7 +84,7 @@
               <mdicon class="icon" name="microphone" size="16" />
               <b v-text="$t('navigation.podcasts')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ path: '/audiobooks' }">
+            <navbar-item-link :to="{ name: 'audiobooks' }">
               <mdicon class="icon" name="book-open-variant" size="16" />
               <b v-text="$t('navigation.audiobooks')" />
             </navbar-item-link>

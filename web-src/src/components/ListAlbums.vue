@@ -107,7 +107,10 @@ export default {
       if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ name: 'podcast', params: { id: album.id } })
       } else if (this.media_kind_resolved === 'audiobook') {
-        this.$router.push({ name: 'audiobook', params: { id: album.id } })
+        this.$router.push({
+          name: 'audiobooks-album',
+          params: { id: album.id }
+        })
       } else {
         this.$router.push({ path: '/music/albums/' + album.id })
       }

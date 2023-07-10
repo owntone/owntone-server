@@ -40,16 +40,16 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList } from '../lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '../lib/GroupByList'
 
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_artist(to.params.artist_id),
-      webapi.library_artist_albums(to.params.artist_id)
+      webapi.library_artist(to.params.id),
+      webapi.library_artist_albums(to.params.id)
     ])
   },
 

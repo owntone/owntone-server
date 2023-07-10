@@ -52,8 +52,31 @@ export const router = createRouter({
     {
       component: PageAudiobooksAlbum,
       meta: { show_progress: true },
-      name: 'audiobook',
-      path: '/audiobook/:id'
+      name: 'audiobooks-album',
+      path: '/audiobooks/album/:id'
+    },
+    {
+      component: PageAudiobooksAlbums,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'audiobooks-albums',
+      path: '/audiobooks/albums'
+    },
+    {
+      component: PageAudiobooksArtist,
+      meta: { show_progress: true },
+      name: 'audiobooks-artist',
+      path: '/audiobooks/artist/:id'
+    },
+    {
+      component: PageAudiobooksArtists,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'audiobooks-artists',
+      path: '/audiobooks/artists'
+    },
+    {
+      name: 'audiobooks',
+      path: '/audiobooks',
+      redirect: '/audiobooks/artists'
     },
     {
       path: '/music',
@@ -193,28 +216,6 @@ export const router = createRouter({
       meta: { show_progress: true },
       name: 'radio',
       path: '/radio'
-    },
-    {
-      path: '/audiobooks',
-      redirect: '/audiobooks/artists'
-    },
-    {
-      path: '/audiobooks/artists',
-      name: 'AudiobooksArtists',
-      component: PageAudiobooksArtists,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/audiobooks/artists/:artist_id',
-      name: 'AudiobooksArtist',
-      component: PageAudiobooksArtist,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/audiobooks/albums',
-      name: 'AudiobooksAlbums',
-      component: PageAudiobooksAlbums,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
     },
     {
       component: PageQueue,

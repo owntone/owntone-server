@@ -60,7 +60,10 @@ export default {
     open_artist(artist) {
       this.selected_artist = artist
       if (this.media_kind_resolved === 'audiobook') {
-        this.$router.push({ path: '/audiobooks/artists/' + artist.id })
+        this.$router.push({
+          name: 'audiobooks-artist',
+          params: { id: artist.id }
+        })
       } else {
         this.$router.push({ path: '/music/artists/' + artist.id })
       }

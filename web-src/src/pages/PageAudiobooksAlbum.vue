@@ -99,7 +99,10 @@ export default {
   methods: {
     open_artist() {
       this.show_details_modal = false
-      this.$router.push({ path: '/audiobooks/artists/' + this.album.artist_id })
+      this.$router.push({
+        name: 'audiobooks-artist',
+        params: { id: this.album.artist_id }
+      })
     },
 
     play() {

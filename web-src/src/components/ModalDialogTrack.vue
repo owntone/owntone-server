@@ -249,7 +249,7 @@ export default {
         })
       } else if (this.track.media_kind === 'audiobook') {
         this.$router.push({
-          name: 'audiobook',
+          name: 'audiobooks-album',
           params: { id: this.track.album_id }
         })
       } else {
