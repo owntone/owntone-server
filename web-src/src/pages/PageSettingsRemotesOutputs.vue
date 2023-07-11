@@ -98,7 +98,7 @@ import TabsSettings from '@/components/TabsSettings.vue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'SettingsPageRemotesOutputs',
+  name: 'PageSettingsRemotesOutputs',
   components: { ContentWithHeading, TabsSettings },
 
   filters: {},

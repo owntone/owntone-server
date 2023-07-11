@@ -101,7 +101,7 @@
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
             <hr class="my-3" />
-            <navbar-item-link :to="{ path: '/settings/webinterface' }">{{
+            <navbar-item-link :to="{ name: 'settings-webinterface' }">{{
               $t('navigation.settings')
             }}</navbar-item-link>
             <a

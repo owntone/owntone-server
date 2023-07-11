@@ -186,7 +186,7 @@ import SettingsTextfield from '@/components/SettingsTextfield.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 
 export default {
-  name: 'SettingsPageWebinterface',
+  name: 'PageSettingsWebinterface',
   components: {
     ContentWithHeading,
     ControlDropdown,

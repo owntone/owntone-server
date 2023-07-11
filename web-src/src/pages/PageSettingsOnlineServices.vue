@@ -134,7 +134,7 @@ import TabsSettings from '@/components/TabsSettings.vue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'SettingsPageOnlineServices',
+  name: 'PageSettingsOnlineServices',
   components: { ContentWithHeading, TabsSettings },
 
   filters: {

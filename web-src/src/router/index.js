@@ -21,6 +21,10 @@ import PagePodcast from '@/pages/PagePodcast.vue'
 import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PageNowPlaying from '@/pages/PageNowPlaying.vue'
 import PageQueue from '@/pages/PageQueue.vue'
+import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
+import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
+import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
+import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import PageBrowse from '@/pages/PageBrowse.vue'
 import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
 import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
@@ -35,10 +39,7 @@ import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases.v
 import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists.vue'
 import SpotifyPageArtist from '@/pages/SpotifyPageArtist.vue'
 import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum.vue'
-import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface.vue'
-import SettingsPageArtwork from '@/pages/SettingsPageArtwork.vue'
-import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices.vue'
-import SettingsPageRemotesOutputs from '@/pages/SettingsPageRemotesOutputs.vue'
+
 import store from '@/store'
 
 export const router = createRouter({
@@ -238,6 +239,26 @@ export const router = createRouter({
       path: '/search/spotify'
     },
     {
+      component: PageSettingsWebinterface,
+      name: 'settings-webinterface',
+      path: '/settings/webinterface'
+    },
+    {
+      component: PageSettingsArtwork,
+      name: 'settings-artwork',
+      path: '/settings/artwork'
+    },
+    {
+      component: PageSettingsOnlineServices,
+      name: 'settings-online-services',
+      path: '/settings/online-services'
+    },
+    {
+      component: PageSettingsRemotesOutputs,
+      name: 'settings-remotes-outputs',
+      path: '/settings/remotes-outputs'
+    },
+    {
       path: '/music/spotify',
       name: 'Spotify',
       component: SpotifyPageBrowse,
@@ -266,26 +287,6 @@ export const router = createRouter({
       name: 'Spotify Album',
       component: SpotifyPageAlbum,
       meta: { show_progress: true }
-    },
-    {
-      path: '/settings/webinterface',
-      name: 'Settings Webinterface',
-      component: SettingsPageWebinterface
-    },
-    {
-      path: '/settings/artwork',
-      name: 'Settings Artwork',
-      component: SettingsPageArtwork
-    },
-    {
-      path: '/settings/online-services',
-      name: 'Settings Online Services',
-      component: SettingsPageOnlineServices
-    },
-    {
-      path: '/settings/remotes-outputs',
-      name: 'Settings Remotes Outputs',
-      component: SettingsPageRemotesOutputs
     }
   ],
   scrollBehavior(to, from, savedPosition) {
