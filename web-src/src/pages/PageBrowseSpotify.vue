@@ -43,7 +43,7 @@
         <nav class="level">
           <p class="level-item">
             <router-link
-              to="/music/spotify/new-releases"
+              :to="{ name: 'music-spotify-new-releases' }"
               class="button is-light is-small is-rounded"
               >{{ $t('page.spotify.browse.show-more') }}</router-link
             >
@@ -85,7 +85,7 @@
         <nav class="level">
           <p class="level-item">
             <router-link
-              to="/music/spotify/featured-playlists"
+              :to="{ name: 'music-spotify-featured-playlists' }"
               class="button is-light is-small is-rounded"
               >{{ $t('page.spotify.browse.show-more') }}</router-link
             >
@@ -196,7 +196,10 @@ export default {
 
   methods: {
     open_album(album) {
-      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: album.id }
+      })
     },
 
     open_album_dialog(album) {

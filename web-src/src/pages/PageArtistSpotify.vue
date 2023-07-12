@@ -69,14 +69,14 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
 import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
-import store from '@/store'
-import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
+import store from '@/store'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
+import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
 
@@ -85,8 +85,8 @@ const dataObject = {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
     return Promise.all([
-      spotifyApi.getArtist(to.params.artist_id),
-      spotifyApi.getArtistAlbums(to.params.artist_id, {
+      spotifyApi.getArtist(to.params.id),
+      spotifyApi.getArtistAlbums(to.params.id, {
         limit: PAGE_SIZE,
         offset: 0,
         include_groups: 'album,single',
@@ -109,11 +109,11 @@ export default {
   name: 'SpotifyPageArtist',
   components: {
     ContentWithHeading,
+    CoverArtwork,
     SpotifyListItemAlbum,
     SpotifyModalDialogAlbum,
     SpotifyModalDialogArtist,
-    VueEternalLoading,
-    CoverArtwork
+    VueEternalLoading
   },
 
   beforeRouteEnter(to, from, next) {
@@ -180,7 +180,10 @@ export default {
     },
 
     open_album(album) {
-      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: album.id }
+      })
     },
 
     open_dialog(album) {

@@ -2,8 +2,10 @@ import * as types from '@/store/mutation_types'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import PageAbout from '@/pages/PageAbout.vue'
 import PageAlbum from '@/pages/PageAlbum.vue'
+import PageAlbumSpotify from '@/pages/PageAlbumSpotify.vue'
 import PageAlbums from '@/pages/PageAlbums.vue'
 import PageArtist from '@/pages/PageArtist.vue'
+import PageArtistSpotify from '@/pages/PageArtistSpotify.vue'
 import PageArtistTracks from '@/pages/PageArtistTracks.vue'
 import PageArtists from '@/pages/PageArtists.vue'
 import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
@@ -13,6 +15,9 @@ import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageBrowse from '@/pages/PageBrowse.vue'
 import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
 import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
+import PageBrowseSpotify from '@/pages/PageBrowseSpotify.vue'
+import PageBrowseSpotifyNewReleases from '@/pages/PageBrowseSpotifyNewReleases.vue'
+import PageBrowseSpotifyFeaturedPlaylists from '@/pages/PageBrowseSpotifyFeaturedPlaylists.vue'
 import PageFiles from '@/pages/PageFiles.vue'
 import PageGenre from '@/pages/PageGenre.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
@@ -34,12 +39,6 @@ import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
-import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse.vue'
-import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases.vue'
-import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists.vue'
-import SpotifyPageArtist from '@/pages/SpotifyPageArtist.vue'
-import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum.vue'
-
 import store from '@/store'
 
 export const router = createRouter({
@@ -57,6 +56,12 @@ export const router = createRouter({
       path: '/music/albums/:id'
     },
     {
+      component: PageAlbumSpotify,
+      meta: { show_progress: true },
+      name: 'music-spotify-album',
+      path: '/music/spotify/albums/:id'
+    },
+    {
       component: PageAlbums,
       meta: { has_index: true, has_tabs: true, show_progress: true },
       name: 'music-albums',
@@ -67,6 +72,12 @@ export const router = createRouter({
       meta: { show_progress: true, has_index: true },
       name: 'music-artist',
       path: '/music/artists/:id'
+    },
+    {
+      component: PageArtistSpotify,
+      meta: { show_progress: true },
+      name: 'music-spotify-artist',
+      path: '/music/spotify/artists/:id'
     },
     {
       component: PageArtists,
@@ -131,6 +142,24 @@ export const router = createRouter({
       meta: { has_tabs: true, show_progress: true },
       name: 'music-browse-recently-played',
       path: '/music/browse/recently-played'
+    },
+    {
+      component: PageBrowseSpotify,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-spotify',
+      path: '/music/spotify'
+    },
+    {
+      component: PageBrowseSpotifyFeaturedPlaylists,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-spotify-featured-playlists',
+      path: '/music/spotify/featured-playlists'
+    },
+    {
+      component: PageBrowseSpotifyNewReleases,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-spotify-new-releases',
+      path: '/music/spotify/new-releases'
     },
     {
       component: PageFiles,
@@ -258,36 +287,6 @@ export const router = createRouter({
       component: PageSettingsRemotesOutputs,
       name: 'settings-remotes-outputs',
       path: '/settings/remotes-outputs'
-    },
-    {
-      path: '/music/spotify',
-      name: 'Spotify',
-      component: SpotifyPageBrowse,
-      meta: { show_progress: true, has_tabs: true }
-    },
-    {
-      path: '/music/spotify/new-releases',
-      name: 'Spotify Browse New Releases',
-      component: SpotifyPageBrowseNewReleases,
-      meta: { show_progress: true, has_tabs: true }
-    },
-    {
-      path: '/music/spotify/featured-playlists',
-      name: 'Spotify Browse Featured Playlists',
-      component: SpotifyPageBrowseFeaturedPlaylists,
-      meta: { show_progress: true, has_tabs: true }
-    },
-    {
-      path: '/music/spotify/artists/:artist_id',
-      name: 'Spotify Artist',
-      component: SpotifyPageArtist,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/music/spotify/albums/:album_id',
-      name: 'Spotify Album',
-      component: SpotifyPageAlbum,
-      meta: { show_progress: true }
     }
   ],
   scrollBehavior(to, from, savedPosition) {

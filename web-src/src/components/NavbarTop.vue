@@ -76,7 +76,7 @@
             </navbar-item-link>
             <navbar-item-link
               v-if="spotify_enabled"
-              :to="{ path: '/music/spotify' }"
+              :to="{ name: 'music-spotify' }"
             >
               <span class="pl-5" v-text="$t('navigation.spotify')" />
             </navbar-item-link>

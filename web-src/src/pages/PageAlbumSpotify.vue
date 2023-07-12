@@ -74,19 +74,19 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
 import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
 import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
+import SpotifyWebApi from 'spotify-web-api-js'
 import store from '@/store'
 import webapi from '@/webapi'
-import SpotifyWebApi from 'spotify-web-api-js'
 
 const dataObject = {
   load(to) {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
-    return spotifyApi.getAlbum(to.params.album_id, {
+    return spotifyApi.getAlbum(to.params.id, {
       market: store.state.spotify.webapi_country
     })
   },
@@ -100,10 +100,10 @@ export default {
   name: 'PageAlbum',
   components: {
     ContentWithHero,
+    CoverArtwork,
     SpotifyListItemTrack,
     SpotifyModalDialogTrack,
-    SpotifyModalDialogAlbum,
-    CoverArtwork
+    SpotifyModalDialogAlbum
   },
 
   beforeRouteEnter(to, from, next) {
@@ -142,7 +142,8 @@ export default {
   methods: {
     open_artist() {
       this.$router.push({
-        path: '/music/spotify/artists/' + this.album.artists[0].id
+        name: 'music-spotify-artist',
+        params: { id: this.album.artists[0].id }
       })
     },
 

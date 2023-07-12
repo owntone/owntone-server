@@ -16,7 +16,10 @@ export default {
 
   methods: {
     open_artist() {
-      this.$router.push({ path: '/music/spotify/artists/' + this.artist.id })
+      this.$router.push({
+        name: 'music-spotify-artist',
+        params: { id: this.artist.id }
+      })
     }
   }
 }

@@ -568,7 +568,10 @@ export default {
     },
 
     open_album(album) {
-      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: album.id }
+      })
     },
 
     artwork_url(album) {

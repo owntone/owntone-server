@@ -130,12 +130,16 @@ export default {
     },
 
     open_album() {
-      this.$router.push({ path: '/music/spotify/albums/' + this.album.id })
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: this.album.id }
+      })
     },
 
     open_artist() {
       this.$router.push({
-        path: '/music/spotify/artists/' + this.album.artists[0].id
+        name: 'music-spotify-artist',
+        params: { id: this.album.artists[0].id }
       })
     }
   }

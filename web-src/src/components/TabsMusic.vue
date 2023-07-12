@@ -76,7 +76,7 @@
               <router-link
                 v-if="spotify_enabled"
                 v-slot="{ navigate, isActive }"
-                to="/music/spotify"
+                :to="{ name: 'music-spotify' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">

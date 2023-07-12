@@ -77,10 +77,10 @@ export default {
   name: 'SpotifyPageBrowseNewReleases',
   components: {
     ContentWithHeading,
-    TabsMusic,
+    CoverArtwork,
     SpotifyListItemAlbum,
     SpotifyModalDialogAlbum,
-    CoverArtwork
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {
@@ -118,7 +118,10 @@ export default {
 
   methods: {
     open_album(album) {
-      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: album.id }
+      })
     },
 
     open_album_dialog(album) {
