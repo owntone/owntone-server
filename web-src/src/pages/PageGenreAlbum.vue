@@ -46,17 +46,17 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList, byName } from '@/lib/GroupByList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
-import { GroupByList, byName } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_genre(to.params.genre),
-      webapi.library_genre_albums(to.params.genre)
+      webapi.library_genre(to.params.name),
+      webapi.library_genre_albums(to.params.name)
     ])
   },
 
@@ -68,7 +68,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PageGenre',
+  name: 'PageGenreAlbum',
   components: {
     ContentWithHeading,
     IndexButtonList,
@@ -107,7 +107,7 @@ export default {
       this.show_details_modal = false
       this.$router.push({
         name: 'music-genre-tracks',
-        params: { genre: this.genre.name }
+        params: { name: this.genre.name }
       })
     },
 

@@ -22,7 +22,7 @@ import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
 import PageFiles from '@/pages/PageFiles.vue'
-import PageGenre from '@/pages/PageGenre.vue'
+import PageGenreAlbum from '@/pages/PageGenreAlbum.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
 import PageGenres from '@/pages/PageGenres.vue'
 import PagePlaylist from '@/pages/PagePlaylist.vue'
@@ -118,12 +118,12 @@ export const router = createRouter({
     {
       name: 'audiobooks',
       path: '/audiobooks',
-      redirect: '/audiobooks/artists'
+      redirect: { name: 'audiobooks-artists' }
     },
     {
       name: 'music',
       path: '/music',
-      redirect: '/music/browse'
+      redirect: { name: 'music-browse' }
     },
     {
       component: PageBrowse,
@@ -186,16 +186,16 @@ export const router = createRouter({
       path: '/files'
     },
     {
-      component: PageGenre,
+      component: PageGenreAlbum,
       meta: { has_index: true, show_progress: true },
-      path: '/music/genres/:genre',
+      path: '/music/genres/:name/albums',
       name: 'music-genre'
     },
     {
-      path: '/music/genres/:genre/tracks',
-      name: 'music-genre-tracks',
       component: PageGenreTracks,
-      meta: { show_progress: true, has_index: true }
+      meta: { has_index: true, show_progress: true },
+      name: 'music-genre-tracks',
+      path: '/music/genres/:name/tracks'
     },
     {
       component: PageGenres,

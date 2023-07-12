@@ -236,7 +236,7 @@ export default {
     open_genre() {
       this.$router.push({
         name: 'music-genre',
-        params: { genre: this.item.genre }
+        params: { name: this.item.genre }
       })
     },
 

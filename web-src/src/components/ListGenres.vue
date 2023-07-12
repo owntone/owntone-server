@@ -57,7 +57,7 @@ export default {
 
   methods: {
     open_genre(genre) {
-      this.$router.push({ name: 'music-genre', params: { genre: genre.name } })
+      this.$router.push({ name: 'music-genre', params: { name: genre.name } })
     },
 
     open_dialog(genre) {

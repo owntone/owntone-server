@@ -66,8 +66,8 @@ import webapi from '@/webapi'
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_genre(to.params.genre),
-      webapi.library_genre_tracks(to.params.genre)
+      webapi.library_genre(to.params.name),
+      webapi.library_genre_tracks(to.params.name)
     ])
   },
 
@@ -148,7 +148,7 @@ export default {
       this.show_details_modal = false
       this.$router.push({
         name: 'music-genre',
-        params: { genre: this.genre.name }
+        params: { name: this.genre.name }
       })
     },
 
