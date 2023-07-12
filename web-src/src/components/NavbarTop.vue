@@ -9,7 +9,7 @@
       <navbar-item-link v-if="is_visible_playlists" :to="{ name: 'playlists' }">
         <mdicon class="icon" name="music-box-multiple" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_music" :to="{ path: '/music' }">
+      <navbar-item-link v-if="is_visible_music" :to="{ name: 'music' }">
         <mdicon class="icon" name="music" size="16" />
       </navbar-item-link>
       <navbar-item-link v-if="is_visible_podcasts" :to="{ name: 'podcasts' }">
@@ -61,7 +61,7 @@
               <mdicon class="icon" name="music-box-multiple" size="16" />
               <b v-text="$t('navigation.playlists')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ path: '/music' }" exact>
+            <navbar-item-link :to="{ name: 'music' }" exact>
               <mdicon class="icon" name="music" size="16" />
               <b v-text="$t('navigation.music')" />
             </navbar-item-link>

@@ -110,6 +110,7 @@ export const router = createRouter({
       redirect: '/audiobooks/artists'
     },
     {
+      name: 'music',
       path: '/music',
       redirect: '/music/browse'
     },
@@ -301,13 +302,13 @@ export const router = createRouter({
     }
 
     if (to.path === from.path && to.hash) {
-      // We are staying on the same page and are jumping to an anker (e. g. index nav)
+      // We are staying on the same page and are jumping to an anchor (e. g. index nav)
       // We don't have a transition, so don't add a timeout!
       return { el: to.hash, top: 120 }
     }
 
     if (to.hash) {
-      // We are navigating to an anker of a new page, add a timeout to let the transition effect finish before scrolling
+      // We are navigating to an anchor of a new page, add a timeout to let the transition effect finish before scrolling
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve({ el: to.hash, top: 120 })
@@ -317,7 +318,7 @@ export const router = createRouter({
 
     if (to.meta.has_index) {
       // We are navigating to a page with index nav, that should be hidden automatically
-      // Dependending on wether we have a tab navigation, add an offset to the "top" anker
+      // Depending on wether we have a tab navigation, add an offset to the "top" anchor
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           if (to.meta.has_tabs) {
