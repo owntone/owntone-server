@@ -13,10 +13,10 @@
       <template #footer>
         <nav class="level">
           <p class="level-item">
-            <a
-              class="button is-light is-small is-rounded"
-              @click="open_browse('recently_added')"
+            <router-link
               v-text="$t('page.browse.show-more')"
+              class="button is-light is-small is-rounded"
+              :to="{ name: 'music-browse-recently-added' }"
             />
           </p>
         </nav>
@@ -37,10 +37,10 @@
       <template #footer>
         <nav class="level">
           <p class="level-item">
-            <a
-              class="button is-light is-small is-rounded"
-              @click="open_browse('recently_played')"
+            <router-link
               v-text="$t('page.browse.show-more')"
+              class="button is-light is-small is-rounded"
+              :to="{ name: 'music-browse-recently-played' }"
             />
           </p>
         </nav>
@@ -51,11 +51,11 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {
@@ -106,12 +106,6 @@ export default {
 
       show_track_details_modal: false,
       selected_track: {}
-    }
-  },
-
-  methods: {
-    open_browse(type) {
-      this.$router.push({ path: '/music/browse/' + type })
     }
   }
 }

@@ -10,6 +10,9 @@ import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
 import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
+import PageBrowse from '@/pages/PageBrowse.vue'
+import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
+import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
 import PageFiles from '@/pages/PageFiles.vue'
 import PageGenre from '@/pages/PageGenre.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
@@ -25,9 +28,6 @@ import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
 import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
 import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
 import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
-import PageBrowse from '@/pages/PageBrowse.vue'
-import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
-import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
 import PageComposers from '@/pages/PageComposers.vue'
 import PageComposer from '@/pages/PageComposer.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
@@ -115,22 +115,22 @@ export const router = createRouter({
       redirect: '/music/browse'
     },
     {
-      path: '/music/browse',
-      name: 'Browse',
       component: PageBrowse,
-      meta: { show_progress: true, has_tabs: true }
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-browse',
+      path: '/music/browse'
     },
     {
-      path: '/music/browse/recently_added',
-      name: 'Browse Recently Added',
       component: PageBrowseRecentlyAdded,
-      meta: { show_progress: true, has_tabs: true }
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-browse-recently-added',
+      path: '/music/browse/recently-added'
     },
     {
-      path: '/music/browse/recently_played',
-      name: 'Browse Recently Played',
       component: PageBrowseRecentlyPlayed,
-      meta: { show_progress: true, has_tabs: true }
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-browse-recently-played',
+      path: '/music/browse/recently-played'
     },
     {
       component: PageFiles,

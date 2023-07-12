@@ -7,7 +7,7 @@
             <ul>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/music/browse"
+                :to="{ name: 'music-browse' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
