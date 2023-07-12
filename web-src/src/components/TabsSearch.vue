@@ -7,7 +7,7 @@
             <ul>
               <li
                 :class="{
-                  'is-active': $store.state.search_path === '/search/library'
+                  'is-active': $store.state.search_source === 'library'
                 }"
               >
                 <a @click="search_library">
@@ -17,7 +17,7 @@
               </li>
               <li
                 :class="{
-                  'is-active': $store.state.search_path === '/search/spotify'
+                  'is-active': $store.state.search_source === 'spotify'
                 }"
               >
                 <a @click="search_spotify">
@@ -62,17 +62,17 @@ export default {
 
   methods: {
     search_library() {
-      this.$store.commit(types.SEARCH_PATH, '/search/library')
+      this.$store.commit(types.SEARCH_SOURCE, 'library')
       this.$router.push({
-        path: this.$store.state.search_path,
+        name: 'search-library',
         query: this.route_query
       })
     },
 
     search_spotify() {
-      this.$store.commit(types.SEARCH_PATH, '/search/spotify')
+      this.$store.commit(types.SEARCH_SOURCE, 'spotify')
       this.$router.push({
-        path: this.$store.state.search_path,
+        name: 'search-spotify',
         query: this.route_query
       })
     }

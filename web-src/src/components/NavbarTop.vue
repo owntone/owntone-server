@@ -27,7 +27,7 @@
       <navbar-item-link v-if="is_visible_files" :to="{ name: 'files' }">
         <mdicon class="icon" name="folder-open" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_search" :to="{ name: 'search' }">
+      <navbar-item-link v-if="is_visible_search" :to="{ name: search_name }">
         <mdicon class="icon" name="magnify" size="16" />
       </navbar-item-link>
       <div
@@ -96,7 +96,7 @@
               <mdicon class="icon" name="folder-open" size="16" />
               <b v-text="$t('navigation.files')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ name: 'search' }">
+            <navbar-item-link :to="{ name: search_name }">
               <mdicon class="icon" name="magnify" size="16" />
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
@@ -226,6 +226,12 @@ export default {
       },
       set(value) {
         this.$store.commit(types.SHOW_UPDATE_DIALOG, value)
+      }
+    },
+
+    search_name: {
+      get() {
+        return 'search-' + this.$store.state.search_source
       }
     },
 

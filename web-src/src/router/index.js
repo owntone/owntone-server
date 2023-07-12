@@ -254,11 +254,6 @@ export const router = createRouter({
       path: '/'
     },
     {
-      name: 'search',
-      path: '/search',
-      redirect: '/search/library'
-    },
-    {
       component: PageSearchLibrary,
       name: 'search-library',
       path: '/search/library'
