@@ -59,7 +59,7 @@
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/music/composers"
+                :to="{ name: 'music-composers' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">

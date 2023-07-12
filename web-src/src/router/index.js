@@ -18,6 +18,9 @@ import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
 import PageBrowseSpotify from '@/pages/PageBrowseSpotify.vue'
 import PageBrowseSpotifyNewReleases from '@/pages/PageBrowseSpotifyNewReleases.vue'
 import PageBrowseSpotifyFeaturedPlaylists from '@/pages/PageBrowseSpotifyFeaturedPlaylists.vue'
+import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
+import PageComposerTracks from '@/pages/PageComposerTracks.vue'
+import PageComposers from '@/pages/PageComposers.vue'
 import PageFiles from '@/pages/PageFiles.vue'
 import PageGenre from '@/pages/PageGenre.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
@@ -33,9 +36,6 @@ import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
 import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
 import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
 import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
-import PageComposers from '@/pages/PageComposers.vue'
-import PageComposer from '@/pages/PageComposer.vue'
-import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
@@ -162,6 +162,24 @@ export const router = createRouter({
       path: '/music/spotify/new-releases'
     },
     {
+      component: PageComposerAlbums,
+      meta: { show_progress: true, has_index: true },
+      name: 'music-composer-albums',
+      path: '/music/composers/:name/albums'
+    },
+    {
+      component: PageComposerTracks,
+      meta: { has_index: true, show_progress: true },
+      name: 'music-composer-tracks',
+      path: '/music/composers/:name/tracks'
+    },
+    {
+      component: PageComposers,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'music-composers',
+      path: '/music/composers'
+    },
+    {
       component: PageFiles,
       meta: { show_progress: true },
       name: 'files',
@@ -184,24 +202,6 @@ export const router = createRouter({
       meta: { has_index: true, has_tabs: true, show_progress: true },
       path: '/music/genres',
       name: 'music-genres'
-    },
-    {
-      path: '/music/composers',
-      name: 'Composers',
-      component: PageComposers,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/music/composers/:composer/albums',
-      name: 'ComposerAlbums',
-      component: PageComposer,
-      meta: { show_progress: true, has_index: true }
-    },
-    {
-      path: '/music/composers/:composer/tracks',
-      name: 'ComposerTracks',
-      component: PageComposerTracks,
-      meta: { show_progress: true, has_index: true }
     },
     {
       component: PageNowPlaying,

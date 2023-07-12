@@ -100,16 +100,16 @@ export default {
     open_albums() {
       this.$emit('close')
       this.$router.push({
-        name: 'ComposerAlbums',
-        params: { composer: this.composer.name }
+        name: 'music-composer-albums',
+        params: { name: this.composer.name }
       })
     },
 
     open_tracks() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'ComposerTracks',
-        params: { composer: this.composer.name }
+        name: 'music-composer-tracks',
+        params: { name: this.composer.name }
       })
     }
   }

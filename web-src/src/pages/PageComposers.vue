@@ -21,11 +21,11 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
+import { GroupByList, byName } from '@/lib/GroupByList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListComposers from '@/components/ListComposers.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
-import { GroupByList, byName } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {
@@ -40,7 +40,7 @@ const dataObject = {
 
 export default {
   name: 'PageComposers',
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListComposers },
+  components: { ContentWithHeading, IndexButtonList, ListComposers, TabsMusic },
 
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {

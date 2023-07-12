@@ -61,9 +61,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
@@ -72,8 +72,8 @@ import webapi from '@/webapi'
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_composer(to.params.composer),
-      webapi.library_composer_tracks(to.params.composer)
+      webapi.library_composer(to.params.name),
+      webapi.library_composer_tracks(to.params.name)
     ])
   },
 
@@ -153,8 +153,8 @@ export default {
     open_albums() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'ComposerAlbums',
-        params: { composer: this.composer.name }
+        name: 'music-composer-album',
+        params: { name: this.composer.name }
       })
     },
 

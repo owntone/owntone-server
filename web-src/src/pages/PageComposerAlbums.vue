@@ -47,16 +47,16 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_composer(to.params.composer),
-      webapi.library_composer_albums(to.params.composer)
+      webapi.library_composer(to.params.name),
+      webapi.library_composer_albums(to.params.name)
     ])
   },
 
@@ -67,7 +67,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PageComposer',
+  name: 'PageComposerAlbums',
   components: {
     ContentWithHeading,
     ListAlbums,
@@ -98,8 +98,8 @@ export default {
   methods: {
     open_tracks() {
       this.$router.push({
-        name: 'ComposerTracks',
-        params: { composer: this.composer.name }
+        name: 'music-composer-tracks',
+        params: { name: this.composer.name }
       })
     },
 
