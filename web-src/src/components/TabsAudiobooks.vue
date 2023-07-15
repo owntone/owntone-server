@@ -7,7 +7,7 @@
             <ul>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/audiobooks/artists"
+                :to="{ name: 'audiobooks-artists' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
@@ -23,7 +23,7 @@
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/audiobooks/albums"
+                :to="{ name: 'audiobooks-albums' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
