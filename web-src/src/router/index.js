@@ -210,7 +210,8 @@ export const router = createRouter({
     },
     {
       name: 'playlists',
-      redirect: '/playlists/0'
+      path: '/playlists',
+      redirect: { name: 'playlist', params: { id: 0 } }
     },
     {
       component: PagePlaylist,
