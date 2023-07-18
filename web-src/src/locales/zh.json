@@ -380,6 +380,7 @@
       "track-count": "{count} 只曲目|{count} 只曲目"
     },
     "playlists": {
+      "title": "播放列表",
       "count": "{count} 个播放列表|{count} 个播放列表"
     },
     "podcast": {

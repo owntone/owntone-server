@@ -66,10 +66,10 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
 import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
-import store from '@/store'
-import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
+import store from '@/store'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
+import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
 
@@ -97,7 +97,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PagePlaylistSpotify',
+  name: 'PagePlaylistTracksSpotify',
   components: {
     ContentWithHeading,
     ModalDialogPlaylistSpotify,

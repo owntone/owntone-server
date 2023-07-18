@@ -25,9 +25,9 @@ import PageFiles from '@/pages/PageFiles.vue'
 import PageGenreAlbum from '@/pages/PageGenreAlbum.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
 import PageGenres from '@/pages/PageGenres.vue'
-import PagePlaylist from '@/pages/PagePlaylist.vue'
-import PagePlaylistSpotify from '@/pages/PagePlaylistSpotify.vue'
+import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
 import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
+import PagePlaylistTracksSpotify from '@/pages/PagePlaylistTracksSpotify.vue'
 import PagePodcast from '@/pages/PagePodcast.vue'
 import PagePodcasts from '@/pages/PagePodcasts.vue'
 import PageNowPlaying from '@/pages/PageNowPlaying.vue'
@@ -211,25 +211,25 @@ export const router = createRouter({
     {
       name: 'playlists',
       path: '/playlists',
-      redirect: { name: 'playlist', params: { id: 0 } }
+      redirect: { name: 'playlist-folder', params: { id: 0 } }
     },
     {
-      component: PagePlaylist,
+      component: PagePlaylistFolder,
       meta: { show_progress: true },
-      name: 'playlist',
+      name: 'playlist-folder',
       path: '/playlists/:id'
-    },
-    {
-      component: PagePlaylistSpotify,
-      meta: { show_progress: true },
-      name: 'playlist-spotify',
-      path: '/playlists/spotify/:id'
     },
     {
       component: PagePlaylistTracks,
       meta: { show_progress: true },
-      name: 'playlist-tracks',
+      name: 'playlist',
       path: '/playlists/:id/tracks'
+    },
+    {
+      component: PagePlaylistTracksSpotify,
+      meta: { show_progress: true },
+      name: 'playlist-spotify',
+      path: '/playlists/spotify/:id/tracks'
     },
     {
       component: PagePodcast,

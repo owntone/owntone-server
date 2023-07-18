@@ -57,7 +57,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PagePlaylist',
+  name: 'PagePlaylistTracks',
   components: { ContentWithHeading, ListTracks, ModalDialogPlaylist },
 
   beforeRouteEnter(to, from, next) {

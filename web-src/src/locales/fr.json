@@ -380,6 +380,7 @@
       "track-count": "{count} piste|{count} piste|{count} pistes"
     },
     "playlists": {
+      "title": "Listes de lecture",
       "count": "{count} liste de lecture|{count} liste de lecture|{count} listes de lecture"
     },
     "podcast": {

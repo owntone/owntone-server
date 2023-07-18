@@ -380,6 +380,7 @@
       "track-count": "{count} track|{count} track|{count} tracks"
     },
     "playlists": {
+      "title": "Playlists",
       "count": "{count} playlist|{count} playlist|{count} playlists"
     },
     "podcast": {

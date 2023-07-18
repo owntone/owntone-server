@@ -3,7 +3,6 @@
     v-for="playlist in playlists"
     :key="playlist.itemId"
     class="media is-align-items-center"
-    :playlist="playlist"
     @click="open_playlist(playlist.item)"
   >
     <figure class="media-left is-clickable">
@@ -45,13 +44,16 @@ export default {
 
   methods: {
     open_playlist(playlist) {
-      if (playlist.type !== 'folder') {
+      if (playlist.type === 'folder') {
         this.$router.push({
-          name: 'playlist-tracks',
+          name: 'playlist-folder',
           params: { id: playlist.id }
         })
       } else {
-        this.$router.push({ name: 'playlist', params: { id: playlist.id } })
+        this.$router.push({
+          name: 'playlist',
+          params: { id: playlist.id }
+        })
       }
     },
 

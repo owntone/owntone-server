@@ -2,14 +2,19 @@
   <div class="fd-page">
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="playlist.name" />
+        <p
+          class="title is-4"
+          v-text="
+            playlist.id === 0 ? $t('page.playlists.title') : playlist.name
+          "
+        />
         <p
           class="heading"
           v-text="$t('page.playlists.count', { count: playlists.count })"
         />
       </template>
       <template #content>
-        <list-playlists :playlists="playlists" />
+        <list-playlists v-if="has_playlists" :playlists="playlists" />
       </template>
     </content-with-heading>
   </div>
@@ -36,7 +41,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PagePlaylists',
+  name: 'PagePlaylistFolder',
   components: { ContentWithHeading, ListPlaylists },
 
   beforeRouteEnter(to, from, next) {
@@ -60,10 +65,9 @@ export default {
   },
 
   computed: {
-    radio_playlists() {
-      return this.$store.state.config.radio_playlists
+    has_playlists() {
+      return Object.keys(this.playlists_list.itemsByGroup).length > 0
     },
-
     playlists() {
       this.playlists_list.group(noop(), [
         (playlist) =>
@@ -72,8 +76,10 @@ export default {
           playlist.stream_count === 0 ||
           playlist.item_count > playlist.stream_count
       ])
-
       return this.playlists_list
+    },
+    radio_playlists() {
+      return this.$store.state.config.radio_playlists
     }
   }
 }
