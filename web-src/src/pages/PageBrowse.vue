@@ -14,9 +14,9 @@
         <nav class="level">
           <p class="level-item">
             <router-link
-              v-text="$t('page.browse.show-more')"
               class="button is-light is-small is-rounded"
               :to="{ name: 'music-browse-recently-added' }"
+              v-text="$t('page.browse.show-more')"
             />
           </p>
         </nav>
@@ -38,9 +38,9 @@
         <nav class="level">
           <p class="level-item">
             <router-link
-              v-text="$t('page.browse.show-more')"
               class="button is-light is-small is-rounded"
               :to="{ name: 'music-browse-recently-played' }"
+              v-text="$t('page.browse.show-more')"
             />
           </p>
         </nav>

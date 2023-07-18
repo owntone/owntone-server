@@ -20,12 +20,12 @@
 </template>
 
 <script>
-import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
-import IndexButtonList from '@/components/IndexButtonList.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListAlbums from '@/components/ListAlbums.vue'
-import webapi from '@/webapi'
 import { GroupByList, byName } from '@/lib/GroupByList'
+import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListAlbums from '@/components/ListAlbums.vue'
+import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {

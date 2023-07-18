@@ -8,8 +8,8 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
 import { renderSVG } from '@/lib/SVGRenderer'
+import webapi from '@/webapi'
 
 export default {
   name: 'CoverArtwork',

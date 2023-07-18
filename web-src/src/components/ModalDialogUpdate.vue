@@ -48,8 +48,8 @@
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
 import * as types from '@/store/mutation_types'
+import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {

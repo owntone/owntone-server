@@ -15,11 +15,11 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
-import ListAlbums from '@/components/ListAlbums.vue'
-import webapi from '@/webapi'
-import store from '@/store'
 import { GroupByList, byDateSinceToday } from '@/lib/GroupByList'
+import ListAlbums from '@/components/ListAlbums.vue'
+import store from '@/store'
+import TabsMusic from '@/components/TabsMusic.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {

@@ -28,8 +28,8 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
+import webapi from '@/webapi'
 
 export default {
   name: 'SettingsIntfield',

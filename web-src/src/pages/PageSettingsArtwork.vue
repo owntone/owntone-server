@@ -60,7 +60,7 @@ import TabsSettings from '@/components/TabsSettings.vue'
 
 export default {
   name: 'PageSettingsArtwork',
-  components: { ContentWithHeading, TabsSettings, SettingsCheckbox },
+  components: { ContentWithHeading, SettingsCheckbox, TabsSettings },
 
   computed: {
     spotify() {

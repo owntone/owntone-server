@@ -22,11 +22,11 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
+import { GroupByList, byName } from '@/lib/GroupByList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
+import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import webapi from '@/webapi'
-import { GroupByList, byName } from '@/lib/GroupByList'
 
 const dataObject = {
   load(to) {

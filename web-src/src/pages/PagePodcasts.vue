@@ -57,13 +57,13 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListTracks from '@/components/ListTracks.vue'
-import ListAlbums from '@/components/ListAlbums.vue'
-import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
 import * as types from '@/store/mutation_types'
-import webapi from '@/webapi'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupByList } from '@/lib/GroupByList'
+import ListAlbums from '@/components/ListAlbums.vue'
+import ListTracks from '@/components/ListTracks.vue'
+import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {

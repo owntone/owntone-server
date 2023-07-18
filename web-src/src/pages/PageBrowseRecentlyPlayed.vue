@@ -18,10 +18,10 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
-import ListTracks from '@/components/ListTracks.vue'
-import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
+import ListTracks from '@/components/ListTracks.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {

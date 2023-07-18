@@ -103,14 +103,14 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import draggable from 'vuedraggable'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
-import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
+import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import draggable from 'vuedraggable'
 
 export default {
   name: 'PageQueue',
