@@ -6,7 +6,7 @@
         <p class="title is-4" v-text="$t('page.spotify.browse.new-releases')" />
       </template>
       <template #content>
-        <spotify-list-item-album
+        <list-item-album-spotify
           v-for="album in new_releases"
           :key="album.id"
           :album="album"
@@ -31,8 +31,8 @@
               />
             </a>
           </template>
-        </spotify-list-item-album>
-        <spotify-modal-dialog-album
+        </list-item-album-spotify>
+        <modal-dialog-album-spotify
           :show="show_album_details_modal"
           :album="selected_album"
           @close="show_album_details_modal = false"
@@ -43,14 +43,14 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
-import store from '@/store'
 import * as types from '@/store/mutation_types'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
+import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
+import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import store from '@/store'
+import TabsMusic from '@/components/TabsMusic.vue'
 
 const dataObject = {
   load(to) {
@@ -74,12 +74,12 @@ const dataObject = {
 }
 
 export default {
-  name: 'SpotifyPageBrowseNewReleases',
+  name: 'PageBrowseSpotifyNewReleases',
   components: {
     ContentWithHeading,
     CoverArtwork,
-    SpotifyListItemAlbum,
-    SpotifyModalDialogAlbum,
+    ListItemAlbumSpotify,
+    ModalDialogAlbumSpotify,
     TabsMusic
   },
 

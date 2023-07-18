@@ -11,7 +11,7 @@
 
 <script>
 export default {
-  name: 'SpotifyListItemArtist',
+  name: 'ListItemArtistSpotify',
   props: ['artist'],
 
   methods: {

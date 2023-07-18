@@ -25,7 +25,7 @@
             $t('page.spotify.playlist.count', { count: playlist.tracks.total })
           "
         />
-        <spotify-list-item-track
+        <list-item-track-spotify
           v-for="track in tracks"
           :key="track.id"
           :track="track"
@@ -41,11 +41,11 @@
               />
             </a>
           </template>
-        </spotify-list-item-track>
+        </list-item-track-spotify>
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-track
+        <modal-dialog-track-spotify
           :show="show_track_details_modal"
           :track="selected_track"
           :album="selected_track.album"
@@ -63,9 +63,9 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
-import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
-import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
+import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import store from '@/store'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
@@ -100,9 +100,9 @@ export default {
   name: 'PagePlaylistTracksSpotify',
   components: {
     ContentWithHeading,
+    ListItemTrackSpotify,
     ModalDialogPlaylistSpotify,
-    SpotifyListItemTrack,
-    SpotifyModalDialogTrack,
+    ModalDialogTrackSpotify,
     VueEternalLoading
   },
 

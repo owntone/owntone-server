@@ -23,7 +23,7 @@
           class="heading has-text-centered-mobile"
           v-text="$t('page.spotify.artist.album-count', { count: total })"
         />
-        <spotify-list-item-album
+        <list-item-album-spotify
           v-for="album in albums"
           :key="album.id"
           :album="album"
@@ -48,16 +48,16 @@
               />
             </a>
           </template>
-        </spotify-list-item-album>
+        </list-item-album-spotify>
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-album
+        <modal-dialog-album-spotify
           :show="show_details_modal"
           :album="selected_album"
           @close="show_details_modal = false"
         />
-        <spotify-modal-dialog-artist
+        <modal-dialog-artist-spotify
           :show="show_artist_details_modal"
           :artist="artist"
           @close="show_artist_details_modal = false"
@@ -70,9 +70,9 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
+import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
+import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
+import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import store from '@/store'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
@@ -110,9 +110,9 @@ export default {
   components: {
     ContentWithHeading,
     CoverArtwork,
-    SpotifyListItemAlbum,
-    SpotifyModalDialogAlbum,
-    SpotifyModalDialogArtist,
+    ListItemAlbumSpotify,
+    ModalDialogAlbumSpotify,
+    ModalDialogArtistSpotify,
     VueEternalLoading
   },
 

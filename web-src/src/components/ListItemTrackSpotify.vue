@@ -43,7 +43,7 @@
 import webapi from '@/webapi'
 
 export default {
-  name: 'SpotifyListItemTrack',
+  name: 'ListItemTrackSpotify',
   props: ['track', 'position', 'context_uri'],
   methods: {
     play() {

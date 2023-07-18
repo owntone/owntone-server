@@ -40,7 +40,7 @@
         <p class="title is-4" v-text="$t('page.spotify.search.tracks')" />
       </template>
       <template #content>
-        <spotify-list-item-track
+        <list-item-track-spotify
           v-for="track in tracks.items"
           :key="track.id"
           :track="track"
@@ -56,14 +56,14 @@
               />
             </a>
           </template>
-        </spotify-list-item-track>
+        </list-item-track-spotify>
         <VueEternalLoading
           v-if="query.type === 'track'"
           :load="search_tracks_next"
         >
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-track
+        <modal-dialog-track-spotify
           :show="show_track_details_modal"
           :track="selected_track"
           :album="selected_track.album"
@@ -97,7 +97,7 @@
         <p class="title is-4" v-text="$t('page.spotify.search.artists')" />
       </template>
       <template #content>
-        <spotify-list-item-artist
+        <list-item-artist-spotify
           v-for="artist in artists.items"
           :key="artist.id"
           :artist="artist"
@@ -111,14 +111,14 @@
               />
             </a>
           </template>
-        </spotify-list-item-artist>
+        </list-item-artist-spotify>
         <VueEternalLoading
           v-if="query.type === 'artist'"
           :load="search_artists_next"
         >
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-artist
+        <modal-dialog-artist-spotify
           :show="show_artist_details_modal"
           :artist="selected_artist"
           @close="show_artist_details_modal = false"
@@ -151,7 +151,7 @@
         <p class="title is-4" v-text="$t('page.spotify.search.albums')" />
       </template>
       <template #content>
-        <spotify-list-item-album
+        <list-item-album-spotify
           v-for="album in albums.items"
           :key="album.id"
           :album="album"
@@ -176,14 +176,14 @@
               />
             </a>
           </template>
-        </spotify-list-item-album>
+        </list-item-album-spotify>
         <VueEternalLoading
           v-if="query.type === 'album'"
           :load="search_albums_next"
         >
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-album
+        <modal-dialog-album-spotify
           :show="show_album_details_modal"
           :album="selected_album"
           @close="show_album_details_modal = false"
@@ -272,18 +272,18 @@ import * as types from '@/store/mutation_types'
 import ContentText from '@/templates/ContentText.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
+import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
+import ListItemArtistSpotify from '@/components/ListItemArtistSpotify.vue'
 import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
+import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
+import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
+import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
-import SpotifyListItemArtist from '@/components/SpotifyListItemArtist.vue'
-import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
-import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
+import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import TabsSearch from '@/components/TabsSearch.vue'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
 import webapi from '@/webapi'
-import TabsSearch from '@/components/TabsSearch.vue'
 
 const PAGE_SIZE = 50
 
@@ -293,16 +293,16 @@ export default {
     ContentText,
     ContentWithHeading,
     CoverArtwork,
+    ListItemAlbumSpotify,
+    ListItemArtistSpotify,
     ListItemPlaylistSpotify,
+    ListItemTrackSpotify,
+    ModalDialogAlbumSpotify,
+    ModalDialogArtistSpotify,
     ModalDialogPlaylistSpotify,
-    SpotifyListItemAlbum,
-    SpotifyListItemArtist,
-    SpotifyListItemTrack,
-    SpotifyModalDialogAlbum,
-    SpotifyModalDialogArtist,
-    SpotifyModalDialogTrack,
-    VueEternalLoading,
-    TabsSearch
+    ModalDialogTrackSpotify,
+    TabsSearch,
+    VueEternalLoading
   },
 
   data() {

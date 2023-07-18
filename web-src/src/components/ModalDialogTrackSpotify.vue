@@ -109,7 +109,7 @@
 import webapi from '@/webapi'
 
 export default {
-  name: 'SpotifyModalDialogTrack',
+  name: 'ModalDialogTrackSpotify',
   props: ['show', 'track', 'album'],
   emits: ['close'],
 
@@ -130,6 +130,7 @@ export default {
     },
 
     open_album() {
+      this.$emit('close')
       this.$router.push({
         name: 'music-spotify-album',
         params: { id: this.album.id }
@@ -137,6 +138,7 @@ export default {
     },
 
     open_artist() {
+      this.$emit('close')
       this.$router.push({
         name: 'music-spotify-artist',
         params: { id: this.album.artists[0].id }

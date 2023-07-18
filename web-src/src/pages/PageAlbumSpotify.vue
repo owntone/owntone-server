@@ -39,7 +39,7 @@
             $t('page.spotify.album.track-count', { count: album.tracks.total })
           "
         />
-        <spotify-list-item-track
+        <list-item-track-spotify
           v-for="(track, index) in album.tracks.items"
           :key="track.id"
           :track="track"
@@ -55,14 +55,14 @@
               />
             </a>
           </template>
-        </spotify-list-item-track>
-        <spotify-modal-dialog-track
+        </list-item-track-spotify>
+        <modal-dialog-track-spotify
           :show="show_track_details_modal"
           :track="selected_track"
           :album="album"
           @close="show_track_details_modal = false"
         />
-        <spotify-modal-dialog-album
+        <modal-dialog-album-spotify
           :show="show_album_details_modal"
           :album="album"
           @close="show_album_details_modal = false"
@@ -75,9 +75,9 @@
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
-import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
+import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
+import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
+import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import store from '@/store'
 import webapi from '@/webapi'
@@ -101,9 +101,9 @@ export default {
   components: {
     ContentWithHero,
     CoverArtwork,
-    SpotifyListItemTrack,
-    SpotifyModalDialogTrack,
-    SpotifyModalDialogAlbum
+    ListItemTrackSpotify,
+    ModalDialogAlbumSpotify,
+    ModalDialogTrackSpotify
   },
 
   beforeRouteEnter(to, from, next) {

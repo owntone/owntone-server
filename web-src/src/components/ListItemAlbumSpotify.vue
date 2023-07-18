@@ -23,7 +23,7 @@
 
 <script>
 export default {
-  name: 'SpotifyListItemAlbum',
+  name: 'ListItemAlbumSpotify',
   props: ['album']
 }
 </script>
