@@ -313,7 +313,8 @@
       },
       "tabs": {
         "authors": "Auteurs",
-        "audiobooks": "Livres audio"
+        "audiobooks": "Livres audio",
+        "genres": "Genres"
       }
     },
     "browse": {

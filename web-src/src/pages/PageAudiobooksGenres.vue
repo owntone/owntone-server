@@ -1,6 +1,6 @@
 <template>
   <div class="fd-page-with-tabs">
-    <tabs-music />
+    <tabs-audiobooks />
     <content-with-heading>
       <template #options>
         <index-button-list :index="genres.indexList" />
@@ -13,7 +13,7 @@
         />
       </template>
       <template #content>
-        <list-genres :genres="genres" :media_kind="'music'" />
+        <list-genres :genres="genres" :media_kind="'audiobook'" />
       </template>
     </content-with-heading>
   </div>
@@ -24,12 +24,12 @@ import { GroupByList, byName } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListGenres from '@/components/ListGenres.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
+import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    return webapi.library_genres('music')
+    return webapi.library_genres('audiobook')
   },
 
   set(vm, response) {
@@ -40,12 +40,12 @@ const dataObject = {
 }
 
 export default {
-  name: 'PageGenres',
+  name: 'PageAudiobookGenres',
   components: {
     ContentWithHeading,
     IndexButtonList,
     ListGenres,
-    TabsMusic
+    TabsAudiobooks
   },
 
   beforeRouteEnter(to, from, next) {

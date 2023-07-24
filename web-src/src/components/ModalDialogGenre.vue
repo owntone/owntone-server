@@ -62,37 +62,36 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogGenre',
-  props: ['show', 'genre'],
+  props: ['genre', 'media_kind', 'show'],
   emits: ['close'],
 
+  computed: {
+    expression() {
+      return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
+    }
+  },
   methods: {
     play() {
       this.$emit('close')
-      webapi.player_play_expression(
-        'genre is "' + this.genre.name + '" and media_kind is music',
-        false
-      )
+      webapi.player_play_expression(this.expression, false)
     },
 
     queue_add() {
       this.$emit('close')
-      webapi.queue_expression_add(
-        'genre is "' + this.genre.name + '" and media_kind is music'
-      )
+      webapi.queue_expression_add(this.expression)
     },
 
     queue_add_next() {
       this.$emit('close')
-      webapi.queue_expression_add_next(
-        'genre is "' + this.genre.name + '" and media_kind is music'
-      )
+      webapi.queue_expression_add_next(this.expression)
     },
 
     open_genre() {
       this.$emit('close')
       this.$router.push({
-        name: 'music-genre',
-        params: { name: this.genre.name }
+        name: 'genre-albums',
+        params: { name: this.genre.name },
+        query: { media_kind: this.media_kind }
       })
     }
   }

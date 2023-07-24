@@ -28,6 +28,7 @@
     <modal-dialog-genre
       :show="show_details_modal"
       :genre="selected_genre"
+      :media_kind="media_kind"
       @close="show_details_modal = false"
     />
   </teleport>
@@ -40,7 +41,7 @@ export default {
   name: 'ListGenres',
   components: { ModalDialogGenre },
 
-  props: ['genres', 'media_kind', 'hide_group_title'],
+  props: ['genres', 'hide_group_title', 'media_kind'],
 
   data() {
     return {
@@ -49,17 +50,14 @@ export default {
     }
   },
 
-  computed: {
-    media_kind_resolved() {
-      return this.media_kind ? this.media_kind : this.selected_genre.media_kind
-    }
-  },
-
   methods: {
     open_genre(genre) {
-      this.$router.push({ name: 'music-genre', params: { name: genre.name } })
+      this.$router.push({
+        name: 'genre-albums',
+        params: { name: genre.name },
+        query: { media_kind: this.media_kind }
+      })
     },
-
     open_dialog(genre) {
       this.selected_genre = genre
       this.show_details_modal = true

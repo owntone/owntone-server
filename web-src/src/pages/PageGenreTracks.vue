@@ -46,6 +46,7 @@
         <modal-dialog-genre
           :show="show_genre_details_modal"
           :genre="genre"
+          :media_kind="media_kind"
           @close="show_genre_details_modal = false"
         />
       </template>
@@ -55,9 +56,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
+import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
-import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
@@ -66,8 +67,8 @@ import webapi from '@/webapi'
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_genre(to.params.name),
-      webapi.library_genre_tracks(to.params.name)
+      webapi.library_genre(to.params.name, to.query.media_kind),
+      webapi.library_genre_tracks(to.params.name, to.query.media_kind)
     ])
   },
 
@@ -124,7 +125,10 @@ export default {
 
   computed: {
     expression() {
-      return 'genre is "' + this.genre.name + '" and media_kind is music'
+      return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
+    },
+    media_kind() {
+      return this.$route.query.media_kind
     },
     selected_groupby_option_id: {
       get() {
@@ -147,8 +151,9 @@ export default {
     open_genre() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'music-genre',
-        params: { name: this.genre.name }
+        name: 'genre-albums',
+        params: { name: this.genre.name },
+        query: { media_kind: this.media_kind }
       })
     },
 

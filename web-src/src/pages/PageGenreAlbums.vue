@@ -35,8 +35,9 @@
         </p>
         <list-albums :albums="albums_list" />
         <modal-dialog-genre
-          :show="show_genre_details_modal"
           :genre="genre"
+          :media_kind="media_kind"
+          :show="show_genre_details_modal"
           @close="show_genre_details_modal = false"
         />
       </template>
@@ -45,8 +46,8 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupByList, byName } from '@/lib/GroupByList'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
@@ -55,8 +56,8 @@ import webapi from '@/webapi'
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_genre(to.params.name),
-      webapi.library_genre_albums(to.params.name)
+      webapi.library_genre(to.params.name, to.query.media_kind),
+      webapi.library_genre_albums(to.params.name, to.query.media_kind)
     ])
   },
 
@@ -68,14 +69,13 @@ const dataObject = {
 }
 
 export default {
-  name: 'PageGenreAlbum',
+  name: 'PageGenreAlbums',
   components: {
     ContentWithHeading,
     IndexButtonList,
     ListAlbums,
     ModalDialogGenre
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
@@ -92,28 +92,31 @@ export default {
       next()
     })
   },
-
   data() {
     return {
       genre: {},
       albums_list: new GroupByList(),
-
       show_genre_details_modal: false
     }
   },
-
+  computed: {
+    media_kind() {
+      return this.$route.query.media_kind
+    }
+  },
   methods: {
     open_tracks() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'music-genre-tracks',
-        params: { name: this.genre.name }
+        name: 'genre-tracks',
+        params: { name: this.genre.name },
+        query: { media_kind: this.media_kind }
       })
     },
 
     play() {
       webapi.player_play_expression(
-        'genre is "' + this.genre.name + '" and media_kind is music',
+        `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`,
         true
       )
     }

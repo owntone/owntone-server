@@ -313,7 +313,8 @@
       },
       "tabs": {
         "authors": "作者",
-        "audiobooks": "有声读物"
+        "audiobooks": "有声读物",
+        "genres": "流派"
       }
     },
     "browse": {

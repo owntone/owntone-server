@@ -26,9 +26,8 @@
   </template>
   <teleport to="#app">
     <modal-dialog-artist
-      :show="show_details_modal"
       :artist="selected_artist"
-      :media_kind="media_kind"
+      :show="show_details_modal"
       @close="show_details_modal = false"
     />
   </teleport>
@@ -41,7 +40,7 @@ export default {
   name: 'ListArtists',
   components: { ModalDialogArtist },
 
-  props: ['artists', 'media_kind', 'hide_group_title'],
+  props: ['artists', 'hide_group_title'],
 
   data() {
     return {
@@ -50,23 +49,12 @@ export default {
     }
   },
 
-  computed: {
-    media_kind_resolved() {
-      return this.media_kind ? this.media_kind : this.selected_artist.media_kind
-    }
-  },
-
   methods: {
     open_artist(artist) {
       this.selected_artist = artist
-      if (this.media_kind_resolved === 'audiobook') {
-        this.$router.push({
-          name: 'audiobooks-artist',
-          params: { id: artist.id }
-        })
-      } else {
-        this.$router.push({ name: 'music-artist', params: { id: artist.id } })
-      }
+      const route =
+        artist.media_kind === 'audiobook' ? 'audiobooks-artist' : 'music-artist'
+      this.$router.push({ name: route, params: { id: artist.id } })
     },
 
     open_dialog(artist) {

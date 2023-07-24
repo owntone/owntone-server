@@ -33,6 +33,18 @@
                   </a>
                 </li>
               </router-link>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                :to="{ name: 'audiobooks-genres' }"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
+                  <a @click="navigate" @keypress.enter="navigate">
+                    <mdicon class="icon is-small" name="speaker" size="16" />
+                    <span v-text="$t('page.audiobooks.tabs.genres')" />
+                  </a>
+                </li>
+              </router-link>
             </ul>
           </div>
         </div>

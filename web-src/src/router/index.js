@@ -12,6 +12,7 @@ import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
 import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
+import PageAudiobooksGenres from '@/pages/PageAudiobooksGenres.vue'
 import PageBrowse from '@/pages/PageBrowse.vue'
 import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
 import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
@@ -22,7 +23,7 @@ import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
 import PageFiles from '@/pages/PageFiles.vue'
-import PageGenreAlbum from '@/pages/PageGenreAlbum.vue'
+import PageGenreAlbums from '@/pages/PageGenreAlbums.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
 import PageGenres from '@/pages/PageGenres.vue'
 import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
@@ -116,6 +117,12 @@ export const router = createRouter({
       path: '/audiobooks/artists'
     },
     {
+      component: PageAudiobooksGenres,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'audiobooks-genres',
+      path: '/audiobooks/genres'
+    },
+    {
       name: 'audiobooks',
       path: '/audiobooks',
       redirect: { name: 'audiobooks-artists' }
@@ -186,22 +193,22 @@ export const router = createRouter({
       path: '/files'
     },
     {
-      component: PageGenreAlbum,
+      component: PageGenreAlbums,
       meta: { has_index: true, show_progress: true },
-      path: '/music/genres/:name/albums',
-      name: 'music-genre'
+      name: 'genre-albums',
+      path: '/genres/:name/albums'
     },
     {
       component: PageGenreTracks,
       meta: { has_index: true, show_progress: true },
-      name: 'music-genre-tracks',
-      path: '/music/genres/:name/tracks'
+      name: 'genre-tracks',
+      path: '/genres/:name/tracks'
     },
     {
       component: PageGenres,
       meta: { has_index: true, has_tabs: true, show_progress: true },
-      path: '/music/genres',
-      name: 'music-genres'
+      name: 'music-genres',
+      path: '/music/genres'
     },
     {
       component: PageNowPlaying,

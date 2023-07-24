@@ -208,12 +208,12 @@ export default {
     },
 
     open_album() {
-      if (this.media_kind === 'podcast') {
+      if (this.item.media_kind === 'podcast') {
         this.$router.push({
           name: 'podcast',
           params: { id: this.item.album_id }
         })
-      } else if (this.media_kind === 'audiobook') {
+      } else if (this.item.media_kind === 'audiobook') {
         this.$router.push({
           name: 'audiobooks-album',
           params: { id: this.item.album_id }
@@ -235,8 +235,9 @@ export default {
 
     open_genre() {
       this.$router.push({
-        name: 'music-genre',
-        params: { name: this.item.genre }
+        name: 'genre-albums',
+        params: { name: this.item.genre },
+        query: { media_kind: this.item.media_kind }
       })
     },
 
