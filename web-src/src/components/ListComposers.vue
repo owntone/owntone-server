@@ -49,14 +49,6 @@ export default {
     }
   },
 
-  computed: {
-    media_kind_resolved() {
-      return this.media_kind
-        ? this.media_kind
-        : this.selected_composer.media_kind
-    }
-  },
-
   methods: {
     open_composer(composer) {
       this.selected_composer = composer
