@@ -8,7 +8,6 @@ import mdiVue from 'mdi-vue/v3'
 import VueClickAway from 'vue3-click-away'
 import VueLazyLoad from 'vue3-lazyload'
 import VueProgressBar from '@aacassandra/vue3-progressbar'
-import VueScrollTo from 'vue-scrollto'
 import { router } from './router'
 import store from './store'
 
@@ -21,7 +20,6 @@ const app = createApp(App)
     // Do not log errors, if image does not exist
     log: false
   })
-  .use(VueScrollTo)
   .use(mdiVue, {
     icons
   })

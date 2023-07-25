@@ -7,20 +7,9 @@
             <div ref="options_ref" style="height: 1px" />
             <slot name="options" />
             <nav class="buttons is-centered mt-4 mb-2">
-              <a
-                v-if="!options_visible"
-                class="button is-small is-white"
-                @click="scroll_to_top"
-              >
-                <mdicon class="icon is-small" name="chevron-down" size="16" />
-              </a>
-              <a
-                v-else
-                class="button is-small is-white"
-                @click="scroll_to_content"
-              >
-                <mdicon class="icon is-small" name="chevron-up" size="16" />
-              </a>
+              <router-link class="button is-small is-white" :to="position"
+                ><mdicon class="icon is-small" :name="icon_name" size="16"
+              /></router-link>
             </nav>
           </section>
           <div :class="{ 'fd-content-with-option': $slots.options }">
@@ -54,13 +43,19 @@
 <script>
 export default {
   name: 'ContentWithHeading',
-
   data() {
     return {
       options_visible: false
     }
   },
-
+  computed: {
+    icon_name() {
+      return this.options_visible ? 'chevron-up' : 'chevron-down'
+    },
+    position() {
+      return { hash: this.options_visible ? '#top' : '#app' }
+    }
+  },
   mounted() {
     if (this.$slots.options) {
       this.observer = new IntersectionObserver(this.onElementObserved, {
@@ -70,26 +65,12 @@ export default {
       this.observer.observe(this.$refs.options_ref)
     }
   },
-
   methods: {
     onElementObserved(entries) {
       entries.forEach(({ target, isIntersecting }) => {
         this.options_visible = isIntersecting
       })
     },
-
-    scroll_to_top() {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    },
-
-    scroll_to_content() {
-      if (this.$route.meta.has_tabs) {
-        this.$scrollTo('#top', { offset: -140 })
-      } else {
-        this.$scrollTo('#top', { offset: -110 })
-      }
-    },
-
     visibilityChanged(isVisible) {
       this.options_visible = isVisible
     }

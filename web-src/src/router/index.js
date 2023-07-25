@@ -306,7 +306,7 @@ export const router = createRouter({
     if (to.path === from.path && to.hash) {
       // We are staying on the same page and are jumping to an anchor (e. g. index nav)
       // We don't have a transition, so don't add a timeout!
-      return { el: to.hash, top: 120 }
+      return { el: to.hash, top: 140, behavior: 'smooth' }
     }
 
     if (to.hash) {
