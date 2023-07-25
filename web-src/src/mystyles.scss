@@ -63,11 +63,9 @@ a.navbar-item {
 .fd-page {
   margin-top: 3.25rem;
   margin-bottom: 3.25rem;
-}
-
-.fd-page-with-tabs {
-  margin-top: 6.25rem !important;
-  margin-bottom: 3.25rem;
+  &-with-tabs {
+    margin-top: 6.25rem !important;
+  }
 }
 
 /* Set minimum height to hide "option" section */
