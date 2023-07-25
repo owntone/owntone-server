@@ -96,12 +96,8 @@ export default {
     return {
       genre: {},
       albums_list: new GroupByList(),
+      media_kind: this.$route.query.media_kind,
       show_genre_details_modal: false
-    }
-  },
-  computed: {
-    media_kind() {
-      return this.$route.query.media_kind
     }
   },
   methods: {

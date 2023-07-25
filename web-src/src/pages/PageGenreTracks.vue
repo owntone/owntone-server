@@ -94,6 +94,10 @@ export default {
     })
   },
   beforeRouteUpdate(to, from, next) {
+    if (!this.tracks_list.isEmpty()) {
+      next()
+      return
+    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
@@ -118,6 +122,7 @@ export default {
           })
         }
       ],
+      media_kind: this.$route.query.media_kind,
       show_genre_details_modal: false,
       tracks_list: new GroupByList()
     }
@@ -126,9 +131,6 @@ export default {
   computed: {
     expression() {
       return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
-    },
-    media_kind() {
-      return this.$route.query.media_kind
     },
     selected_groupby_option_id: {
       get() {
