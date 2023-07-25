@@ -42,6 +42,9 @@ import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
 import store from '@/store'
 
+const TOP_WITH_TABS = 140
+const TOP_WITHOUT_TABS = 110
+
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
@@ -306,7 +309,8 @@ export const router = createRouter({
     if (to.path === from.path && to.hash) {
       // We are staying on the same page and are jumping to an anchor (e. g. index nav)
       // We don't have a transition, so don't add a timeout!
-      return { el: to.hash, top: 140, behavior: 'smooth' }
+      const top = to.meta.has_tabs ? TOP_WITH_TABS : TOP_WITHOUT_TABS
+      return { el: to.hash, top: top, behavior: 'smooth' }
     }
 
     if (to.hash) {
@@ -322,12 +326,9 @@ export const router = createRouter({
       // We are navigating to a page with index nav, that should be hidden automatically
       // Depending on wether we have a tab navigation, add an offset to the "top" anchor
       return new Promise((resolve, reject) => {
+        const top = to.meta.has_tabs ? TOP_WITH_TABS : TOP_WITHOUT_TABS
         setTimeout(() => {
-          if (to.meta.has_tabs) {
-            resolve({ el: '#top', top: 140 })
-          } else {
-            resolve({ el: '#top', top: 110 })
-          }
+          resolve({ el: '#top', top: top })
         }, wait_ms)
       })
     }
