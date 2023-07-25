@@ -1,17 +1,16 @@
+import './mystyles.scss'
+import App from './App.vue'
 import { createApp } from 'vue'
+import { filters } from './filter'
 import i18n from './i18n'
-import store from './store'
-import { router } from './router'
-import VueProgressBar from '@aacassandra/vue3-progressbar'
+import { icons } from './icons'
+import mdiVue from 'mdi-vue/v3'
 import VueClickAway from 'vue3-click-away'
 import VueLazyLoad from 'vue3-lazyload'
+import VueProgressBar from '@aacassandra/vue3-progressbar'
 import VueScrollTo from 'vue-scrollto'
-import mdiVue from 'mdi-vue/v3'
-import { filters } from './filter'
-import { icons } from './icons'
-import App from './App.vue'
-
-import './mystyles.scss'
+import { router } from './router'
+import store from './store'
 
 const app = createApp(App)
   .use(store)
@@ -24,7 +23,7 @@ const app = createApp(App)
   })
   .use(VueScrollTo)
   .use(mdiVue, {
-    icons: icons
+    icons
   })
   .use(i18n)
 

@@ -16,8 +16,8 @@
             <router-link
               class="button is-light is-small is-rounded"
               :to="{ name: 'music-browse-recently-added' }"
-              v-text="$t('page.browse.show-more')"
-            />
+              >{{ $t('page.browse.show-more') }}</router-link
+            >
           </p>
         </nav>
       </template>
@@ -40,8 +40,8 @@
             <router-link
               class="button is-light is-small is-rounded"
               :to="{ name: 'music-browse-recently-played' }"
-              v-text="$t('page.browse.show-more')"
-            />
+              >{{ $t('page.browse.show-more') }}</router-link
+            >
           </p>
         </nav>
       </template>
@@ -83,7 +83,7 @@ const dataObject = {
 
 export default {
   name: 'PageBrowse',
-  components: { ContentWithHeading, TabsMusic, ListAlbums, ListTracks },
+  components: { ContentWithHeading, ListAlbums, ListTracks, TabsMusic },
 
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
@@ -103,9 +103,8 @@ export default {
     return {
       recently_added: [],
       recently_played: { items: [] },
-
-      show_track_details_modal: false,
-      selected_track: {}
+      selected_track: {},
+      show_track_details_modal: false
     }
   }
 }
