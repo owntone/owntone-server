@@ -72,9 +72,17 @@ export default {
   methods: {
     play_track(track) {
       if (this.uris) {
-        webapi.player_play_uri(this.uris, false, this.tracks.items.indexOf(track))
+        webapi.player_play_uri(
+          this.uris,
+          false,
+          this.tracks.items.indexOf(track)
+        )
       } else if (this.expression) {
-        webapi.player_play_expression(this.expression, false, this.tracks.items.indexOf(track))
+        webapi.player_play_expression(
+          this.expression,
+          false,
+          this.tracks.items.indexOf(track)
+        )
       } else {
         webapi.player_play_uri(track.uri, false)
       }
