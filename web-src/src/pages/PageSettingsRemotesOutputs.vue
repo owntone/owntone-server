@@ -101,8 +101,6 @@ export default {
   name: 'PageSettingsRemotesOutputs',
   components: { ContentWithHeading, TabsSettings },
 
-  filters: {},
-
   data() {
     return {
       pairing_req: { pin: '' },
@@ -111,12 +109,11 @@ export default {
   },
 
   computed: {
-    pairing() {
-      return this.$store.state.pairing
-    },
-
     outputs() {
       return this.$store.state.outputs
+    },
+    pairing() {
+      return this.$store.state.pairing
     }
   },
 
@@ -124,13 +121,11 @@ export default {
     kickoff_pairing() {
       webapi.pairing_kickoff(this.pairing_req)
     },
-
-    output_toggle(outputId) {
-      webapi.output_toggle(outputId)
-    },
-
     kickoff_verification(outputId) {
       webapi.output_update(outputId, this.verification_req)
+    },
+    output_toggle(outputId) {
+      webapi.output_toggle(outputId)
     }
   }
 }

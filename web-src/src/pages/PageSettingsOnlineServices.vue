@@ -137,12 +137,6 @@ export default {
   name: 'PageSettingsOnlineServices',
   components: { ContentWithHeading, TabsSettings },
 
-  filters: {
-    join(array) {
-      return array.join(', ')
-    }
-  },
-
   data() {
     return {
       lastfm_login: {
@@ -157,18 +151,9 @@ export default {
     lastfm() {
       return this.$store.state.lastfm
     },
-
     spotify() {
       return this.$store.state.spotify
     },
-
-    spotify_required_scope() {
-      if (this.spotify.webapi_required_scope) {
-        return this.spotify.webapi_required_scope.split(' ')
-      }
-      return []
-    },
-
     spotify_missing_scope() {
       if (
         this.spotify.webapi_token_valid &&
@@ -182,6 +167,12 @@ export default {
           )
       }
       return []
+    },
+    spotify_required_scope() {
+      if (this.spotify.webapi_required_scope) {
+        return this.spotify.webapi_required_scope.split(' ')
+      }
+      return []
     }
   },
 
@@ -189,7 +180,6 @@ export default {
     logout_spotify() {
       webapi.spotify_logout()
     },
-
     login_lastfm() {
       webapi.lastfm_login(this.lastfm_login).then((response) => {
         this.lastfm_login.user = ''
@@ -205,7 +195,6 @@ export default {
         }
       })
     },
-
     logoutLastfm() {
       webapi.lastfm_logout()
     }
