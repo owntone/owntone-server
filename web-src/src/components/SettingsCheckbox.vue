@@ -7,7 +7,7 @@
       class="switch is-rounded mr-2"
       @change="update_setting"
     />
-    <label :for="option.name">
+    <label class="pt-0" :for="option.name">
       <slot name="label" />
     </label>
     <i
