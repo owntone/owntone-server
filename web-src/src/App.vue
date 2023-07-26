@@ -96,7 +96,7 @@ export default {
 
     //  Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
-      if (to.meta.show_progress) {
+      if (to.meta.show_progress && !(to.path === from.path && to.hash)) {
         if (to.meta.progress !== undefined) {
           const meta = to.meta.progress
           this.$Progress.parseMeta(meta)
