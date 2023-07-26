@@ -153,7 +153,7 @@ export default {
     open_albums() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'music-composer-album',
+        name: 'music-composer-albums',
         params: { name: this.composer.name }
       })
     },
