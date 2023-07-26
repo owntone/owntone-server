@@ -13,7 +13,7 @@
           </a>
           <a
             class="button is-small is-light is-rounded"
-            @click="show_album_details_modal = true"
+            @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
@@ -25,7 +25,7 @@
           :artist="album.artist"
           :album="album.name"
           class="is-clickable fd-has-shadow fd-cover fd-cover-medium-image"
-          @click="show_album_details_modal = true"
+          @click="show_details_modal = true"
         />
       </template>
       <template #content>
@@ -35,9 +35,9 @@
         />
         <list-tracks :tracks="tracks" :uris="album.uri" />
         <modal-dialog-album
-          :show="show_album_details_modal"
+          :show="show_details_modal"
           :album="album"
-          @close="show_album_details_modal = false"
+          @close="show_details_modal = false"
         />
       </template>
     </content-with-hero>
@@ -68,7 +68,7 @@ const dataObject = {
 
 export default {
   name: 'PageAlbum',
-  components: { ContentWithHero, ListTracks, ModalDialogAlbum, CoverArtwork },
+  components: { ContentWithHero, CoverArtwork, ListTracks, ModalDialogAlbum },
 
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
@@ -86,8 +86,8 @@ export default {
   data() {
     return {
       album: {},
-      tracks: new GroupByList(),
-      show_album_details_modal: false
+      show_details_modal: false,
+      tracks: new GroupByList()
     }
   },
 
@@ -99,7 +99,6 @@ export default {
         params: { id: this.album.artist_id }
       })
     },
-
     play() {
       webapi.player_play_uri(this.album.uri, true)
     }

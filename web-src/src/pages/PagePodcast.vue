@@ -1,26 +1,34 @@
 <template>
   <div class="fd-page">
-    <content-with-heading>
+    <content-with-hero>
       <template #heading-left>
-        <div class="title is-4" v-text="album.name" />
-      </template>
-      <template #heading-right>
-        <div class="buttons is-centered">
+        <h1 class="title is-5" v-text="album.name" />
+        <h2 class="subtitle is-6 has-text-weight-normal">&nbsp;</h2>
+        <div class="buttons fd-is-centered-mobile mt-5">
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <mdicon class="icon" name="play" size="16" />
+            <span v-text="$t('page.podcast.play')" />
+          </a>
           <a
             class="button is-small is-light is-rounded"
             @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
-          <a class="button is-small is-dark is-rounded" @click="play">
-            <mdicon class="icon" name="play" size="16" />
-            <span v-text="$t('page.podcast.play')" />
-          </a>
         </div>
+      </template>
+      <template #heading-right>
+        <cover-artwork
+          :artwork_url="album.artwork_url"
+          :artist="album.artist"
+          :album="album.name"
+          class="is-clickable fd-has-shadow fd-cover fd-cover-medium-image"
+          @click="show_details_modal = true"
+        />
       </template>
       <template #content>
         <p
-          class="heading has-text-centered-mobile"
+          class="heading is-7 has-text-centered-mobile mt-5"
           v-text="$t('page.podcast.track-count', { count: album.track_count })"
         />
         <list-tracks
@@ -53,12 +61,13 @@
           </template>
         </modal-dialog>
       </template>
-    </content-with-heading>
+    </content-with-hero>
   </div>
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ContentWithHero from '@/templates/ContentWithHero.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import { GroupByList } from '@/lib/GroupByList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
@@ -82,7 +91,8 @@ const dataObject = {
 export default {
   name: 'PagePodcast',
   components: {
-    ContentWithHeading,
+    ContentWithHero,
+    CoverArtwork,
     ListTracks,
     ModalDialog,
     ModalDialogAlbum
@@ -104,10 +114,10 @@ export default {
   data() {
     return {
       album: {},
-      tracks: new GroupByList(),
+      rss_playlist_to_remove: {},
       show_details_modal: false,
       show_remove_podcast_modal: false,
-      rss_playlist_to_remove: {}
+      tracks: new GroupByList()
     }
   },
 
@@ -118,22 +128,25 @@ export default {
   },
 
   methods: {
-    play() {
-      webapi.player_play_uri(this.album.uri, false)
-    },
-
     open_remove_podcast_dialog() {
       webapi
         .library_track_playlists(this.tracks.items[0].id)
         .then(({ data }) => {
-          this.rss_playlist_to_remove = data.items.filter(
+          ;[this.rss_playlist_to_remove] = data.items.filter(
             (pl) => pl.type === 'rss'
-          )[0]
+          )
           this.show_remove_podcast_modal = true
           this.show_details_modal = false
         })
     },
-
+    play() {
+      webapi.player_play_uri(this.album.uri, false)
+    },
+    reload_tracks() {
+      webapi.library_podcast_episodes(this.album.id).then(({ data }) => {
+        this.tracks = new GroupByList(data.tracks)
+      })
+    },
     remove_podcast() {
       this.show_remove_podcast_modal = false
       webapi
@@ -141,12 +154,6 @@ export default {
         .then(() => {
           this.$router.replace({ name: 'podcasts' })
         })
-    },
-
-    reload_tracks() {
-      webapi.library_podcast_episodes(this.album.id).then(({ data }) => {
-        this.tracks = new GroupByList(data.tracks)
-      })
     }
   }
 }
