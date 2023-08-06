@@ -197,24 +197,19 @@ export default {
   },
 
   computed: {
-    settings_option_show_composer_now_playing() {
-      return this.$store.getters.settings_option_show_composer_now_playing
-    },
-
-    settings_option_show_filepath_now_playing() {
-      return this.$store.getters.settings_option_show_filepath_now_playing
-    },
-
     locale: {
       get() {
         const languages = this.$i18n.availableLocales
         let locale = languages.find((lang) => lang === this.$i18n.locale)
-        let partial = this.$i18n.locale.split('-')[0]
+        const [partial] = this.$i18n.locale.split('-')
         if (!locale) {
           locale = languages.find((lang) => lang === partial)
         }
         if (!locale) {
           locale = languages.forEach((lang) => lang.split('-')[0] === partial)
+        }
+        if (!locale) {
+          locale = this.$i18n.fallbackLocale
         }
         return locale
       },
@@ -224,10 +219,17 @@ export default {
     },
     locales: {
       get() {
-        return this.$i18n.availableLocales.map((item) => {
-          return { id: item, name: this.$t('language.' + item) }
-        })
+        return this.$i18n.availableLocales.map((item) => ({
+          id: item,
+          name: this.$t(`language.${item}`)
+        }))
       }
+    },
+    settings_option_show_composer_now_playing() {
+      return this.$store.getters.settings_option_show_composer_now_playing
+    },
+    settings_option_show_filepath_now_playing() {
+      return this.$store.getters.settings_option_show_filepath_now_playing
     }
   }
 }
