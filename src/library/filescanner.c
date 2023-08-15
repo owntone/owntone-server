@@ -318,7 +318,7 @@ file_type_get(const char *path) {
   if (file_type_ignore(ext))
     return FILE_IGNORE;
 
-  if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
+  if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0) || (strcasecmp(ext, ".m3u8") == 0))
     return FILE_PLAYLIST;
 
   if (strcasecmp(ext, ".smartpl") == 0)
