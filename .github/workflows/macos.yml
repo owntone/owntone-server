@@ -14,6 +14,9 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
+    - name: Update brew
+      run: brew update
+
     - name: Install build tools
       run: brew install automake autoconf libtool pkg-config
 
