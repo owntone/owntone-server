@@ -193,7 +193,7 @@ file_select(uint8_t *out, size_t out_len, Track *track, enum sp_bitrates bitrate
 static int
 ap_resolve(char **address, unsigned short *port, const char *avoid)
 {
-  char *body;
+  char *body = NULL;
   json_object *jresponse = NULL;
   json_object *ap_list;
   json_object *ap;
