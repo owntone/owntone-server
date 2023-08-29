@@ -34,7 +34,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#ifdef HAVE_SYSCALL
+#ifdef HAVE_SYS_GETTID
 #include <sys/syscall.h> // get thread ID
 #endif
 
@@ -853,7 +853,7 @@ request_async_cb(void *arg)
 {
   struct httpd_request *hreq = *(struct httpd_request **)arg;
 
-#ifdef HAVE_SYSCALL
+#if defined(HAVE_SYSCALL) && defined(HAVE_SYS_GETTID)
   DPRINTF(E_DBG, hreq->module->logdomain, "%s request '%s' in worker thread %ld\n", hreq->module->name, hreq->uri, syscall(SYS_gettid));
 #endif
 
