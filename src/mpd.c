@@ -4813,7 +4813,7 @@ mpd_init(void)
   CHECK_NULL(L_MPD, evbase_mpd = event_base_new());
   CHECK_NULL(L_MPD, cmdbase = commands_base_new(evbase_mpd, NULL));
 
-  mpd_sockfd = net_bind(&port, SOCK_STREAM | SOCK_NONBLOCK, "mpd");
+  mpd_sockfd = net_bind(&port, SOCK_STREAM, "mpd");
   if (mpd_sockfd < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not bind mpd server to port %hu\n", port);

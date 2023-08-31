@@ -15,15 +15,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#ifndef SOCK_NONBLOCK
-#include <fcntl.h>
-#define SOCK_NONBLOCK O_NONBLOCK
-#endif
-
-#ifndef SOCK_CLOEXEC
-#define SOCK_CLOEXEC 0
-#endif
-
 union net_sockaddr
 {
   struct sockaddr_in sin;
