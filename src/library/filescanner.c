@@ -1323,6 +1323,12 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
     {
       DPRINTF(E_DBG, L_SCAN, "File moved to: %s\n", path);
 
+      /* handle overwriting an existing file, no inotify event generated for the
+       * overwrite on existing file before we update the path of moved file
+       */
+      db_file_delete_bypath(path);
+      cache_artwork_delete_by_path(path);
+
       ret = db_file_enable_bycookie(ie->cookie, path, filename_from_path(path));
 
       if (ret > 0)
