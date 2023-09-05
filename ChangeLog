@@ -1,6 +1,14 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.8
+	- fix MacOS bind error: "Protocol wrong type for socket"
+	- fix BSD build error (no SYS_gettid)
+	- fix ALAC missing end tag causing ffmpeg decoder warnings
+	- fix crash if Spotify AP resolver is unavailable
+	- fix duplicates if file within library is replaced
+	- fix fatal error due to mutex being zeroed
+
 version 28.7
 	- fix compability with ffmpeg 6
 	- web UI improvements:
