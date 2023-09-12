@@ -174,6 +174,28 @@ parse_albumid(struct media_file_info *mfi, const char *id_string)
   return 1;
 }
 
+static int
+parse_rating(struct media_file_info *mfi, const char *rating_string)
+{
+  uint32_t *rating = (uint32_t *) ((char *) mfi + mfi_offsetof(rating));
+
+  if (safe_atou32(rating_string, rating) != 0)
+    return 0;
+
+  // adjust for internal rating 0-100 range redistributing heurisstically
+  if (*rating > 100)
+    {
+      *rating = (*rating / 255.0) * 100;
+    }
+  else if (*rating <= 5)
+    {
+      *rating *= 20;
+    }
+
+  return 1;
+}
+
+
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static const struct metadata_map md_map_generic[] =
   {
@@ -198,6 +220,7 @@ static const struct metadata_map md_map_generic[] =
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
     { "compilation",  1, mfi_offsetof(compilation),        NULL },
     { "lyrics",       0, mfi_offsetof(lyrics),             NULL,       AV_DICT_IGNORE_SUFFIX },
+    { "rating",       1, mfi_offsetof(rating),             parse_rating },
 
     // ALAC sort tags
     { "sort_name",           0, mfi_offsetof(title_sort),         NULL },
