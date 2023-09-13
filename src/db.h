@@ -248,6 +248,7 @@ struct media_file_info {
   char *composer_sort;
 
   uint32_t scan_kind; /* Identifies the library_source that created/updates this item */
+  char *lyrics;
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)

@@ -49,6 +49,8 @@ struct metadata_map {
 // Used for passing errors to DPRINTF (can't count on av_err2str being present)
 static char errbuf[64];
 
+static int lyricsindex = -1;
+
 static inline char *
 err2str(int errnum)
 {
@@ -186,6 +188,7 @@ static const struct metadata_map md_map_generic[] =
     { "artist-sort",  0, mfi_offsetof(artist_sort),        NULL },
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
     { "compilation",  1, mfi_offsetof(compilation),        NULL },
+    { "lyrics",       0, mfi_offsetof(lyrics),             NULL },
 
     // ALAC sort tags
     { "sort_name",           0, mfi_offsetof(title_sort),         NULL },
@@ -277,16 +280,67 @@ static const struct metadata_map md_map_id3[] =
     { NULL,                  0, 0,                                   NULL }
   };
 
+/* TODO: If the md_map was sorted, the search would be O(log N) instead of O(N) */
+static int
+match_metadata(const char *key, const struct metadata_map *md_map)
+{
+  int i;
+
+  for (i = 0; md_map[i].key != NULL; i++)
+    {
+      if (strcmp(key, md_map[i].key) == 0)
+	return i;
+    }
+  return -1;
+}
+
+
+static int
+iterate_metadata(struct media_file_info *mfi, const AVDictionaryEntry *mdt, const struct metadata_map *md_map)
+{
+  char **strval;
+  uint32_t *intval;
+  int i;
+
+  if ((mdt->value == NULL) || (strlen(mdt->value) == 0))
+    return 0;
+
+  if (strncmp(mdt->key, "lyrics-", sizeof("lyrics-") - 1) == 0)
+    i = lyricsindex;
+  else
+    i = match_metadata(mdt->key, md_map);
+
+  if (i == -1)
+    return 0;
+
+  if (md_map[i].handler_function)
+    return md_map[i].handler_function(mfi, mdt->value);
+
+  if (!md_map[i].as_int)
+    {
+      strval = (char **) ((char *) mfi + md_map[i].offset);
+
+      if (*strval == NULL)
+	*strval = strdup(mdt->value);
+    }
+  else
+    {
+      intval = (uint32_t *) ((char *) mfi + md_map[i].offset);
+
+      if (*intval == 0)
+	{
+          if (safe_atou32(mdt->value, intval) < 0)
+	    return 1; /* Should probably be 0 */
+	}
+    }
+  return 1;
+}
 
 static int
 extract_metadata_core(struct media_file_info *mfi, AVDictionary *md, const struct metadata_map *md_map)
 {
-  AVDictionaryEntry *mdt;
-  char **strval;
-  uint32_t *intval;
+  const AVDictionaryEntry *mdt;
   int mdcount;
-  int i;
-  int ret;
 
 #if 0
   /* Dump all the metadata reported by ffmpeg */
@@ -297,42 +351,21 @@ extract_metadata_core(struct media_file_info *mfi, AVDictionary *md, const struc
 
   mdcount = 0;
 
-  /* Extract actual metadata */
-  for (i = 0; md_map[i].key != NULL; i++)
+  /* Cache this search once to avoid doing it per metadata key */
+  if (lyricsindex == -1)
+    lyricsindex = match_metadata("lyrics", md_map);
+
+  /* Extract lyrics if any found.
+     FFMPEG creates a metadata key that's embedding the language code in it, like 'lyrics-eng' or 'lyrics-XXX'
+     So it's not possible to query this key directly except by brute-forcing all languages.
+     Instead, we are reversing the metadata searching algorithm to query all metadata key that FFMPEG fetched
+     and matching them against our own map. This is the most efficient method to search it without having 2 pass
+     on the KV store */
+  mdt = av_dict_iterate(md, NULL);
+  while (mdt != NULL)
     {
-      mdt = av_dict_get(md, md_map[i].key, NULL, 0);
-      if (mdt == NULL)
-	continue;
-
-      if ((mdt->value == NULL) || (strlen(mdt->value) == 0))
-	continue;
-
-      if (md_map[i].handler_function)
-	{
-	  mdcount += md_map[i].handler_function(mfi, mdt->value);
-	  continue;
-	}
-
-      mdcount++;
-
-      if (!md_map[i].as_int)
-	{
-	  strval = (char **) ((char *) mfi + md_map[i].offset);
-
-	  if (*strval == NULL)
-	    *strval = strdup(mdt->value);
-	}
-      else
-	{
-	  intval = (uint32_t *) ((char *) mfi + md_map[i].offset);
-
-	  if (*intval == 0)
-	    {
-	      ret = safe_atou32(mdt->value, intval);
-	      if (ret < 0)
-		continue;
-	    }
-	}
+      mdcount += iterate_metadata(mfi, mdt, md_map);
+      mdt = av_dict_iterate(md, mdt);
     }
 
   return mdcount;
@@ -518,7 +551,7 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
 		if (mfi->bits_per_sample == 0)
 		  mfi->bits_per_sample = av_get_bits_per_sample(codec_id);
 		mfi->channels = channels;
-	      } 
+	      }
 	    break;
 
 	  default:

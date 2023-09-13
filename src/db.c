@@ -777,6 +777,7 @@ free_mfi(struct media_file_info *mfi, int content_only)
   free(mfi->composer_sort);
   free(mfi->album_artist_sort);
   free(mfi->virtual_path);
+  free(mfi->lyrics);
 
   if (!content_only)
     free(mfi);
