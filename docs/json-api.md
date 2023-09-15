@@ -1544,7 +1544,8 @@ curl -X GET "http://localhost:3689/api/library/tracks/1"
   "data_kind": "file",
   "path": "/music/srv/Incubus/Make Yourself/12 Pardon Me.mp3",
   "uri": "library:track:1",
-  "artwork_url": "/artwork/item/1"
+  "artwork_url": "/artwork/item/1",
+  "lyrics": "[00:00:10] Let's start the music [...]"
 }
 ```
 
@@ -2622,6 +2623,7 @@ curl --include \
 | uri                | string   | Resource identifier                       |
 | artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |
 | usermark           | integer  | User review marking of track (ranges from 0) |
+| lyrics             | string   | The lyrics if found either as LRC or plain text |
 
 
 ### `paging` object

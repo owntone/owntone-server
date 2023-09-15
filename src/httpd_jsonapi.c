@@ -322,7 +322,7 @@ track_to_json(struct db_media_file_info *dbmfi)
 
   safe_json_add_string(item, "path", dbmfi->path);
 
-  ret = snprintf(uri, sizeof(uri), "%s:%s:%s", "library", "track", dbmfi->id);
+  ret = snprintf(uri, sizeof(uri), "library:track:%s", dbmfi->id);
   if (ret < sizeof(uri))
     json_object_object_add(item, "uri", json_object_new_string(uri));
 
@@ -330,6 +330,7 @@ track_to_json(struct db_media_file_info *dbmfi)
   if (ret < sizeof(artwork_url))
     json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
 
+  safe_json_add_string(item, "lyrics", dbmfi->lyrics);
   return item;
 }
 
@@ -3851,7 +3852,7 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
   if (!allow_modifying_stored_playlists)
     {
       DPRINTF(E_LOG, L_WEB, "Modifying stored playlists is not enabled in the config file\n");
-      return 403; 
+      return 403;
     }
 
   if (access(default_playlist_directory, W_OK) < 0)
@@ -4762,7 +4763,7 @@ jsonapi_init(void)
   default_playlist_directory = NULL;
   allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "library"), "allow_modifying_stored_playlists");
   if (allow_modifying_stored_playlists)
-    { 
+    {
       temp_path = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
       if (temp_path)
 	{

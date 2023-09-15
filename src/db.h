@@ -423,6 +423,7 @@ struct db_media_file_info {
   char *channels;
   char *usermark;
   char *scan_kind;
+  char *lyrics;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)

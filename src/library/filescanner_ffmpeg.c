@@ -330,7 +330,7 @@ iterate_metadata(struct media_file_info *mfi, const AVDictionaryEntry *mdt, cons
       if (*intval == 0)
 	{
           if (safe_atou32(mdt->value, intval) < 0)
-	    return 1; /* Should probably be 0 */
+	    return 0;
 	}
     }
   return 1;
@@ -361,11 +361,11 @@ extract_metadata_core(struct media_file_info *mfi, AVDictionary *md, const struc
      Instead, we are reversing the metadata searching algorithm to query all metadata key that FFMPEG fetched
      and matching them against our own map. This is the most efficient method to search it without having 2 pass
      on the KV store */
-  mdt = av_dict_iterate(md, NULL);
+  mdt = av_dict_get(md, "", NULL, AV_DICT_IGNORE_SUFFIX);
   while (mdt != NULL)
     {
       mdcount += iterate_metadata(mfi, mdt, md_map);
-      mdt = av_dict_iterate(md, mdt);
+      mdt = av_dict_get(md, "", mdt, AV_DICT_IGNORE_SUFFIX);
     }
 
   return mdcount;
