@@ -297,13 +297,23 @@ export default {
     update_player_status() {
       webapi.player_status().then(({ data }) => {
         this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
+        this.update_lyrics()
       })
     },
 
     update_queue() {
       webapi.queue().then(({ data }) => {
         this.$store.commit(types.UPDATE_QUEUE, data)
+        this.update_lyrics()
       })
+    },
+
+    update_lyrics() {
+      let track = this.$store.state.queue.items.filter(e => e.id == this.$store.state.player.item_id)
+      if (track.length >= 1)
+        webapi.library_track(track[0].track_id).then(({ data }) => {
+          this.$store.commit(types.UPDATE_LYRICS, data)
+        })
     },
 
     update_settings() {
