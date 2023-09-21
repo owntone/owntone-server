@@ -578,7 +578,8 @@
       "shuffle-disabled": "Tracks in Reihenfolge wiedergeben",
       "skip-backward": "Zum vorherigen Track springen",
       "skip-forward": "Zum nächsten Track springen",
-      "stop": "Wiedergabe stoppen"
+      "stop": "Wiedergabe stoppen",
+      "toggle-lyrics": "Liedtexte anzeigen/verbergen"
     }
   },
   "setting": {
