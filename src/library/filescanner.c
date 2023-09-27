@@ -1791,7 +1791,7 @@ check_path_in_directories(const char *path)
   bool ret;
 
   if (strstr(path, "/../"))
-    return NULL;
+    return false;
 
   tmp_path = strdup(path);
   dir = dirname(tmp_path);
