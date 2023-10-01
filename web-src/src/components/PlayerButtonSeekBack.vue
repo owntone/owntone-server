@@ -1,6 +1,10 @@
 <template>
   <a v-if="visible" :disabled="disabled" @click="seek">
-    <span class="icon"><mdicon name="rewind" :size="icon_size" /></span>
+    <mdicon
+      name="rewind-10"
+      :size="icon_size"
+      :title="$t('player.button.seek-backward')"
+    />
   </a>
 </template>
 
@@ -38,7 +42,7 @@ export default {
   },
 
   methods: {
-    seek: function () {
+    seek() {
       if (!this.disabled) {
         webapi.player_seek(this.seek_ms * -1)
       }

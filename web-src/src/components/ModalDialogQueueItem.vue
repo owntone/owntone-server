@@ -142,14 +142,14 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="remove">
-                <span class="icon"><mdicon name="delete" size="16" /></span>
+                <mdicon class="icon" name="delete" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.queue-item.remove')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.queue-item.play')" />
               </a>
             </footer>
@@ -166,8 +166,8 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
+import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogQueueItem',
@@ -197,45 +197,63 @@ export default {
   },
 
   methods: {
-    remove: function () {
+    remove() {
       this.$emit('close')
       webapi.queue_remove(this.item.id)
     },
 
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play({ item_id: this.item.id })
     },
 
-    open_album: function () {
-      if (this.media_kind === 'podcast') {
-        this.$router.push({ path: '/podcasts/' + this.item.album_id })
-      } else if (this.media_kind === 'audiobook') {
-        this.$router.push({ path: '/audiobooks/' + this.item.album_id })
+    open_album() {
+      if (this.item.media_kind === 'podcast') {
+        this.$router.push({
+          name: 'podcast',
+          params: { id: this.item.album_id }
+        })
+      } else if (this.item.media_kind === 'audiobook') {
+        this.$router.push({
+          name: 'audiobooks-album',
+          params: { id: this.item.album_id }
+        })
       } else {
-        this.$router.push({ path: '/music/albums/' + this.item.album_id })
+        this.$router.push({
+          name: 'music-album',
+          params: { id: this.item.album_id }
+        })
       }
     },
 
-    open_album_artist: function () {
-      this.$router.push({ path: '/music/artists/' + this.item.album_artist_id })
-    },
-
-    open_genre: function () {
-      this.$router.push({ name: 'Genre', params: { genre: this.item.genre } })
-    },
-
-    open_spotify_artist: function () {
-      this.$emit('close')
+    open_album_artist() {
       this.$router.push({
-        path: '/music/spotify/artists/' + this.spotify_track.artists[0].id
+        name: 'music-artist',
+        params: { id: this.item.album_artist_id }
       })
     },
 
-    open_spotify_album: function () {
+    open_genre() {
+      this.$router.push({
+        name: 'genre-albums',
+        params: { name: this.item.genre },
+        query: { media_kind: this.item.media_kind }
+      })
+    },
+
+    open_spotify_artist() {
       this.$emit('close')
       this.$router.push({
-        path: '/music/spotify/albums/' + this.spotify_track.album.id
+        name: 'music-spotify-artist',
+        params: { id: this.spotify_track.artists[0].id }
+      })
+    },
+
+    open_spotify_album() {
+      this.$emit('close')
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: this.spotify_track.album.id }
       })
     }
   }

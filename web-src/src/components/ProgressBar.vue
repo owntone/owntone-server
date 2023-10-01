@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="width > 0"
-    class="progress-bar mt-2"
+    class="progress-bar"
     :style="{ width: width_percent }"
   />
 </template>

@@ -7,29 +7,41 @@
             <ul>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/audiobooks/artists"
+                :to="{ name: 'audiobooks-artists' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"
-                      ><mdicon name="account-music" size="16"
-                    /></span>
+                    <mdicon
+                      class="icon is-small"
+                      name="account-music"
+                      size="16"
+                    />
                     <span v-text="$t('page.audiobooks.tabs.authors')" />
                   </a>
                 </li>
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/audiobooks/albums"
+                :to="{ name: 'audiobooks-albums' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <span class="icon is-small"
-                      ><mdicon name="album" size="16"
-                    /></span>
+                    <mdicon class="icon is-small" name="album" size="16" />
                     <span v-text="$t('page.audiobooks.tabs.audiobooks')" />
+                  </a>
+                </li>
+              </router-link>
+              <router-link
+                v-slot="{ navigate, isActive }"
+                :to="{ name: 'audiobooks-genres' }"
+                custom
+              >
+                <li :class="{ 'is-active': isActive }">
+                  <a @click="navigate" @keypress.enter="navigate">
+                    <mdicon class="icon is-small" name="speaker" size="16" />
+                    <span v-text="$t('page.audiobooks.tabs.genres')" />
                   </a>
                 </li>
               </router-link>

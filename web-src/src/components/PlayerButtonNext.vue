@@ -1,6 +1,10 @@
 <template>
   <a :disabled="disabled" @click="play_next">
-    <span class="icon"><mdicon name="skip-forward" :size="icon_size" /></span>
+    <mdicon
+      name="skip-forward"
+      :size="icon_size"
+      :title="$t('player.button.skip-forward')"
+    />
   </a>
 </template>
 
@@ -24,7 +28,7 @@ export default {
   },
 
   methods: {
-    play_next: function () {
+    play_next() {
       if (this.disabled) {
         return
       }

@@ -16,10 +16,10 @@
           <div class="notification is-size-7">
             <span v-text="$t('page.settings.services.spotify.requirements')" />
           </div>
-          <div class="fd-has-margin-top">
+          <div class="mt-5">
             <p
               class="content"
-              v-html="$t('page.settings.services.spotify.grant-access')"
+              v-text="$t('page.settings.services.spotify.grant-access')"
             />
             <p v-if="spotify.webapi_token_valid">
               <span v-text="$t('page.settings.services.spotify.user')" />
@@ -29,7 +29,7 @@
               <span v-text="$t('page.settings.services.spotify.reauthorize')" />
               <code v-text="spotify_missing_scope.join()" />
             </p>
-            <div class="field fd-has-margin-top">
+            <div class="field mt-5">
               <div class="control">
                 <a
                   class="button"
@@ -47,10 +47,7 @@
               <span v-text="$t('page.settings.services.spotify.scopes')" />
               <code v-text="spotify_required_scope.join(', ')" />
             </p>
-            <div
-              v-if="spotify.webapi_token_valid"
-              class="field fd-has-margin-top"
-            >
+            <div v-if="spotify.webapi_token_valid" class="field mt-5">
               <div class="control">
                 <a
                   class="button is-danger"
@@ -77,7 +74,7 @@
         <div v-if="lastfm.enabled">
           <p
             class="content"
-            v-html="$t('page.settings.services.lastfm.grant-access')"
+            v-text="$t('page.settings.services.lastfm.grant-access')"
           />
           <div v-if="lastfm.scrobbling_enabled">
             <a
@@ -94,7 +91,7 @@
                     v-model="lastfm_login.user"
                     class="input"
                     type="text"
-                    placeholder="Username"
+                    :placeholder="$t('page.settings.services.username')"
                   />
                   <p class="help is-danger" v-text="lastfm_login.errors.user" />
                 </div>
@@ -103,7 +100,7 @@
                     v-model="lastfm_login.password"
                     class="input"
                     type="password"
-                    placeholder="Password"
+                    :placeholder="$t('page.settings.services.password')"
                   />
                   <p
                     class="help is-danger"
@@ -137,14 +134,8 @@ import TabsSettings from '@/components/TabsSettings.vue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'SettingsPageOnlineServices',
+  name: 'PageSettingsOnlineServices',
   components: { ContentWithHeading, TabsSettings },
-
-  filters: {
-    join(array) {
-      return array.join(', ')
-    }
-  },
 
   data() {
     return {
@@ -160,18 +151,9 @@ export default {
     lastfm() {
       return this.$store.state.lastfm
     },
-
     spotify() {
       return this.$store.state.spotify
     },
-
-    spotify_required_scope() {
-      if (this.spotify.webapi_required_scope) {
-        return this.spotify.webapi_required_scope.split(' ')
-      }
-      return []
-    },
-
     spotify_missing_scope() {
       if (
         this.spotify.webapi_token_valid &&
@@ -185,6 +167,12 @@ export default {
           )
       }
       return []
+    },
+    spotify_required_scope() {
+      if (this.spotify.webapi_required_scope) {
+        return this.spotify.webapi_required_scope.split(' ')
+      }
+      return []
     }
   },
 
@@ -192,7 +180,6 @@ export default {
     logout_spotify() {
       webapi.spotify_logout()
     },
-
     login_lastfm() {
       webapi.lastfm_login(this.lastfm_login).then((response) => {
         this.lastfm_login.user = ''
@@ -208,7 +195,6 @@ export default {
         }
       })
     },
-
     logoutLastfm() {
       webapi.lastfm_logout()
     }

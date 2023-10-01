@@ -168,19 +168,15 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.track.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.track.add-next')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="play_track">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.track.play')" />
               </a>
             </footer>
@@ -197,8 +193,8 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
 import SpotifyWebApi from 'spotify-web-api-js'
+import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrack',
@@ -229,58 +225,74 @@ export default {
   },
 
   methods: {
-    play_track: function () {
+    play_track() {
       this.$emit('close')
       webapi.player_play_uri(this.track.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.track.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.track.uri)
     },
 
-    open_album: function () {
+    open_album() {
       this.$emit('close')
       if (this.track.media_kind === 'podcast') {
-        this.$router.push({ path: '/podcasts/' + this.track.album_id })
+        this.$router.push({
+          name: 'podcast',
+          params: { id: this.track.album_id }
+        })
       } else if (this.track.media_kind === 'audiobook') {
-        this.$router.push({ path: '/audiobooks/' + this.track.album_id })
+        this.$router.push({
+          name: 'audiobooks-album',
+          params: { id: this.track.album_id }
+        })
       } else {
-        this.$router.push({ path: '/music/albums/' + this.track.album_id })
+        this.$router.push({
+          name: 'music-album',
+          params: { id: this.track.album_id }
+        })
       }
     },
 
-    open_artist: function () {
+    open_artist() {
       this.$emit('close')
       this.$router.push({
-        path: '/music/artists/' + this.track.album_artist_id
+        name: 'music-artist',
+        params: { id: this.track.album_artist_id }
       })
     },
 
-    open_genre: function () {
-      this.$router.push({ name: 'Genre', params: { genre: this.track.genre } })
-    },
-
-    open_spotify_artist: function () {
-      this.$emit('close')
+    open_genre() {
       this.$router.push({
-        path: '/music/spotify/artists/' + this.spotify_track.artists[0].id
+        name: 'genre-albums',
+        params: { name: this.track.genre },
+        query: { media_kind: this.track.media_kind }
       })
     },
 
-    open_spotify_album: function () {
+    open_spotify_artist() {
       this.$emit('close')
       this.$router.push({
-        path: '/music/spotify/albums/' + this.spotify_track.album.id
+        name: 'music-spotify-artist',
+        params: { id: this.spotify_track.artists[0].id }
       })
     },
 
-    mark_new: function () {
+    open_spotify_album() {
+      this.$emit('close')
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: this.spotify_track.album.id }
+      })
+    },
+
+    mark_new() {
       webapi
         .library_track_update(this.track.id, { play_count: 'reset' })
         .then(() => {
@@ -289,7 +301,7 @@ export default {
         })
     },
 
-    mark_played: function () {
+    mark_played() {
       webapi
         .library_track_update(this.track.id, { play_count: 'increment' })
         .then(() => {

@@ -1,9 +1,9 @@
 <template>
   <div id="app">
     <navbar-top />
-    <vue-progress-bar class="fd-progress-bar" />
+    <vue-progress-bar class="fd-progress-bar has-background-info" />
     <router-view v-slot="{ Component }">
-      <component :is="Component" class="fd-page" />
+      <component :is="Component" />
     </router-view>
 
     <modal-dialog-remote-pairing
@@ -88,7 +88,7 @@ export default {
     }
   },
 
-  created: function () {
+  created() {
     this.connect()
 
     //  Start the progress bar on app start
@@ -96,7 +96,7 @@ export default {
 
     //  Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
-      if (to.meta.show_progress) {
+      if (to.meta.show_progress && !(to.path === from.path && to.hash)) {
         if (to.meta.progress !== undefined) {
           const meta = to.meta.progress
           this.$Progress.parseMeta(meta)
@@ -106,7 +106,7 @@ export default {
       next()
     })
 
-    //  hook the progress bar to finish after we've finished moving router-view
+    //  Hook the progress bar to finish after we've finished moving router-view
     this.$router.afterEach((to, from) => {
       if (to.meta.show_progress) {
         this.$Progress.finish()
@@ -115,7 +115,7 @@ export default {
   },
 
   methods: {
-    connect: function () {
+    connect() {
       webapi
         .config()
         .then(({ data }) => {
@@ -135,7 +135,7 @@ export default {
         })
     },
 
-    open_ws: function () {
+    open_ws() {
       if (this.$store.state.config.websocket_port <= 0) {
         this.$store.dispatch('add_notification', {
           text: this.$t('server.missing-port'),
@@ -226,7 +226,7 @@ export default {
         vm.update_pairing()
 
         update_throttled = true
-        setTimeout(function () {
+        setTimeout(() => {
           update_throttled = false
         }, 500)
       }
@@ -234,7 +234,7 @@ export default {
       // These events are fired when the window becomes active in different ways
       // When this happens, we should update 'now playing' info etc
       window.addEventListener('focus', update_info)
-      document.addEventListener('visibilitychange', function () {
+      document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
           update_info()
         }
@@ -273,7 +273,7 @@ export default {
       }
     },
 
-    update_library_stats: function () {
+    update_library_stats() {
       webapi.library_stats().then(({ data }) => {
         this.$store.commit(types.UPDATE_LIBRARY_STATS, data)
       })
@@ -288,37 +288,37 @@ export default {
       })
     },
 
-    update_outputs: function () {
+    update_outputs() {
       webapi.outputs().then(({ data }) => {
         this.$store.commit(types.UPDATE_OUTPUTS, data.outputs)
       })
     },
 
-    update_player_status: function () {
+    update_player_status() {
       webapi.player_status().then(({ data }) => {
         this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
       })
     },
 
-    update_queue: function () {
+    update_queue() {
       webapi.queue().then(({ data }) => {
         this.$store.commit(types.UPDATE_QUEUE, data)
       })
     },
 
-    update_settings: function () {
+    update_settings() {
       webapi.settings().then(({ data }) => {
         this.$store.commit(types.UPDATE_SETTINGS, data)
       })
     },
 
-    update_lastfm: function () {
+    update_lastfm() {
       webapi.lastfm().then(({ data }) => {
         this.$store.commit(types.UPDATE_LASTFM, data)
       })
     },
 
-    update_spotify: function () {
+    update_spotify() {
       webapi.spotify().then(({ data }) => {
         this.$store.commit(types.UPDATE_SPOTIFY, data)
 
@@ -335,14 +335,14 @@ export default {
       })
     },
 
-    update_pairing: function () {
+    update_pairing() {
       webapi.pairing().then(({ data }) => {
         this.$store.commit(types.UPDATE_PAIRING, data)
         this.pairing_active = data.active
       })
     },
 
-    update_is_clipped: function () {
+    update_is_clipped() {
       if (this.show_burger_menu || this.show_player_menu) {
         document.querySelector('html').classList.add('is-clipped')
       } else {

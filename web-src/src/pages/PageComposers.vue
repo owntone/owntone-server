@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music />
     <content-with-heading>
       <template #options>
@@ -21,18 +21,18 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
+import { GroupByList, byName } from '@/lib/GroupByList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListComposers from '@/components/ListComposers.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
-import { byName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_composers('music')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.composers = new GroupByList(response.data)
     vm.composers.group(byName('name_sort'))
   }
@@ -40,7 +40,7 @@ const dataObject = {
 
 export default {
   name: 'PageComposers',
-  components: { ContentWithHeading, TabsMusic, IndexButtonList, ListComposers },
+  components: { ContentWithHeading, IndexButtonList, ListComposers, TabsMusic },
 
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
@@ -64,9 +64,7 @@ export default {
     return {
       composers: new GroupByList()
     }
-  },
-
-  methods: {}
+  }
 }
 </script>
 

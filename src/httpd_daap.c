@@ -2264,8 +2264,6 @@ daap_request(struct httpd_request *hreq)
 
   ret = hreq->handler(hreq);
 
-  daap_reply_send(hreq, ret);
-
   clock_gettime(CLOCK_MONOTONIC, &end);
   msec = (end.tv_sec * 1000 + end.tv_nsec / 1000000) - (start.tv_sec * 1000 + start.tv_nsec / 1000000);
 
@@ -2273,6 +2271,8 @@ daap_request(struct httpd_request *hreq)
 
   if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold() && hreq->user_agent)
     cache_daap_add(hreq->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
+
+  daap_reply_send(hreq, ret); // hreq is deallocted
 }
 
 int

@@ -1,6 +1,11 @@
 <template>
-  <a :class="{ 'is-warning': is_consume }" @click="toggle_consume_mode">
-    <span class="icon"><mdicon name="fire" :size="icon_size" /></span>
+  <a :class="{ 'is-info': is_consume }" @click="toggle_consume_mode">
+    <mdicon
+      class="icon"
+      name="fire"
+      :size="icon_size"
+      :title="$t('player.button.consume')"
+    />
   </a>
 </template>
 
@@ -24,7 +29,7 @@ export default {
   },
 
   methods: {
-    toggle_consume_mode: function () {
+    toggle_consume_mode() {
       webapi.player_consume(!this.is_consume)
     }
   }

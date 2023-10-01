@@ -1,6 +1,10 @@
 <template>
   <a v-if="visible" :disabled="disabled" @click="seek">
-    <span class="icon"><mdicon name="fast-forward" :size="icon_size" /></span>
+    <mdicon
+      name="fast-forward-30"
+      :size="icon_size"
+      :title="$t('player.button.seek-forward')"
+    />
   </a>
 </template>
 
@@ -38,7 +42,7 @@ export default {
   },
 
   methods: {
-    seek: function () {
+    seek() {
       if (!this.disabled) {
         webapi.player_seek(this.seek_ms)
       }

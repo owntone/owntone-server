@@ -6,7 +6,7 @@
         <div class="title is-4" v-text="$t('page.settings.general.language')" />
       </template>
       <template #content>
-        <dropdown-menu v-model="locale" :options="locales" />
+        <control-dropdown v-model:value="locale" :options="locales" />
       </template>
     </content-with-heading>
     <content-with-heading>
@@ -124,7 +124,7 @@
           category_name="webinterface"
           option_name="show_composer_for_genre"
           :disabled="!settings_option_show_composer_now_playing"
-          placeholder="Genres"
+          :placeholder="$t('page.settings.general.genres')"
         >
           <template #label>
             <span v-text="$t('page.settings.general.show-composer-genres')" />
@@ -179,42 +179,37 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsSettings from '@/components/TabsSettings.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
 import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
-import SettingsTextfield from '@/components/SettingsTextfield.vue'
 import SettingsIntfield from '@/components/SettingsIntfield.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
+import SettingsTextfield from '@/components/SettingsTextfield.vue'
+import TabsSettings from '@/components/TabsSettings.vue'
 
 export default {
-  name: 'SettingsPageWebinterface',
+  name: 'PageSettingsWebinterface',
   components: {
     ContentWithHeading,
-    TabsSettings,
+    ControlDropdown,
     SettingsCheckbox,
-    SettingsTextfield,
     SettingsIntfield,
-    DropdownMenu
+    SettingsTextfield,
+    TabsSettings
   },
 
   computed: {
-    settings_option_show_composer_now_playing() {
-      return this.$store.getters.settings_option_show_composer_now_playing
-    },
-
-    settings_option_show_filepath_now_playing() {
-      return this.$store.getters.settings_option_show_filepath_now_playing
-    },
-
     locale: {
       get() {
-        let languages = this.$i18n.availableLocales
-        let locale = languages.find(lang => lang === this.$i18n.locale)
-        let partial = this.$i18n.locale.split('-')[0]
+        const languages = this.$i18n.availableLocales
+        let locale = languages.find((lang) => lang === this.$i18n.locale)
+        const [partial] = this.$i18n.locale.split('-')
         if (!locale) {
-          locale = languages.find(lang => lang === partial)
+          locale = languages.find((lang) => lang === partial)
         }
         if (!locale) {
-          locale = languages.forEach(lang => lang.split('-')[0] === partial)
+          locale = languages.forEach((lang) => lang.split('-')[0] === partial)
+        }
+        if (!locale) {
+          locale = this.$i18n.fallbackLocale
         }
         return locale
       },
@@ -224,10 +219,17 @@ export default {
     },
     locales: {
       get() {
-        return this.$i18n.availableLocales.map((item) => {
-          return { id: item, name: this.$t('language.' + item) }
-        })
+        return this.$i18n.availableLocales.map((item) => ({
+          id: item,
+          name: this.$t(`language.${item}`)
+        }))
       }
+    },
+    settings_option_show_composer_now_playing() {
+      return this.$store.getters.settings_option_show_composer_now_playing
+    },
+    settings_option_show_filepath_now_playing() {
+      return this.$store.getters.settings_option_show_filepath_now_playing
     }
   }
 }

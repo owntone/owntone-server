@@ -74,11 +74,13 @@
     "playlist": {
       "add-next": "Als nächstes hinzufügen",
       "add": "Hinzufügen",
+      "path": "Pfad",
       "play": "Spielen",
       "track-count": "Tracknummer",
       "type": "Art",
       "save": {
         "cancel": "Abbrechen",
+        "playlist-name": "Playlistname",
         "save": "Speichern",
         "saving": "Speichere…",
         "title": "Warteschlange als Playlist speichern"
@@ -106,6 +108,7 @@
     "remote-pairing": {
       "cancel": "Abbrechen",
       "pair": "Remote paaren",
+      "pairing-code": "Pairing-Code",
       "title": "Remote-Paarungs-Anfrage"
     },
     "spotify": {
@@ -187,13 +190,15 @@
   "language": {
     "de": "Deutsch",
     "en": "Englisch (English)",
-    "fr": "Französisch (Français)"
+    "fr": "Französisch (Français)",
+    "zh": "Chinesisch (中文)"
   },
   "list": {
     "albums": {
       "info-1": "Diesen Podcast dauerhaft aus der Bibliothek löschen?",
       "info-2": "Dies wir auch RSS-Playlisten löschen ",
-      "notification": "Podcast kann nicht gelöscht werden - evtl. wurde er nicht als RSS-Playlist hinzugefügt."
+      "remove": "Entfernen",
+      "remove-podcast": "Entferne podcast"
     },
     "spotify": {
       "not-playable-track": "Track kann nicht gespielt werden",
@@ -233,9 +238,10 @@
     "about": {
       "albums": "Albums",
       "artists": "Künstler",
-      "built-with": "Oberfläche erstellt mit <a href=\"https://bulma.io\">Bulma</a>, <a href=\"https://materialdesignicons.com/\">Material Design Icons</a>, <a href=\"https://vuejs.org/\">Vue.js</a>, <a href=\"https://github.com/mzabriskie/axios\">axios</a> und <a href=\"https://github.com/owntone/owntone-server/network/dependencies\">anderem</a>.",
+      "built-with": "Oberfläche erstellt mit {bulma}, {mdi}, {vuejs}, {axios} und {others}.",
       "compiled-with": "Compiliert mit Unterstützung von {options}.",
       "library": "Bibliothek",
+      "more": "mehr",
       "total-playtime": "Gesamte Spielzeit",
       "tracks": "Tracks",
       "update": "Neu einlesen",
@@ -246,13 +252,13 @@
     },
     "album": {
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Tracks"
+      "track-count": "{count} Track|{count} Track|{count} Tracks"
     },
     "albums": {
-      "count": "{count} Slbums",
+      "count": "{count} Album|{count} Album|{count} Alben",
       "filter": "Filter",
       "hide-singles-help": "Nach Aktivierung werden keine Singles und Alben angezeigt, die nur in Playlisten enthalten sind.",
-      "hide-singles": "Nach Aktivierung werden keine  Singles angezeigt",
+      "hide-singles": "Nach Aktivierung werden keine Singles angezeigt",
       "hide-spotify-help": "Nach Aktivierung werden keine Alben angezeigt, die nur in der Spotify-Bibliothek enthalten sind.",
       "hide-spotify": "Verbirgt Spotify-Alben",
       "title": "Alben",
@@ -264,9 +270,9 @@
       }
     },
     "artist": {
-      "album-count": "{count} Alben",
+      "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Tracks",
+      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort-by": {
         "title": "Sortieren nach",
         "name": "Name",
@@ -283,7 +289,7 @@
         "recently-added": "Kürzlich hinzugefügt"
       },
       "hide-singles-help": "Nach Aktivierung werden keine Singles und Alben angezeigt, die nur in Playlisten enthalten sind.",
-      "hide-singles": "Nach Aktivierung werden keine  Singles angezeigt",
+      "hide-singles": "Nach Aktivierung werden keine Singles angezeigt",
       "hide-spotify-help": "Nach Aktivierung werden keine Alben angezeigt, die nur in der Spotify-Bibliothek enthalten sind.",
       "hide-spotify": "Verbirgt Künstler auf Spotify",
       "title": "Künstler"
@@ -291,23 +297,24 @@
     "audiobooks": {
       "album": {
         "play": "Spielen",
-        "track-count": "{count} Tracks"
+        "track-count": "{count} Track|{count} Track|{count} Tracks"
       },
       "albums": {
-        "count": "{count} Hörbücher",
+        "count": "{count} Hörbuch|{count} Hörbuch|{count} Hörbücher",
         "title": "Hörbücher"
       },
       "artist": {
-        "album-count": "{count} Alben",
+        "album-count": "{count} Album|{count} Album|{count} Alben",
         "play": "Spielen"
       },
       "artists": {
-        "count": "{count} Autoren",
+        "count": "{count} Autor|{count} Autor|{count} Autoren",
         "title": "Autoren"
       },
       "tabs": {
         "authors": "Autoren",
-        "audiobooks": "Hörbücher"
+        "audiobooks": "Hörbücher",
+        "genres": "Genres"
       }
     },
     "browse": {
@@ -332,9 +339,9 @@
       }
     },
     "composer": {
-      "album-count": "{count} Alben",
+      "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Tracks",
+      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort-by": {
         "title": "Sortieren nach",
         "name": "Name",
@@ -342,7 +349,7 @@
       }
     },
     "composers": {
-      "count": "{count} Komponisten",
+      "count": "{count} Komponist|{count} Komponist|{count} Komponisten",
       "title": "Komponisten"
     },
     "files": {
@@ -350,9 +357,9 @@
       "title": "Dateien"
     },
     "genre": {
-      "album-count": "{count} Alben",
+      "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Tracks",
+      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort-by": {
         "title": "Sortieren nach",
         "name": "Name",
@@ -360,31 +367,34 @@
       }
     },
     "genres": {
-      "count": "{count} Genres",
+      "count": "{count} Genre|{count} Genre|{count} Genres",
       "title": "Genres"
     },
     "now-playing": {
       "info": "Tracks durch Auswählen aus der Bibliothek anfügen",
+      "live": "Live",
       "title": "Deine Playliste ist leer."
     },
     "playlist": {
       "length": "{length} Tracks",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Tracks"
+      "track-count": "{count} Track|{count} Tracks"
     },
     "playlists": {
-      "count": "{count} Playlisten"
+      "title": "Playlisten",
+      "count": "{count} Playlist|{count} Playlisten"
     },
     "podcast": {
       "play": "Spielen",
-      "remove-error": "Podcast kann nicht entfernt werden, evtl. wurde er nicht als RSS-Playlist hinzugefügt.",
+      "remove": "Entfernen",
       "remove-info-1": "Diesen Podcast wirklich dauerhaft aus der Bibliothek löschen?",
-      "remove-info-2": "Damit wird auch die RSS-Playliste  gelöscht. ",
-      "track-count": "{count} Tracks"
+      "remove-info-2": "Damit wird auch die RSS-Playliste gelöscht. ",
+      "remove-podcast": "Entferne podcast",
+      "track-count": "{count} Track|{count} Tracks"
     },
     "podcasts": {
       "add": "Hinzufügen",
-      "count": "{count} Podcasts",
+      "count": "{count} Podcast|{count} Podcasts",
       "mark-all-played": "Alle abgespielten markieren",
       "new-episodes": "Neue Episoden",
       "title": "Podcasts",
@@ -393,22 +403,23 @@
     "queue": {
       "add-stream": "Stream hinzufügen",
       "clear": "Alle entfernen",
-      "count": "{count} Tracks",
+      "count": "{count} Track|{count} Track|{count} Tracks",
       "edit": "Bearbeiten",
       "hide-previous": "Vorherige verbergen",
       "title": "Warteschlange",
       "save": "Speichern"
     },
     "radio": {
-      "count": "{count} Stationen",
+      "count": "{count} Station|{count} Station|{count} Stationen",
       "title": "Radio"
     },
     "search": {
       "albums": "Alben",
       "artists": "Künstler",
       "audiobooks": "Hörbücher",
-      "composers": "Komponisten",       
-      "help": "Tip: Du kannst mit einer Smart-Playlist-Abfrage-Sprache nach <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">Ausdrücken</a> suchen wenn Du dem Ausdruck ein <code>query:</code> voranstellst.",
+      "composers": "Komponisten",
+      "expression": "Ausdrücken",
+      "help": "Tip: Du kannst mit einer Smart-Playlist-Abfrage-Sprache nach {help} suchen wenn Du dem Ausdruck ein {query} voranstellst.",
       "no-albums": "Keine Alben gefunden",
       "no-artists": "Keine Künstler gefunden",
       "no-audiobooks": "Keine Hörbücher gefunden",
@@ -416,15 +427,16 @@
       "no-playlists": "Keine Playlisten gefunden",
       "no-podcasts": "Keine Podcasts gefunden",
       "no-tracks": "Keine Tracks gefunden",
+      "placeholder": "Suche",
       "playlists": "Playlisten",
       "podcasts": "Podcasts",
-      "show-albums": "Zeige alle {count} Alben",
-      "show-artists": "Zeige alle {count} Künstler",
-      "show-audiobooks": "Zeige alle {count} Hörbücher",
-      "show-composers": "Zeige alle {count} Komponisten",
-      "show-playlists": "Zeige alle {count} Playlisten",
-      "show-podcasts": "Zeige alle {count} Podcasts",
-      "show-tracks": "Zeige alle {count} Tracks",
+      "show-albums": "Zeige das Album|Zeige alle {count} Alben",
+      "show-artists": "Zeige den Künstler|Zeige alle {count} Künstler",
+      "show-audiobooks": "Zeige das Buch|Zeige alle {count} Hörbücher",
+      "show-composers": "Zeige den Komponist|Zeige alle {count} Komponisten",
+      "show-playlists": "Zeige die Playlist|Zeige alle {count} Playlisten",
+      "show-podcasts": "Zeige den Podcast| Zeige alle {count} Podcasts",
+      "show-tracks": "Zeige den Track|Zeige alle {count} Tracks",
       "tracks": "Tracks",
       "tabs": {
         "library": "Bibliothek",
@@ -442,18 +454,20 @@
       },
       "devices": {
         "no-active-pairing": "Keine aktive Pairing-Anfrage",
+        "pairing-code": "Pairing-Code",
         "pairing-request": "Remote-Pairing-Anfrage von ",
         "pairing": "Pairing Remote",
         "send": "Senden",
         "speaker-pairing-info": "Wenn der Laufsprecher PIN-basiertes Pairing verlangt, aktiviere ihn hier und gib dann den hier PIN an, der am Lautsprecher angezeigt wird.",
         "speaker-pairing": "Lautsprecher-Pairing und Geräteverifikation",
-        "verification-code": "Verifikationscode eingeben",
+        "verification-code": "Verifikationscode",
         "verify": "Verifizieren"
       },
       "general": {
         "album-lists": "Album-Listen",
         "audiobooks": "Hörbücher",
-        "files": "Audiodateien",
+        "files": "Dateien",
+        "genres": "Genres",
         "language": "Sprache",
         "music": "Musik",
         "navigation-item-selection-info": "Wenn mehr Dateien ausgewählt werden, als der Bildschirm anzeigen kann, verschwindet das Burger-Menü.",
@@ -463,7 +477,7 @@
         "playlists": "Playlisten",
         "podcasts": "Podcasts",
         "radio": "Radio",
-        "recently-added-page-info": "Beschränkte die Zahl der Alben auf der  \"kürzlich hinzugefügt\"-Seite",
+        "recently-added-page-info": "Beschränkte die Zahl der Alben auf der \"kürzlich hinzugefügt\"-Seite",
         "recently-added-page": "Kürzlich hinzugefügt-Seite",
         "search": "Suche",
         "show-composer-genres-info-1": "Komma-separierte Liste der Genres, wo der Komponist auf der \"Aktuell läuft\"-Seite angezeigt werden soll",
@@ -477,8 +491,8 @@
       },
       "services": {
         "lastfm": {
-          "grant-access": "<b>Last.fm</b> - melde Dich mit Deinem Last.fm-Usernamen und Password an, um  Scrobbeln zu aktivieren",
-          "info": "OwnTone wird Usernamen und Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
+          "grant-access": "Melde Dich mit Deinem Last.fm-Benutzernamen und Passwort an, um Scrobbeln zu aktivieren",
+          "info": "OwnTone wird den Benutzernamen und das Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
           "title": "Last.fm",
           "no-support": "OwnTone wurde ohne Unterstützung für Last.fm erstellt.",
           "stop-scrobbling": "Stop Scrobbling"
@@ -489,16 +503,18 @@
           "requirements": "Spotify Premium Abo erforderlich.",
           "scopes": "Zugriff auf die Spotify Web-Api ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: ",
           "user": "Zugriff gestattet für ",
-          "authorize": "Authorisiere  Web-API-Zugriff",
-          "credentials": " - Anmelden mit dem Spotify Username und Passwort",
-          "grant-access": "<b>Spotify Web-API</b> - Zugriff auf die Spotify Web-API gestatten",
+          "authorize": "Authorisiere Web-API-Zugriff",
+          "credentials": " - Anmelden mit dem Spotify Benutzername und Passwort",
+          "grant-access": "Zugriff auf die Spotify Web-API gestatten",
           "help-1": "libspotify ermöglicht OwnTone, Spotify-Tracks abzuspielen.",
           "help-2": "OwnTone speichert das Passwort nicht, aber wird über libspotify dennoch einen automatischen Login über ein Login-Token ermöglichen.",
           "reauthorize": "Bitte den Zugriff der Web-API durch setzen folgender Zugriffsrechte für Owntone: ",
           "title": "Spotify"
         },
         "login": "Einloggen",
-        "logout": "Ausloggen"
+        "logout": "Ausloggen",
+        "password": "Passwort",
+        "username": "Benutzername"
       },
       "tabs": {
         "artwork": "Artwork",
@@ -510,10 +526,10 @@
     "spotify": {
       "album": {
         "shuffle": "Zufallswiedergabe",
-        "track-count": "{count} Tracks"
+        "track-count": "{count} Track|{count} Track|{count} Tracks"
       },
       "artist": {
-        "album-count": "{count} Alben",
+        "album-count": "{count} Album|{count} Album|{count} Alben",
         "shuffle": "Zufallswiedergabe"
       },
       "browse": {
@@ -522,7 +538,7 @@
         "show-more": "Zeige mehr"
       },
       "playlist": {
-        "count": "{count} Tracks",
+        "count": "{count} Track|{count} Track|{count} Tracks",
         "shuffle": "Zufallswiedergabe"
       },
       "search": {
@@ -532,13 +548,37 @@
         "no-artists": "Keine Künstler gefunden",
         "no-playlists": "Keine Playlisten gefunden",
         "no-tracks": "Keine Tracks gefunden",
+        "placeholder": "Suche",
         "playlists": "Playlisten",
-        "show-all-albums": "Zeige alle {count} Alben",
-        "show-all-artists": "Zeige alle {count} Künstler",
-        "show-all-playlists": "Zeige alle {count} Playlisten",
-        "show-all-tracks": "Zeige alle {count} Tracks",
+        "show-all-albums": "Zeige das Album|Zeige alle {count} Alben",
+        "show-all-artists": "Zeige den Künstler|Zeige alle {count} Künstler",
+        "show-all-playlists": "Zeige die Playlist|Zeige alle {count} Playlisten",
+        "show-all-tracks": "Zeige den Track|Zeige alle {count} Tracks",
         "tracks": "Tracks"
       }
+    }
+  },
+  "playlist": {
+    "type": {
+      "plain": "Einfache",
+      "smart": "Intelligente"
+    }
+  },
+  "player": {
+    "button": {
+      "consume": "Verlauf löschen",
+      "pause": "Wiedergabe anhalten",
+      "play": "Wiedergeben",
+      "repeat": "Alle Tracks wiederholen",
+      "repeat-off": "Tracks einmal lesen",
+      "repeat-once": "Aktuellen Track wiederholen",
+      "seek-backward": "Rückwärts im Track suchen",
+      "seek-forward": "Vorwärts im Track suchen",
+      "shuffle": "Tracks zufällig wiedergeben",
+      "shuffle-disabled": "Tracks in Reihenfolge wiedergeben",
+      "skip-backward": "Zum vorherigen Track springen",
+      "skip-forward": "Zum nächsten Track springen",
+      "stop": "Wiedergabe stoppen"
     }
   },
   "setting": {
@@ -550,7 +590,7 @@
     "missing-port": "Fehlender Websocket-Port",
     "request-failed": "Anfrage gescheitert (Status: {status} {cause} {url})",
     "queue-saved": "Warteschlange zu Playlist {name} gesichert",
-    "appended-tracks": "{count} Tracks an die Abspielliste angehängt",
+    "appended-tracks": "{count} Track an die Abspielliste angehängt|{count} Tracks an die Abspielliste angehängt",
     "empty-queue": "Warteschlange ist leer"
   },
   "group-by-list": {
@@ -561,6 +601,6 @@
   "filter": {
     "mono": "Mono",
     "stereo": "Stereo",
-    "channels": "{count} Kanäle"
+    "channels": "{count} Kanal|{count} Kanäle"
   }
 }

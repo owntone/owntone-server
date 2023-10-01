@@ -6,26 +6,22 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <p class="title is-4" v-text="directory.path" />
+              <p class="title is-4" v-text="directory" />
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.directory.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.directory.add-next')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.directory.play')" />
               </a>
             </footer>
@@ -50,25 +46,25 @@ export default {
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_expression(
-        'path starts with "' + this.directory.path + '" order by path asc',
+        'path starts with "' + this.directory + '" order by path asc',
         false
       )
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_expression_add(
-        'path starts with "' + this.directory.path + '" order by path asc'
+        'path starts with "' + this.directory + '" order by path asc'
       )
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_expression_add_next(
-        'path starts with "' + this.directory.path + '" order by path asc'
+        'path starts with "' + this.directory + '" order by path asc'
       )
     }
   }

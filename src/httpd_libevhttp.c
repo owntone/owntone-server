@@ -359,7 +359,7 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_request_c
   server->request_cb = cb;
   server->request_cb_arg = arg;
 
-  server->fd = net_bind_with_reuseport(&port, SOCK_STREAM | SOCK_NONBLOCK, "httpd");
+  server->fd = net_bind_with_reuseport(&port, SOCK_STREAM, "httpd");
   if (server->fd <= 0)
     goto error;
 

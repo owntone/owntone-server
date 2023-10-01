@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page">
     <content-with-heading>
       <template #options>
         <index-button-list :index="albums_list.indexList" />
@@ -13,12 +13,10 @@
             class="button is-small is-light is-rounded"
             @click="show_genre_details_modal = true"
           >
-            <span class="icon"
-              ><mdicon name="dots-horizontal" size="16"
-            /></span>
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><mdicon name="shuffle" size="16" /></span>
+            <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.genre.shuffle')" />
           </a>
         </div>
@@ -37,8 +35,9 @@
         </p>
         <list-albums :albums="albums_list" />
         <modal-dialog-genre
-          :show="show_genre_details_modal"
           :genre="genre"
+          :media_kind="media_kind"
+          :show="show_genre_details_modal"
           @close="show_genre_details_modal = false"
         />
       </template>
@@ -47,37 +46,36 @@
 </template>
 
 <script>
+import { GroupByList, byName } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
-import { bySortName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
-      webapi.library_genre(to.params.genre),
-      webapi.library_genre_albums(to.params.genre)
+      webapi.library_genre(to.params.name, to.query.media_kind),
+      webapi.library_genre_albums(to.params.name, to.query.media_kind)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.genre = response[0].data
     vm.albums_list = new GroupByList(response[1].data.albums)
-    vm.albums_list.group(bySortName('name_sort'))
+    vm.albums_list.group(byName('name_sort', true))
   }
 }
 
 export default {
-  name: 'PageGenre',
+  name: 'PageGenreAlbums',
   components: {
     ContentWithHeading,
     IndexButtonList,
     ListAlbums,
     ModalDialogGenre
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
@@ -94,28 +92,27 @@ export default {
       next()
     })
   },
-
   data() {
     return {
       genre: {},
       albums_list: new GroupByList(),
-
+      media_kind: this.$route.query.media_kind,
       show_genre_details_modal: false
     }
   },
-
   methods: {
-    open_tracks: function () {
+    open_tracks() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'GenreTracks',
-        params: { genre: this.genre.name }
+        name: 'genre-tracks',
+        params: { name: this.genre.name },
+        query: { media_kind: this.media_kind }
       })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_expression(
-        'genre is "' + this.genre.name + '" and media_kind is music',
+        `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`,
         true
       )
     }

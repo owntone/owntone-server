@@ -1,77 +1,79 @@
 <template>
-  <content-with-heading>
-    <template #options>
-      <div class="columns">
-        <div class="column">
-          <p
-            class="heading"
-            style="margin-bottom: 24px"
-            v-text="$t('page.artist.sort-by.title')"
-          />
-          <dropdown-menu
-            v-model="selected_groupby_option_id"
-            :options="groupby_options"
-          />
+  <div class="fd-page">
+    <content-with-heading>
+      <template #options>
+        <div class="columns">
+          <div class="column">
+            <p class="heading mb-5" v-text="$t('page.artist.sort-by.title')" />
+            <control-dropdown
+              v-model:value="selected_groupby_option_id"
+              :options="groupby_options"
+            />
+          </div>
         </div>
-      </div>
-    </template>
-    <template #heading-left>
-      <p class="title is-4" v-text="artist.name" />
-    </template>
-    <template #heading-right>
-      <div class="buttons is-centered">
-        <a
-          class="button is-small is-light is-rounded"
-          @click="show_artist_details_modal = true"
-        >
-          <span class="icon"><mdicon name="dots-horizontal" size="16" /></span>
-        </a>
-        <a class="button is-small is-dark is-rounded" @click="play">
-          <span class="icon"><mdicon name="shuffle" size="16" /></span>
-          <span v-text="$t('page.artist.shuffle')" />
-        </a>
-      </div>
-    </template>
-    <template #content>
-      <p class="heading has-text-centered-mobile">
-        <span
-          v-text="$t('page.artist.album-count', { count: artist.album_count })"
+      </template>
+      <template #heading-left>
+        <p class="title is-4" v-text="artist.name" />
+      </template>
+      <template #heading-right>
+        <div class="buttons is-centered">
+          <a
+            class="button is-small is-light is-rounded"
+            @click="show_artist_details_modal = true"
+          >
+            <mdicon class="icon" name="dots-horizontal" size="16" />
+          </a>
+          <a class="button is-small is-dark is-rounded" @click="play">
+            <mdicon class="icon" name="shuffle" size="16" />
+            <span v-text="$t('page.artist.shuffle')" />
+          </a>
+        </div>
+      </template>
+      <template #content>
+        <p class="heading has-text-centered-mobile">
+          <span
+            v-text="
+              $t('page.artist.album-count', { count: artist.album_count })
+            "
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <a
+            class="has-text-link"
+            @click="open_tracks"
+            v-text="
+              $t('page.artist.track-count', { count: artist.track_count })
+            "
+          />
+        </p>
+        <list-albums :albums="albums" :hide_group_title="true" />
+        <modal-dialog-artist
+          :show="show_artist_details_modal"
+          :artist="artist"
+          @close="show_artist_details_modal = false"
         />
-        <span>&nbsp;|&nbsp;</span>
-        <a
-          class="has-text-link"
-          @click="open_tracks"
-          v-text="$t('page.artist.track-count', { count: artist.track_count })"
-        />
-      </p>
-      <list-albums :albums="albums" :hide_group_title="true" />
-      <modal-dialog-artist
-        :show="show_artist_details_modal"
-        :artist="artist"
-        @close="show_artist_details_modal = false"
-      />
-    </template>
-  </content-with-heading>
+      </template>
+    </content-with-heading>
+  </div>
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupByList, byName, byYear } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import { bySortName, byYear, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
-      webapi.library_artist(to.params.artist_id),
-      webapi.library_artist_albums(to.params.artist_id)
+      webapi.library_artist(to.params.id),
+      webapi.library_artist_albums(to.params.id)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.artist = response[0].data
     vm.albums_list = new GroupByList(response[1].data)
   }
@@ -81,9 +83,9 @@ export default {
   name: 'PageArtist',
   components: {
     ContentWithHeading,
+    ControlDropdown,
     ListAlbums,
-    ModalDialogArtist,
-    DropdownMenu
+    ModalDialogArtist
   },
 
   beforeRouteEnter(to, from, next) {
@@ -103,24 +105,20 @@ export default {
     return {
       artist: {},
       albums_list: new GroupByList(),
-
-      // List of group by/sort options for itemsGroupByList
       groupby_options: [
         {
           id: 1,
           name: this.$t('page.artist.sort-by.name'),
-          options: bySortName('name_sort')
+          options: byName('name_sort', true)
         },
         {
           id: 2,
           name: this.$t('page.artist.sort-by.release-date'),
           options: byYear('date_released', {
-            direction: 'asc',
-            defaultValue: '0000'
+            direction: 'asc'
           })
         }
       ],
-
       show_artist_details_modal: false
     }
   },
@@ -146,13 +144,14 @@ export default {
   },
 
   methods: {
-    open_tracks: function () {
+    open_tracks() {
       this.$router.push({
-        path: '/music/artists/' + this.artist.id + '/tracks'
+        name: 'music-artist-tracks',
+        params: { id: this.artist.id }
       })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_uri(
         this.albums.items.map((a) => a.uri).join(','),
         true

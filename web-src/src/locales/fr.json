@@ -75,10 +75,12 @@
       "add-next": "Ajouter ensuite",
       "add": "Ajouter",
       "play": "Lire",
+      "path": "Emplacement",
       "track-count": "Pistes",
       "type": "Type",
       "save": {
         "cancel": "Annuler",
+        "playlist-name": "Nom de la liste de lecture",
         "save": "Enregistrer",
         "saving": "Enregistrement en cours…",
         "title": "Enregistrer la file d’attente dans une liste de lecture"
@@ -106,6 +108,7 @@
     "remote-pairing": {
       "cancel": "Annuler",
       "pair": "Jumeler la télécommande",
+      "pairing-code": "Code de jumelage",
       "title": "Demande de jumelage de télécommande"
     },
     "spotify": {
@@ -187,13 +190,15 @@
   "language": {
     "de": "Allemand (Deutsch)",
     "en": "Anglais (English)",
-    "fr": "Français"
+    "fr": "Français",
+    "zh": "Chinois (中文)"
   },
   "list": {
     "albums": {
       "info-1": "Supprimer définitivement ce podcast de votre bibliothèque ?",
       "info-2": "Cela supprimera également la liste de lecture RSS ",
-      "notification": "Le podcast ne peut être supprimé. Il n’avait probablement pas été ajouté comme une liste de lecture RSS."
+      "remove": "Supprimer",
+      "remove-podcast": "Supprimer le podcast"
     },
     "spotify": {
       "not-playable-track": "La piste ne peut pas être lue",
@@ -233,23 +238,24 @@
     "about": {
       "albums": "Albums",
       "artists": "Artistes",
-      "built-with": "Interface utilisateur construite avec <a href=\"https://bulma.io\">Bulma</a>, <a href=\"https://materialdesignicons.com/\">Material Design Icons</a>, <a href=\"https://vuejs.org/\">Vue.js</a>, <a href=\"https://github.com/mzabriskie/axios\">axios</a> et <a href=\"https://github.com/owntone/owntone-server/network/dependencies\">plus</a>.",
+      "built-with": "Interface utilisateur construite avec {bulma}, {mdi}, {vuejs}, {axios} et {others}.",
       "compiled-with": "Compilé avec les options {options}.",
       "library": "Bibliothèque",
+      "more": "plus",
       "total-playtime": "Durée totale de lecture",
       "tracks": "Pistes",
       "update": "Actualiser",
       "updated-on": "il y a {time}",
       "updated": "Mis à jour",
       "uptime": "Temps de fonctionnement",
-      "name": "Version {version}"
+      "version": "Version {version}"
     },
     "album": {
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes"
+      "track-count": "{count} piste|{count} piste|{count} pistes"
     },
     "albums": {
-      "count": "{count} albums",
+      "count": "{count} album|{count} album|{count} albums",
       "filter": "Filtre",
       "hide-singles-help": "Si actif, masque les singles et les albums dont les pistes n’apparaissent que dans les listes de lecture.",
       "hide-singles": "Masquer les singles",
@@ -264,9 +270,9 @@
       }
     },
     "artist": {
-      "album-count": "{count} albums",
+      "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes",
+      "track-count": "{count} piste|{count} piste|{count} pistes",
       "sort-by": {
         "title": "Trier par",
         "name": "Nom",
@@ -275,7 +281,7 @@
       }
     },
     "artists": {
-      "count": "{count} artists",
+      "count": "{count} artiste|{count} artiste|{count} artistes",
       "filter": "Filtre",
       "sort-by": {
         "title": "Trier par",
@@ -291,23 +297,24 @@
     "audiobooks": {
       "album": {
         "play": "Lire",
-        "track-count": "{count} pistes"
+        "track-count": "{count} piste|{count} piste|{count} pistes"
       },
       "albums": {
-        "count": "{count} livres audio",
+        "count": "{count} livre audio|{count} livre audio|{count} livres audio",
         "title": "Livres audio"
       },
       "artist": {
-        "album-count": "{count} albums",
+        "album-count": "{count} album|{count} album|{count} albums",
         "play": "Lire"
       },
       "artists": {
-        "count": "{count} auteurs",
+        "count": "{count} auteur|{count} auteur|{count} auteurs",
         "title": "Auteurs"
       },
       "tabs": {
         "authors": "Auteurs",
-        "audiobooks": "Livres audio"
+        "audiobooks": "Livres audio",
+        "genres": "Genres"
       }
     },
     "browse": {
@@ -332,9 +339,9 @@
       }
     },
     "composer": {
-      "album-count": "{count} albums",
+      "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes",
+      "track-count": "{count} piste|{count} piste|{count} pistes",
       "sort-by": {
         "title": "Trier par",
         "name": "Nom",
@@ -342,7 +349,7 @@
       }
     },
     "composers": {
-      "count": "{count} compositeurs",
+      "count": "{count} compositeur|{count} compositeur|{count} compositeurs",
       "title": "Compositeurs"
     },
     "files": {
@@ -350,9 +357,9 @@
       "title": "Fichiers"
     },
     "genre": {
-      "album-count": "{count} albums",
+      "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes",
+      "track-count": "{count} piste|{count} piste|{count} pistes",
       "sort-by": {
         "title": "Trier par",
         "name": "Nom",
@@ -360,31 +367,34 @@
       }
     },
     "genres": {
-      "count": "{count} genres",
+      "count": "{count} genre|{count} genre|{count} genres",
       "title": "Genres"
     },
     "now-playing": {
       "info": "Ajoutez des pistes en parcourant votre bibliothèque",
+      "live": "En direct",
       "title": "La file d’attente est vide"
     },
     "playlist": {
       "length": "{length} pistes",
       "shuffle": "Lecture aléatoire",
-      "track-count": "{count} pistes"
+      "track-count": "{count} piste|{count} piste|{count} pistes"
     },
     "playlists": {
-      "count": "{count} listes de lecture"
+      "title": "Listes de lecture",
+      "count": "{count} liste de lecture|{count} liste de lecture|{count} listes de lecture"
     },
     "podcast": {
       "play": "Lire",
-      "remove-error": "Le podcast ne peut pas être supprimé. Il n’a probablement pas été ajouté en tant que liste de lecture RSS.",
+      "remove": "Supprimer",
       "remove-info-1": "Supprimer ce podcast de manière permanente de la bibliothèque ?",
       "remove-info-2": "Cela supprimera également la liste de lecture RSS ",
-      "track-count": "{count} pistes"
+      "remove-podcast": "Supprimer le podcast",
+      "track-count": "{count} piste|{count} piste|{count} pistes"
     },
     "podcasts": {
       "add": "Ajouter",
-      "count": "{count} podcasts",
+      "count": "{count} podcast|{count} podcast|{count} podcasts",
       "mark-all-played": "Marquer comme lus",
       "new-episodes": "Nouveaux épisodes",
       "title": "Podcasts",
@@ -393,14 +403,14 @@
     "queue": {
       "add-stream": "Ajouter un flux",
       "clear": "Effacer",
-      "count": "{count} pistes",
+      "count": "{count} piste|{count} piste|{count} pistes",
       "edit": "Éditer",
       "hide-previous": "Masquer l’historique",
       "queue": "File d’attente",
       "save": "Enregistrer"
     },
     "radio": {
-      "count": "{count} stations",
+      "count": "{count} station|{count} station|{count} stations",
       "title": "Radio"
     },
     "search": {
@@ -408,7 +418,8 @@
       "artists": "Artistes",
       "audiobooks": "Livres audio",
       "composers": "Compositeurs",
-      "help": "Astuce : en préfixant votre requête avec <code>query:</code>, vous pouvez effectuer une recherche avec une <a href=\"https://owntone.github.io/owntone-server/smart-playlists/\" target=\"_blank\">expression</a> du langage de requête de liste de lecture intelligente.",
+      "expression": "expression",
+      "help": "Astuce : vous pouvez effectuer une recherche avec une {help} du langage de requête de liste de lecture intelligente en préfixant votre requête avec {query}",
       "no-albums": "Aucun album trouvé",
       "no-artists": "Aucun artiste trouvé",
       "no-audiobooks": "Aucun livre audio trouvé",
@@ -416,15 +427,16 @@
       "no-playlists": "Aucune liste de lecture trouvée",
       "no-podcasts": "Aucune podcast trouvé",
       "no-tracks": "Aucune piste trouvée",
+      "placeholder": "Recherche",
       "playlists": "Listes de lecture",
       "podcasts": "Podcasts",
-      "show-albums": "Afficher les {count} albums",
-      "show-artists": "Afficher les {count} artistes",
-      "show-audiobooks": "Afficher les {count} livres audio",
-      "show-composers": "Afficher les {count} compositeurs",
-      "show-playlists": "Afficher les {count} listes de lecture",
-      "show-podcasts": "Afficher les {count} podcasts",
-      "show-tracks": "Afficher les {count} pistes",
+      "show-albums": "Afficher l’album|Afficher les {count} albums",
+      "show-artists": "Afficher l’artiste|Afficher les {count} artistes",
+      "show-audiobooks": "Afficher le livre audio|Afficher les {count} livres audio",
+      "show-composers": "Afficher le compositeur|Afficher les {count} compositeurs",
+      "show-playlists": "Afficher la liste de lecture|Afficher les {count} listes de lecture",
+      "show-podcasts": "Afficher le podcast|Afficher les {count} podcasts",
+      "show-tracks": "Afficher la piste|Afficher les {n} pistes",
       "tracks": "Pistes",
       "tabs": {
         "library": "Bibliothèque",
@@ -442,6 +454,7 @@
       },
       "devices": {
         "no-active-pairing": "Aucune demande de jumelage active.",
+        "pairing-code": "Code de jumelage",
         "pairing-request": "Demande de jumelage de télécommande ",
         "pairing": "Jumelage de télécommande",
         "send": "Envoyer",
@@ -453,7 +466,8 @@
       "general": {
         "album-lists": "Listes d’album",
         "audiobooks": "Livres audio",
-        "files": "Fichiers audio",
+        "files": "Fichiers",
+        "genres": "Genres",
         "language": "Langue",
         "music": "Musique",
         "navigation-item-selection-info": "Si vous sélectionnez plus d’éléments que ce qui peut être affiché sur votre écran, le menu disparaîtra.",
@@ -465,7 +479,7 @@
         "radio": "Radio",
         "recently-added-page-info": "Limiter le nombre d’album affichés dans la section « Ajouts récents »",
         "recently-added-page": "Page « Ajouts récents »",
-        "search": "Search",
+        "search": "Recherche",
         "show-composer-genres-info-1": "Liste des genres, séparés par des virgules, que le compositeur doit afficher sur la page « En cours de lecture ».",
         "show-composer-genres-info-2": "Laissez vide pour toujours afficher le compositeur.",
         "show-composer-genres-info-3": "L’étiquette de genre de la piste actuelle est comparée en vérifiant si l’un des genres définis est inclus. Par exemple, en choisissant \"classique, bande sonore\", le compositeur pour les pistes dont l’étiquette de genre est \"classique contemporain\" sera affiché.",
@@ -477,7 +491,7 @@
       },
       "services": {
         "lastfm": {
-          "grant-access": "<b>Last.fm</b> - Connectez-vous avec votre nom d’utilisateur et votre mot de passe Last.fm pour activer le scrobbling.",
+          "grant-access": "Connectez-vous avec votre nom d’utilisateur et votre mot de passe Last.fm pour activer le scrobbling.",
           "info": "Le nom d’utilisateur et le mot de passe Last.fm ne sont pas enregistrés, uniquement la clé de session. La clé de session n’expire pas.",
           "title": "Last.fm",
           "no-support": "L’option Last.fm n’est pas présente.",
@@ -491,14 +505,16 @@
           "user": "Accès autorisé pour ",
           "authorize": "Autoriser l’accès à l’API",
           "credentials": " - Connectez-vous avec votre nom d’utilisateur et mot de passe Spotify",
-          "grant-access": "<b>Spotify</b> - Accordez l’accès à l’API de Spotify",
+          "grant-access": "Accordez l’accès à l’API de Spotify",
           "help-1": "La bibliothèque libspotify permet de lire les pistes de Spotify.",
           "help-2": "Votre nom d’utilisateur et votre mot de passe Spotify ne sont pas enregistrés, uniquement le jeton de connexion.",
           "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants :",
           "title": "Spotify"
         },
         "login": "Se connecter",
-        "logout": "Se déconnecter"
+        "logout": "Se déconnecter",
+        "password": "Mot de passe",
+        "username": "Nom d’utilisateur"
       },
       "tabs": {
         "artwork": "Illustrations",
@@ -510,10 +526,10 @@
     "spotify": {
       "album": {
         "shuffle": "Lecture aléatoire",
-        "track-count": "{count} pistes"
+        "track-count": "{count} piste|{count} piste|{count} pistes"
       },
       "artist": {
-        "album-count": "{count} albums",
+        "album-count": "{count} album|{count} album|{count} albums",
         "shuffle": "Lecture aléatoire"
       },
       "browse": {
@@ -522,7 +538,7 @@
         "show-more": "Afficher plus"
       },
       "playlist": {
-        "count": "{count} pistes",
+        "count": "{count} piste|{count} piste|{count} pistes",
         "shuffle": "Lecture aléatoire"
       },
       "search": {
@@ -532,13 +548,37 @@
         "no-artists": "Aucun artiste trouvé",
         "no-playlists": "Aucune liste de lecture trouvée",
         "no-tracks": "Aucune piste trouvée",
+        "placeholder": "Recherche",
         "playlists": "Listes de lecture",
-        "show-all-albums": "Afficher les {count} albums",
-        "show-all-artists": "Afficher les {count} artistes",
-        "show-all-playlists": "Afficher les {count} listes de lecture",
-        "show-all-tracks": "Afficher les {count} pistes",
+        "show-all-albums": "Afficher l’album|Afficher les {count} albums",
+        "show-all-artists": "Afficher l’artistes|Afficher les {count} artistes",
+        "show-all-playlists": "Afficher la liste de lecture|Afficher les {count} listes de lecture",
+        "show-all-tracks": "Afficher la piste|Afficher les {count} pistes",
         "tracks": "Pistes"
       }
+    }
+  },
+  "playlist": {
+    "type": {
+      "plain": "Simple",
+      "smart": "Intelligente"
+    }
+  },
+  "player": {
+    "button": {
+      "consume": "Effacer l’historique",
+      "pause": "Mettre la lecture en pause",
+      "play": "Lire",
+      "repeat": "Répéter toutes les pistes",
+      "repeat-off": "Lire les pistes une fois",
+      "repeat-once": "Répéter la piste en cours",
+      "seek-backward": "Reculer dans la piste",
+      "seek-forward": "Avancer dans la piste",
+      "shuffle": "Lire les pistes aléatoirement",
+      "shuffle-disabled": "Lire les pistes dans l’ordre",
+      "skip-backward": "Reculer à la piste précédente",
+      "skip-forward": "Avancer à la piste suivante",
+      "stop": "Arrêter la lecture"
     }
   },
   "setting": {
@@ -550,7 +590,7 @@
     "missing-port": "Port websocket manquant",
     "request-failed": "La requête a échoué (status: {status} {cause} {url})",
     "queue-saved": "La file d’attente enregistrée dans la liste de lecture {name}",
-    "appended-tracks": "{count} pistes ajoutées à la file d’attente",
+    "appended-tracks": "{count} piste ajoutée à la file d’attente|{count} pistes ajoutées à la file d’attente",
     "empty-queue": "La file d’attente est vide"
   },
   "group-by-list": {
@@ -561,6 +601,6 @@
   "filter": {
     "mono": "mono",
     "stereo": "stéréo",
-    "channels": "{count} canaux"
+    "channels": "{count} canal|{count} canaux"
   }
 }

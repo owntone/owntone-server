@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.60])
-AC_INIT([owntone], [28.6])
+AC_INIT([owntone], [28.8])
 
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -53,6 +53,12 @@ AC_CHECK_HEADERS([time.h], [],
 AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2 syscall])
 AC_CHECK_FUNCS([strptime strtok_r], [],
 	[AC_MSG_ERROR([[Missing function required to build OwnTone]])])
+
+dnl FreeBSD doesn't have SYS_gettid
+AC_CHECK_DECL([SYS_gettid],
+	[AC_DEFINE([HAVE_SYS_GETTID], 1,
+		[Define to 1 if SYS_gettid exists])],
+	[], [#include <sys/syscall.h>])
 
 dnl check for clock_gettime or replace it
 AC_SEARCH_LIBS([clock_gettime], [rt],

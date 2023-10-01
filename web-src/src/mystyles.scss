@@ -165,7 +165,7 @@ body.dark-mode {
 
 .progress-bar {
   background-color: $info;
-  border-radius: 9999px;
+  border-radius: 2px;
   height: 4px;
 }
 
@@ -174,47 +174,19 @@ body.dark-mode {
 }
 
 .media.with-progress {
-  margin-top: 0px;
+  margin-top: 6px;
 }
 
 a.navbar-item {
-  outline: 0;
-  line-height: 1.5;
-  padding: 0.5rem 1rem;
+  padding: 0 1rem;
 }
 
-.fd-expanded {
-  flex-grow: 1;
-  flex-shrink: 1;
-}
-
-.fd-margin-left-auto {
-  margin-left: auto;
-}
-
-.fd-has-action {
-  cursor: pointer;
+.fd-is-not-allowed {
+  cursor: not-allowed;
 }
 
 .fd-is-movable {
   cursor: move;
-}
-
-.fd-has-margin-top {
-  margin-top: 24px;
-}
-
-.fd-has-margin-bottom {
-  margin-bottom: 24px;
-}
-
-.fd-remove-padding-bottom {
-  padding-bottom: 0;
-}
-
-.fd-has-padding-left-right {
-  padding-left: 24px;
-  padding-right: 24px;
 }
 
 .fd-is-square .button {
@@ -233,37 +205,28 @@ a.navbar-item {
 .fd-tabs-section {
   padding-bottom: 3px;
   padding-top: 3px;
-  background: white;
+  background: #{white};
   top: 3.25rem;
   z-index: 20;
   position: fixed;
   width: 100%;
 }
 
-section.fd-tabs-section + section.fd-content {
-  margin-top: 24px;
-}
-
-section.hero + section.fd-content {
-  padding-top: 0;
-}
-
 .fd-progress-bar {
   top: 52px !important;
 }
 
-.fd-has-shadow {
+.fd-has-shadow img {
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }
 
 .fd-page {
   margin-top: 3.25rem;
   margin-bottom: 3.25rem;
-}
-
-.fd-page-with-tabs {
-  margin-top: 6.25rem !important;
-  margin-bottom: 3.25rem;
+  &-with-tabs {
+    margin-top: 6.25rem !important;
+    margin-bottom: 3.25rem;
+  }
 }
 
 /* Set minimum height to hide "option" section */
@@ -271,60 +234,47 @@ section.hero + section.fd-content {
   min-height: calc(100vh - 3.25rem - 3.25rem);
 }
 
-/* Now playing page */
-.fd-is-fullheight {
-  height: calc(100vh - 3.25rem - 3.25rem);
+.fd-cover {
+  align-items: center;
   display: flex;
-  flex-direction: column;
   justify-content: center;
-}
-
-.fd-is-fullheight .fd-is-expanded {
-  max-height: calc(100vh - 25rem);
-  padding: 1.5rem;
-  overflow: hidden;
-  flex-grow: 1;
-  flex-shrink: 1;
-
-  /* Use flex box to properly size children */
-  display: flex;
-}
-
-.fd-cover-image {
-  display: flex;
-  flex-grow: 1;
-  flex-shrink: 1;
-
-  /* Allow flex item to shrink smaller than its content size: https://stackoverflow.com/questions/36247140/why-dont-flex-items-shrink-past-content-size */
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-
-  /* Padding matches the drop-shadow size of the image */
-  padding: 10px;
-}
-
-.fd-cover-image img {
-  /* Use object-fit to properly size the cover artwork: https://developer.mozilla.org/en-US/docs/Web/CSS/object-fit */
-  object-fit: contain;
-  object-position: center bottom;
-  filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.3))
-    drop-shadow(0px 0px 10px rgba(0, 0, 0, 0.3));
-
-  /* Allow flex item to grow/shrink to fill the whole container size */
-  flex-grow: 1;
-  flex-shrink: 1;
-
-  /* Unset height/width to allow flex sizing */
-  height: unset;
-  width: unset;
-  max-width: unset;
-  max-height: unset;
-
-  /* Allow flex item to shrink smaller than its content size: https://stackoverflow.com/questions/36247140/why-dont-flex-items-shrink-past-content-size */
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+  &-small-image {
+    width: 64px;
+    height: 64px;
+    img {
+      border-radius: $radius-small;
+      max-width: 64px;
+      max-height: 64px;
+    }
+  }
+  &-medium-image {
+    @include from($tablet) {
+      justify-content: right;
+    }
+    img {
+      border-radius: $radius;
+      max-height: calc(150px - 1.5rem);
+    }
+  }
+  &-normal-image {
+    img {
+      border-radius: $radius-large;
+      width: 100%;
+    }
+  }
+  &-big-image {
+    @include mobile {
+      @media screen and (orientation: landscape) {
+        img {
+          display: none;
+        }
+      }
+    }
+    img {
+      border-radius: $radius-large;
+      max-height: calc(100vh - 26rem);
+    }
+  }
 }
 
 .sortable-chosen .media-right {
@@ -332,7 +282,7 @@ section.hero + section.fd-content {
 }
 .sortable-ghost h1,
 .sortable-ghost h2 {
-  color: hsl(348, 100%, 61%) !important;
+  color: #{$danger};
 }
 
 .media:first-of-type {
@@ -357,9 +307,6 @@ section.hero + section.fd-content {
 }
 
 /* Add a little bit of spacing between title and subtitle */
-.title:not(.is-spaced) + .subtitle {
-  margin-top: -1.3rem !important;
-}
 .title:not(.is-spaced) + .subtitle + .subtitle {
   margin-top: -1.3rem !important;
 }
@@ -372,6 +319,7 @@ section.hero + section.fd-content {
   max-height: calc(100vh - 200px);
   overflow: auto;
 }
+
 .fd-modal-card .card {
   margin-left: 16px;
   margin-right: 16px;
@@ -385,11 +333,8 @@ section.hero + section.fd-content {
   background-color: hsl(0, 0%, 40%);
 }
 
-.navbar-item .fd-navbar-item-level2 {
-  padding-left: 1.5rem;
-}
-hr.fd-navbar-divider {
-  margin: 12px 0;
+.fd-width-auto {
+  min-width: auto;
 }
 
 /* Show scrollbar for navbar menu in desktop mode if content exceeds the screen size */
@@ -422,13 +367,11 @@ hr.fd-navbar-divider {
 
 .column {
   &.fd-has-cover {
-    max-height: 150px;
-    max-width: 150px;
     @include mobile {
       margin: auto;
     }
     @include from($tablet) {
-      margin: auto 0 auto auto;
+      margin-right: 0;
     }
   }
 }
@@ -442,4 +385,76 @@ hr.fd-navbar-divider {
 
 .hero-body {
   padding: 1.5rem !important;
+}
+
+/* Slider */
+@mixin thumb {
+  -webkit-appearance: none;
+  width: var(--th);
+  height: var(--th);
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: $light;
+  border: 1px solid $grey-light;
+}
+
+@mixin track {
+  height: calc(var(--sh));
+  border-radius: calc(var(--sh) / 2);
+  background: linear-gradient(90deg, $dark var(--sx), $grey-light var(--sx));
+}
+
+input[type='range'].slider {
+  --sh: 0.25rem;
+  --th: calc(var(--sh) * 4);
+  @include mobile {
+    --th: calc(var(--sh) * 5);
+  }
+  --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
+  -webkit-appearance: none;
+  min-width: 250px;
+  height: calc(var(--sh) * 5);
+  width: 100% !important;
+  cursor: grab;
+  &:active {
+    cursor: grabbing;
+  }
+  &::-webkit-slider-thumb {
+    @include thumb;
+    margin-top: calc((var(--th) - var(--sh)) / -2);
+  }
+  &::-moz-range-thumb {
+    @include thumb;
+  }
+  &::-webkit-slider-runnable-track {
+    @include track;
+  }
+  &::-moz-range-track {
+    @include track;
+  }
+  &.is-inactive {
+    cursor: var(--cursor, not-allowed);
+    &::-webkit-slider-thumb {
+      box-sizing: border-box;
+      background-color: $light;
+    }
+    &::-webkit-slider-runnable-track {
+      background: linear-gradient(
+        90deg,
+        $grey-light var(--sx),
+        $light var(--sx)
+      );
+    }
+    &::-moz-range-thumb {
+      box-sizing: border-box;
+      background-color: $light;
+    }
+    &::-moz-range-track {
+      background: linear-gradient(
+        90deg,
+        $grey-light var(--sx),
+        $light var(--sx)
+      );
+    }
+  }
 }

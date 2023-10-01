@@ -1,294 +1,302 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
-import store from '@/store'
 import * as types from '@/store/mutation_types'
-import PageQueue from '@/pages/PageQueue.vue'
-import PageNowPlaying from '@/pages/PageNowPlaying.vue'
+import { createRouter, createWebHashHistory } from 'vue-router'
+import PageAbout from '@/pages/PageAbout.vue'
+import PageAlbum from '@/pages/PageAlbum.vue'
+import PageAlbumSpotify from '@/pages/PageAlbumSpotify.vue'
+import PageAlbums from '@/pages/PageAlbums.vue'
+import PageArtist from '@/pages/PageArtist.vue'
+import PageArtistSpotify from '@/pages/PageArtistSpotify.vue'
+import PageArtistTracks from '@/pages/PageArtistTracks.vue'
+import PageArtists from '@/pages/PageArtists.vue'
+import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
+import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
+import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
+import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
+import PageAudiobooksGenres from '@/pages/PageAudiobooksGenres.vue'
 import PageBrowse from '@/pages/PageBrowse.vue'
 import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
 import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
-import PageArtists from '@/pages/PageArtists.vue'
-import PageArtist from '@/pages/PageArtist.vue'
-import PageAlbums from '@/pages/PageAlbums.vue'
-import PageAlbum from '@/pages/PageAlbum.vue'
-import PageGenres from '@/pages/PageGenres.vue'
-import PageGenre from '@/pages/PageGenre.vue'
-import PageGenreTracks from '@/pages/PageGenreTracks.vue'
-import PageArtistTracks from '@/pages/PageArtistTracks.vue'
-import PageComposers from '@/pages/PageComposers.vue'
-import PageComposer from '@/pages/PageComposer.vue'
+import PageBrowseSpotify from '@/pages/PageBrowseSpotify.vue'
+import PageBrowseSpotifyNewReleases from '@/pages/PageBrowseSpotifyNewReleases.vue'
+import PageBrowseSpotifyFeaturedPlaylists from '@/pages/PageBrowseSpotifyFeaturedPlaylists.vue'
+import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
-import PagePodcasts from '@/pages/PagePodcasts.vue'
-import PagePodcast from '@/pages/PagePodcast.vue'
-import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
-import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
-import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
-import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
-import PagePlaylists from '@/pages/PagePlaylists.vue'
-import PagePlaylist from '@/pages/PagePlaylist.vue'
+import PageComposers from '@/pages/PageComposers.vue'
 import PageFiles from '@/pages/PageFiles.vue'
+import PageGenreAlbums from '@/pages/PageGenreAlbums.vue'
+import PageGenreTracks from '@/pages/PageGenreTracks.vue'
+import PageGenres from '@/pages/PageGenres.vue'
+import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
+import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
+import PagePlaylistTracksSpotify from '@/pages/PagePlaylistTracksSpotify.vue'
+import PagePodcast from '@/pages/PagePodcast.vue'
+import PagePodcasts from '@/pages/PagePodcasts.vue'
+import PageNowPlaying from '@/pages/PageNowPlaying.vue'
+import PageQueue from '@/pages/PageQueue.vue'
+import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
+import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
+import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
+import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import PageRadioStreams from '@/pages/PageRadioStreams.vue'
-import PageSearch from '@/pages/PageSearch.vue'
-import PageAbout from '@/pages/PageAbout.vue'
-import SpotifyPageBrowse from '@/pages/SpotifyPageBrowse.vue'
-import SpotifyPageBrowseNewReleases from '@/pages/SpotifyPageBrowseNewReleases.vue'
-import SpotifyPageBrowseFeaturedPlaylists from '@/pages/SpotifyPageBrowseFeaturedPlaylists.vue'
-import SpotifyPageArtist from '@/pages/SpotifyPageArtist.vue'
-import SpotifyPageAlbum from '@/pages/SpotifyPageAlbum.vue'
-import SpotifyPagePlaylist from '@/pages/SpotifyPagePlaylist.vue'
-import SpotifyPageSearch from '@/pages/SpotifyPageSearch.vue'
-import SettingsPageWebinterface from '@/pages/SettingsPageWebinterface.vue'
-import SettingsPageArtwork from '@/pages/SettingsPageArtwork.vue'
-import SettingsPageOnlineServices from '@/pages/SettingsPageOnlineServices.vue'
-import SettingsPageRemotesOutputs from '@/pages/SettingsPageRemotesOutputs.vue'
+import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
+import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
+import store from '@/store'
+
+const TOP_WITH_TABS = 140
+const TOP_WITHOUT_TABS = 110
 
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
-      path: '/',
-      name: 'PageQueue',
-      component: PageQueue
+      component: PageAbout,
+      name: 'about',
+      path: '/about'
     },
     {
-      path: '/about',
-      name: 'About',
-      component: PageAbout
-    },
-    {
-      path: '/now-playing',
-      name: 'Now playing',
-      component: PageNowPlaying
-    },
-    {
-      path: '/music',
-      redirect: '/music/browse'
-    },
-    {
-      path: '/music/browse',
-      name: 'Browse',
-      component: PageBrowse,
-      meta: { show_progress: true, has_tabs: true }
-    },
-    {
-      path: '/music/browse/recently_added',
-      name: 'Browse Recently Added',
-      component: PageBrowseRecentlyAdded,
-      meta: { show_progress: true, has_tabs: true }
-    },
-    {
-      path: '/music/browse/recently_played',
-      name: 'Browse Recently Played',
-      component: PageBrowseRecentlyPlayed,
-      meta: { show_progress: true, has_tabs: true }
-    },
-    {
-      path: '/music/artists',
-      name: 'Artists',
-      component: PageArtists,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/music/artists/:artist_id',
-      name: 'Artist',
-      component: PageArtist,
-      meta: { show_progress: true, has_index: true }
-    },
-    {
-      path: '/music/artists/:artist_id/tracks',
-      name: 'Tracks',
-      component: PageArtistTracks,
-      meta: { show_progress: true, has_index: true }
-    },
-    {
-      path: '/music/albums',
-      name: 'Albums',
-      component: PageAlbums,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/music/albums/:album_id',
-      name: 'Album',
       component: PageAlbum,
-      meta: { show_progress: true }
+      meta: { show_progress: true },
+      name: 'music-album',
+      path: '/music/albums/:id'
     },
     {
-      path: '/music/genres',
-      name: 'Genres',
-      component: PageGenres,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
+      component: PageAlbumSpotify,
+      meta: { show_progress: true },
+      name: 'music-spotify-album',
+      path: '/music/spotify/albums/:id'
     },
     {
-      path: '/music/genres/:genre',
-      name: 'Genre',
-      component: PageGenre,
-      meta: { show_progress: true, has_index: true }
+      component: PageAlbums,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'music-albums',
+      path: '/music/albums'
     },
     {
-      path: '/music/genres/:genre/tracks',
-      name: 'GenreTracks',
-      component: PageGenreTracks,
-      meta: { show_progress: true, has_index: true }
+      component: PageArtist,
+      meta: { show_progress: true, has_index: true },
+      name: 'music-artist',
+      path: '/music/artists/:id'
     },
     {
-      path: '/music/composers',
-      name: 'Composers',
-      component: PageComposers,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
+      component: PageArtistSpotify,
+      meta: { show_progress: true },
+      name: 'music-spotify-artist',
+      path: '/music/spotify/artists/:id'
     },
     {
-      path: '/music/composers/:composer/albums',
-      name: 'ComposerAlbums',
-      component: PageComposer,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
+      component: PageArtists,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'music-artists',
+      path: '/music/artists'
     },
     {
-      path: '/music/composers/:composer/tracks',
-      name: 'ComposerTracks',
-      component: PageComposerTracks,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
+      component: PageArtistTracks,
+      meta: { has_index: true, show_progress: true },
+      name: 'music-artist-tracks',
+      path: '/music/artists/:id/tracks'
     },
     {
-      path: '/podcasts',
-      name: 'Podcasts',
-      component: PagePodcasts,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/podcasts/:album_id',
-      name: 'Podcast',
-      component: PagePodcast,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/audiobooks',
-      redirect: '/audiobooks/artists'
-    },
-    {
-      path: '/audiobooks/artists',
-      name: 'AudiobooksArtists',
-      component: PageAudiobooksArtists,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/audiobooks/artists/:artist_id',
-      name: 'AudiobooksArtist',
-      component: PageAudiobooksArtist,
-      meta: { show_progress: true }
-    },
-    {
-      path: '/audiobooks/albums',
-      name: 'AudiobooksAlbums',
-      component: PageAudiobooksAlbums,
-      meta: { show_progress: true, has_tabs: true, has_index: true }
-    },
-    {
-      path: '/audiobooks/:album_id',
-      name: 'Audiobook',
       component: PageAudiobooksAlbum,
-      meta: { show_progress: true }
+      meta: { show_progress: true },
+      name: 'audiobooks-album',
+      path: '/audiobooks/albums/:id'
     },
     {
-      path: '/radio',
-      name: 'Radio',
-      component: PageRadioStreams,
-      meta: { show_progress: true }
+      component: PageAudiobooksAlbums,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'audiobooks-albums',
+      path: '/audiobooks/albums'
     },
     {
-      path: '/files',
-      name: 'Files',
+      component: PageAudiobooksArtist,
+      meta: { show_progress: true },
+      name: 'audiobooks-artist',
+      path: '/audiobooks/artists/:id'
+    },
+    {
+      component: PageAudiobooksArtists,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'audiobooks-artists',
+      path: '/audiobooks/artists'
+    },
+    {
+      component: PageAudiobooksGenres,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'audiobooks-genres',
+      path: '/audiobooks/genres'
+    },
+    {
+      name: 'audiobooks',
+      path: '/audiobooks',
+      redirect: { name: 'audiobooks-artists' }
+    },
+    {
+      name: 'music',
+      path: '/music',
+      redirect: { name: 'music-browse' }
+    },
+    {
+      component: PageBrowse,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-browse',
+      path: '/music/browse'
+    },
+    {
+      component: PageBrowseRecentlyAdded,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-browse-recently-added',
+      path: '/music/browse/recently-added'
+    },
+    {
+      component: PageBrowseRecentlyPlayed,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-browse-recently-played',
+      path: '/music/browse/recently-played'
+    },
+    {
+      component: PageBrowseSpotify,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-spotify',
+      path: '/music/spotify'
+    },
+    {
+      component: PageBrowseSpotifyFeaturedPlaylists,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-spotify-featured-playlists',
+      path: '/music/spotify/featured-playlists'
+    },
+    {
+      component: PageBrowseSpotifyNewReleases,
+      meta: { has_tabs: true, show_progress: true },
+      name: 'music-spotify-new-releases',
+      path: '/music/spotify/new-releases'
+    },
+    {
+      component: PageComposerAlbums,
+      meta: { show_progress: true, has_index: true },
+      name: 'music-composer-albums',
+      path: '/music/composers/:name/albums'
+    },
+    {
+      component: PageComposerTracks,
+      meta: { has_index: true, show_progress: true },
+      name: 'music-composer-tracks',
+      path: '/music/composers/:name/tracks'
+    },
+    {
+      component: PageComposers,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'music-composers',
+      path: '/music/composers'
+    },
+    {
       component: PageFiles,
-      meta: { show_progress: true }
+      meta: { show_progress: true },
+      name: 'files',
+      path: '/files'
     },
     {
+      component: PageGenreAlbums,
+      meta: { has_index: true, show_progress: true },
+      name: 'genre-albums',
+      path: '/genres/:name/albums'
+    },
+    {
+      component: PageGenreTracks,
+      meta: { has_index: true, show_progress: true },
+      name: 'genre-tracks',
+      path: '/genres/:name/tracks'
+    },
+    {
+      component: PageGenres,
+      meta: { has_index: true, has_tabs: true, show_progress: true },
+      name: 'music-genres',
+      path: '/music/genres'
+    },
+    {
+      component: PageNowPlaying,
+      name: 'now-playing',
+      path: '/now-playing'
+    },
+    {
+      name: 'playlists',
       path: '/playlists',
-      redirect: '/playlists/0'
+      redirect: { name: 'playlist-folder', params: { id: 0 } }
     },
     {
-      path: '/playlists/:playlist_id',
-      name: 'Playlists',
-      component: PagePlaylists,
-      meta: { show_progress: true }
+      component: PagePlaylistFolder,
+      meta: { show_progress: true },
+      name: 'playlist-folder',
+      path: '/playlists/:id'
     },
     {
-      path: '/playlists/:playlist_id/tracks',
-      name: 'Playlist',
-      component: PagePlaylist,
-      meta: { show_progress: true }
+      component: PagePlaylistTracks,
+      meta: { show_progress: true },
+      name: 'playlist',
+      path: '/playlists/:id/tracks'
     },
     {
-      path: '/search',
-      redirect: '/search/library'
+      component: PagePlaylistTracksSpotify,
+      meta: { show_progress: true },
+      name: 'playlist-spotify',
+      path: '/playlists/spotify/:id/tracks'
     },
     {
-      path: '/search/library',
-      name: 'Search Library',
-      component: PageSearch
+      component: PagePodcast,
+      meta: { show_progress: true },
+      name: 'podcast',
+      path: '/podcasts/:id'
     },
     {
-      path: '/music/spotify',
-      name: 'Spotify',
-      component: SpotifyPageBrowse,
-      meta: { show_progress: true, has_tabs: true }
+      component: PagePodcasts,
+      meta: { show_progress: true },
+      name: 'podcasts',
+      path: '/podcasts'
     },
     {
-      path: '/music/spotify/new-releases',
-      name: 'Spotify Browse New Releases',
-      component: SpotifyPageBrowseNewReleases,
-      meta: { show_progress: true, has_tabs: true }
+      component: PageRadioStreams,
+      meta: { show_progress: true },
+      name: 'radio',
+      path: '/radio'
     },
     {
-      path: '/music/spotify/featured-playlists',
-      name: 'Spotify Browse Featured Playlists',
-      component: SpotifyPageBrowseFeaturedPlaylists,
-      meta: { show_progress: true, has_tabs: true }
+      component: PageQueue,
+      name: 'queue',
+      path: '/'
     },
     {
-      path: '/music/spotify/artists/:artist_id',
-      name: 'Spotify Artist',
-      component: SpotifyPageArtist,
-      meta: { show_progress: true }
+      component: PageSearchLibrary,
+      name: 'search-library',
+      path: '/search/library'
     },
     {
-      path: '/music/spotify/albums/:album_id',
-      name: 'Spotify Album',
-      component: SpotifyPageAlbum,
-      meta: { show_progress: true }
+      component: PageSearchSpotify,
+      name: 'search-spotify',
+      path: '/search/spotify'
     },
     {
-      path: '/music/spotify/playlists/:playlist_id',
-      name: 'Spotify Playlist',
-      component: SpotifyPagePlaylist,
-      meta: { show_progress: true }
+      component: PageSettingsWebinterface,
+      name: 'settings-webinterface',
+      path: '/settings/webinterface'
     },
     {
-      path: '/search/spotify',
-      name: 'Spotify Search',
-      component: SpotifyPageSearch
+      component: PageSettingsArtwork,
+      name: 'settings-artwork',
+      path: '/settings/artwork'
     },
     {
-      path: '/settings/webinterface',
-      name: 'Settings Webinterface',
-      component: SettingsPageWebinterface
+      component: PageSettingsOnlineServices,
+      name: 'settings-online-services',
+      path: '/settings/online-services'
     },
     {
-      path: '/settings/artwork',
-      name: 'Settings Artwork',
-      component: SettingsPageArtwork
-    },
-    {
-      path: '/settings/online-services',
-      name: 'Settings Online Services',
-      component: SettingsPageOnlineServices
-    },
-    {
-      path: '/settings/remotes-outputs',
-      name: 'Settings Remotes Outputs',
-      component: SettingsPageRemotesOutputs
+      component: PageSettingsRemotesOutputs,
+      name: 'settings-remotes-outputs',
+      path: '/settings/remotes-outputs'
     }
   ],
   scrollBehavior(to, from, savedPosition) {
     const wait_ms = 0
-    // console.log(to.path + '_' + from.path + '__' + to.hash + ' savedPosition:' + savedPosition)
     if (savedPosition) {
       // We have saved scroll position (browser back/forward navigation), use this position
       return new Promise((resolve, reject) => {
@@ -299,13 +307,14 @@ export const router = createRouter({
     }
 
     if (to.path === from.path && to.hash) {
-      // We are staying on the same page and are jumping to an anker (e. g. index nav)
+      // We are staying on the same page and are jumping to an anchor (e. g. index nav)
       // We don't have a transition, so don't add a timeout!
-      return { el: to.hash, top: 120 }
+      const top = to.meta.has_tabs ? TOP_WITH_TABS : TOP_WITHOUT_TABS
+      return { el: to.hash, top: top, behavior: 'smooth' }
     }
 
     if (to.hash) {
-      // We are navigating to an anker of a new page, add a timeout to let the transition effect finish before scrolling
+      // We are navigating to an anchor of a new page, add a timeout to let the transition effect finish before scrolling
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve({ el: to.hash, top: 120 })
@@ -315,14 +324,11 @@ export const router = createRouter({
 
     if (to.meta.has_index) {
       // We are navigating to a page with index nav, that should be hidden automatically
-      // Dependending on wether we have a tab navigation, add an offset to the "top" anker
+      // Depending on wether we have a tab navigation, add an offset to the "top" anchor
       return new Promise((resolve, reject) => {
+        const top = to.meta.has_tabs ? TOP_WITH_TABS : TOP_WITHOUT_TABS
         setTimeout(() => {
-          if (to.meta.has_tabs) {
-            resolve({ el: '#top', top: 140 })
-          } else {
-            resolve({ el: '#top', top: 110 })
-          }
+          resolve({ el: '#top', top: top })
         }, wait_ms)
       })
     }

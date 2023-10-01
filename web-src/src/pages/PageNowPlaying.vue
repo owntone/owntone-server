@@ -1,71 +1,47 @@
 <template>
-  <section>
-    <div v-if="now_playing.id > 0" class="fd-is-fullheight">
-      <div class="fd-is-expanded">
+  <div class="hero is-fullheight">
+    <div v-if="track.id > 0" class="hero-body">
+      <div class="container has-text-centered" style="max-width: 500px">
         <cover-artwork
-          :artwork_url="now_playing.artwork_url"
-          :artist="now_playing.artist"
-          :album="now_playing.album"
-          class="fd-cover-image fd-has-action"
-          @click="open_dialog(now_playing)"
+          :artwork_url="track.artwork_url"
+          :artist="track.artist"
+          :album="track.album"
+          class="is-clickable fd-has-shadow fd-cover-big-image"
+          @click="open_dialog(track)"
+        />
+        <control-slider
+          v-model:value="track_progress"
+          class="mt-5"
+          :disabled="is_live"
+          :max="track_progress_max"
+          :cursor="cursor"
+          @change="seek"
+          @mousedown="start_dragging"
+          @mouseup="end_dragging"
+        />
+        <div class="is-flex is-justify-content-space-between">
+          <p class="subtitle is-7" v-text="track_elapsed_time" />
+          <p class="subtitle is-7" v-text="track_total_time" />
+        </div>
+        <p class="title is-5" v-text="track.title" />
+        <p class="title is-6" v-text="track.artist" />
+        <p
+          v-if="composer"
+          class="subtitle is-6 has-text-grey has-text-weight-bold"
+          v-text="composer"
+        />
+        <p v-if="track.album" class="subtitle is-6" v-text="track.album" />
+        <p
+          v-if="filepath"
+          class="subtitle is-6 has-text-grey"
+          v-text="filepath"
         />
       </div>
-      <div class="fd-has-padding-left-right">
-        <div class="container has-text-centered">
-          <p class="control has-text-centered fd-progress-now-playing">
-            <Slider
-              ref="slider"
-              v-model="item_progress_ms"
-              :min="0"
-              :max="state.item_length_ms"
-              :step="1000"
-              :tooltips="false"
-              :disabled="state.state === 'stop'"
-              :classes="{ target: 'seek-slider' }"
-              @change="seek"
-              @start="start_dragging"
-              @end="end_dragging"
-            />
-          </p>
-          <p class="content">
-            <span
-              v-text="
-                [
-                  $filters.durationInHours(item_progress_ms),
-                  $filters.durationInHours(now_playing.length_ms)
-                ].join(' / ')
-              "
-            />
-          </p>
-        </div>
-      </div>
-      <div class="fd-has-padding-left-right">
-        <div class="container has-text-centered fd-has-margin-top">
-          <h1 class="title is-5" v-text="now_playing.title" />
-          <h2 class="title is-6" v-text="now_playing.artist" />
-          <h2
-            v-if="composer"
-            class="subtitle is-6 has-text-grey has-text-weight-bold"
-            v-text="composer"
-          />
-          <h3 class="subtitle is-6" v-text="now_playing.album" />
-          <h3 
-            v-if="filepath"
-            class="subtitle is-6 has-text-grey "             
-            v-text="filepath"
-          />
-        </div>
-      </div>
     </div>
-    <div v-else class="fd-is-fullheight">
-      <div
-        class="fd-is-expanded fd-has-padding-left-right"
-        style="flex-direction: column"
-      >
-        <div class="content has-text-centered">
-          <h1 class="title is-5" v-text="$('page.now-playing.title')" />
-          <p v-text="$('page.now-playing.info')" />
-        </div>
+    <div v-else class="hero-body">
+      <div class="container has-text-centered">
+        <p class="title is-5" v-text="$t('page.now-playing.title')" />
+        <p class="subtitle" v-text="$t('page.now-playing.info')" />
       </div>
     </div>
     <modal-dialog-queue-item
@@ -73,42 +49,72 @@
       :item="selected_item"
       @close="show_details_modal = false"
     />
-  </section>
+  </div>
 </template>
 
 <script>
-import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
-import Slider from '@vueform/slider'
-import CoverArtwork from '@/components/CoverArtwork.vue'
-import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
+import ControlSlider from '@/components/ControlSlider.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
+import { mdiCancel } from '@mdi/js'
+import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+import webapi from '@/webapi'
+
+const INTERVAL = 1000
 
 export default {
   name: 'PageNowPlaying',
   components: {
-    ModalDialogQueueItem,
-    Slider,
-    CoverArtwork
+    ControlSlider,
+    CoverArtwork,
+    ModalDialogQueueItem
   },
 
   data() {
     return {
-      item_progress_ms: 0,
+      cursor: mdiCancel,
+      INTERVAL,
       interval_id: 0,
       is_dragged: false,
-
-      show_details_modal: false,
-      selected_item: {}
+      selected_item: {},
+      show_details_modal: false
     }
   },
 
   computed: {
-    state() {
+    is_live() {
+      return this.track.length_ms === 0
+    },
+
+    track_progress: {
+      get() {
+        return Math.floor(this.player.item_progress_ms / INTERVAL)
+      },
+      set(value) {
+        this.player.item_progress_ms = value * INTERVAL
+      }
+    },
+
+    player() {
       return this.$store.state.player
     },
 
-    now_playing() {
+    track() {
       return this.$store.getters.now_playing
+    },
+
+    track_progress_max() {
+      return this.is_live ? 1 : Math.floor(this.track.length_ms / INTERVAL)
+    },
+
+    track_elapsed_time() {
+      return this.$filters.durationInHours(this.track_progress * INTERVAL)
+    },
+
+    track_total_time() {
+      return this.is_live
+        ? this.$t('page.now-playing.live')
+        : this.$filters.durationInHours(this.track.length_ms)
     },
 
     settings_option_show_composer_now_playing() {
@@ -123,16 +129,16 @@ export default {
       if (this.settings_option_show_composer_now_playing) {
         if (
           !this.settings_option_show_composer_for_genre ||
-          (this.now_playing.genre &&
+          (this.track.genre &&
             this.settings_option_show_composer_for_genre
               .toLowerCase()
               .split(',')
               .findIndex(
                 (elem) =>
-                  this.now_playing.genre.toLowerCase().indexOf(elem.trim()) >= 0
+                  this.track.genre.toLowerCase().indexOf(elem.trim()) >= 0
               ) >= 0)
         ) {
-          return this.now_playing.composer
+          return this.track.composer
         }
       }
       return null
@@ -144,36 +150,29 @@ export default {
 
     filepath() {
       if (this.settings_option_show_filepath_now_playing) {
-        return this.now_playing.path
+        return this.track.path
       }
       return null
-    }  
+    }
   },
 
-
   watch: {
-    state() {
+    player() {
       if (this.interval_id > 0) {
         window.clearTimeout(this.interval_id)
         this.interval_id = 0
       }
-      this.item_progress_ms = this.state.item_progress_ms
-      if (this.state.state === 'play') {
-        this.interval_id = window.setInterval(this.tick, 1000)
+      if (this.player.state === 'play') {
+        this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
     }
   },
 
-  mounted: function () {
-    console.log(this.$refs.slider)
-  },
-
   created() {
-    this.item_progress_ms = this.state.item_progress_ms
     webapi.player_status().then(({ data }) => {
       this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
-      if (this.state.state === 'play') {
-        this.interval_id = window.setInterval(this.tick, 1000)
+      if (this.player.state === 'play') {
+        this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
     })
   },
@@ -186,29 +185,27 @@ export default {
   },
 
   methods: {
-    tick: function () {
+    tick() {
       if (!this.is_dragged) {
-        this.item_progress_ms += 1000
+        this.track_progress += 1
       }
     },
 
-    start_dragging: function () {
-      console.log('@start')
+    start_dragging() {
       this.is_dragged = true
     },
 
-    end_dragging: function () {
-      console.log('@end')
+    end_dragging() {
       this.is_dragged = false
     },
 
-    seek: function (newPosition) {
-      webapi.player_seek_to_pos(newPosition).catch(() => {
-        this.item_progress_ms = this.state.item_progress_ms
-      })
+    seek() {
+      if (!this.is_live) {
+        webapi.player_seek_to_pos(this.track_progress * INTERVAL)
+      }
     },
 
-    open_dialog: function (item) {
+    open_dialog(item) {
       this.selected_item = item
       this.show_details_modal = true
     }

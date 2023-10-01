@@ -1,33 +1,34 @@
 <template>
   <div class="navbar-item">
     <div class="level is-mobile">
-      <div class="level-left fd-expanded">
-        <div class="level-item" style="flex-grow: 0">
-          <a class="button is-white is-small">
-            <span
-              class="icon fd-has-action"
-              :class="{ 'has-text-grey-light': !output.selected }"
-              @click="set_enabled"
-              ><mdicon :name="type_class" size="18" :title="output.type"
-            /></span>
+      <div class="level-left is-flex-grow-1">
+        <div class="level-item is-flex-grow-0">
+          <a
+            class="button is-clickable is-white is-small"
+            :class="{ 'has-text-grey-light': !output.selected }"
+            @click="set_enabled"
+          >
+            <mdicon
+              class="icon"
+              :name="type_class"
+              size="18"
+              :title="output.type"
+            />
           </a>
         </div>
-        <div class="level-item fd-expanded">
-          <div class="fd-expanded">
+        <div class="level-item">
+          <div class="is-flex-grow-1">
             <p
               class="heading"
               :class="{ 'has-text-grey-light': !output.selected }"
               v-text="output.name"
             />
-            <Slider
-              v-model="volume"
-              :min="0"
-              :max="100"
-              :step="1"
-              :tooltips="false"
+            <control-slider
+              v-model:value="volume"
               :disabled="!output.selected"
-              :classes="{ target: 'slider' }"
-              @change="set_volume"
+              :max="100"
+              :cursor="cursor"
+              @change="change_volume"
             />
           </div>
         </div>
@@ -37,16 +38,23 @@
 </template>
 
 <script>
-import Slider from '@vueform/slider'
+import ControlSlider from '@/components/ControlSlider.vue'
+import { mdiCancel } from '@mdi/js'
 import webapi from '@/webapi'
 
 export default {
   name: 'NavbarItemOutput',
   components: {
-    Slider
+    ControlSlider
   },
-
   props: ['output'],
+
+  data() {
+    return {
+      volume: this.output.selected ? this.output.volume : 0,
+      cursor: mdiCancel
+    }
+  },
 
   computed: {
     type_class() {
@@ -59,23 +67,21 @@ export default {
       } else {
         return 'server'
       }
-    },
+    }
+  },
 
-    volume() {
-      return this.output.selected ? this.output.volume : 0
+  watch: {
+    output() {
+      this.volume = this.output.volume
     }
   },
 
   methods: {
-    play_next: function () {
-      webapi.player_next()
+    change_volume() {
+      webapi.player_output_volume(this.output.id, this.volume)
     },
 
-    set_volume: function (newVolume) {
-      webapi.player_output_volume(this.output.id, newVolume)
-    },
-
-    set_enabled: function () {
+    set_enabled() {
       const values = {
         selected: !this.output.selected
       }

@@ -8,15 +8,15 @@
       />
     </div>
     <div
-      v-else-if="track.isItem"
-      class="media"
+      v-else
+      class="media is-align-items-center"
       :class="{ 'with-progress': show_progress }"
-      @click="play_track(index, track.item)"
+      @click="play_track(track.item)"
     >
-      <figure v-if="show_icon" class="media-left fd-has-action">
-        <span class="icon"><mdicon name="file-outline" size="16" /></span>
+      <figure v-if="show_icon" class="media-left is-clickable">
+        <mdicon class="icon" name="file-outline" size="16" />
       </figure>
-      <div class="media-content fd-has-action is-clipped">
+      <div class="media-content is-clickable is-clipped">
         <h1
           class="title is-6"
           :class="{
@@ -35,9 +35,7 @@
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(track.item)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>
@@ -72,17 +70,25 @@ export default {
   },
 
   methods: {
-    play_track: function (position, track) {
+    play_track(track) {
       if (this.uris) {
-        webapi.player_play_uri(this.uris, false, position)
+        webapi.player_play_uri(
+          this.uris,
+          false,
+          this.tracks.items.indexOf(track)
+        )
       } else if (this.expression) {
-        webapi.player_play_expression(this.expression, false, position)
+        webapi.player_play_expression(
+          this.expression,
+          false,
+          this.tracks.items.indexOf(track)
+        )
       } else {
         webapi.player_play_uri(track.uri, false)
       }
     },
 
-    open_dialog: function (track) {
+    open_dialog(track) {
       this.selected_track = track
       this.show_details_modal = true
     }

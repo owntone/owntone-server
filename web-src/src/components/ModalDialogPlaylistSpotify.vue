@@ -42,25 +42,21 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.playlist.add')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.playlist.add-next')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.playlist.play')"
@@ -83,29 +79,31 @@
 import webapi from '@/webapi'
 
 export default {
-  name: 'SpotifyModalDialogPlaylist',
+  name: 'ModalDialogPlaylistSpotify',
   props: ['show', 'playlist'],
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.playlist.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.playlist.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.playlist.uri)
     },
 
-    open_playlist: function () {
+    open_playlist() {
+      this.$emit('close')
       this.$router.push({
-        path: '/music/spotify/playlists/' + this.playlist.id
+        name: 'playlist-spotify',
+        params: { id: this.playlist.id }
       })
     }
   }

@@ -1,6 +1,30 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.8
+	- fix MacOS bind error: "Protocol wrong type for socket"
+	- fix BSD build error (no SYS_gettid)
+	- fix ALAC missing end tag causing ffmpeg decoder warnings
+	- fix crash if Spotify AP resolver is unavailable
+	- fix duplicates if file within library is replaced
+	- fix fatal error due to mutex being zeroed
+
+version 28.7
+	- fix compability with ffmpeg 6
+	- web UI improvements:
+		easier volume sliders
+		incorrect display of genre
+		Chinese translation
+		fix removing RSS podcasts
+		sort by rating for composer, genre and artist tracks
+		(and much more)
+	- changes to artwork search orders (easier static artwork for pipes)
+	- major refactor of the http server improving mp3 streaming
+	- support for m3u8 playlist files
+	- allow mixed ipv4/ipv6 mdns
+	- fix issue with device name capitalization (TuneAero issue)
+	- drop support for libevent < 2.1.4
+
 version 28.6
 	- German translation of web UI
 	- web UI: fix error messages not displaying

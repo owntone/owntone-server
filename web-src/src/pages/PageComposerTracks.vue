@@ -1,17 +1,13 @@
 <template>
-  <div>
+  <div class="fd-page">
     <content-with-heading>
       <template #options>
         <index-button-list :index="tracks.indexList" />
         <div class="columns">
           <div class="column">
-            <p
-              class="heading"
-              style="margin-bottom: 24px"
-              v-text="$t('page.artist.sort-by.title')"
-            />
-            <dropdown-menu
-              v-model="selected_groupby_option_id"
+            <p class="heading mb-5" v-text="$t('page.artist.sort-by.title')" />
+            <control-dropdown
+              v-model:value="selected_groupby_option_id"
               :options="groupby_options"
             />
           </div>
@@ -26,12 +22,10 @@
             class="button is-small is-light is-rounded"
             @click="show_composer_details_modal = true"
           >
-            <span class="icon"
-              ><mdicon name="dots-horizontal" size="16"
-            /></span>
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><mdicon name="shuffle" size="16" /></span>
+            <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.composer.shuffle')" />
           </a>
         </div>
@@ -66,24 +60,24 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import { byName, byRating, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
-      webapi.library_composer(to.params.composer),
-      webapi.library_composer_tracks(to.params.composer)
+      webapi.library_composer(to.params.name),
+      webapi.library_composer_tracks(to.params.name)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.composer = response[0].data
     vm.tracks_list = new GroupByList(response[1].data.tracks)
   }
@@ -93,7 +87,7 @@ export default {
   name: 'PageComposerTracks',
   components: {
     ContentWithHeading,
-    DropdownMenu,
+    ControlDropdown,
     IndexButtonList,
     ListTracks,
     ModalDialogComposer
@@ -156,15 +150,15 @@ export default {
   },
 
   methods: {
-    open_albums: function () {
+    open_albums() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'ComposerAlbums',
-        params: { composer: this.composer.name }
+        name: 'music-composer-albums',
+        params: { name: this.composer.name }
       })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_expression(this.expression, true)
     }
   }

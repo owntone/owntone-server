@@ -58,6 +58,8 @@ playlist_type(const char *path)
 
   if (strcasecmp(ptr, ".m3u") == 0)
     return PLAYLIST_M3U;
+  else if (strcasecmp(ptr, ".m3u8") == 0)
+    return PLAYLIST_M3U;
   else if (strcasecmp(ptr, ".pls") == 0)
     return PLAYLIST_PLS;
   else if (strcasecmp(ptr, ".smartpl") == 0)

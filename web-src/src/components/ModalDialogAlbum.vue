@@ -10,7 +10,7 @@
                 :artwork_url="album.artwork_url"
                 :artist="album.artist"
                 :album="album.name"
-                class="image is-square fd-has-margin-bottom fd-has-shadow"
+                class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
               />
               <p class="title is-4">
                 <a
@@ -26,6 +26,7 @@
                   v-text="$t('dialog.album.mark-as-played')"
                 />
                 <a
+                  v-if="album.data_kind === 'url'"
                   class="button is-small"
                   @click="$emit('remove-podcast')"
                   v-text="$t('dialog.album.remove-podcast')"
@@ -88,19 +89,15 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.album.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.album.add-next')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.album.play')" />
               </a>
             </footer>
@@ -133,54 +130,64 @@ export default {
   },
 
   computed: {
-    artwork_url: function () {
+    artwork_url() {
       return webapi.artwork_url_append_size_params(this.album.artwork_url)
     },
 
-    media_kind_resolved: function () {
+    media_kind_resolved() {
       return this.media_kind ? this.media_kind : this.album.media_kind
     }
   },
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.album.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.album.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.album.uri)
     },
 
-    open_album: function () {
+    open_album() {
+      this.$emit('close')
       if (this.media_kind_resolved === 'podcast') {
-        this.$router.push({ path: '/podcasts/' + this.album.id })
-      } else if (this.media_kind_resolved === 'audiobook') {
-        this.$router.push({ path: '/audiobooks/' + this.album.id })
-      } else {
-        this.$router.push({ path: '/music/albums/' + this.album.id })
-      }
-    },
-
-    open_artist: function () {
-      if (this.media_kind_resolved === 'podcast') {
-        // No artist page for podcasts
+        this.$router.push({ name: 'podcast', params: { id: this.album.id } })
       } else if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({
-          path: '/audiobooks/artists/' + this.album.artist_id
+          name: 'audiobooks-album',
+          params: { id: this.album.id }
         })
       } else {
-        this.$router.push({ path: '/music/artists/' + this.album.artist_id })
+        this.$router.push({
+          name: 'music-album',
+          params: { id: this.album.id }
+        })
       }
     },
 
-    mark_played: function () {
+    open_artist() {
+      this.$emit('close')
+      if (this.media_kind_resolved === 'audiobook') {
+        this.$router.push({
+          name: 'audiobooks-artist',
+          params: { id: this.album.artist_id }
+        })
+      } else {
+        this.$router.push({
+          name: 'music-artist',
+          params: { id: this.album.artist_id }
+        })
+      }
+    },
+
+    mark_played() {
       webapi
         .library_album_track_update(this.album.id, { play_count: 'played' })
         .then(({ data }) => {
@@ -189,11 +196,11 @@ export default {
         })
     },
 
-    artwork_loaded: function () {
+    artwork_loaded() {
       this.artwork_visible = true
     },
 
-    artwork_error: function () {
+    artwork_error() {
       this.artwork_visible = false
     }
   }

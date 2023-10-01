@@ -1,6 +1,10 @@
 <template>
   <a :disabled="disabled" @click="toggle_play_pause">
-    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
+    <mdicon
+      :name="icon_name"
+      :size="icon_size"
+      :title="$t('player.button.' + icon_name)"
+    />
   </a>
 </template>
 
@@ -45,7 +49,7 @@ export default {
   },
 
   methods: {
-    toggle_play_pause: function () {
+    toggle_play_pause() {
       if (this.disabled) {
         if (this.show_disabled_message) {
           this.$store.dispatch('add_notification', {

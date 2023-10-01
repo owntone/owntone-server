@@ -13,26 +13,26 @@
         />
       </template>
       <template #content>
-        <list-genres :genres="genres" />
+        <list-genres :genres="genres" :media_kind="'music'" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
+import { GroupByList, byName } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListGenres from '@/components/ListGenres.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
-import { byName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_genres('music')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.genres = response.data
     vm.genres = new GroupByList(response.data)
     vm.genres.group(byName('name_sort'))
@@ -43,9 +43,9 @@ export default {
   name: 'PageGenres',
   components: {
     ContentWithHeading,
-    TabsMusic,
     IndexButtonList,
-    ListGenres
+    ListGenres,
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {
@@ -65,11 +65,7 @@ export default {
     return {
       genres: new GroupByList()
     }
-  },
-
-  computed: {},
-
-  methods: {}
+  }
 }
 </script>
 

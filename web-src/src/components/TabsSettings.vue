@@ -7,7 +7,7 @@
             <ul>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/settings/webinterface"
+                :to="{ name: 'settings-webinterface' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
@@ -18,7 +18,7 @@
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/settings/remotes-outputs"
+                :to="{ name: 'settings-remotes-outputs' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
@@ -31,7 +31,7 @@
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/settings/artwork"
+                :to="{ name: 'settings-artwork' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">
@@ -42,7 +42,7 @@
               </router-link>
               <router-link
                 v-slot="{ navigate, isActive }"
-                to="/settings/online-services"
+                :to="{ name: 'settings-online-services' }"
                 custom
               >
                 <li :class="{ 'is-active': isActive }">

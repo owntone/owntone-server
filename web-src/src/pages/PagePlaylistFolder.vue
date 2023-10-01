@@ -1,40 +1,47 @@
 <template>
-  <content-with-heading>
-    <template #heading-left>
-      <p class="title is-4" v-text="playlist.name" />
-      <p
-        class="heading"
-        v-text="$t('page.playlists.count', { count: playlists.count })"
-      />
-    </template>
-    <template #content>
-      <list-playlists :playlists="playlists" />
-    </template>
-  </content-with-heading>
+  <div class="fd-page">
+    <content-with-heading>
+      <template #heading-left>
+        <p
+          class="title is-4"
+          v-text="
+            playlist.id === 0 ? $t('page.playlists.title') : playlist.name
+          "
+        />
+        <p
+          class="heading"
+          v-text="$t('page.playlists.count', { count: playlists.count })"
+        />
+      </template>
+      <template #content>
+        <list-playlists v-if="has_playlists" :playlists="playlists" />
+      </template>
+    </content-with-heading>
+  </div>
 </template>
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList, noop } from '@/lib/GroupByList'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import webapi from '@/webapi'
-import { GroupByList, noop } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
-      webapi.library_playlist(to.params.playlist_id),
-      webapi.library_playlist_folder(to.params.playlist_id)
+      webapi.library_playlist(to.params.id),
+      webapi.library_playlist_folder(to.params.id)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.playlist = response[0].data
     vm.playlists_list = new GroupByList(response[1].data)
   }
 }
 
 export default {
-  name: 'PagePlaylists',
+  name: 'PagePlaylistFolder',
   components: { ContentWithHeading, ListPlaylists },
 
   beforeRouteEnter(to, from, next) {
@@ -58,10 +65,9 @@ export default {
   },
 
   computed: {
-    radio_playlists() {
-      return this.$store.state.config.radio_playlists
+    has_playlists() {
+      return Object.keys(this.playlists_list.itemsByGroup).length > 0
     },
-
     playlists() {
       this.playlists_list.group(noop(), [
         (playlist) =>
@@ -70,8 +76,10 @@ export default {
           playlist.stream_count === 0 ||
           playlist.item_count > playlist.stream_count
       ])
-
       return this.playlists_list
+    },
+    radio_playlists() {
+      return this.$store.state.config.radio_playlists
     }
   }
 }

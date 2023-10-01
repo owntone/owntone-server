@@ -8,20 +8,20 @@
       <button
         class="button"
         aria-haspopup="true"
-        aria-controls="dropdown-menu"
+        aria-controls="dropdown"
         @click="is_active = !is_active"
       >
         <span v-text="option.name" />
-        <span class="icon"><mdicon name="chevron-down" size="16" /></span>
+        <mdicon class="icon" name="chevron-down" size="16" />
       </button>
     </div>
-    <div id="dropdown-menu" class="dropdown-menu" role="menu">
+    <div id="dropdown" class="dropdown-menu" role="menu">
       <div class="dropdown-content">
         <a
           v-for="o in options"
           :key="o.id"
           class="dropdown-item"
-          :class="{ 'is-active': modelValue === o.id }"
+          :class="{ 'is-active': value === o.id }"
           @click="select(o)"
           v-text="o.name"
         />
@@ -32,9 +32,9 @@
 
 <script>
 export default {
-  name: 'DropdownMenu',
-  props: ['modelValue', 'options'],
-  emits: ['update:modelValue'],
+  name: 'ControlDropdown',
+  props: ['value', 'options'],
+  emits: ['update:value'],
 
   data() {
     return {
@@ -45,7 +45,7 @@ export default {
   computed: {
     option: {
       get() {
-        return this.options.find((option) => option.id === this.modelValue)
+        return this.options.find((option) => option.id === this.value)
       }
     }
   },
@@ -57,7 +57,7 @@ export default {
 
     select(option) {
       this.is_active = false
-      this.$emit('update:modelValue', option.id)
+      this.$emit('update:value', option.id)
     }
   }
 }

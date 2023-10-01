@@ -224,7 +224,8 @@ httpd_response_not_cachable(struct httpd_request *hreq);
  * may direct it not to. It will set CORS headers as appropriate. Should be
  * thread safe.
  *
- * @in  req      The http request struct
+ * @in  hreq     The http request struct. NOTE: is automatically deallocated if
+ *               this is the final reply.
  * @in  code     HTTP code, e.g. 200
  * @in  reason   A brief explanation of the error - if NULL the standard meaning
                  of the error code will be used
@@ -248,14 +249,14 @@ httpd_send_reply_end(struct httpd_request *hreq);
  * which is not possible with evhttp_send_error, because it clears the headers.
  * Should be thread safe.
  *
- * @in  req      The http request struct
+ * @in  hreq     The http request struct. NOTE: is automatically deallocated if
+ *               this is the final reply.
  * @in  error    HTTP code, e.g. 200
  * @in  reason   A brief explanation of the error - if NULL the standard meaning
                  of the error code will be used
  */
 void
 httpd_send_error(struct httpd_request *hreq, int error, const char *reason);
-
 
 void
 httpd_redirect_to(struct httpd_request *hreq, const char *path);

@@ -8,8 +8,8 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
 import { renderSVG } from '@/lib/SVGRenderer'
+import webapi from '@/webapi'
 
 export default {
   name: 'CoverArtwork',
@@ -32,7 +32,7 @@ export default {
   },
 
   computed: {
-    artwork_url_with_size: function () {
+    artwork_url_with_size() {
       if (this.maxwidth > 0 && this.maxheight > 0) {
         return webapi.artwork_url_append_size_params(
           this.artwork_url,
@@ -59,7 +59,7 @@ export default {
   },
 
   methods: {
-    dataURI: function () {
+    dataURI() {
       return renderSVG(this.caption, this.alt_text, {
         width: this.width,
         height: this.height,

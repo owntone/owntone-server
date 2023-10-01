@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page">
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="composer.name" />
@@ -10,12 +10,10 @@
             class="button is-small is-light is-rounded"
             @click="show_composer_details_modal = true"
           >
-            <span class="icon"
-              ><mdicon name="dots-horizontal" size="16"
-            /></span>
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><mdicon name="shuffle" size="16" /></span>
+            <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.composer.shuffle')" />
           </a>
         </div>
@@ -49,27 +47,27 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
-      webapi.library_composer(to.params.composer),
-      webapi.library_composer_albums(to.params.composer)
+      webapi.library_composer(to.params.name),
+      webapi.library_composer_albums(to.params.name)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.composer = response[0].data
     vm.albums_list = new GroupByList(response[1].data.albums)
   }
 }
 
 export default {
-  name: 'PageComposer',
+  name: 'PageComposerAlbums',
   components: {
     ContentWithHeading,
     ListAlbums,
@@ -98,14 +96,14 @@ export default {
   },
 
   methods: {
-    open_tracks: function () {
+    open_tracks() {
       this.$router.push({
-        name: 'ComposerTracks',
-        params: { composer: this.composer.name }
+        name: 'music-composer-tracks',
+        params: { name: this.composer.name }
       })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_expression(
         'composer is "' + this.composer.name + '" and media_kind is music',
         true

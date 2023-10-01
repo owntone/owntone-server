@@ -7,24 +7,21 @@
         v-text="album.groupKey"
       />
     </div>
-    <div v-else-if="album.isItem" class="media" @click="open_album(album.item)">
-      <div v-if="is_visible_artwork" class="media-left fd-has-action">
-        <div class="image is-64x64 fd-has-shadow fd-has-action">
-          <figure>
-            <img
-              v-lazy="{
-                src: artwork_url_with_size(album.item.artwork_url),
-                lifecycle: artwork_options.lazy_lifecycle,
-                delay: 500
-              }"
-              :album="album.item.name"
-              :artist="album.item.artist"
-            />
-          </figure>
-        </div>
+    <div
+      v-else-if="album.isItem"
+      class="media is-align-items-center"
+      @click="open_album(album.item)"
+    >
+      <div v-if="is_visible_artwork" class="media-left">
+        <cover-artwork
+          :artwork_url="album.item.artwork_url"
+          :artist="album.item.artist"
+          :album="album.item.name"
+          class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
+        />
       </div>
-      <div class="media-content fd-has-action is-clipped">
-        <div style="margin-top: 0.7rem">
+      <div class="media-content is-clickable is-clipped">
+        <div>
           <h1 class="title is-6" v-text="album.item.name" />
           <h2 class="subtitle is-7 has-text-grey">
             <b v-text="album.item.artist" />
@@ -36,11 +33,9 @@
           />
         </div>
       </div>
-      <div class="media-right" style="padding-top: 0.7rem">
+      <div class="media-right">
         <a @click.prevent.stop="open_dialog(album.item)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>
@@ -56,8 +51,8 @@
     />
     <modal-dialog
       :show="show_remove_podcast_modal"
-      title="Remove podcast"
-      delete_action="Remove"
+      :title="$t('page.podcast.remove-podcast')"
+      :delete_action="$t('page.podcast.remove')"
       @close="show_remove_podcast_modal = false"
       @delete="remove_podcast"
     >
@@ -73,15 +68,14 @@
 </template>
 
 <script>
-import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'
-import { renderSVG } from '@/lib/SVGRenderer'
 
 export default {
   name: 'ListAlbums',
-  components: { ModalDialogAlbum, ModalDialog },
-
+  components: { CoverArtwork, ModalDialog, ModalDialogAlbum },
   props: ['albums', 'media_kind', 'hide_group_title'],
   emits: ['play-count-changed', 'podcast-deleted'],
 
@@ -89,25 +83,8 @@ export default {
     return {
       show_details_modal: false,
       selected_album: {},
-
       show_remove_podcast_modal: false,
-      rss_playlist_to_remove: {},
-
-      artwork_options: {
-        width: 600,
-        height: 600,
-        font_family: 'sans-serif',
-        font_size: 200,
-        font_weight: 600,
-        lazy_lifecycle: {
-          error: (el) => {
-            el.src = this.dataURI(
-              el.attributes.album.value,
-              el.attributes.artist.value
-            )
-          }
-        }
-      }
+      rss_playlist_to_remove: {}
     }
   },
 
@@ -119,97 +96,56 @@ export default {
       ).value
     },
 
-    media_kind_resolved: function () {
+    media_kind_resolved() {
       return this.media_kind ? this.media_kind : this.selected_album.media_kind
     }
   },
 
   methods: {
-    open_album: function (album) {
+    open_album(album) {
       this.selected_album = album
       if (this.media_kind_resolved === 'podcast') {
-        this.$router.push({ path: '/podcasts/' + album.id })
+        this.$router.push({ name: 'podcast', params: { id: album.id } })
       } else if (this.media_kind_resolved === 'audiobook') {
-        this.$router.push({ path: '/audiobooks/' + album.id })
+        this.$router.push({
+          name: 'audiobooks-album',
+          params: { id: album.id }
+        })
       } else {
-        this.$router.push({ path: '/music/albums/' + album.id })
+        this.$router.push({ name: 'music-album', params: { id: album.id } })
       }
     },
 
-    open_dialog: function (album) {
+    open_dialog(album) {
       this.selected_album = album
       this.show_details_modal = true
     },
 
-    open_remove_podcast_dialog: function () {
+    open_remove_podcast_dialog() {
       webapi
         .library_album_tracks(this.selected_album.id, { limit: 1 })
         .then(({ data }) => {
           webapi.library_track_playlists(data.items[0].id).then(({ data }) => {
-            const rssPlaylists = data.items.filter((pl) => pl.type === 'rss')
-            if (rssPlaylists.length !== 1) {
-              this.$store.dispatch('add_notification', {
-                text: this.$t('list.albums.notification'),
-                type: 'danger'
-              })
-              return
-            }
-
-            this.rss_playlist_to_remove = rssPlaylists[0]
+            this.rss_playlist_to_remove = data.items.filter(
+              (pl) => pl.type === 'rss'
+            )[0]
             this.show_remove_podcast_modal = true
             this.show_details_modal = false
           })
         })
     },
 
-    play_count_changed: function () {
+    play_count_changed() {
       this.$emit('play-count-changed')
     },
 
-    remove_podcast: function () {
+    remove_podcast() {
       this.show_remove_podcast_modal = false
       webapi
         .library_playlist_delete(this.rss_playlist_to_remove.id)
         .then(() => {
           this.$emit('podcast-deleted')
         })
-    },
-
-    artwork_url_with_size: function (artwork_url) {
-      if (this.artwork_options.width > 0 && this.artwork_options.height > 0) {
-        return webapi.artwork_url_append_size_params(
-          artwork_url,
-          this.artwork_options.width,
-          this.artwork_options.height
-        )
-      }
-      return webapi.artwork_url_append_size_params(artwork_url)
-    },
-
-    alt_text(album, artist) {
-      return artist + ' - ' + album
-    },
-
-    caption(album, artist) {
-      if (album) {
-        return album.substring(0, 2)
-      }
-      if (artist) {
-        return artist.substring(0, 2)
-      }
-      return ''
-    },
-
-    dataURI: function (album, artist) {
-      const caption = this.caption(album, artist)
-      const alt_text = this.alt_text(album, artist)
-      return renderSVG(caption, alt_text, {
-        width: this.artwork_options.width,
-        height: this.artwork_options.height,
-        font_family: this.artwork_options.font_family,
-        font_size: this.artwork_options.font_size,
-        font_weight: this.artwork_options.font_weight
-      })
     }
   }
 }

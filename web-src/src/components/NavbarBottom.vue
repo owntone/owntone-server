@@ -1,6 +1,6 @@
 <template>
   <nav
-    class="fd-bottom-navbar navbar is-white is-fixed-bottom"
+    class="navbar is-block is-white is-fixed-bottom fd-bottom-navbar"
     :style="zindex"
     :class="{
       'is-transparent': is_now_playing_page,
@@ -9,224 +9,17 @@
     role="navigation"
     aria-label="player controls"
   >
-    <div class="navbar-brand fd-expanded">
-      <!-- Link to queue -->
-      <navbar-item-link to="/" exact>
-        <span class="icon"><mdicon name="playlist-play" size="24" /></span>
-      </navbar-item-link>
-      <!-- Now playing artist/title (not visible on "now playing" page) -->
-      <router-link
-        v-if="!is_now_playing_page"
-        to="/now-playing"
-        class="navbar-item is-expanded is-clipped"
-        active-class="is-active"
-        exact
-      >
-        <div class="is-clipped">
-          <p class="is-size-7 fd-is-text-clipped">
-            <strong v-text="now_playing.title" />
-            <br />
-            <span v-text="now_playing.artist" />
-            <span
-              v-if="now_playing.data_kind === 'url'"
-              v-text="
-                $t('navigation.now-playing', { album: now_playing.album })
-              "
-            />
-          </p>
-        </div>
-      </router-link>
-      <!-- Skip previous (not visible on "now playing" page) -->
-      <player-button-previous
-        v-if="is_now_playing_page"
-        class="navbar-item fd-margin-left-auto"
-        :icon_size="24"
-      />
-      <player-button-seek-back
-        v-if="is_now_playing_page"
-        :seek_ms="10000"
-        class="navbar-item"
-        :icon_size="24"
-      />
-      <!-- Play/pause -->
-      <player-button-play-pause
-        class="navbar-item"
-        :icon_size="36"
-        show_disabled_message
-      />
-      <player-button-seek-forward
-        v-if="is_now_playing_page"
-        :seek_ms="30000"
-        class="navbar-item"
-        :icon_size="24"
-      />
-      <!-- Skip next (not visible on "now playing" page) -->
-      <player-button-next
-        v-if="is_now_playing_page"
-        class="navbar-item"
-        :icon_size="24"
-      />
-      <!-- Player menu button (only visible on mobile and tablet) -->
-      <a
-        class="navbar-item fd-margin-left-auto is-hidden-desktop"
-        @click="show_player_menu = !show_player_menu"
-      >
-        <span class="icon"
-          ><mdicon
-            :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-            size="18"
-        /></span>
-      </a>
-      <!-- Player menu dropup menu (only visible on desktop) -->
-      <div
-        class="navbar-item has-dropdown has-dropdown-up fd-margin-left-auto is-hidden-touch"
-        :class="{ 'is-active': show_player_menu }"
-      >
-        <a
-          class="navbar-link is-arrowless"
-          @click="show_player_menu = !show_player_menu"
-        >
-          <span class="icon"
-            ><mdicon
-              :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
-              size="18"
-          /></span>
-        </a>
-        <div
-          class="navbar-dropdown is-right is-boxed"
-          style="margin-right: 6px; margin-bottom: 6px; border-radius: 6px"
-        >
-          <div class="navbar-item">
-            <!-- Outputs: master volume -->
-            <div class="level is-mobile">
-              <div class="level-left fd-expanded">
-                <div class="level-item" style="flex-grow: 0">
-                  <a
-                    class="button is-white is-small"
-                    @click="toggle_mute_volume"
-                  >
-                    <span class="icon"
-                      ><mdicon
-                        :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
-                        size="18"
-                    /></span>
-                  </a>
-                </div>
-                <div class="level-item fd-expanded">
-                  <div class="fd-expanded">
-                    <p class="heading" v-text="$t('navigation.volume')" />
-                    <Slider
-                      v-model="player.volume"
-                      :min="0"
-                      :max="100"
-                      :step="1"
-                      :tooltips="false"
-                      :classes="{ target: 'slider' }"
-                      @change="set_volume"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- Outputs: master volume -->
-          <hr class="fd-navbar-divider" />
-          <navbar-item-output
-            v-for="output in outputs"
-            :key="output.id"
-            :output="output"
-          />
-          <!-- Outputs: stream volume -->
-          <hr class="fd-navbar-divider" />
-          <div class="navbar-item">
-            <div class="level is-mobile">
-              <div class="level-left fd-expanded">
-                <div class="level-item" style="flex-grow: 0">
-                  <a
-                    class="button is-white is-small"
-                    :class="{ 'is-loading': loading }"
-                    ><span
-                      class="icon fd-has-action"
-                      :class="{
-                        'has-text-grey-light': !playing && !loading,
-                        'is-loading': loading
-                      }"
-                      @click="togglePlay"
-                      ><mdicon name="broadcast" size="18"
-                    /></span>
-                  </a>
-                </div>
-                <div class="level-item fd-expanded">
-                  <div class="fd-expanded">
-                    <p
-                      class="heading"
-                      :class="{ 'has-text-grey-light': !playing }"
-                    >
-                      <span v-text="$t('navigation.stream')" />
-                      <a
-                        href="stream.mp3"
-                        style="margin-left: 5px"
-                        target="_blank"
-                        ><span class="icon"
-                          ><mdicon
-                            name="open-in-new"
-                            size="16"
-                            style="vertical-align: middle"
-                        /></span>
-                      </a>
-                    </p>
-                    <Slider
-                      v-model="stream_volume"
-                      :min="0"
-                      :max="100"
-                      :step="1"
-                      :tooltips="false"
-                      :disabled="!playing"
-                      :classes="{ target: 'slider' }"
-                      @change="set_stream_volume"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- Playback controls -->
-          <hr class="fd-navbar-divider" />
-          <div class="navbar-item">
-            <div class="level is-mobile fd-expanded">
-              <div class="level-item">
-                <div class="buttons has-addons">
-                  <player-button-repeat class="button" />
-                  <player-button-shuffle class="button" />
-                  <player-button-consume class="button" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- Player menu (only visible on mobile and tablet) -->
+    <!-- Player menu for desktop -->
     <div
-      class="navbar-menu is-hidden-desktop"
+      class="navbar-item has-dropdown has-dropdown-up is-hidden-touch"
       :class="{ 'is-active': show_player_menu }"
     >
-      <div class="navbar-start" />
-      <div class="navbar-end">
-        <!-- Repeat/shuffle/consume -->
+      <div class="navbar-dropdown is-right fd-width-auto">
         <div class="navbar-item">
-          <div class="buttons is-centered">
-            <player-button-repeat class="button" :icon_size="18" />
-            <player-button-shuffle class="button" :icon_size="18" />
-            <player-button-consume class="button" :icon_size="18" />
-          </div>
-        </div>
-        <hr class="fd-navbar-divider" />
-        <!-- Outputs: master volume -->
-        <div class="navbar-item">
+          <!-- Outputs: master volume -->
           <div class="level is-mobile">
-            <div class="level-left fd-expanded">
-              <div class="level-item" style="flex-grow: 0">
+            <div class="level-left is-flex-grow-1">
+              <div class="level-item is-flex-grow-0">
                 <a class="button is-white is-small" @click="toggle_mute_volume">
                   <span class="icon"
                     ><mdicon
@@ -235,23 +28,184 @@
                   /></span>
                 </a>
               </div>
-              <div class="level-item fd-expanded">
-                <div class="fd-expanded">
+              <div class="level-item">
+                <div>
                   <p class="heading" v-text="$t('navigation.volume')" />
-                  <Slider
-                    v-model="player.volume"
-                    :min="0"
+                  <control-slider
+                    v-model:value="player.volume"
                     :max="100"
-                    :step="1"
-                    :tooltips="false"
-                    :classes="{ target: 'slider' }"
-                    @change="set_volume"
+                    @change="change_volume"
                   />
                 </div>
               </div>
             </div>
           </div>
         </div>
+        <!-- Outputs: master volume -->
+        <hr class="my-3" />
+        <navbar-item-output
+          v-for="output in outputs"
+          :key="output.id"
+          :output="output"
+        />
+        <!-- Outputs: stream volume -->
+        <hr class="my-3" />
+        <div class="navbar-item">
+          <div class="level is-mobile">
+            <div class="level-left is-flex-grow-1">
+              <div class="level-item is-flex-grow-0">
+                <a
+                  class="button is-clickable is-white is-small"
+                  :class="{
+                    'has-text-grey-light': !playing && !loading,
+                    'is-loading': loading
+                  }"
+                  @click="togglePlay"
+                  ><mdicon class="icon" name="broadcast" size="18" />
+                </a>
+              </div>
+              <div class="level-item">
+                <div class="is-flex-grow-1">
+                  <div
+                    class="is-flex is-align-content-center"
+                    :class="{ 'has-text-grey-light': !playing }"
+                  >
+                    <p class="heading" v-text="$t('navigation.stream')" />
+                    <a href="stream.mp3" class="heading ml-2" target="_blank"
+                      ><mdicon
+                        class="icon is-small"
+                        name="open-in-new"
+                        size="16"
+                      />
+                    </a>
+                  </div>
+                  <control-slider
+                    v-model:value="stream_volume"
+                    :disabled="!playing"
+                    :max="100"
+                    :cursor="cursor"
+                    @change="change_stream_volume"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Playback controls -->
+        <hr class="my-3" />
+        <div class="navbar-item is-justify-content-center">
+          <div class="level">
+            <div class="level-item">
+              <div class="buttons has-addons">
+                <player-button-repeat class="button" />
+                <player-button-shuffle class="button" />
+                <player-button-consume class="button" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="navbar-brand is-flex-grow-1">
+      <navbar-item-link :to="{ name: 'queue' }" exact class="mr-auto">
+        <mdicon class="icon" name="playlist-play" size="24" />
+      </navbar-item-link>
+      <navbar-item-link
+        v-if="!is_now_playing_page"
+        :to="{ name: 'now-playing' }"
+        exact
+        class="navbar-item fd-is-text-clipped is-expanded is-clipped is-size-7"
+      >
+        <div class="fd-is-text-clipped">
+          <strong v-text="now_playing.title" />
+          <br />
+          <span v-text="now_playing.artist" />
+          <span
+            v-if="now_playing.album"
+            v-text="$t('navigation.now-playing', { album: now_playing.album })"
+          />
+        </div>
+      </navbar-item-link>
+      <player-button-previous
+        v-if="is_now_playing_page"
+        class="navbar-item px-2"
+        :icon_size="24"
+      />
+      <player-button-seek-back
+        v-if="is_now_playing_page"
+        :seek_ms="10000"
+        class="navbar-item px-2"
+        :icon_size="24"
+      />
+      <player-button-play-pause
+        class="navbar-item px-2"
+        :icon_size="36"
+        show_disabled_message
+      />
+      <player-button-seek-forward
+        v-if="is_now_playing_page"
+        :seek_ms="30000"
+        class="navbar-item px-2"
+        :icon_size="24"
+      />
+      <player-button-next
+        v-if="is_now_playing_page"
+        class="navbar-item px-2"
+        :icon_size="24"
+      />
+      <a
+        class="navbar-item ml-auto"
+        @click="show_player_menu = !show_player_menu"
+      >
+        <mdicon
+          class="icon"
+          :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
+        />
+      </a>
+    </div>
+    <!-- Player menu for mobile and tablet -->
+    <div
+      class="navbar-menu is-hidden-desktop"
+      :class="{ 'is-active': show_player_menu }"
+    >
+      <div class="navbar-start" />
+      <div class="navbar-end">
+        <!-- Repeat/shuffle/consume -->
+        <div class="navbar-item">
+          <div class="buttons has-addons is-centered">
+            <player-button-repeat class="button" />
+            <player-button-shuffle class="button" />
+            <player-button-consume class="button" />
+          </div>
+        </div>
+        <hr class="my-3" />
+        <!-- Outputs: master volume -->
+        <div class="navbar-item">
+          <div class="level is-mobile">
+            <div class="level-left is-flex-grow-1">
+              <div class="level-item is-flex-grow-0">
+                <a class="button is-white is-small" @click="toggle_mute_volume">
+                  <mdicon
+                    class="icon"
+                    :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
+                    size="18"
+                  />
+                </a>
+              </div>
+              <div class="level-item">
+                <div class="is-flex-grow-1">
+                  <p class="heading" v-text="$t('navigation.volume')" />
+                  <control-slider
+                    v-model:value="player.volume"
+                    :max="100"
+                    @change="change_volume"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <hr class="my-3" />
         <!-- Outputs: speaker volumes -->
         <navbar-item-output
           v-for="output in outputs"
@@ -259,54 +213,42 @@
           :output="output"
         />
         <!-- Outputs: stream volume -->
-        <hr class="fd-navbar-divider" />
-        <div class="navbar-item fd-has-margin-bottom">
+        <hr class="my-3" />
+        <div class="navbar-item mb-5">
           <div class="level is-mobile">
-            <div class="level-left fd-expanded">
-              <div class="level-item" style="flex-grow: 0">
+            <div class="level-left is-flex-grow-1">
+              <div class="level-item is-flex-grow-0">
                 <a
-                  class="button is-white is-small"
-                  :class="{ 'is-loading': loading }"
-                >
-                  <span
-                    class="icon fd-has-action"
-                    :class="{
-                      'has-text-grey-light': !playing && !loading,
-                      'is-loading': loading
-                    }"
-                    @click="togglePlay"
-                    ><mdicon name="radio-tower" size="16" />
-                  </span>
+                  class="button is-clickable is-white is-small"
+                  :class="{
+                    'has-text-grey-light': !playing && !loading,
+                    'is-loading': loading
+                  }"
+                  @click="togglePlay"
+                  ><mdicon class="icon" name="radio-tower" size="16" />
                 </a>
               </div>
-              <div class="level-item fd-expanded">
-                <div class="fd-expanded">
-                  <p
-                    class="heading"
+              <div class="level-item">
+                <div class="is-flex-grow-1">
+                  <div
+                    class="is-flex is-align-content-center"
                     :class="{ 'has-text-grey-light': !playing }"
                   >
-                    <span v-text="$t('navigation.stream')" />
-                    <a
-                      href="stream.mp3"
-                      style="margin-left: 5px"
-                      target="_blank"
-                      ><span class="icon"
-                        ><mdicon
-                          name="open-in-new"
-                          size="16"
-                          style="vertical-align: middle"
-                      /></span>
+                    <p class="heading" v-text="$t('navigation.stream')" />
+                    <a href="stream.mp3" class="heading ml-2" target="_blank"
+                      ><mdicon
+                        class="icon is-small"
+                        name="open-in-new"
+                        size="16"
+                      />
                     </a>
-                  </p>
-                  <Slider
-                    v-model="stream_volume"
-                    :min="0"
-                    :max="100"
-                    :step="1"
-                    :tooltips="false"
+                  </div>
+                  <control-slider
+                    v-model:value="stream_volume"
                     :disabled="!playing"
-                    :classes="{ target: 'slider' }"
-                    @change="set_stream_volume"
+                    :max="100"
+                    :cursor="cursor"
+                    @change="change_stream_volume"
                   />
                 </div>
               </div>
@@ -319,39 +261,41 @@
 </template>
 
 <script>
-import webapi from '@/webapi'
+import * as types from '@/store/mutation_types'
 import _audio from '@/audio'
+import ControlSlider from '@/components/ControlSlider.vue'
+import { mdiCancel } from '@mdi/js'
 import NavbarItemLink from './NavbarItemLink.vue'
 import NavbarItemOutput from './NavbarItemOutput.vue'
-import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause.vue'
-import PlayerButtonNext from '@/components/PlayerButtonNext.vue'
-import PlayerButtonPrevious from '@/components/PlayerButtonPrevious.vue'
-import PlayerButtonShuffle from '@/components/PlayerButtonShuffle.vue'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume.vue'
+import PlayerButtonNext from '@/components/PlayerButtonNext.vue'
+import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause.vue'
+import PlayerButtonPrevious from '@/components/PlayerButtonPrevious.vue'
 import PlayerButtonRepeat from '@/components/PlayerButtonRepeat.vue'
 import PlayerButtonSeekBack from '@/components/PlayerButtonSeekBack.vue'
 import PlayerButtonSeekForward from '@/components/PlayerButtonSeekForward.vue'
-import Slider from '@vueform/slider'
-import * as types from '@/store/mutation_types'
+import PlayerButtonShuffle from '@/components/PlayerButtonShuffle.vue'
+import webapi from '@/webapi'
 
 export default {
   name: 'NavbarBottom',
   components: {
+    ControlSlider,
     NavbarItemLink,
     NavbarItemOutput,
-    Slider,
-    PlayerButtonPlayPause,
-    PlayerButtonNext,
-    PlayerButtonPrevious,
-    PlayerButtonShuffle,
     PlayerButtonConsume,
+    PlayerButtonNext,
+    PlayerButtonPlayPause,
+    PlayerButtonPrevious,
     PlayerButtonRepeat,
+    PlayerButtonSeekBack,
     PlayerButtonSeekForward,
-    PlayerButtonSeekBack
+    PlayerButtonShuffle
   },
 
   data() {
     return {
+      cursor: mdiCancel,
       old_volume: 0,
       playing: false,
       loading: false,
@@ -382,14 +326,11 @@ export default {
       return ''
     },
 
-    state() {
-      return this.$store.state.player
-    },
     now_playing() {
       return this.$store.getters.now_playing
     },
     is_now_playing_page() {
-      return this.$route.path === '/now-playing'
+      return this.$route.name === 'now-playing'
     },
     outputs() {
       return this.$store.state.outputs
@@ -412,12 +353,12 @@ export default {
     }
   },
 
-  // on app mounted
+  // On app mounted
   mounted() {
     this.setupAudio()
   },
 
-  // on app destroyed
+  // On app destroyed
   unmounted() {
     this.closeAudio()
   },
@@ -427,19 +368,16 @@ export default {
       this.show_outputs_menu = false
     },
 
-    set_volume: function (newVolume) {
-      webapi.player_volume(newVolume)
+    change_volume() {
+      webapi.player_volume(this.player.volume)
     },
 
-    toggle_mute_volume: function () {
-      if (this.player.volume > 0) {
-        this.set_volume(0)
-      } else {
-        this.set_volume(this.old_volume)
-      }
+    toggle_mute_volume() {
+      this.player.volume = this.player.volume > 0 ? 0 : this.old_volume
+      this.change_volume()
     },
 
-    setupAudio: function () {
+    setupAudio() {
       const a = _audio.setupAudio()
 
       a.addEventListener('waiting', (e) => {
@@ -465,13 +403,13 @@ export default {
       })
     },
 
-    // close active audio
-    closeAudio: function () {
+    // Close active audio
+    closeAudio() {
       _audio.stopAudio()
       this.playing = false
     },
 
-    playChannel: function () {
+    playChannel() {
       if (this.playing) {
         return
       }
@@ -482,7 +420,7 @@ export default {
       _audio.setVolume(this.stream_volume / 100)
     },
 
-    togglePlay: function () {
+    togglePlay() {
       if (this.loading) {
         return
       }
@@ -492,8 +430,7 @@ export default {
       return this.playChannel()
     },
 
-    set_stream_volume: function (newVolume) {
-      this.stream_volume = newVolume
+    change_stream_volume() {
       _audio.setVolume(this.stream_volume / 100)
     }
   }

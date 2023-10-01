@@ -1,6 +1,11 @@
 <template>
-  <a :class="{ 'is-warning': is_shuffle }" @click="toggle_shuffle_mode">
-    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
+  <a :class="{ 'is-info': is_shuffle }" @click="toggle_shuffle_mode">
+    <mdicon
+      class="icon"
+      :name="icon_name"
+      :size="icon_size"
+      :title="$t('player.button.' + icon_name)"
+    />
   </a>
 </template>
 
@@ -30,7 +35,7 @@ export default {
   },
 
   methods: {
-    toggle_shuffle_mode: function () {
+    toggle_shuffle_mode() {
       webapi.player_shuffle(!this.is_shuffle)
     }
   }

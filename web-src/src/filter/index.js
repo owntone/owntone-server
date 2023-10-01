@@ -4,7 +4,7 @@ import i18n from '@/i18n'
 const { t, locale } = i18n.global
 
 export const filters = {
-  durationInHours: function (value_ms) {
+  durationInHours(value_ms) {
     const seconds = Math.floor(value_ms / 1000)
     if (seconds > 3600) {
       return Duration.fromObject({ seconds: seconds })
@@ -16,7 +16,7 @@ export const filters = {
       .toFormat('mm:ss')
   },
 
-  durationInDays: function (value_ms) {
+  durationInDays(value_ms) {
     const minutes = Math.floor(value_ms / 60000)
     if (minutes > 1440) {
       // 60 * 24
@@ -33,25 +33,29 @@ export const filters = {
       .toHuman()
   },
 
-  date: function (value) {
-    return DateTime.fromISO(value).setLocale(locale.value).toLocaleString(DateTime.DATE_FULL)
+  date(value) {
+    return DateTime.fromISO(value)
+      .setLocale(locale.value)
+      .toLocaleString(DateTime.DATE_FULL)
   },
 
-  datetime: function (value) {
-    return DateTime.fromISO(value).setLocale(locale.value).toLocaleString(DateTime.DATETIME_MED)
+  datetime(value) {
+    return DateTime.fromISO(value)
+      .setLocale(locale.value)
+      .toLocaleString(DateTime.DATETIME_MED)
   },
 
-  timeFromNow: function (value) {
-    var diff = DateTime.now().diff(DateTime.fromISO(value))
+  timeFromNow(value) {
+    const diff = DateTime.now().diff(DateTime.fromISO(value))
 
     return this.durationInDays(diff.as('milliseconds'))
   },
 
-  number: function (value) {
+  number(value) {
     return value.toLocaleString(locale.value)
   },
 
-  channels: function (value) {
+  channels(value) {
     if (value === 1) {
       return t('filter.mono')
     }
@@ -62,5 +66,11 @@ export const filters = {
       return ''
     }
     return t('filter.channels', { value })
+  },
+
+  cursor(path, size = 20) {
+    const viewbox = 24
+    const center = size / 2
+    return `url("data:image/svg+xml,%3Csvg width='${size}' height='${size}' viewBox='0 0 ${viewbox} ${viewbox}' xmlns='http://www.w3.org/2000/svg' %3E%3Cpath d='${path}'/%3E%3C/svg%3E") ${center} ${center}, auto`
   }
 }

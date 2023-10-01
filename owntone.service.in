@@ -4,7 +4,7 @@
 Description=DAAP/DACP (iTunes), RSP and MPD server, supports AirPlay and Remote
 Documentation=man:owntone(8)
 Requires=network.target local-fs.target avahi-daemon.socket
-After=network.target sound.target remote-fs.target pulseaudio.service
+After=network-online.target sound.target remote-fs.target pulseaudio.service
 
 [Service]
 ExecStart=@sbindir@/owntone -f

@@ -15,7 +15,7 @@ import * as types from '@/store/mutation_types'
 export default {
   name: 'NavbarItemLink',
   props: {
-    to: String,
+    to: Object,
     exact: Boolean
   },
 
@@ -47,17 +47,17 @@ export default {
   },
 
   methods: {
-    open_link: function () {
+    open_link() {
       if (this.show_burger_menu) {
         this.$store.commit(types.SHOW_BURGER_MENU, false)
       }
       if (this.show_player_menu) {
         this.$store.commit(types.SHOW_PLAYER_MENU, false)
       }
-      this.$router.push({ path: this.to })
+      this.$router.push(this.to)
     },
 
-    full_path: function () {
+    full_path() {
       const resolved = this.$router.resolve(this.to)
       return resolved.href
     }

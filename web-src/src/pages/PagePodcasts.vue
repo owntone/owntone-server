@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page">
     <content-with-heading v-if="new_episodes.items.length > 0">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.podcasts.new-episodes')" />
@@ -7,7 +7,7 @@
       <template #heading-right>
         <div class="buttons is-centered">
           <a class="button is-small" @click="mark_all_played">
-            <span class="icon"><mdicon name="pencil" size="16" /></span>
+            <mdicon class="icon" name="pencil" size="16" />
             <span v-text="$t('page.podcasts.mark-all-played')" />
           </a>
         </div>
@@ -31,11 +31,11 @@
       <template #heading-right>
         <div class="buttons is-centered">
           <a v-if="rss.tracks > 0" class="button is-small" @click="update_rss">
-            <span class="icon"><mdicon name="refresh" size="16" /></span>
+            <mdicon class="icon" name="refresh" size="16" />
             <span v-text="$t('page.podcasts.update')" />
           </a>
           <a class="button is-small" @click="open_add_podcast_dialog">
-            <span class="icon"><mdicon name="rss" size="16" /></span>
+            <mdicon class="icon" name="rss" size="16" />
             <span v-text="$t('page.podcasts.add')" />
           </a>
         </div>
@@ -57,23 +57,23 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListTracks from '@/components/ListTracks.vue'
-import ListAlbums from '@/components/ListAlbums.vue'
-import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
 import * as types from '@/store/mutation_types'
-import webapi from '@/webapi'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupByList } from '@/lib/GroupByList'
+import ListAlbums from '@/components/ListAlbums.vue'
+import ListTracks from '@/components/ListTracks.vue'
+import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.library_albums('podcast'),
       webapi.library_podcasts_new_episodes()
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.albums = new GroupByList(response[0].data)
     vm.new_episodes = new GroupByList(response[1].data.tracks)
   }
@@ -118,31 +118,31 @@ export default {
   },
 
   methods: {
-    mark_all_played: function () {
+    mark_all_played() {
       this.new_episodes.items.forEach((ep) => {
         webapi.library_track_update(ep.id, { play_count: 'increment' })
       })
       this.new_episodes.items = {}
     },
 
-    open_add_podcast_dialog: function (item) {
+    open_add_podcast_dialog(item) {
       this.show_url_modal = true
     },
 
-    reload_new_episodes: function () {
+    reload_new_episodes() {
       webapi.library_podcasts_new_episodes().then(({ data }) => {
         this.new_episodes = new GroupByList(data.tracks)
       })
     },
 
-    reload_podcasts: function () {
+    reload_podcasts() {
       webapi.library_albums('podcast').then(({ data }) => {
         this.albums = new GroupByList(data)
         this.reload_new_episodes()
       })
     },
 
-    update_rss: function () {
+    update_rss() {
       this.$store.commit(types.UPDATE_DIALOG_SCAN_KIND, 'rss')
       this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
     }

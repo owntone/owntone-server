@@ -1,14 +1,14 @@
 <template>
-  <div>
+  <div class="fd-page">
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.radio.title')" />
-      </template>
-      <template #content>
         <p
           class="heading has-text-centered-mobile"
           v-text="$t('page.radio.count', { count: tracks.total })"
         />
+      </template>
+      <template #content>
         <list-tracks :tracks="tracks" />
       </template>
     </content-with-heading>
@@ -17,16 +17,16 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_radio_streams()
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.tracks = new GroupByList(response.data.tracks)
   }
 }

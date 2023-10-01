@@ -19,7 +19,7 @@
                   v-model="pairing_req.pin"
                   class="input"
                   type="text"
-                  placeholder="Enter pairing code"
+                  :placeholder="$t('page.settings.devices.pairing-code')"
                 />
               </div>
               <div class="control">
@@ -53,20 +53,19 @@
         <div v-for="output in outputs" :key="output.id">
           <div class="field">
             <div class="control">
-              <label class="checkbox">
-                <input
-                  v-model="output.selected"
-                  type="checkbox"
-                  style="margin-right: 5px"
-                  @change="output_toggle(output.id)"
-                />
-                <span v-text="output.name" />
-              </label>
+              <input
+                :id="output.id"
+                v-model="output.selected"
+                type="checkbox"
+                class="switch is-rounded mr-2"
+                @change="output_toggle(output.id)"
+              />
+              <label :for="output.id" class="checkbox" v-text="output.name" />
             </div>
           </div>
           <form
             v-if="output.needs_auth_key"
-            class="fd-has-margin-bottom"
+            class="mb-5"
             @submit.prevent="kickoff_verification(output.id)"
           >
             <div class="field is-grouped">
@@ -99,10 +98,8 @@ import TabsSettings from '@/components/TabsSettings.vue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'SettingsPageRemotesOutputs',
+  name: 'PageSettingsRemotesOutputs',
   components: { ContentWithHeading, TabsSettings },
-
-  filters: {},
 
   data() {
     return {
@@ -112,12 +109,11 @@ export default {
   },
 
   computed: {
-    pairing() {
-      return this.$store.state.pairing
-    },
-
     outputs() {
       return this.$store.state.outputs
+    },
+    pairing() {
+      return this.$store.state.pairing
     }
   },
 
@@ -125,13 +121,11 @@ export default {
     kickoff_pairing() {
       webapi.pairing_kickoff(this.pairing_req)
     },
-
-    output_toggle(outputId) {
-      webapi.output_toggle(outputId)
-    },
-
     kickoff_verification(outputId) {
       webapi.output_update(outputId, this.verification_req)
+    },
+    output_toggle(outputId) {
+      webapi.output_toggle(outputId)
     }
   }
 }

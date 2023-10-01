@@ -19,18 +19,18 @@
                       v-model="pairing_req.pin"
                       class="input"
                       type="text"
-                      placeholder="Enter pairing code"
+                      :placeholder="$t('dialog.remote-pairing.pairing-code')"
                     />
                   </div>
                 </div>
               </form>
             </div>
-            <footer class="card-footer">
+            <footer class="card-footer is-clipped">
               <a
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <span class="icon"><mdicon name="cancel" size="16" /></span>
+                <mdicon class="icon" name="cancel" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.remote-pairing.cancel')"
@@ -40,7 +40,7 @@
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="kickoff_pairing"
               >
-                <span class="icon"><mdicon name="cellphone" size="16" /></span>
+                <mdicon class="icon" name="cellphone" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.remote-pairing.pair')"

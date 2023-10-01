@@ -1,40 +1,24 @@
 <template>
-  <section class="section fd-content">
+  <section class="section">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <section v-if="$slots['options']">
+          <section v-if="$slots.options">
             <div ref="options_ref" style="height: 1px" />
             <slot name="options" />
-            <nav
-              class="buttons is-centered"
-              style="margin-bottom: 6px; margin-top: 16px"
-            >
-              <a
-                v-if="!options_visible"
-                class="button is-small is-white"
-                @click="scroll_to_top"
-              >
-                <span class="icon is-small"
-                  ><mdicon name="chevron-down" size="16"
-                /></span>
-              </a>
-              <a
-                v-else
-                class="button is-small is-white"
-                @click="scroll_to_content"
-              >
-                <span class="icon is-small"
-                  ><mdicon name="chevron-up" size="16"
-                /></span>
-              </a>
+            <nav class="buttons is-centered mt-4 mb-2">
+              <router-link class="button is-small is-white" :to="position"
+                ><mdicon class="icon is-small" :name="icon_name" size="16"
+              /></router-link>
             </nav>
           </section>
-          <div :class="{ 'fd-content-with-option': $slots['options'] }">
-            <nav id="top" class="level">
+          <div :class="{ 'fd-content-with-option': $slots.options }">
+            <nav id="top" class="level is-clipped">
               <!-- Left side -->
-              <div class="level-left">
-                <div class="level-item has-text-centered-mobile">
+              <div class="level-left is-flex-shrink-1">
+                <div
+                  class="level-item is-flex-shrink-1 has-text-centered-mobile"
+                >
                   <div>
                     <slot name="heading-left" />
                   </div>
@@ -46,7 +30,7 @@
               </div>
             </nav>
             <slot name="content" />
-            <div style="margin-top: 16px">
+            <div class="mt-4">
               <slot name="footer" />
             </div>
           </div>
@@ -59,15 +43,21 @@
 <script>
 export default {
   name: 'ContentWithHeading',
-
   data() {
     return {
       options_visible: false
     }
   },
-
+  computed: {
+    icon_name() {
+      return this.options_visible ? 'chevron-up' : 'chevron-down'
+    },
+    position() {
+      return { hash: this.options_visible ? '#top' : '#app' }
+    }
+  },
   mounted() {
-    if (this.$slots['options']) {
+    if (this.$slots.options) {
       this.observer = new IntersectionObserver(this.onElementObserved, {
         rootMargin: '-82px 0px 0px 0px',
         threshold: 1.0
@@ -75,27 +65,13 @@ export default {
       this.observer.observe(this.$refs.options_ref)
     }
   },
-
   methods: {
     onElementObserved(entries) {
       entries.forEach(({ target, isIntersecting }) => {
         this.options_visible = isIntersecting
       })
     },
-
-    scroll_to_top: function () {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    },
-
-    scroll_to_content: function () {
-      if (this.$route.meta.has_tabs) {
-        this.$scrollTo('#top', { offset: -140 })
-      } else {
-        this.$scrollTo('#top', { offset: -110 })
-      }
-    },
-
-    visibilityChanged: function (isVisible) {
+    visibilityChanged(isVisible) {
       this.options_visible = isVisible
     }
   }

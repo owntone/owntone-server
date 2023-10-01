@@ -1,15 +1,13 @@
 <template>
   <div
     v-if="$route.query.directory"
-    class="media"
+    class="media is-align-items-center"
     @click="open_parent_directory()"
   >
-    <figure class="media-left fd-has-action">
-      <span class="icon"
-        ><mdicon name="subdirectory-arrow-left" size="16"
-      /></span>
+    <figure class="media-left is-clickable">
+      <mdicon class="icon" name="subdirectory-arrow-left" size="16" />
     </figure>
-    <div class="media-content fd-has-action is-clipped">
+    <div class="media-content is-clickable is-clipped">
       <h1 class="title is-6">..</h1>
     </div>
     <div class="media-right">
@@ -17,11 +15,11 @@
     </div>
   </div>
   <template v-for="directory in directories" :key="directory.path">
-    <div class="media" @click="open_directory(directory)">
-      <figure class="media-left fd-has-action">
-        <span class="icon"><mdicon name="folder" size="16" /></span>
+    <div class="media is-align-items-center" @click="open_directory(directory)">
+      <figure class="media-left is-clickable">
+        <mdicon class="icon" name="folder" size="16" />
       </figure>
-      <div class="media-content fd-has-action is-clipped">
+      <div class="media-content is-clickable is-clipped">
         <h1
           class="title is-6"
           v-text="directory.path.substring(directory.path.lastIndexOf('/') + 1)"
@@ -30,9 +28,7 @@
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(directory)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>
@@ -58,7 +54,7 @@ export default {
   data() {
     return {
       show_details_modal: false,
-      selected_directory: {}
+      selected_directory: ''
     }
   },
 
@@ -72,7 +68,7 @@ export default {
   },
 
   methods: {
-    open_parent_directory: function () {
+    open_parent_directory() {
       const parent = this.current_directory.slice(
         0,
         this.current_directory.lastIndexOf('/')
@@ -81,10 +77,10 @@ export default {
         parent === '' ||
         this.$store.state.config.directories.includes(this.current_directory)
       ) {
-        this.$router.push({ path: '/files' })
+        this.$router.push({ name: 'files' })
       } else {
         this.$router.push({
-          path: '/files',
+          name: 'files',
           query: {
             directory: this.current_directory.slice(
               0,
@@ -95,15 +91,15 @@ export default {
       }
     },
 
-    open_directory: function (directory) {
+    open_directory(directory) {
       this.$router.push({
-        path: '/files',
+        name: 'files',
         query: { directory: directory.path }
       })
     },
 
-    open_dialog: function (directory) {
-      this.selected_directory = directory
+    open_dialog(directory) {
+      this.selected_directory = directory.path
       this.show_details_modal = true
     }
   }

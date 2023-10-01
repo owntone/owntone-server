@@ -13,11 +13,11 @@
       <template #footer>
         <nav class="level">
           <p class="level-item">
-            <a
+            <router-link
               class="button is-light is-small is-rounded"
-              @click="open_browse('recently_added')"
-              v-text="$t('page.browse.show-more')"
-            />
+              :to="{ name: 'music-browse-recently-added' }"
+              >{{ $t('page.browse.show-more') }}</router-link
+            >
           </p>
         </nav>
       </template>
@@ -37,11 +37,11 @@
       <template #footer>
         <nav class="level">
           <p class="level-item">
-            <a
+            <router-link
               class="button is-light is-small is-rounded"
-              @click="open_browse('recently_played')"
-              v-text="$t('page.browse.show-more')"
-            />
+              :to="{ name: 'music-browse-recently-played' }"
+              >{{ $t('page.browse.show-more') }}</router-link
+            >
           </p>
         </nav>
       </template>
@@ -51,14 +51,14 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
       webapi.search({
         type: 'album',
@@ -75,7 +75,7 @@ const dataObject = {
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.recently_added = new GroupByList(response[0].data.albums)
     vm.recently_played = new GroupByList(response[1].data.tracks)
   }
@@ -83,7 +83,7 @@ const dataObject = {
 
 export default {
   name: 'PageBrowse',
-  components: { ContentWithHeading, TabsMusic, ListAlbums, ListTracks },
+  components: { ContentWithHeading, ListAlbums, ListTracks, TabsMusic },
 
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
@@ -103,15 +103,8 @@ export default {
     return {
       recently_added: [],
       recently_played: { items: [] },
-
-      show_track_details_modal: false,
-      selected_track: {}
-    }
-  },
-
-  methods: {
-    open_browse: function (type) {
-      this.$router.push({ path: '/music/browse/' + type })
+      selected_track: {},
+      show_track_details_modal: false
     }
   }
 }

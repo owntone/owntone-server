@@ -6,17 +6,14 @@
         <div class="modal-content fd-modal-card">
           <div class="card">
             <div class="card-content">
-              <figure
-                v-show="artwork_visible"
-                class="image is-square fd-has-margin-bottom"
-              >
-                <img
-                  :src="artwork_url"
-                  class="fd-has-shadow"
-                  @load="artwork_loaded"
-                  @error="artwork_error"
-                />
-              </figure>
+              <cover-artwork
+                :artwork_url="artwork_url"
+                :artist="album.artist"
+                :album="album.name"
+                class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
+                @load="artwork_loaded"
+                @error="artwork_error"
+              />
               <p class="title is-4">
                 <a
                   class="has-text-link"
@@ -57,25 +54,21 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.album.add')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.album.add-next')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.album.play')"
@@ -95,10 +88,12 @@
 </template>
 
 <script>
+import CoverArtwork from '@/components/CoverArtwork.vue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'SpotifyModalDialogAlbum',
+  name: 'ModalDialogAlbumSpotify',
+  components: { CoverArtwork },
   props: ['show', 'album'],
   emits: ['close'],
 
@@ -109,7 +104,7 @@ export default {
   },
 
   computed: {
-    artwork_url: function () {
+    artwork_url() {
       if (this.album.images && this.album.images.length > 0) {
         return this.album.images[0].url
       }
@@ -118,36 +113,42 @@ export default {
   },
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.album.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.album.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.album.uri)
     },
 
-    open_album: function () {
-      this.$router.push({ path: '/music/spotify/albums/' + this.album.id })
-    },
-
-    open_artist: function () {
+    open_album() {
+      this.$emit('close')
       this.$router.push({
-        path: '/music/spotify/artists/' + this.album.artists[0].id
+        name: 'music-spotify-album',
+        params: { id: this.album.id }
       })
     },
 
-    artwork_loaded: function () {
+    open_artist() {
+      this.$emit('close')
+      this.$router.push({
+        name: 'music-spotify-artist',
+        params: { id: this.album.artists[0].id }
+      })
+    },
+
+    artwork_loaded() {
       this.artwork_visible = true
     },
 
-    artwork_error: function () {
+    artwork_error() {
       this.artwork_visible = false
     }
   }

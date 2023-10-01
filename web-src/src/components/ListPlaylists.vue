@@ -2,23 +2,18 @@
   <div
     v-for="playlist in playlists"
     :key="playlist.itemId"
-    class="media"
-    :playlist="playlist"
+    class="media is-align-items-center"
     @click="open_playlist(playlist.item)"
   >
-    <figure class="media-left fd-has-action">
-      <span class="icon"
-        ><mdicon :name="icon_name(playlist.item)" size="16"
-      /></span>
+    <figure class="media-left is-clickable">
+      <mdicon class="icon" :name="icon_name(playlist.item)" size="16" />
     </figure>
-    <div class="media-content fd-has-action is-clipped">
+    <div class="media-content is-clickable is-clipped">
       <h1 class="title is-6" v-text="playlist.item.name" />
     </div>
     <div class="media-right">
       <a @click.prevent.stop="open_dialog(playlist.item)">
-        <span class="icon has-text-dark"
-          ><mdicon name="dots-vertical" size="16"
-        /></span>
+        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
       </a>
     </div>
   </div>
@@ -48,20 +43,26 @@ export default {
   },
 
   methods: {
-    open_playlist: function (playlist) {
-      if (playlist.type !== 'folder') {
-        this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
+    open_playlist(playlist) {
+      if (playlist.type === 'folder') {
+        this.$router.push({
+          name: 'playlist-folder',
+          params: { id: playlist.id }
+        })
       } else {
-        this.$router.push({ path: '/playlists/' + playlist.id })
+        this.$router.push({
+          name: 'playlist',
+          params: { id: playlist.id }
+        })
       }
     },
 
-    open_dialog: function (playlist) {
+    open_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_details_modal = true
     },
 
-    icon_name: function (playlist) {
+    icon_name(playlist) {
       if (playlist.type === 'folder') {
         return 'folder'
       } else if (playlist.type === 'rss') {

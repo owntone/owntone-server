@@ -19,3 +19,10 @@ You can also access your library remotely using something like Zerotier. See [th
 guide](https://github.com/owntone/owntone-server/wiki/Accessing-Owntone-remotely-through-iTunes-Music-with-Zerotier)
 for details.
 
+## Accessing from Internet for authenticated users
+
+If you intend to access Owntone directly from Internet, it's a good idea to
+protect it against unauthenticated users.
+
+[This guide](https://blog.cyril.by/en/software/example-sso-with-authelia-and-owntone)
+has a detailed setup tutorial to achieve this securely.

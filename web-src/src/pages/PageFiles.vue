@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page">
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.files.title')" />
@@ -11,12 +11,10 @@
             class="button is-small is-light is-rounded"
             @click="show_details_modal = true"
           >
-            <span class="icon"
-              ><mdicon name="dots-horizontal" size="16"
-            /></span>
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><mdicon name="play" size="16" /></span>
+            <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.files.play')" />
           </a>
         </div>
@@ -41,22 +39,22 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
 import webapi from '@/webapi'
-import { GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     if (to.query.directory) {
       return webapi.library_files(to.query.directory)
     }
     return Promise.resolve()
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     if (response) {
       vm.dirs = response.data.directories
       vm.playlists = new GroupByList(response.data.playlists)
@@ -119,7 +117,7 @@ export default {
   },
 
   methods: {
-    play: function () {
+    play() {
       webapi.player_play_expression(this.play_expression, false)
     }
   }

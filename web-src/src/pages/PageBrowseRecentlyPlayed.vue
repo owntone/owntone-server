@@ -18,13 +18,13 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
-import ListTracks from '@/components/ListTracks.vue'
-import webapi from '@/webapi'
 import { GroupByList } from '@/lib/GroupByList'
+import ListTracks from '@/components/ListTracks.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.search({
       type: 'track',
       expression:
@@ -33,7 +33,7 @@ const dataObject = {
     })
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.recently_played = new GroupByList(response.data.tracks)
   }
 }

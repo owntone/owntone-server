@@ -1,31 +1,34 @@
 <template>
   <nav
-    class="fd-top-navbar navbar is-dark is-fixed-top"
+    class="navbar is-light is-fixed-top"
     :style="zindex"
     role="navigation"
     aria-label="main navigation"
   >
     <div class="navbar-brand">
-      <navbar-item-link v-if="is_visible_playlists" to="/playlists">
-        <span class="icon"><mdicon name="music-box-multiple" size="16" /></span>
+      <navbar-item-link v-if="is_visible_playlists" :to="{ name: 'playlists' }">
+        <mdicon class="icon" name="music-box-multiple" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_music" to="/music">
-        <span class="icon"><mdicon name="music" size="16" /></span>
+      <navbar-item-link v-if="is_visible_music" :to="{ name: 'music' }">
+        <mdicon class="icon" name="music" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_podcasts" to="/podcasts">
-        <span class="icon"><mdicon name="microphone" size="16" /></span>
+      <navbar-item-link v-if="is_visible_podcasts" :to="{ name: 'podcasts' }">
+        <mdicon class="icon" name="microphone" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_audiobooks" to="/audiobooks">
-        <span class="icon"><mdicon name="book-open-variant" size="16" /></span>
+      <navbar-item-link
+        v-if="is_visible_audiobooks"
+        :to="{ name: 'audiobooks' }"
+      >
+        <mdicon class="icon" name="book-open-variant" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_radio" to="/radio">
-        <span class="icon"><mdicon name="radio" size="16" /></span>
+      <navbar-item-link v-if="is_visible_radio" :to="{ name: 'radio' }">
+        <mdicon class="icon" name="radio" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_files" to="/files">
-        <span class="icon"><mdicon name="folder-open" size="16" /></span>
+      <navbar-item-link v-if="is_visible_files" :to="{ name: 'files' }">
+        <mdicon class="icon" name="folder-open" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_search" to="/search">
-        <span class="icon"><mdicon name="magnify" size="16" /></span>
+      <navbar-item-link v-if="is_visible_search" :to="{ name: search_name }">
+        <mdicon class="icon" name="magnify" size="16" />
       </navbar-item-link>
       <div
         class="navbar-burger"
@@ -47,73 +50,58 @@
           @click="on_click_outside_settings"
         >
           <a class="navbar-link is-arrowless">
-            <span class="icon is-hidden-touch"
-              ><mdicon name="menu" size="24"
-            /></span>
+            <mdicon class="icon is-hidden-touch" name="menu" size="24" />
             <span
               class="is-hidden-desktop has-text-weight-bold"
               v-text="$t('navigation.title')"
             />
           </a>
           <div class="navbar-dropdown is-right">
-            <navbar-item-link to="/playlists">
-              <span class="icon"
-                ><mdicon name="music-box-multiple" size="16"
-              /></span>
+            <navbar-item-link :to="{ name: 'playlists' }">
+              <mdicon class="icon" name="music-box-multiple" size="16" />
               <b v-text="$t('navigation.playlists')" />
             </navbar-item-link>
-            <navbar-item-link to="/music" exact>
-              <span class="icon"><mdicon name="music" size="16" /></span>
+            <navbar-item-link :to="{ name: 'music' }" exact>
+              <mdicon class="icon" name="music" size="16" />
               <b v-text="$t('navigation.music')" />
             </navbar-item-link>
-            <navbar-item-link to="/music/artists">
-              <span
-                class="fd-navbar-item-level2"
-                v-text="$t('navigation.artists')"
-              />
+            <navbar-item-link :to="{ name: 'music-artists' }">
+              <span class="pl-5" v-text="$t('navigation.artists')" />
             </navbar-item-link>
-            <navbar-item-link to="/music/albums">
-              <span
-                class="fd-navbar-item-level2"
-                v-text="$t('navigation.albums')"
-              />
+            <navbar-item-link :to="{ name: 'music-albums' }">
+              <span class="pl-5" v-text="$t('navigation.albums')" />
             </navbar-item-link>
-            <navbar-item-link to="/music/genres">
-              <span
-                class="fd-navbar-item-level2"
-                v-text="$t('navigation.genres')"
-              />
+            <navbar-item-link :to="{ name: 'music-genres' }">
+              <span class="pl-5" v-text="$t('navigation.genres')" />
             </navbar-item-link>
-            <navbar-item-link v-if="spotify_enabled" to="/music/spotify">
-              <span
-                class="fd-navbar-item-level2"
-                v-text="$t('navigation.spotify')"
-              />
+            <navbar-item-link
+              v-if="spotify_enabled"
+              :to="{ name: 'music-spotify' }"
+            >
+              <span class="pl-5" v-text="$t('navigation.spotify')" />
             </navbar-item-link>
-            <navbar-item-link to="/podcasts">
-              <span class="icon"><mdicon name="microphone" size="16" /></span>
+            <navbar-item-link :to="{ name: 'podcasts' }">
+              <mdicon class="icon" name="microphone" size="16" />
               <b v-text="$t('navigation.podcasts')" />
             </navbar-item-link>
-            <navbar-item-link to="/audiobooks">
-              <span class="icon"
-                ><mdicon name="book-open-variant" size="16"
-              /></span>
+            <navbar-item-link :to="{ name: 'audiobooks' }">
+              <mdicon class="icon" name="book-open-variant" size="16" />
               <b v-text="$t('navigation.audiobooks')" />
             </navbar-item-link>
-            <navbar-item-link to="/radio">
-              <span class="icon"><mdicon name="radio" size="16" /></span>
+            <navbar-item-link :to="{ name: 'radio' }">
+              <mdicon class="icon" name="radio" size="16" />
               <b v-text="$t('navigation.radio')" />
             </navbar-item-link>
-            <navbar-item-link to="/files">
-              <span class="icon"><mdicon name="folder-open" size="16" /></span>
+            <navbar-item-link :to="{ name: 'files' }">
+              <mdicon class="icon" name="folder-open" size="16" />
               <b v-text="$t('navigation.files')" />
             </navbar-item-link>
-            <navbar-item-link to="/search">
-              <span class="icon"><mdicon name="magnify" size="16" /></span>
+            <navbar-item-link :to="{ name: search_name }">
+              <mdicon class="icon" name="magnify" size="16" />
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
-            <hr class="fd-navbar-divider" />
-            <navbar-item-link to="/settings/webinterface">{{
+            <hr class="my-3" />
+            <navbar-item-link :to="{ name: 'settings-webinterface' }">{{
               $t('navigation.settings')
             }}</navbar-item-link>
             <a
@@ -121,7 +109,7 @@
               @click.stop.prevent="open_update_dialog()"
               v-text="$t('navigation.update-library')"
             />
-            <navbar-item-link to="/about">{{
+            <navbar-item-link :to="{ name: 'about' }">{{
               $t('navigation.about')
             }}</navbar-item-link>
             <div class="navbar-item is-hidden-destop">
@@ -142,7 +130,6 @@
     <div
       v-show="show_settings_menu"
       class="is-overlay"
-      style="z-index: 10; width: 100vw; height: 100vh"
       @click="show_settings_menu = false"
     />
     
@@ -150,8 +137,8 @@
 </template>
 
 <script>
-import NavbarItemLink from './NavbarItemLink.vue'
 import * as types from '@/store/mutation_types'
+import NavbarItemLink from './NavbarItemLink.vue'
 
 export default {
   name: 'NavbarTop',
@@ -252,6 +239,12 @@ export default {
       },
       set(value) {
         this.$store.commit(types.SHOW_UPDATE_DIALOG, value)
+      }
+    },
+
+    search_name: {
+      get() {
+        return 'search-' + this.$store.state.search_source
       }
     },
 

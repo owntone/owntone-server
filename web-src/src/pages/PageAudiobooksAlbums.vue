@@ -20,21 +20,21 @@
 </template>
 
 <script>
-import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
-import IndexButtonList from '@/components/IndexButtonList.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList, byName } from '@/lib/GroupByList'
+import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
+import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import webapi from '@/webapi'
-import { bySortName, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_albums('audiobook')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.albums = new GroupByList(response.data)
-    vm.albums.group(bySortName('name_sort'))
+    vm.albums.group(byName('name_sort', true))
   }
 }
 
@@ -69,9 +69,7 @@ export default {
     return {
       albums: new GroupByList()
     }
-  },
-
-  methods: {}
+  }
 }
 </script>
 

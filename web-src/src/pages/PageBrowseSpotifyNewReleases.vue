@@ -3,35 +3,36 @@
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">New Releases</p>
+        <p class="title is-4" v-text="$t('page.spotify.browse.new-releases')" />
       </template>
       <template #content>
-        <spotify-list-item-album
+        <list-item-album-spotify
           v-for="album in new_releases"
           :key="album.id"
           :album="album"
           @click="open_album(album)"
         >
           <template v-if="is_visible_artwork" #artwork>
-            <p class="image is-64x64 fd-has-shadow fd-has-action">
-              <cover-artwork
-                :artwork_url="artwork_url(album)"
-                :artist="album.artist"
-                :album="album.name"
-                :maxwidth="64"
-                :maxheight="64"
-              />
-            </p>
+            <cover-artwork
+              :artwork_url="artwork_url(album)"
+              :artist="album.artist"
+              :album="album.name"
+              class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
+              :maxwidth="64"
+              :maxheight="64"
+            />
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
-        </spotify-list-item-album>
-        <spotify-modal-dialog-album
+        </list-item-album-spotify>
+        <modal-dialog-album-spotify
           :show="show_album_details_modal"
           :album="selected_album"
           @close="show_album_details_modal = false"
@@ -42,17 +43,17 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
-import store from '@/store'
 import * as types from '@/store/mutation_types'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
+import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
+import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import store from '@/store'
+import TabsMusic from '@/components/TabsMusic.vue'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     if (store.state.spotify_new_releases.length > 0) {
       return Promise.resolve()
     }
@@ -65,7 +66,7 @@ const dataObject = {
     })
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     if (response) {
       store.commit(types.SPOTIFY_NEW_RELEASES, response.albums.items)
     }
@@ -73,13 +74,13 @@ const dataObject = {
 }
 
 export default {
-  name: 'SpotifyPageBrowseNewReleases',
+  name: 'PageBrowseSpotifyNewReleases',
   components: {
     ContentWithHeading,
-    TabsMusic,
-    SpotifyListItemAlbum,
-    SpotifyModalDialogAlbum,
-    CoverArtwork
+    CoverArtwork,
+    ListItemAlbumSpotify,
+    ModalDialogAlbumSpotify,
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {
@@ -116,16 +117,19 @@ export default {
   },
 
   methods: {
-    open_album: function (album) {
-      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+    open_album(album) {
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: album.id }
+      })
     },
 
-    open_album_dialog: function (album) {
+    open_album_dialog(album) {
       this.selected_album = album
       this.show_album_details_modal = true
     },
 
-    artwork_url: function (album) {
+    artwork_url(album) {
       if (album.images && album.images.length > 0) {
         return album.images[0].url
       }

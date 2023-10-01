@@ -1,17 +1,13 @@
 <template>
-  <div>
+  <div class="fd-page">
     <content-with-heading>
       <template #options>
         <index-button-list :index="tracks.indexList" />
         <div class="columns">
           <div class="column">
-            <p
-              class="heading"
-              style="margin-bottom: 24px"
-              v-text="$t('page.genre.sort-by.title')"
-            />
-            <dropdown-menu
-              v-model="selected_groupby_option_id"
+            <p class="heading mb-5" v-text="$t('page.genre.sort-by.title')" />
+            <control-dropdown
+              v-model:value="selected_groupby_option_id"
               :options="groupby_options"
             />
           </div>
@@ -26,12 +22,10 @@
             class="button is-small is-light is-rounded"
             @click="show_genre_details_modal = true"
           >
-            <span class="icon"
-              ><mdicon name="dots-horizontal" size="16"
-            /></span>
+            <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
           <a class="button is-small is-dark is-rounded" @click="play">
-            <span class="icon"><mdicon name="shuffle" size="16" /></span>
+            <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.genre.shuffle')" />
           </a>
         </div>
@@ -52,6 +46,7 @@
         <modal-dialog-genre
           :show="show_genre_details_modal"
           :genre="genre"
+          :media_kind="media_kind"
           @close="show_genre_details_modal = false"
         />
       </template>
@@ -60,24 +55,24 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
+import { GroupByList, byName, byRating } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import { byName, byRating, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return Promise.all([
-      webapi.library_genre(to.params.genre),
-      webapi.library_genre_tracks(to.params.genre)
+      webapi.library_genre(to.params.name, to.query.media_kind),
+      webapi.library_genre_tracks(to.params.name, to.query.media_kind)
     ])
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.genre = response[0].data
     vm.tracks_list = new GroupByList(response[1].data.tracks)
   }
@@ -87,7 +82,7 @@ export default {
   name: 'PageGenreTracks',
   components: {
     ContentWithHeading,
-    DropdownMenu,
+    ControlDropdown,
     IndexButtonList,
     ListTracks,
     ModalDialogGenre
@@ -99,6 +94,10 @@ export default {
     })
   },
   beforeRouteUpdate(to, from, next) {
+    if (!this.tracks_list.isEmpty()) {
+      next()
+      return
+    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
@@ -123,6 +122,7 @@ export default {
           })
         }
       ],
+      media_kind: this.$route.query.media_kind,
       show_genre_details_modal: false,
       tracks_list: new GroupByList()
     }
@@ -130,7 +130,7 @@ export default {
 
   computed: {
     expression() {
-      return 'genre is "' + this.genre.name + '" and media_kind is music'
+      return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
     },
     selected_groupby_option_id: {
       get() {
@@ -150,12 +150,16 @@ export default {
   },
 
   methods: {
-    open_genre: function () {
+    open_genre() {
       this.show_details_modal = false
-      this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
+      this.$router.push({
+        name: 'genre-albums',
+        params: { name: this.genre.name },
+        query: { media_kind: this.media_kind }
+      })
     },
 
-    play: function () {
+    play() {
       webapi.player_play_expression(this.expression, true)
     }
   }

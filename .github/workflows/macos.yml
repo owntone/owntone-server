@@ -5,14 +5,14 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Install build tools
       run: brew install automake autoconf libtool pkg-config
@@ -40,7 +40,8 @@ jobs:
         cd ..
 
     - name: Install sqlite
-      # Brew package does not have unlock-notify
+      # When GH actions has 3.43.0_1+, which has unlock-notify, then this can be
+      # removed and we can just install brew's sqlite
       run: |
         wget https://www.sqlite.org/2020/sqlite-autoconf-3310100.tar.gz
         tar xzf sqlite-autoconf-3310100.tar.gz
@@ -58,16 +59,18 @@ jobs:
         brew install ffmpeg
 
     - name: Install other dependencies
-      run: brew install libunistring libmxml confuse libplist sqlite libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
+      run: brew install libunistring libmxml confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
 
     - name: Configure
+      # We configure a non-privileged setup, since how to add a "owntone" system
+      # user in MacOS isn't clear to me (useradd etc. isn't available)
       run: |
         autoreconf -fi
-        ./configure --enable-chromecast --enable-lastfm --with-pulseaudio
+        ./configure --prefix=$HOME/owntone_data/usr --sysconfdir=$HOME/owntone_data/etc --localstatedir=$HOME/owntone_data/var --enable-chromecast --with-pulseaudio
 
     - name: Build
       run: |
-        # Without setting these env vars the build fails with "fatal error: 'openssl/ssl.h' file not found"
+        # Without setting these env vars the build fails with e.g. "fatal error: 'openssl/ssl.h' file not found"
         # (Solution taken from https://github.com/libimobiledevice/libimobiledevice/issues/389#issuecomment-289284190)
         export LD_LIBRARY_PATH=$(brew --prefix openssl)/lib
         export CPATH=$(brew --prefix openssl)/include
@@ -75,4 +78,16 @@ jobs:
         make
 
     - name: Install
-      run: sudo make install
+      run: |
+        make install
+
+    - name: Prepare test run
+      run: |
+        mkdir -p $HOME/owntone_data/media
+        sed -i '' 's/uid = "owntone"/uid = ${USER}/g' $HOME/owntone_data/etc/owntone.conf
+        sed -i '' 's/loglevel = log/loglevel = debug/g' $HOME/owntone_data/etc/owntone.conf
+        sed -i '' 's/directories = { "\/srv\/music" }/directories = { "${HOME}\/owntone_data\/media" }/g' $HOME/owntone_data/etc/owntone.conf
+
+    - name: Test run
+      run: |
+        $HOME/owntone_data/usr/sbin/owntone -f -t

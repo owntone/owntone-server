@@ -1,7 +1,7 @@
 <template>
-  <div>
+  <div class="fd-page">
     <!-- Search field + recent searches -->
-    <section class="section fd-remove-padding-bottom">
+    <section class="section pb-0">
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths">
@@ -13,19 +13,28 @@
                     v-model="search_query"
                     class="input is-rounded is-shadowless"
                     type="text"
-                    placeholder="Search"
+                    :placeholder="$t('page.search.placeholder')"
                     autocomplete="off"
                   />
-                  <span class="icon is-left"
-                    ><mdicon name="magnify" size="16"
-                  /></span>
+                  <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
-                <p class="help has-text-centered">
-                  <span v-html="$t('page.search.help')" />
-                </p>
+                <i18n-t
+                  tag="p"
+                  class="help has-text-centered"
+                  keypath="page.search.help"
+                  scope="global"
+                >
+                  <template #query><code>query:</code></template>
+                  <template #help
+                    ><a
+                      href="https://owntone.github.io/owntone-server/smart-playlists/"
+                      target="_blank"
+                      v-text="$t('page.search.expression')"
+                  /></template>
+                </i18n-t>
               </div>
             </form>
-            <div class="tags" style="margin-top: 16px">
+            <div class="tags mt-4">
               <a
                 v-for="recent_search in recent_searches"
                 :key="recent_search"
@@ -40,7 +49,7 @@
     </section>
     <tabs-search :query="search_query" />
     <!-- Tracks -->
-    <content-with-heading v-if="show_tracks && tracks.total">
+    <content-with-heading v-if="show_tracks && tracks.total" class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.search.tracks')" />
       </template>
@@ -54,8 +63,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_tracks"
               v-text="
-                $t('page.search.show-tracks', {
-                  count: tracks.total.toLocaleString($i18n.locale)
+                $t('page.search.show-tracks', tracks.total, {
+                  count: $filters.number(tracks.total)
                 })
               "
             />
@@ -63,7 +72,7 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_tracks && !tracks.total" class="mt-6">
+    <content-text v-if="show_tracks && !tracks.total" class="pt-0">
       <template #content>
         <p><i v-text="$t('page.search.no-tracks')" /></p>
       </template>
@@ -83,8 +92,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_artists"
               v-text="
-                $t('page.search.show-artists', {
-                  count: artists.total.toLocaleString($i18n.locale)
+                $t('page.search.show-artists', artists.total, {
+                  count: $filters.number(artists.total)
                 })
               "
             />
@@ -112,8 +121,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_albums"
               v-text="
-                $t('page.search.show-albums', {
-                  count: albums.total.toLocaleString($i18n.locale)
+                $t('page.search.show-albums', albums.total, {
+                  count: $filters.number(albums.total)
                 })
               "
             />
@@ -141,8 +150,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_composers"
               v-text="
-                $t('page.search.show-composers', {
-                  count: composers.total.toLocaleString($i18n.locale)
+                $t('page.search.show-composers', composers.total, {
+                  count: $filters.number(composers.total)
                 })
               "
             />
@@ -170,8 +179,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_playlists"
               v-text="
-                $t('page.search.show-playlists', {
-                  count: playlists.total.toLocaleString($i18n.locale)
+                $t('page.search.show-playlists', playlists.total, {
+                  count: $filters.number(playlists.total)
                 })
               "
             />
@@ -199,8 +208,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_podcasts"
               v-text="
-                $t('page.search.show-podcasts', {
-                  count: podcasts.total.toLocaleString($i18n.locale)
+                $t('page.search.show-podcasts', podcasts.total, {
+                  count: $filters.number(podcasts.total)
                 })
               "
             />
@@ -229,8 +238,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_audiobooks"
               v-text="
-                $t('page.search.show-audiobooks', {
-                  count: audiobooks.total.toLocaleString($i18n.locale)
+                $t('page.search.show-audiobooks', audiobooks.total, {
+                  count: $filters.number(audiobooks.total)
                 })
               "
             />
@@ -247,29 +256,29 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import * as types from '@/store/mutation_types'
 import ContentText from '@/templates/ContentText.vue'
-import TabsSearch from '@/components/TabsSearch.vue'
-import ListTracks from '@/components/ListTracks.vue'
-import ListArtists from '@/components/ListArtists.vue'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupByList } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
+import ListArtists from '@/components/ListArtists.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
+import ListTracks from '@/components/ListTracks.vue'
+import TabsSearch from '@/components/TabsSearch.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import { GroupByList } from '@/lib/GroupByList'
 
 export default {
-  name: 'PageSearch',
+  name: 'PageSearchLibrary',
   components: {
-    ContentWithHeading,
     ContentText,
-    TabsSearch,
-    ListTracks,
-    ListArtists,
+    ContentWithHeading,
     ListAlbums,
+    ListArtists,
+    ListComposers,
     ListPlaylists,
-    ListComposers
+    ListTracks,
+    TabsSearch
   },
 
   data() {
@@ -345,13 +354,6 @@ export default {
     },
     show_all_podcasts_button() {
       return this.podcasts.total > this.podcasts.items.length
-    },
-
-    is_visible_artwork() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_cover_artwork_in_album_lists'
-      ).value
     }
   },
 
@@ -361,12 +363,12 @@ export default {
     }
   },
 
-  mounted: function () {
+  mounted() {
     this.search(this.$route)
   },
 
   methods: {
-    search: function (route) {
+    search(route) {
       if (!route.query.query || route.query.query === '') {
         this.search_query = ''
         this.$refs.search_field.focus()
@@ -380,7 +382,7 @@ export default {
       this.$store.commit(types.ADD_RECENT_SEARCH, route.query.query)
     },
 
-    searchMusic: function (query) {
+    searchMusic(query) {
       if (
         query.type.indexOf('track') < 0 &&
         query.type.indexOf('artist') < 0 &&
@@ -415,7 +417,7 @@ export default {
       })
     },
 
-    searchAudiobooks: function (query) {
+    searchAudiobooks(query) {
       if (query.type.indexOf('audiobook') < 0) {
         return
       }
@@ -446,7 +448,7 @@ export default {
       })
     },
 
-    searchPodcasts: function (query) {
+    searchPodcasts(query) {
       if (query.type.indexOf('podcast') < 0) {
         return
       }
@@ -477,13 +479,13 @@ export default {
       })
     },
 
-    new_search: function () {
+    new_search() {
       if (!this.search_query) {
         return
       }
 
       this.$router.push({
-        path: this.$store.state.search_path,
+        name: 'search-library',
         query: {
           type: 'track,artist,album,playlist,audiobook,podcast,composer',
           query: this.search_query,
@@ -494,9 +496,9 @@ export default {
       this.$refs.search_field.blur()
     },
 
-    open_search_tracks: function () {
+    open_search_tracks() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'track',
           query: this.$route.query.query
@@ -504,9 +506,9 @@ export default {
       })
     },
 
-    open_search_artists: function () {
+    open_search_artists() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'artist',
           query: this.$route.query.query
@@ -514,9 +516,9 @@ export default {
       })
     },
 
-    open_search_albums: function () {
+    open_search_albums() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'album',
           query: this.$route.query.query
@@ -524,9 +526,9 @@ export default {
       })
     },
 
-    open_search_composers: function () {
+    open_search_composers() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'tracks',
           query: this.$route.query.query
@@ -534,9 +536,9 @@ export default {
       })
     },
 
-    open_search_playlists: function () {
+    open_search_playlists() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'playlist',
           query: this.$route.query.query
@@ -544,9 +546,9 @@ export default {
       })
     },
 
-    open_search_audiobooks: function () {
+    open_search_audiobooks() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'audiobook',
           query: this.$route.query.query
@@ -554,9 +556,9 @@ export default {
       })
     },
 
-    open_search_podcasts: function () {
+    open_search_podcasts() {
       this.$router.push({
-        path: '/search/library',
+        name: 'search-library',
         query: {
           type: 'podcast',
           query: this.$route.query.query
@@ -564,43 +566,43 @@ export default {
       })
     },
 
-    open_composer: function (composer) {
+    open_composer(composer) {
       this.$router.push({
-        name: 'ComposerAlbums',
-        params: { composer: composer.name }
+        name: 'music-composer-albums',
+        params: { name: composer.name }
       })
     },
 
-    open_playlist: function (playlist) {
-      this.$router.push({ path: '/playlists/' + playlist.id + '/tracks' })
+    open_playlist(playlist) {
+      this.$router.push({ name: 'playlist', params: { id: playlist.id } })
     },
 
-    open_recent_search: function (query) {
+    open_recent_search(query) {
       this.search_query = query
       this.new_search()
     },
 
-    open_track_dialog: function (track) {
+    open_track_dialog(track) {
       this.selected_track = track
       this.show_track_details_modal = true
     },
 
-    open_album_dialog: function (album) {
+    open_album_dialog(album) {
       this.selected_album = album
       this.show_album_details_modal = true
     },
 
-    open_artist_dialog: function (artist) {
+    open_artist_dialog(artist) {
       this.selected_artist = artist
       this.show_artist_details_modal = true
     },
 
-    open_composer_dialog: function (composer) {
+    open_composer_dialog(composer) {
       this.selected_composer = composer
       this.show_composer_details_modal = true
     },
 
-    open_playlist_dialog: function (playlist) {
+    open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     }

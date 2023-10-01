@@ -1,9 +1,9 @@
 <template>
-  <div class="media">
-    <div v-if="$slots['artwork']" class="media-left fd-has-action">
+  <div class="media is-align-items-center">
+    <div v-if="$slots['artwork']" class="media-left is-clickable">
       <slot name="artwork" />
     </div>
-    <div class="media-content fd-has-action is-clipped">
+    <div class="media-content is-clickable is-clipped">
       <h1 class="title is-6" v-text="album.name" />
       <h2 class="subtitle is-7 has-text-grey">
         <b v-text="album.artists[0].name" />
@@ -23,7 +23,7 @@
 
 <script>
 export default {
-  name: 'SpotifyListItemAlbum',
+  name: 'ListItemAlbumSpotify',
   props: ['album']
 }
 </script>

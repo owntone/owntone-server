@@ -2721,6 +2721,27 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   return 0;
 }
 
+/*
+ * Some MPD clients crash if the tag value includes the newline character.
+ * While they should normally not be included in most ID3 tags, they sometimes
+ * are, so we just change them to space. See #1613 for more details.
+ */
+
+static void
+sanitize_value(char **strval)
+{
+  char *ptr = *strval;
+
+  while(*ptr != '\0')
+    {
+      if(*ptr == '\n')
+  {
+    *ptr = ' ';
+  }
+    ptr++;
+  }
+}
+
 static int
 mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
@@ -2784,6 +2805,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       if (!(*strval) || (**strval == '\0'))
 	continue;
 
+      sanitize_value(strval);
       evbuffer_add_printf(evbuf,
 			  "%s: %s\n",
 			  tagtype->tag,
@@ -4791,7 +4813,7 @@ mpd_init(void)
   CHECK_NULL(L_MPD, evbase_mpd = event_base_new());
   CHECK_NULL(L_MPD, cmdbase = commands_base_new(evbase_mpd, NULL));
 
-  mpd_sockfd = net_bind(&port, SOCK_STREAM | SOCK_NONBLOCK, "mpd");
+  mpd_sockfd = net_bind(&port, SOCK_STREAM, "mpd");
   if (mpd_sockfd < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not bind mpd server to port %hu\n", port);

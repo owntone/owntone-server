@@ -7,7 +7,7 @@
           <div class="card">
             <div class="card-content">
               <p class="title is-4" v-text="$t('dialog.playlist.save.title')" />
-              <form class="fd-has-margin-bottom" @submit.prevent="save">
+              <form class="mb-5" @submit.prevent="save">
                 <div class="field">
                   <p class="control is-expanded has-icons-left">
                     <input
@@ -15,31 +15,29 @@
                       v-model="playlist_name"
                       class="input is-shadowless"
                       type="text"
-                      placeholder="Playlist name"
+                      :placeholder="$t('dialog.playlist.save.playlist-name')"
                       :disabled="loading"
                     />
-                    <span class="icon is-left"
-                      ><mdicon name="file-music" size="16"
-                    /></span>
+                    <mdicon class="icon is-left" name="file-music" size="16" />
                   </p>
                 </div>
               </form>
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item has-text-dark">
-                <span class="icon"><mdicon name="web" size="16" /></span>
+                <mdicon class="icon" name="web" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.playlist.save.saving')"
                 />
               </a>
             </footer>
-            <footer v-else class="card-footer">
+            <footer v-else class="card-footer is-clipped">
               <a
                 class="card-footer-item has-text-danger"
                 @click="$emit('close')"
               >
-                <span class="icon"><mdicon name="cancel" size="16" /></span>
+                <mdicon class="icon" name="cancel" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.playlist.save.cancel')"
@@ -49,9 +47,7 @@
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="save"
               >
-                <span class="icon"
-                  ><mdicon name="content-save" size="16"
-                /></span>
+                <mdicon class="icon" name="content-save" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.playlist.save.save')"
@@ -99,7 +95,7 @@ export default {
   },
 
   methods: {
-    save: function () {
+    save() {
       if (this.playlist_name.length < 1) {
         return
       }

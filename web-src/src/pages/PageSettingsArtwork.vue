@@ -55,12 +55,12 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsSettings from '@/components/TabsSettings.vue'
 import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
+import TabsSettings from '@/components/TabsSettings.vue'
 
 export default {
-  name: 'SettingsPageArtwork',
-  components: { ContentWithHeading, TabsSettings, SettingsCheckbox },
+  name: 'PageSettingsArtwork',
+  components: { ContentWithHeading, SettingsCheckbox, TabsSettings },
 
   computed: {
     spotify() {

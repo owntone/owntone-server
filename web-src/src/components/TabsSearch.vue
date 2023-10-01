@@ -1,5 +1,5 @@
 <template>
-  <section v-if="spotify_enabled" class="section fd-remove-padding-bottom">
+  <section v-if="spotify_enabled" class="section">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
@@ -7,25 +7,21 @@
             <ul>
               <li
                 :class="{
-                  'is-active': $store.state.search_path === '/search/library'
+                  'is-active': $store.state.search_source === 'library'
                 }"
               >
                 <a @click="search_library">
-                  <span class="icon is-small"
-                    ><mdicon name="bookshelf" size="16"
-                  /></span>
+                  <mdicon class="icon is-small" name="bookshelf" size="16" />
                   <span v-text="$t('page.search.tabs.library')" />
                 </a>
               </li>
               <li
                 :class="{
-                  'is-active': $store.state.search_path === '/search/spotify'
+                  'is-active': $store.state.search_source === 'spotify'
                 }"
               >
                 <a @click="search_spotify">
-                  <span class="icon is-small"
-                    ><mdicon name="spotify" size="16"
-                  /></span>
+                  <mdicon class="icon is-small" name="spotify" size="16" />
                   <span v-text="$t('page.search.tabs.spotify')" />
                 </a>
               </li>
@@ -50,7 +46,7 @@ export default {
       return this.$store.state.spotify.webapi_token_valid
     },
 
-    route_query: function () {
+    route_query() {
       if (!this.query) {
         return null
       }
@@ -65,18 +61,18 @@ export default {
   },
 
   methods: {
-    search_library: function () {
-      this.$store.commit(types.SEARCH_PATH, '/search/library')
+    search_library() {
+      this.$store.commit(types.SEARCH_SOURCE, 'library')
       this.$router.push({
-        path: this.$store.state.search_path,
+        name: 'search-library',
         query: this.route_query
       })
     },
 
-    search_spotify: function () {
-      this.$store.commit(types.SEARCH_PATH, '/search/spotify')
+    search_spotify() {
+      this.$store.commit(types.SEARCH_SOURCE, 'spotify')
       this.$router.push({
-        path: this.$store.state.search_path,
+        name: 'search-spotify',
         query: this.route_query
       })
     }

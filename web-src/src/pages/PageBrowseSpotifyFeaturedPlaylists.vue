@@ -3,23 +3,28 @@
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4">Featured Playlists</p>
+        <p
+          class="title is-4"
+          v-text="$t('page.spotify.browse.featured-playlists')"
+        />
       </template>
       <template #content>
-        <spotify-list-item-playlist
+        <list-item-playlist-spotify
           v-for="playlist in featured_playlists"
           :key="playlist.id"
           :playlist="playlist"
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
-        </spotify-list-item-playlist>
-        <spotify-modal-dialog-playlist
+        </list-item-playlist-spotify>
+        <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="selected_playlist"
           @close="show_playlist_details_modal = false"
@@ -30,16 +35,16 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
-import store from '@/store'
 import * as types from '@/store/mutation_types'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
+import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import store from '@/store'
+import TabsMusic from '@/components/TabsMusic.vue'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     if (store.state.spotify_featured_playlists.length > 0) {
       return Promise.resolve()
     }
@@ -52,7 +57,7 @@ const dataObject = {
     })
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     if (response) {
       store.commit(types.SPOTIFY_FEATURED_PLAYLISTS, response.playlists.items)
     }
@@ -63,9 +68,9 @@ export default {
   name: 'SpotifyPageBrowseFeaturedPlaylists',
   components: {
     ContentWithHeading,
-    TabsMusic,
-    SpotifyListItemPlaylist,
-    SpotifyModalDialogPlaylist
+    ListItemPlaylistSpotify,
+    ModalDialogPlaylistSpotify,
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {
@@ -95,7 +100,7 @@ export default {
   },
 
   methods: {
-    open_playlist_dialog: function (playlist) {
+    open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     }

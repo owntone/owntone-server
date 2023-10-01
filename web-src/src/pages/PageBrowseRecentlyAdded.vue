@@ -15,14 +15,14 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
+import { GroupByList, byDateSinceToday } from '@/lib/GroupByList'
 import ListAlbums from '@/components/ListAlbums.vue'
-import webapi from '@/webapi'
 import store from '@/store'
-import { byDateSinceToday, GroupByList } from '@/lib/GroupByList'
+import TabsMusic from '@/components/TabsMusic.vue'
+import webapi from '@/webapi'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     const limit = store.getters.settings_option_recently_added_limit
     return webapi.search({
       type: 'album',
@@ -32,12 +32,11 @@ const dataObject = {
     })
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.recently_added = new GroupByList(response.data.albums)
     vm.recently_added.group(
       byDateSinceToday('time_added', {
-        direction: 'desc',
-        defaultValue: '0000'
+        direction: 'desc'
       })
     )
   }

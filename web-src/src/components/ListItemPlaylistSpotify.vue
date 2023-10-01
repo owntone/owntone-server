@@ -1,6 +1,6 @@
 <template>
-  <div class="media">
-    <div class="media-content fd-has-action is-clipped" @click="open_playlist">
+  <div class="media is-align-items-center">
+    <div class="media-content is-clickable is-clipped" @click="open_playlist">
       <h1 class="title is-6" v-text="playlist.name" />
       <h2 class="subtitle is-7" v-text="playlist.owner.display_name" />
     </div>
@@ -12,13 +12,14 @@
 
 <script>
 export default {
-  name: 'SpotifyListItemPlaylist',
+  name: 'ListItemPlaylistSpotify',
   props: ['playlist'],
 
   methods: {
-    open_playlist: function () {
+    open_playlist() {
       this.$router.push({
-        path: '/music/spotify/playlists/' + this.playlist.id
+        name: 'playlist-spotify',
+        params: { id: this.playlist.id }
       })
     }
   }

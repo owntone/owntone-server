@@ -13,6 +13,10 @@
  *   Copyright (C) 2005 Shiro Ninomiya <shiron@snino.com>
  *   GPLv2+
  *
+ * ALAC update to add end tags for compatibility with the FFmpeg ALAC decoder
+ *   Copyright (C) 2023 Mike Brady <4265913+mikebrady@users.noreply.github.com>
+ *   GPLv2+
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -411,6 +415,8 @@ alac_encode(uint8_t *dst, uint8_t *raw, int len)
       alac_write_bits(&dst, *(raw + 3), 8, &bpos);
       alac_write_bits(&dst, *(raw + 2), 8, &bpos);
     }
+
+  alac_write_bits(&dst, 7, 3, &bpos); /* end tag */
 }
 
 /* AirTunes v2 time synchronization helpers */
@@ -2842,7 +2848,8 @@ packets_send(struct raop_master_session *rms)
   struct raop_session *rs;
   int ret;
 
-  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE, 0);
+  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size + 1, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE, 0);
+  /* the "+ 1" above is space for the end tag (3 bits) */
 
   ret = packet_prepare(pkt, rms->rawbuf, rms->rawbuf_size, rms->encrypt);
   if (ret < 0)

@@ -9,12 +9,12 @@
               <p v-if="title" class="title is-4" v-text="title" />
               <slot name="modal-content" />
             </div>
-            <footer class="card-footer">
+            <footer class="card-footer is-clipped">
               <a class="card-footer-item has-text-dark" @click="$emit('close')">
-                <span class="icon"><mdicon name="cancel" size="16" /></span>
+                <mdicon class="icon" name="cancel" size="16" />
                 <span
                   class="is-size-7"
-                  v-text="close_action ? close_action : t('dialog.cancel')"
+                  v-text="close_action ? close_action : $t('dialog.cancel')"
                 />
               </a>
               <a
@@ -22,7 +22,7 @@
                 class="card-footer-item has-background-danger has-text-white has-text-weight-bold"
                 @click="$emit('delete')"
               >
-                <span class="icon"><mdicon name="delete" size="16" /></span>
+                <mdicon class="icon" name="delete" size="16" />
                 <span class="is-size-7" v-text="delete_action" />
               </a>
               <a
@@ -30,7 +30,7 @@
                 class="card-footer-item has-background-info has-text-white has-text-weight-bold"
                 @click="$emit('ok')"
               >
-                <span class="icon"><mdicon name="check" size="16" /></span>
+                <mdicon class="icon" name="check" size="16" />
                 <span class="is-size-7" v-text="ok_action" />
               </a>
             </footer>

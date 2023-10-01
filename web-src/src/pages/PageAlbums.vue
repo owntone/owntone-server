@@ -6,19 +6,14 @@
         <index-button-list :index="albums.indexList" />
         <div class="columns">
           <div class="column">
-            <p
-              class="heading"
-              style="margin-bottom: 24px"
-              v-text="$t('page.albums.filter')"
-            />
+            <p class="heading mb-5" v-text="$t('page.albums.filter')" />
             <div class="field">
               <div class="control">
                 <input
                   id="switchHideSingles"
                   v-model="hide_singles"
                   type="checkbox"
-                  name="switchHideSingles"
-                  class="switch"
+                  class="switch is-rounded"
                 />
                 <label
                   for="switchHideSingles"
@@ -33,8 +28,7 @@
                   id="switchHideSpotify"
                   v-model="hide_spotify"
                   type="checkbox"
-                  name="switchHideSpotify"
-                  class="switch"
+                  class="switch is-rounded"
                 />
                 <label
                   for="switchHideSpotify"
@@ -45,13 +39,9 @@
             </div>
           </div>
           <div class="column">
-            <p
-              class="heading"
-              style="margin-bottom: 24px"
-              v-text="$t('page.albums.sort-by.title')"
-            />
-            <dropdown-menu
-              v-model="selected_groupby_option_id"
+            <p class="heading mb-5" v-text="$t('page.albums.sort-by.title')" />
+            <control-dropdown
+              v-model:value="selected_groupby_option_id"
               :options="groupby_options"
             />
           </div>
@@ -73,21 +63,21 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
+import { GroupByList, byName, byYear } from '@/lib/GroupByList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import TabsMusic from '@/components/TabsMusic.vue'
+import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
-import DropdownMenu from '@/components/DropdownMenu.vue'
+import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
-import { bySortName, byYear, GroupByList } from '@/lib/GroupByList'
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     return webapi.library_albums('music')
   },
 
-  set: function (vm, response) {
+  set(vm, response) {
     vm.albums_list = new GroupByList(response.data)
   }
 }
@@ -96,10 +86,10 @@ export default {
   name: 'PageAlbums',
   components: {
     ContentWithHeading,
-    TabsMusic,
+    ControlDropdown,
     IndexButtonList,
     ListAlbums,
-    DropdownMenu
+    TabsMusic
   },
 
   beforeRouteEnter(to, from, next) {
@@ -123,28 +113,24 @@ export default {
   data() {
     return {
       albums_list: new GroupByList(),
-
-      // List of group by/sort options for itemsGroupByList
       groupby_options: [
         {
           id: 1,
           name: this.$t('page.albums.sort-by.name'),
-          options: bySortName('name_sort')
+          options: byName('name_sort', true)
         },
         {
           id: 2,
           name: this.$t('page.albums.sort-by.recently-added'),
           options: byYear('time_added', {
-            direction: 'desc',
-            defaultValue: '0000'
+            direction: 'desc'
           })
         },
         {
           id: 3,
           name: this.$t('page.albums.sort-by.recently-released'),
           options: byYear('date_released', {
-            direction: 'desc',
-            defaultValue: '0000'
+            direction: 'desc'
           })
         }
       ]
@@ -193,12 +179,6 @@ export default {
       set(value) {
         this.$store.commit(types.HIDE_SPOTIFY, value)
       }
-    }
-  },
-
-  methods: {
-    scrollToTop: function () {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 }

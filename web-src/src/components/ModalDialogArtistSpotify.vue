@@ -37,25 +37,21 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.artist.add')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.artist.add-next')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.spotify.artist.play')"
@@ -78,28 +74,32 @@
 import webapi from '@/webapi'
 
 export default {
-  name: 'SpotifyModalDialogArtist',
+  name: 'ModalDialogArtistSpotify',
   props: ['show', 'artist'],
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.artist.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.artist.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.artist.uri)
     },
 
-    open_artist: function () {
-      this.$router.push({ path: '/music/spotify/artists/' + this.artist.id })
+    open_artist() {
+      this.$emit('close')
+      this.$router.push({
+        name: 'music-spotify-artist',
+        params: { id: this.artist.id }
+      })
     }
   }
 }

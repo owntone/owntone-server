@@ -11,17 +11,15 @@
     </div>
     <div
       v-else-if="composer.isItem"
-      class="media"
+      class="media is-align-items-center"
       @click="open_composer(composer.item)"
     >
-      <div class="media-content fd-has-action is-clipped">
+      <div class="media-content is-clickable is-clipped">
         <h1 class="title is-6" v-text="composer.item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(composer.item)">
-          <span class="icon has-text-dark"
-            ><mdicon name="dots-vertical" size="16"
-          /></span>
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>
@@ -51,24 +49,16 @@ export default {
     }
   },
 
-  computed: {
-    media_kind_resolved: function () {
-      return this.media_kind
-        ? this.media_kind
-        : this.selected_composer.media_kind
-    }
-  },
-
   methods: {
-    open_composer: function (composer) {
+    open_composer(composer) {
       this.selected_composer = composer
       this.$router.push({
-        name: 'ComposerAlbums',
-        params: { composer: composer.name }
+        name: 'music-composer-albums',
+        params: { name: composer.name }
       })
     },
 
-    open_dialog: function (composer) {
+    open_dialog(composer) {
       this.selected_composer = composer
       this.show_details_modal = true
     }

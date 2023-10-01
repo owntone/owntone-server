@@ -15,12 +15,15 @@
               </p>
               <div class="content is-small">
                 <p>
-                  <span class="heading">Path</span>
+                  <span class="heading" v-text="$t('dialog.playlist.path')" />
                   <span class="title is-6" v-text="playlist.path" />
                 </p>
                 <p>
                   <span class="heading" v-text="$t('dialog.playlist.type')" />
-                  <span class="title is-6" v-text="playlist.type" />
+                  <span
+                    class="title is-6"
+                    v-text="$t('playlist.type.' + playlist.type)"
+                  />
                 </p>
                 <p v-if="!playlist.folder">
                   <span
@@ -33,22 +36,18 @@
             </div>
             <footer v-if="!playlist.folder" class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.playlist.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.playlist.add-next')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.playlist.play')" />
               </a>
             </footer>
@@ -73,24 +72,27 @@ export default {
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_uri(this.uris ? this.uris : this.playlist.uri, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_add(this.uris ? this.uris : this.playlist.uri)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.uris ? this.uris : this.playlist.uri)
     },
 
-    open_playlist: function () {
+    open_playlist() {
       this.$emit('close')
-      this.$router.push({ path: '/playlists/' + this.playlist.id + '/tracks' })
+      this.$router.push({
+        name: 'playlist',
+        params: { id: this.playlist.id }
+      })
     }
   }
 }

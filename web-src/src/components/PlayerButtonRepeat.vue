@@ -1,6 +1,11 @@
 <template>
-  <a :class="{ 'is-warning': !is_repeat_off }" @click="toggle_repeat_mode">
-    <span class="icon"><mdicon :name="icon_name" :size="icon_size" /></span>
+  <a :class="{ 'is-info': !is_repeat_off }" @click="toggle_repeat_mode">
+    <mdicon
+      class="icon"
+      :name="icon_name"
+      :size="icon_size"
+      :title="$t('player.button.' + icon_name)"
+    />
   </a>
 </template>
 
@@ -38,7 +43,7 @@ export default {
   },
 
   methods: {
-    toggle_repeat_mode: function () {
+    toggle_repeat_mode() {
       if (this.is_repeat_all) {
         webapi.player_repeat('single')
       } else if (this.is_repeat_single) {

@@ -50,7 +50,7 @@ export default createStore({
         list: []
       },
 
-      search_path: '/search/library',
+      search_source: 'library',
       recent_searches: [],
 
       composer_tracks_sort: 1,
@@ -133,7 +133,7 @@ export default createStore({
       }
       return false
     },
-    
+
     settings_category: (state) => (categoryName) => {
       return state.settings.categories.find(
         (elem) => elem.name === categoryName
@@ -222,8 +222,8 @@ export default createStore({
         state.notifications.list.splice(index, 1)
       }
     },
-    [types.SEARCH_PATH](state, searchPath) {
-      state.search_path = searchPath
+    [types.SEARCH_SOURCE](state, searchSource) {
+      state.search_source = searchSource
     },
     [types.ADD_RECENT_SEARCH](state, query) {
       const index = state.recent_searches.findIndex((elem) => elem === query)

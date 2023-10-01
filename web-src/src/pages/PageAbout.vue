@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page">
     <section class="section">
       <div class="container">
         <div class="columns is-centered">
@@ -140,7 +140,32 @@
                   })
                 "
               />
-              <p class="is-size-7" v-html="$t('page.about.built-with')" />
+              <i18n-t
+                tag="p"
+                class="is-size-7"
+                keypath="page.about.built-with"
+                scope="global"
+              >
+                <template #bulma><a href="https://bulma.io">Bulma</a></template>
+                <template #mdi
+                  ><a href="https://pictogrammers.com/library/mdi/"
+                    >Material Design Icons</a
+                  ></template
+                >
+                <template #vuejs
+                  ><a href="https://vuejs.org/">Vue.js</a></template
+                >
+                <template #axios
+                  ><a href="https://github.com/mzabriskie/axios"
+                    >axios</a
+                  ></template
+                >
+                <template #others
+                  ><a
+                    href="https://github.com/owntone/owntone-server/network/dependencies"
+                    v-text="$t('page.about.more')"
+                /></template>
+              </i18n-t>
             </div>
           </div>
         </div>
@@ -155,13 +180,6 @@ import * as types from '@/store/mutation_types'
 export default {
   name: 'PageAbout',
 
-  data() {
-    return {
-      show_update_dropdown: false,
-      show_update_library: false
-    }
-  },
-
   computed: {
     config() {
       return this.$store.state.config
@@ -172,9 +190,6 @@ export default {
   },
 
   methods: {
-    onClickOutside(event) {
-      this.show_update_dropdown = false
-    },
     showUpdateDialog() {
       this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
     }

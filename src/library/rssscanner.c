@@ -380,7 +380,8 @@ mfi_metadata_fixup(struct media_file_info *mfi, struct rss_item_info *ri, const 
   // in those cases take info from the RSS and not the stream
   if (!mfi->url)
     mfi->url    = safe_strdup(ri->link);
-  if (!mfi->genre || strcmp("(186)Podcast", mfi->genre) == 0)
+
+  if (mfi->genre && strcmp("(186)Podcast", mfi->genre) == 0)
     {
       free(mfi->genre);
       mfi->genre  = strdup("Podcast");

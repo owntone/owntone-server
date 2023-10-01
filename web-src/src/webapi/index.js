@@ -9,7 +9,6 @@ axios.interceptors.response.use(
     return response
   },
   function (error) {
-    console.log(i18n)
     if (error.request.status && error.request.responseURL) {
       store.dispatch('add_notification', {
         text: t('server.request-failed', {
@@ -305,24 +304,26 @@ export default {
     })
   },
 
-  library_genre(genre) {
-    return axios.get(`./api/library/genres/${encodeURIComponent(genre)}`)
+  library_genre(genre, media_kind = undefined) {
+    return axios.get(`./api/library/genres/${encodeURIComponent(genre)}`, {
+      params: { media_kind: media_kind }
+    })
   },
 
-  library_genre_albums(genre) {
+  library_genre_albums(genre, media_kind) {
     const genreParams = {
-      type: 'albums',
-      expression: `genre is "${genre}" and media_kind is music`
+      expression: `genre is "${genre}" and media_kind is ${media_kind}`,
+      type: 'albums'
     }
     return axios.get('./api/search', {
       params: genreParams
     })
   },
 
-  library_genre_tracks(genre) {
+  library_genre_tracks(genre, media_kind) {
     const genreParams = {
-      type: 'tracks',
-      expression: `genre is "${genre}" and media_kind is music`
+      expression: `genre is "${genre}" and media_kind is ${media_kind}`,
+      type: 'tracks'
     }
     return axios.get('./api/search', {
       params: genreParams

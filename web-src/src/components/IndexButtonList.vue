@@ -1,13 +1,13 @@
 <template>
   <section>
-    <nav class="buttons is-centered fd-is-square" style="margin-bottom: 16px">
-      <a
-        v-for="char in filtered_index"
-        :key="char"
+    <nav class="buttons is-centered mb-4 fd-is-square">
+      <router-link
+        v-for="id in index"
+        :key="id"
         class="button is-small"
-        @click="nav(char)"
-        v-text="char"
-      />
+        :to="'#index_' + id"
+        >{{ id }}</router-link
+      >
     </nav>
   </section>
 </template>
@@ -15,25 +15,7 @@
 <script>
 export default {
   name: 'IndexButtonList',
-  props: ['index'],
-  computed: {
-    filtered_index() {
-      if (!this.index) {
-        return []
-      }
-      const specialChars = '!"#$%&\'()*+,-./:;<=>?@[\\]^`{|}~'
-      return this.index.filter((c) => !specialChars.includes(c))
-    }
-  },
-  methods: {
-    nav: function (id) {
-      this.$router.push({ hash: '#index_' + id })
-    },
-
-    scroll_to_top: function () {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
+  props: ['index']
 }
 </script>
 

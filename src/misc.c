@@ -48,6 +48,7 @@
 # include <pthread_np.h>
 #endif
 
+#include <fcntl.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h> // getifaddrs
@@ -222,19 +223,20 @@ net_if_get(char *ifname, size_t ifname_len, const char *addr)
   return (ifname[0] != 0) ? 0 : -1;
 }
 
-int
-net_connect(const char *addr, unsigned short port, int type, const char *log_service_name)
+static int
+net_connect_impl(const char *addr, unsigned short port, int type, const char *log_service_name, bool set_nonblock)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
   struct addrinfo *ptr;
   char strport[8];
+  int flags;
   int fd;
   int ret;
 
   DPRINTF(E_DBG, L_MISC, "Connecting to '%s' at %s (port %u)\n", log_service_name, addr, port);
 
-  hints.ai_socktype = (type & (SOCK_STREAM | SOCK_DGRAM)); // filter since type can be SOCK_STREAM | SOCK_NONBLOCK
+  hints.ai_socktype = type;
   hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_UNSPEC : AF_INET;
 
   snprintf(strport, sizeof(strport), "%hu", port);
@@ -247,14 +249,26 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
 
   for (ptr = servinfo; ptr; ptr = ptr->ai_next)
     {
-      fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
+      fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
       if (fd < 0)
 	{
 	  continue;
 	}
 
+      // For Linux we could just give SOCK_CLOEXEC to socket(), but that won't
+      // work with MacOS, so we have to use fcntl()
+      flags = fcntl(fd, F_GETFL, 0);
+      if (flags < 0)
+	continue;
+      if (set_nonblock)
+	ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_CLOEXEC);
+      else
+	ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
+      if (ret < 0)
+	continue;
+
       ret = connect(fd, ptr->ai_addr, ptr->ai_addrlen);
-      if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of SOCK_NONBLOCK
+      if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of nonblock
 	{
 	  close(fd);
 	  continue;
@@ -276,8 +290,15 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
   return fd;
 }
 
+int
+net_connect(const char *addr, unsigned short port, int type, const char *log_service_name)
+{
+  return net_connect_impl(addr, port, type, log_service_name, false);
+}
+
 // If *port is 0 then a random port will be assigned, and *port will be updated
-// with the port number
+// with the port number. SOCK_STREAM type services are set to use non-blocking
+// sockets.
 static int
 net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool reuseport)
 {
@@ -289,6 +310,7 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
   const char *cfgaddr;
   char addr[INET6_ADDRSTRLEN];
   char strport[8];
+  int flags;
   int yes = 1;
   int no = 0;
   int fd = -1;
@@ -296,7 +318,7 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
 
   cfgaddr = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
 
-  hints.ai_socktype = (type & (SOCK_STREAM | SOCK_DGRAM)); // filter since type can be SOCK_STREAM | SOCK_NONBLOCK
+  hints.ai_socktype = type;
   hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_INET6 : AF_INET;
   hints.ai_flags = cfgaddr ? 0 : AI_PASSIVE;
 
@@ -313,8 +335,20 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
       if (fd >= 0)
 	close(fd);
 
-      fd = socket(ptr->ai_family, type | SOCK_CLOEXEC, ptr->ai_protocol);
+      fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
       if (fd < 0)
+	continue;
+
+      // For Linux we could just give SOCK_NONBLOCK and SOCK_CLOEXEC to
+      // socket(), but that won't work with MacOS, so we have to use fcntl()
+      flags = fcntl(fd, F_GETFL, 0);
+      if (flags < 0)
+	continue;
+      if (type == SOCK_STREAM)
+	ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_CLOEXEC);
+      else
+	ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
+      if (ret < 0)
 	continue;
 
       // Makes us able to attach multiple threads to the same port

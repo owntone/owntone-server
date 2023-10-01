@@ -39,22 +39,18 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.composer.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span
                   class="is-size-7"
                   v-text="$t('dialog.composer.add-next')"
                 />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.composer.play')" />
               </a>
             </footer>
@@ -79,7 +75,7 @@ export default {
   emits: ['close'],
 
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
       webapi.player_play_expression(
         'composer is "' + this.composer.name + '" and media_kind is music',
@@ -87,33 +83,33 @@ export default {
       )
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
       webapi.queue_expression_add(
         'composer is "' + this.composer.name + '" and media_kind is music'
       )
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
       webapi.queue_expression_add_next(
         'composer is "' + this.composer.name + '" and media_kind is music'
       )
     },
 
-    open_albums: function () {
+    open_albums() {
       this.$emit('close')
       this.$router.push({
-        name: 'ComposerAlbums',
-        params: { composer: this.composer.name }
+        name: 'music-composer-albums',
+        params: { name: this.composer.name }
       })
     },
 
-    open_tracks: function () {
+    open_tracks() {
       this.show_details_modal = false
       this.$router.push({
-        name: 'ComposerTracks',
-        params: { composer: this.composer.name }
+        name: 'music-composer-tracks',
+        params: { name: this.composer.name }
       })
     }
   }

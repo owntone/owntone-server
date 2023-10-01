@@ -3,7 +3,9 @@
 You can listen to audio being played by OwnTone by opening this network
 stream address in pretty much any music player:
 
- http://[your hostname/ip address]:3689/stream.mp3
+ [http://owntone.local:3689/stream.mp3](http://owntone.local:3689/stream.mp3)
+   or
+ http://SERVER_ADDRESS:3689/stream.mp3
 
 This is currently the only way of listening to your audio on iOS devices, since
 Apple does not allow AirPlay receiver apps, and because Apple Home Sharing

@@ -35,6 +35,7 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <event2/event.h>
 
@@ -584,6 +585,7 @@ connection_test(int family, const char *address, const char *address_log, int po
   fd_set fdset;
   struct timeval timeout = { MDNS_CONNECT_TEST_TIMEOUT, 0 };
   socklen_t len;
+  int flags;
   int error;
   int retval;
   int ret;
@@ -603,11 +605,27 @@ connection_test(int family, const char *address, const char *address_log, int po
       return -1;
     }
 
-  sock = socket(ai->ai_family, ai->ai_socktype | SOCK_NONBLOCK, ai->ai_protocol);
+  sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
   if (sock < 0)
     {
       DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with socket error: %s\n", address_log, port, strerror(errno));
       goto out_free_ai;
+    }
+
+  // For Linux we could just give SOCK_NONBLOCK to socket(), but that won't work
+  // with MacOS, so we have to use fcntl()
+  flags = fcntl(sock, F_GETFL, 0);
+  if (flags < 0)
+    {
+      DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with fcntl get flags error: %s\n", address_log, port, strerror(errno));
+      goto out_close_socket;
+    }
+
+  ret = fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_MDNS, "Connection test to %s:%d failed with fcntl set flags error: %s\n", address_log, port, strerror(errno));
+      goto out_close_socket;
     }
 
   ret = connect(sock, ai->ai_addr, ai->ai_addrlen);

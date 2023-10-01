@@ -1,7 +1,7 @@
 <template>
-  <div>
+  <div class="fd-page">
     <!-- Search field + recent searches -->
-    <section class="section fd-remove-padding-bottom">
+    <section class="section pb-0">
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths">
@@ -13,16 +13,14 @@
                     v-model="search_query"
                     class="input is-rounded is-shadowless"
                     type="text"
-                    placeholder="Search"
+                    :placeholder="$t('page.spotify.search.placeholder')"
                     autocomplete="off"
                   />
-                  <span class="icon is-left"
-                    ><mdicon name="magnify" size="16"
-                  /></span>
+                  <mdicon class="icon is-left" name="magnify" size="16" />
                 </p>
               </div>
             </form>
-            <div class="tags" style="margin-top: 16px">
+            <div class="tags mt-4">
               <a
                 v-for="recent_search in recent_searches"
                 :key="recent_search"
@@ -37,34 +35,35 @@
     </section>
     <tabs-search :query="search_query" />
     <!-- Tracks -->
-    <content-with-heading v-if="show_tracks && tracks.total">
+    <content-with-heading v-if="show_tracks && tracks.total" class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.spotify.search.tracks')" />
       </template>
       <template #content>
-        <spotify-list-item-track
+        <list-item-track-spotify
           v-for="track in tracks.items"
           :key="track.id"
           :track="track"
-          :album="track.album"
           :position="0"
           :context_uri="track.uri"
         >
           <template #actions>
             <a @click.prevent.stop="open_track_dialog(track)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
-        </spotify-list-item-track>
+        </list-item-track-spotify>
         <VueEternalLoading
           v-if="query.type === 'track'"
           :load="search_tracks_next"
         >
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-track
+        <modal-dialog-track-spotify
           :show="show_track_details_modal"
           :track="selected_track"
           :album="selected_track.album"
@@ -78,8 +77,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_tracks"
               v-text="
-                $t('page.spotify.search.show-all-tracks', {
-                  count: tracks.total.toLocaleString($i18n.locale)
+                $t('page.spotify.search.show-all-tracks', tracks.total, {
+                  count: $filters.number(tracks.total)
                 })
               "
             />
@@ -87,7 +86,7 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_tracks && !tracks.total" class="mt-6">
+    <content-text v-if="show_tracks && !tracks.total" class="pt-0">
       <template #content>
         <p><i v-text="$t('page.spotify.search.no-tracks')" /></p>
       </template>
@@ -98,26 +97,28 @@
         <p class="title is-4" v-text="$t('page.spotify.search.artists')" />
       </template>
       <template #content>
-        <spotify-list-item-artist
+        <list-item-artist-spotify
           v-for="artist in artists.items"
           :key="artist.id"
           :artist="artist"
         >
           <template #actions>
             <a @click.prevent.stop="open_artist_dialog(artist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
-        </spotify-list-item-artist>
+        </list-item-artist-spotify>
         <VueEternalLoading
           v-if="query.type === 'artist'"
           :load="search_artists_next"
         >
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-artist
+        <modal-dialog-artist-spotify
           :show="show_artist_details_modal"
           :artist="selected_artist"
           @close="show_artist_details_modal = false"
@@ -130,8 +131,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_artists"
               v-text="
-                $t('page.spotify.search.show-all-artists', {
-                  count: artists.total.toLocaleString($i18n.locale)
+                $t('page.spotify.search.show-all-artists', artists.total, {
+                  count: $filters.number(artists.total)
                 })
               "
             />
@@ -150,38 +151,39 @@
         <p class="title is-4" v-text="$t('page.spotify.search.albums')" />
       </template>
       <template #content>
-        <spotify-list-item-album
+        <list-item-album-spotify
           v-for="album in albums.items"
           :key="album.id"
           :album="album"
           @click="open_album(album)"
         >
           <template v-if="is_visible_artwork" #artwork>
-            <p class="image is-64x64 fd-has-shadow fd-has-action">
-              <cover-artwork
-                :artwork_url="artwork_url(album)"
-                :artist="album.artist"
-                :album="album.name"
-                :maxwidth="64"
-                :maxheight="64"
-              />
-            </p>
+            <cover-artwork
+              :artwork_url="artwork_url(album)"
+              :artist="album.artist"
+              :album="album.name"
+              class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
+              :maxwidth="64"
+              :maxheight="64"
+            />
           </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
-        </spotify-list-item-album>
+        </list-item-album-spotify>
         <VueEternalLoading
           v-if="query.type === 'album'"
           :load="search_albums_next"
         >
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-album
+        <modal-dialog-album-spotify
           :show="show_album_details_modal"
           :album="selected_album"
           @close="show_album_details_modal = false"
@@ -194,8 +196,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_albums"
               v-text="
-                $t('page.spotify.search.show-all-albums', {
-                  count: albums.total.toLocaleString($i18n.locale)
+                $t('page.spotify.search.show-all-albums', albums.total, {
+                  count: $filters.number(albums.total)
                 })
               "
             />
@@ -214,26 +216,28 @@
         <p class="title is-4" v-text="$t('page.spotify.search.playlists')" />
       </template>
       <template #content>
-        <spotify-list-item-playlist
+        <list-item-playlist-spotify
           v-for="playlist in playlists.items"
           :key="playlist.id"
           :playlist="playlist"
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <span class="icon has-text-dark"
-                ><mdicon name="dots-vertical" size="16"
-              /></span>
+              <mdicon
+                class="icon has-text-dark"
+                name="dots-vertical"
+                size="16"
+              />
             </a>
           </template>
-        </spotify-list-item-playlist>
+        </list-item-playlist-spotify>
         <VueEternalLoading
           v-if="query.type === 'playlist'"
           :load="search_playlists_next"
         >
           <template #no-more> . </template>
         </VueEternalLoading>
-        <spotify-modal-dialog-playlist
+        <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="selected_playlist"
           @close="show_playlist_details_modal = false"
@@ -246,8 +250,8 @@
               class="button is-light is-small is-rounded"
               @click="open_search_playlists"
               v-text="
-                $t('page.spotify.search.show-all-playlists', {
-                  count: playlists.total.toLocaleString($i18n.locale)
+                $t('page.spotify.search.show-all-playlists', playlists.total, {
+                  count: $filters.number(playlists.total)
                 })
               "
             />
@@ -264,41 +268,41 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ContentText from '@/templates/ContentText.vue'
-import TabsSearch from '@/components/TabsSearch.vue'
-import SpotifyListItemTrack from '@/components/SpotifyListItemTrack.vue'
-import SpotifyListItemArtist from '@/components/SpotifyListItemArtist.vue'
-import SpotifyListItemAlbum from '@/components/SpotifyListItemAlbum.vue'
-import SpotifyListItemPlaylist from '@/components/SpotifyListItemPlaylist.vue'
-import SpotifyModalDialogTrack from '@/components/SpotifyModalDialogTrack.vue'
-import SpotifyModalDialogArtist from '@/components/SpotifyModalDialogArtist.vue'
-import SpotifyModalDialogAlbum from '@/components/SpotifyModalDialogAlbum.vue'
-import SpotifyModalDialogPlaylist from '@/components/SpotifyModalDialogPlaylist.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
-import webapi from '@/webapi'
 import * as types from '@/store/mutation_types'
+import ContentText from '@/templates/ContentText.vue'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import CoverArtwork from '@/components/CoverArtwork.vue'
+import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
+import ListItemArtistSpotify from '@/components/ListItemArtistSpotify.vue'
+import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
+import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
+import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
+import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
+import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
+import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
+import SpotifyWebApi from 'spotify-web-api-js'
+import TabsSearch from '@/components/TabsSearch.vue'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
+import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
 
 export default {
-  name: 'SpotifyPageSearch',
+  name: 'PageSearchSpotify',
   components: {
-    ContentWithHeading,
     ContentText,
+    ContentWithHeading,
+    CoverArtwork,
+    ListItemAlbumSpotify,
+    ListItemArtistSpotify,
+    ListItemPlaylistSpotify,
+    ListItemTrackSpotify,
+    ModalDialogAlbumSpotify,
+    ModalDialogArtistSpotify,
+    ModalDialogPlaylistSpotify,
+    ModalDialogTrackSpotify,
     TabsSearch,
-    SpotifyListItemTrack,
-    SpotifyListItemArtist,
-    SpotifyListItemAlbum,
-    SpotifyListItemPlaylist,
-    SpotifyModalDialogTrack,
-    SpotifyModalDialogArtist,
-    SpotifyModalDialogAlbum,
-    SpotifyModalDialogPlaylist,
-    VueEternalLoading,
-    CoverArtwork
+    VueEternalLoading
   },
 
   data() {
@@ -380,20 +384,20 @@ export default {
     }
   },
 
-  mounted: function () {
+  mounted() {
     this.query = this.$route.query
     this.search()
   },
 
   methods: {
-    reset: function () {
+    reset() {
       this.tracks = { items: [], total: 0 }
       this.artists = { items: [], total: 0 }
       this.albums = { items: [], total: 0 }
       this.playlists = { items: [], total: 0 }
     },
 
-    search: function () {
+    search() {
       this.reset()
 
       // If no search query present reset and focus search field
@@ -416,7 +420,7 @@ export default {
       this.search_all()
     },
 
-    spotify_search: function () {
+    spotify_search() {
       return webapi.spotify().then(({ data }) => {
         this.search_param.market = data.webapi_country
 
@@ -430,7 +434,7 @@ export default {
       })
     },
 
-    search_all: function () {
+    search_all() {
       this.spotify_search().then((data) => {
         this.tracks = data.tracks ? data.tracks : { items: [], total: 0 }
         this.artists = data.artists ? data.artists : { items: [], total: 0 }
@@ -441,7 +445,7 @@ export default {
       })
     },
 
-    search_tracks_next: function ({ loaded }) {
+    search_tracks_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.tracks.items = this.tracks.items.concat(data.tracks.items)
         this.tracks.total = data.tracks.total
@@ -451,7 +455,7 @@ export default {
       })
     },
 
-    search_artists_next: function ({ loaded }) {
+    search_artists_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.artists.items = this.artists.items.concat(data.artists.items)
         this.artists.total = data.artists.total
@@ -461,7 +465,7 @@ export default {
       })
     },
 
-    search_albums_next: function ({ loaded }) {
+    search_albums_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.albums.items = this.albums.items.concat(data.albums.items)
         this.albums.total = data.albums.total
@@ -471,7 +475,7 @@ export default {
       })
     },
 
-    search_playlists_next: function ({ loaded }) {
+    search_playlists_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.playlists.items = this.playlists.items.concat(data.playlists.items)
         this.playlists.total = data.playlists.total
@@ -481,13 +485,13 @@ export default {
       })
     },
 
-    new_search: function () {
+    new_search() {
       if (!this.search_query) {
         return
       }
 
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'track,artist,album,playlist,audiobook,podcast',
           query: this.search_query,
@@ -498,9 +502,9 @@ export default {
       this.$refs.search_field.blur()
     },
 
-    open_search_tracks: function () {
+    open_search_tracks() {
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'track',
           query: this.$route.query.query
@@ -508,9 +512,9 @@ export default {
       })
     },
 
-    open_search_artists: function () {
+    open_search_artists() {
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'artist',
           query: this.$route.query.query
@@ -518,9 +522,9 @@ export default {
       })
     },
 
-    open_search_albums: function () {
+    open_search_albums() {
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'album',
           query: this.$route.query.query
@@ -528,9 +532,9 @@ export default {
       })
     },
 
-    open_search_playlists: function () {
+    open_search_playlists() {
       this.$router.push({
-        path: '/search/spotify',
+        name: 'search-spotify',
         query: {
           type: 'playlist',
           query: this.$route.query.query
@@ -538,36 +542,39 @@ export default {
       })
     },
 
-    open_recent_search: function (query) {
+    open_recent_search(query) {
       this.search_query = query
       this.new_search()
     },
 
-    open_track_dialog: function (track) {
+    open_track_dialog(track) {
       this.selected_track = track
       this.show_track_details_modal = true
     },
 
-    open_album_dialog: function (album) {
+    open_album_dialog(album) {
       this.selected_album = album
       this.show_album_details_modal = true
     },
 
-    open_artist_dialog: function (artist) {
+    open_artist_dialog(artist) {
       this.selected_artist = artist
       this.show_artist_details_modal = true
     },
 
-    open_playlist_dialog: function (playlist) {
+    open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
     },
 
-    open_album: function (album) {
-      this.$router.push({ path: '/music/spotify/albums/' + album.id })
+    open_album(album) {
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: album.id }
+      })
     },
 
-    artwork_url: function (album) {
+    artwork_url(album) {
       if (album.images && album.images.length > 0) {
         return album.images[0].url
       }

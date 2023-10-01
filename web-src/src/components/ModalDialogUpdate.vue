@@ -31,14 +31,13 @@
           </div>
         </div>
         <div class="field">
-          <label class="checkbox is-size-7 is-small">
-            <input
-              v-model="rescan_metadata"
-              type="checkbox"
-              style="margin-right: 5px"
-            />
-            <span v-text="$t('dialog.update.rescan-metadata')" />
-          </label>
+          <input
+            id="rescan"
+            v-model="rescan_metadata"
+            type="checkbox"
+            class="switch is-rounded is-small"
+          />
+          <label for="rescan" v-text="$t('dialog.update.rescan-metadata')" />
         </div>
       </div>
       <div v-else>
@@ -49,8 +48,8 @@
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
 import * as types from '@/store/mutation_types'
+import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {

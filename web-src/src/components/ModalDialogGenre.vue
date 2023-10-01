@@ -33,19 +33,15 @@
             </div>
             <footer class="card-footer">
               <a class="card-footer-item has-text-dark" @click="queue_add">
-                <span class="icon"
-                  ><mdicon name="playlist-plus" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-plus" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.genre.add')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <span class="icon"
-                  ><mdicon name="playlist-play" size="16"
-                /></span>
+                <mdicon class="icon" name="playlist-play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.genre.add-next')" />
               </a>
               <a class="card-footer-item has-text-dark" @click="play">
-                <span class="icon"><mdicon name="play" size="16" /></span>
+                <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.genre.play')" />
               </a>
             </footer>
@@ -66,35 +62,37 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogGenre',
-  props: ['show', 'genre'],
+  props: ['genre', 'media_kind', 'show'],
   emits: ['close'],
 
+  computed: {
+    expression() {
+      return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
+    }
+  },
   methods: {
-    play: function () {
+    play() {
       this.$emit('close')
-      webapi.player_play_expression(
-        'genre is "' + this.genre.name + '" and media_kind is music',
-        false
-      )
+      webapi.player_play_expression(this.expression, false)
     },
 
-    queue_add: function () {
+    queue_add() {
       this.$emit('close')
-      webapi.queue_expression_add(
-        'genre is "' + this.genre.name + '" and media_kind is music'
-      )
+      webapi.queue_expression_add(this.expression)
     },
 
-    queue_add_next: function () {
+    queue_add_next() {
       this.$emit('close')
-      webapi.queue_expression_add_next(
-        'genre is "' + this.genre.name + '" and media_kind is music'
-      )
+      webapi.queue_expression_add_next(this.expression)
     },
 
-    open_genre: function () {
+    open_genre() {
       this.$emit('close')
-      this.$router.push({ name: 'Genre', params: { genre: this.genre.name } })
+      this.$router.push({
+        name: 'genre-albums',
+        params: { name: this.genre.name },
+        query: { media_kind: this.media_kind }
+      })
     }
   }
 }

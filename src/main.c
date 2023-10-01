@@ -477,19 +477,20 @@ int
 main(int argc, char **argv)
 {
   int option;
-  char *configfile;
-  bool background;
-  bool mdns_no_rsp;
-  bool mdns_no_daap;
-  bool mdns_no_cname;
-  bool mdns_no_web;
-  bool mdns_no_mpd;
-  int loglevel;
-  char *logdomains;
-  char *logfile;
-  char *ffid;
-  char *pidfile;
-  char *webroot;
+  char *configfile = CONFFILE;
+  bool background = true;
+  bool testrun = false;
+  bool mdns_no_rsp = false;
+  bool mdns_no_daap = false;
+  bool mdns_no_cname = false;
+  bool mdns_no_web = false;
+  bool mdns_no_mpd = false;
+  int loglevel = -1;
+  char *logdomains = NULL;
+  char *logfile = NULL;
+  char *ffid = NULL;
+  char *pidfile = PIDFILE;
+  char *webroot = WEB_ROOT;
   char **buildopts;
   const char *av_version;
   const char *gcry_version;
@@ -511,6 +512,7 @@ main(int argc, char **argv)
       { "pidfile",      1, NULL, 'P' },
       { "version",      0, NULL, 'v' },
       { "webroot",      1, NULL, 'w' },
+      { "testrun",      0, NULL, 't' }, // Used for CI, not documented to user
 
       { "mdns-no-rsp",  0, NULL, 512 },
       { "mdns-no-daap", 0, NULL, 513 },
@@ -520,20 +522,7 @@ main(int argc, char **argv)
       { NULL,           0, NULL, 0 }
     };
 
-  configfile = CONFFILE;
-  pidfile = PIDFILE;
-  webroot = WEB_ROOT;
-  loglevel = -1;
-  logdomains = NULL;
-  logfile = NULL;
-  background = true;
-  ffid = NULL;
-  mdns_no_rsp = false;
-  mdns_no_daap = false;
-  mdns_no_cname = false;
-  mdns_no_web = false;
-
-  while ((option = getopt_long(argc, argv, "D:d:c:P:fb:vw:", option_map, NULL)) != -1)
+  while ((option = getopt_long(argc, argv, "D:d:c:P:ftb:vw:", option_map, NULL)) != -1)
     {
       switch (option)
 	{
@@ -551,6 +540,10 @@ main(int argc, char **argv)
 
 	  case 515:
 	    mdns_no_web = true;
+	    break;
+
+	  case 't':
+	    testrun = true;
 	    break;
 
 	  case 'b':
@@ -821,7 +814,6 @@ main(int argc, char **argv)
       ret = EXIT_FAILURE;
       goto mpd_fail;
     }
-  mdns_no_mpd = false;
 #else
   mdns_no_mpd = true;
 #endif
@@ -903,7 +895,8 @@ main(int argc, char **argv)
   event_add(sig_event, NULL);
 
   /* Run the loop */
-  event_base_dispatch(evbase_main);
+  if (!testrun)
+    event_base_dispatch(evbase_main);
 
   DPRINTF(E_LOG, L_MAIN, "Stopping gracefully\n");
   ret = EXIT_SUCCESS;

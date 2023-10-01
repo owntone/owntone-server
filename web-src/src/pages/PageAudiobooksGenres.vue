@@ -3,48 +3,49 @@
     <tabs-audiobooks />
     <content-with-heading>
       <template #options>
-        <index-button-list :index="artists.indexList" />
+        <index-button-list :index="genres.indexList" />
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.audiobooks.artists.title')" />
+        <p class="title is-4" v-text="$t('page.genres.title')" />
         <p
           class="heading"
-          v-text="$t('page.audiobooks.artists.count', { count: artists.count })"
+          v-text="$t('page.genres.count', { count: genres.total })"
         />
       </template>
-      <template #heading-right />
       <template #content>
-        <list-artists :artists="artists" />
+        <list-genres :genres="genres" :media_kind="'audiobook'" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupByList, byName } from '@/lib/GroupByList'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
-import ListArtists from '@/components/ListArtists.vue'
+import ListGenres from '@/components/ListGenres.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    return webapi.library_artists('audiobook')
+    return webapi.library_genres('audiobook')
   },
 
   set(vm, response) {
-    vm.artists_list = new GroupByList(response.data)
+    vm.genres = response.data
+    vm.genres = new GroupByList(response.data)
+    vm.genres.group(byName('name_sort'))
   }
 }
 
 export default {
-  name: 'PageAudiobooksArtists',
+  name: 'PageAudiobookGenres',
   components: {
     ContentWithHeading,
-    TabsAudiobooks,
     IndexButtonList,
-    ListArtists
+    ListGenres,
+    TabsAudiobooks
   },
 
   beforeRouteEnter(to, from, next) {
@@ -52,12 +53,7 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   beforeRouteUpdate(to, from, next) {
-    if (!this.artists_list.isEmpty()) {
-      next()
-      return
-    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
@@ -67,17 +63,7 @@ export default {
 
   data() {
     return {
-      artists_list: new GroupByList()
-    }
-  },
-
-  computed: {
-    artists() {
-      if (!this.artists_list) {
-        return []
-      }
-      this.artists_list.group(byName('name_sort', true))
-      return this.artists_list
+      genres: new GroupByList()
     }
   }
 }
