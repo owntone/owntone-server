@@ -24,25 +24,32 @@ html, body {
       color: $light;
     }
 
-    .title, .heading, .checkbox.label:hover .button, h1, h2, h3, h4, h5, h6, header, footer, title {
+    .title, .heading, .checkbox.label:hover .button, .section .fd-tabs-section, h1, h2, h3, h4, h5, h6, header, footer, title, p, span, div {
       color: $light;
     }
+
+    .notification {
+      background-color: $dark-hover;
+    }
     
-    .dropdown-item:hover, .navbar-link:hover, .navbar-item:hover, a.has-text-dark:hover, label:hover {
+    .dropdown-item:hover, .navbar-link:hover, .navbar-item:hover, a.has-text-dark:hover, label:hover, .tabs a:hover {
       background-color: $dark-hover;
       color: $light
     }
   
-    .navbar-dropdown, .navbar-link, .navbar-item, .navbar-menu,  .is-white, .button {
+    .navbar-dropdown, .navbar-link, .navbar-item, .navbar-menu,  .is-white, .button, .fd-tabs-section {
       background-color: $dark;
       color: $light;
     }
 
-    a.has-text-dark {
+    a.has-text-dark, .tabs a {
       background-color: $dark;
       color: $light !important;
     }
 
+    .tabs li.is-active {
+      color: gray;
+    }
   }
 }
 
