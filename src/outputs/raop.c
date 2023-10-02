@@ -68,6 +68,7 @@
 #include "artwork.h"
 #include "dmap_common.h"
 #include "rtp_common.h"
+#include "transcode.h"
 #include "outputs.h"
 #include "pair_ap/pair.h"
 
@@ -154,17 +155,23 @@ struct raop_extra
 
 struct raop_master_session
 {
-  struct evbuffer *evbuf;
-  int evbuf_samples;
+  struct evbuffer *input_buffer;
+  int input_buffer_samples;
 
   struct rtp_session *rtp_session;
 
   struct rtcp_timestamp cur_stamp;
 
+  // ALAC encoder and buffer for encoded data
+  struct encode_ctx *encode_ctx;
+  struct evbuffer *encoded_buffer;
+
   uint8_t *rawbuf;
   size_t rawbuf_size;
   int samples_per_packet;
   bool encrypt;
+
+  struct media_quality quality;
 
   // Number of samples that we tell the output to buffer (this will mean that
   // the position that we send in the sync packages are offset by this amount
@@ -332,6 +339,9 @@ static struct timeval keep_alive_tv = { RAOP_KEEP_ALIVE_INTERVAL, 0 };
 static struct raop_master_session *raop_master_sessions;
 static struct raop_session *raop_sessions;
 
+/* Don't encode ALAC with ffmpeg */
+static bool raop_uncompressed_alac;
+
 // Forwards
 static int
 raop_device_start(struct output_device *rd, int callback_id);
@@ -390,7 +400,7 @@ alac_write_bits(uint8_t **p, uint8_t val, int blen, int *bpos)
 
 /* Raw data must be little endian */
 static void
-alac_encode(uint8_t *dst, uint8_t *raw, int len)
+alac_encode_uncompressed(uint8_t *dst, uint8_t *raw, int len)
 {
   uint8_t *maxraw;
   int bpos;
@@ -417,6 +427,59 @@ alac_encode(uint8_t *dst, uint8_t *raw, int len)
     }
 
   alac_write_bits(&dst, 7, 3, &bpos); /* end tag */
+}
+
+static int
+alac_encode_no_xcode(struct evbuffer *evbuf, uint8_t *rawbuf, size_t rawbuf_size)
+{
+#define BODY_LEN STOB(RAOP_SAMPLES_PER_PACKET, RAOP_QUALITY_BITS_PER_SAMPLE_DEFAULT, RAOP_QUALITY_CHANNELS_DEFAULT)
+  // the "+ 1" above is space for the end tag (3 bits)
+  uint8_t dst[ALAC_HEADER_LEN + BODY_LEN + 1];
+  int len = ALAC_HEADER_LEN + rawbuf_size + 1;
+
+  if (len > sizeof(dst))
+    {
+      DPRINTF(E_LOG, L_RAOP, "Bug! Invalid input to ALAC encoder, destination buffer would overflow\n");
+      return -1;
+    }
+
+  alac_encode_uncompressed(dst, rawbuf, rawbuf_size);
+  evbuffer_add(evbuf, dst, len);
+  return len;
+#undef BODY_LEN
+}
+
+static int
+alac_encode_xcode(struct evbuffer *evbuf, struct encode_ctx *encode_ctx, uint8_t *rawbuf, size_t rawbuf_size, int nsamples, struct media_quality *quality)
+{
+  transcode_frame *frame;
+  int len;
+
+  frame = transcode_frame_new(rawbuf, rawbuf_size, nsamples, quality);
+  if (!frame)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not convert raw PCM to frame (bufsize=%zu)\n", rawbuf_size);
+      return -1;
+    }
+
+  len = transcode_encode(evbuf, encode_ctx, frame, 0);
+  transcode_frame_free(frame);
+  if (len < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not ALAC encode frame\n");
+      return -1;
+    }
+
+  return len;
+}
+
+static int
+alac_encode(struct evbuffer *evbuf, struct encode_ctx *encode_ctx, uint8_t *rawbuf, size_t rawbuf_size, int nsamples, struct media_quality *quality)
+{
+  if (raop_uncompressed_alac)
+    return alac_encode_no_xcode(evbuf, rawbuf, rawbuf_size);
+  else
+    return alac_encode_xcode(evbuf, encode_ctx, rawbuf, rawbuf_size, nsamples, quality);
 }
 
 /* AirTunes v2 time synchronization helpers */
@@ -1737,51 +1800,6 @@ raop_status(struct raop_session *rs)
   rs->callback_id = -1;
 }
 
-static struct raop_master_session *
-master_session_make(struct media_quality *quality, bool encrypt)
-{
-  struct raop_master_session *rms;
-  int ret;
-
-  // First check if we already have a suitable session
-  for (rms = raop_master_sessions; rms; rms = rms->next)
-    {
-      if (encrypt == rms->encrypt && quality_is_equal(quality, &rms->rtp_session->quality))
-	return rms;
-    }
-
-  // Let's create a master session
-  ret = outputs_quality_subscribe(quality);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not subscribe to required audio quality (%d/%d/%d)\n", quality->sample_rate, quality->bits_per_sample, quality->channels);
-      return NULL;
-    }
-
-  CHECK_NULL(L_RAOP, rms = calloc(1, sizeof(struct raop_master_session)));
-
-  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0);
-  if (!rms->rtp_session)
-    {
-      outputs_quality_unsubscribe(quality);
-      free(rms);
-      return NULL;
-    }
-
-  rms->encrypt = encrypt;
-  rms->samples_per_packet = RAOP_SAMPLES_PER_PACKET;
-  rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
-  rms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
-
-  CHECK_NULL(L_RAOP, rms->rawbuf = malloc(rms->rawbuf_size));
-  CHECK_NULL(L_RAOP, rms->evbuf = evbuffer_new());
-
-  rms->next = raop_master_sessions;
-  raop_master_sessions = rms;
-
-  return rms;
-}
-
 static void
 master_session_free(struct raop_master_session *rms)
 {
@@ -1790,7 +1808,14 @@ master_session_free(struct raop_master_session *rms)
 
   outputs_quality_unsubscribe(&rms->rtp_session->quality);
   rtp_session_free(rms->rtp_session);
-  evbuffer_free(rms->evbuf);
+
+  transcode_encode_cleanup(&rms->encode_ctx);
+
+  if (rms->input_buffer)
+    evbuffer_free(rms->input_buffer);
+  if (rms->encoded_buffer)
+    evbuffer_free(rms->encoded_buffer);
+
   free(rms->rawbuf);
   free(rms);
 }
@@ -1822,6 +1847,73 @@ master_session_cleanup(struct raop_master_session *rms)
     }
 
   master_session_free(rms);
+}
+
+static struct raop_master_session *
+master_session_make(struct media_quality *quality, bool encrypt)
+{
+  struct raop_master_session *rms;
+  struct decode_ctx *decode_ctx;
+  int ret;
+
+  // First check if we already have a suitable session
+  for (rms = raop_master_sessions; rms; rms = rms->next)
+    {
+      if (encrypt == rms->encrypt && quality_is_equal(quality, &rms->rtp_session->quality))
+	return rms;
+    }
+
+  // Let's create a master session
+  ret = outputs_quality_subscribe(quality);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not subscribe to required audio quality (%d/%d/%d)\n", quality->sample_rate, quality->bits_per_sample, quality->channels);
+      return NULL;
+    }
+
+  CHECK_NULL(L_RAOP, rms = calloc(1, sizeof(struct raop_master_session)));
+
+  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0);
+  if (!rms->rtp_session)
+    {
+      outputs_quality_unsubscribe(quality);
+      free(rms);
+      return NULL;
+    }
+
+  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
+  if (!decode_ctx)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not create decoding context\n");
+      goto error;
+    }
+
+  rms->encode_ctx = transcode_encode_setup(XCODE_ALAC, quality, decode_ctx, NULL, 0, 0);
+  transcode_decode_cleanup(&decode_ctx);
+  if (!rms->encode_ctx)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Will not be able to stream AirPlay 2, ffmpeg has no ALAC encoder\n");
+      goto error;
+    }
+
+  rms->encrypt = encrypt;
+  rms->quality = *quality;
+  rms->samples_per_packet = RAOP_SAMPLES_PER_PACKET;
+  rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
+  rms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+
+  CHECK_NULL(L_RAOP, rms->rawbuf = malloc(rms->rawbuf_size));
+  CHECK_NULL(L_RAOP, rms->input_buffer = evbuffer_new());
+  CHECK_NULL(L_RAOP, rms->encoded_buffer = evbuffer_new());
+
+  rms->next = raop_master_sessions;
+  raop_master_sessions = rms;
+
+  return rms;
+
+ error:
+  master_session_free(rms);
+  return NULL;
 }
 
 static void
@@ -2710,15 +2802,10 @@ raop_keep_alive_timer_cb(int fd, short what, void *arg)
 /* -------------------- Creation and sending of RTP packets  ---------------- */
 
 static int
-packet_prepare(struct rtp_packet *pkt, uint8_t *rawbuf, size_t rawbuf_size, bool encrypt)
+packet_encrypt(struct rtp_packet *pkt)
 {
   char ebuf[64];
   gpg_error_t gc_err;
-
-  alac_encode(pkt->payload, rawbuf, rawbuf_size);
-
-  if (!encrypt)
-    return 0;
 
   // Reset cipher
   gc_err = gcry_cipher_reset(raop_aes_ctx);
@@ -2846,14 +2933,25 @@ packets_send(struct raop_master_session *rms)
 {
   struct rtp_packet *pkt;
   struct raop_session *rs;
+  int len;
   int ret;
 
-  pkt = rtp_packet_next(rms->rtp_session, ALAC_HEADER_LEN + rms->rawbuf_size + 1, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE, 0);
-  /* the "+ 1" above is space for the end tag (3 bits) */
+  len = alac_encode(rms->encoded_buffer, rms->encode_ctx, rms->rawbuf, rms->rawbuf_size, rms->samples_per_packet, &rms->quality);
+  if (len < 0)
+    {
+      return -1;
+    }
 
-  ret = packet_prepare(pkt, rms->rawbuf, rms->rawbuf_size, rms->encrypt);
-  if (ret < 0)
-    return -1;
+  pkt = rtp_packet_next(rms->rtp_session, len, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE, 0);
+
+  evbuffer_remove(rms->encoded_buffer, pkt->payload, pkt->payload_len);
+
+  if (rms->encrypt)
+    {
+      ret = packet_encrypt(pkt);
+      if (ret < 0)
+	return -1;
+    }
 
   for (rs = raop_sessions; rs; rs = rs->next)
     {
@@ -2906,15 +3004,15 @@ timestamp_set(struct raop_master_session *rms, struct timespec ts)
   //   -> we should be playing rtptime X + 600
   //
   // So how do we measure samples received from player? We know that from the
-  // pos, which says how much has been sent to the device, and from rms->evbuf,
+  // pos, which says how much has been sent to the device, and from rms->input_buffer,
   // which is the unsent stuff being buffered:
-  //   - received = (pos - X) + rms->evbuf_samples
+  //   - received = (pos - X) + rms->input_buffer_samples
   //
   // This means the rtptime is computed as:
   //   - rtptime = X + received - rms->output_buffer_samples
-  //   -> rtptime = X + (pos - X) + rms->evbuf_samples - rms->out_buffer_samples
-  //   -> rtptime = pos + rms->evbuf_samples - rms->output_buffer_samples
-  rms->cur_stamp.pos = rms->rtp_session->pos + rms->evbuf_samples - rms->output_buffer_samples;
+  //   -> rtptime = X + (pos - X) + rms->input_buffer_samples - rms->out_buffer_samples
+  //   -> rtptime = pos + rms->input_buffer_samples - rms->output_buffer_samples
+  rms->cur_stamp.pos = rms->rtp_session->pos + rms->input_buffer_samples - rms->output_buffer_samples;
 }
 
 static void
@@ -4448,14 +4546,14 @@ raop_write(struct output_buffer *obuf)
 	  packets_sync_send(rms);
 
 	  // TODO avoid this copy
-	  evbuffer_add(rms->evbuf, obuf->data[i].buffer, obuf->data[i].bufsize);
-	  rms->evbuf_samples += obuf->data[i].samples;
+	  evbuffer_add(rms->input_buffer, obuf->data[i].buffer, obuf->data[i].bufsize);
+	  rms->input_buffer_samples += obuf->data[i].samples;
 
 	  // Send as many packets as we have data for (one packet requires rawbuf_size bytes)
-	  while (evbuffer_get_length(rms->evbuf) >= rms->rawbuf_size)
+	  while (evbuffer_get_length(rms->input_buffer) >= rms->rawbuf_size)
 	    {
-	      evbuffer_remove(rms->evbuf, rms->rawbuf, rms->rawbuf_size);
-	      rms->evbuf_samples -= rms->samples_per_packet;
+	      evbuffer_remove(rms->input_buffer, rms->rawbuf, rms->rawbuf_size);
+	      rms->input_buffer_samples -= rms->samples_per_packet;
 
 	      packets_send(rms);
 	    }
@@ -4557,6 +4655,8 @@ raop_init(void)
 
       goto out_stop_timing;
     }
+
+  raop_uncompressed_alac = cfg_getbool(cfg_getsec(cfg, "airplay_shared"), "uncompressed_alac");
 
   ret = mdns_browse("_raop._tcp", raop_device_cb, MDNS_CONNECTION_TEST);
   if (ret < 0)

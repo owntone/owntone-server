@@ -156,6 +156,7 @@ static cfg_opt_t sec_airplay_shared[] =
   {
     CFG_INT("control_port", 0, CFGF_NONE),
     CFG_INT("timing_port", 0, CFGF_NONE),
+    CFG_BOOL("uncompressed_alac", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
