@@ -315,6 +315,10 @@ audio {
 	# OwnTone behind a firewall)
 #       control_port = 0
 #       timing_port = 0
+
+	# Switch Airplay 1 streams to uncompressed ALAC (as opposed to regular,
+	# compressed ALAC). Reduces CPU use at the cost of network bandwidth.
+#	uncompressed_alac = false
 #}
 
 # AirPlay per device settings
