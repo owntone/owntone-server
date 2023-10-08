@@ -45,7 +45,7 @@ a.navbar-item {
 .fd-tabs-section {
   padding-bottom: 3px;
   padding-top: 3px;
-  background: #{white};
+  background: $white;
   top: 3.25rem;
   z-index: 20;
   position: fixed;
@@ -122,7 +122,7 @@ a.navbar-item {
 }
 .sortable-ghost h1,
 .sortable-ghost h2 {
-  color: #{$danger};
+  color: $danger;
 }
 
 .media:first-of-type {
