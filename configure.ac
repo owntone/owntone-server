@@ -251,6 +251,8 @@ OWNTONE_MODULES_CHECK([OWNTONE], [LIBAV],
 		[libavutil/avutil.h])
 	 OWNTONE_CHECK_DECLS([avformat_network_init],
 		[libavformat/avformat.h])
+	 OWNTONE_CHECK_DECLS([av_dict_iterate],
+		[libavutil/dict.h])
 	])
 
 AC_CHECK_SIZEOF([void *])

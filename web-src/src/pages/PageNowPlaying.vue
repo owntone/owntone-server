@@ -9,6 +9,7 @@
           class="is-clickable fd-has-shadow fd-cover-big-image"
           @click="open_dialog(track)"
         />
+        <lyrics v-if="lyrics_visible" />
         <control-slider
           v-model:value="track_progress"
           class="mt-5"
@@ -56,6 +57,7 @@
 import * as types from '@/store/mutation_types'
 import ControlSlider from '@/components/ControlSlider.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
+import Lyrics from '@/components/Lyrics.vue'
 import { mdiCancel } from '@mdi/js'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import webapi from '@/webapi'
@@ -67,6 +69,7 @@ export default {
   components: {
     ControlSlider,
     CoverArtwork,
+    Lyrics,
     ModalDialogQueueItem
   },
 
@@ -82,6 +85,10 @@ export default {
   },
 
   computed: {
+    lyrics_visible() {
+      return this.$store.getters.lyrics_pane;
+    },
+  
     is_live() {
       return this.track.length_ms === 0
     },

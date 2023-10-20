@@ -37,13 +37,18 @@
 #include "http.h"
 #include "conffile.h"
 
+// From libavutil 57.37.100
+#if !defined(HAVE_DECL_AV_DICT_ITERATE) || !(HAVE_DECL_AV_DICT_ITERATE)
+# define av_dict_iterate(dict, entry) av_dict_get((dict), "", (entry), AV_DICT_IGNORE_SUFFIX)
+#endif
+
 /* Mapping between the metadata name(s) and the offset
  * of the equivalent metadata field in struct media_file_info */
 struct metadata_map {
   char *key;
   int as_int;
   size_t offset;
-  int (*handler_function)(struct media_file_info *, char *);
+  int (*handler_function)(struct media_file_info *, const char *);
 };
 
 // Used for passing errors to DPRINTF (can't count on av_err2str being present)
@@ -57,7 +62,7 @@ err2str(int errnum)
 }
 
 static int
-parse_genre(struct media_file_info *mfi, char *genre_string)
+parse_genre(struct media_file_info *mfi, const char *genre_string)
 {
   char **genre = (char**)((char *) mfi + mfi_offsetof(genre));
   char *ptr;
@@ -78,12 +83,17 @@ parse_genre(struct media_file_info *mfi, char *genre_string)
 }
 
 static int
-parse_slash_separated_ints(char *string, uint32_t *firstval, uint32_t *secondval)
+parse_slash_separated_ints(const char *string, uint32_t *firstval, uint32_t *secondval)
 {
   int numvals = 0;
+  char buf[64];
   char *ptr;
 
-  ptr = strchr(string, '/');
+  // dict.h: "The returned entry key or value must not be changed, or it will
+  // cause undefined behavior" -> so we must make a copy
+  snprintf(buf, sizeof(buf), "%s", string);
+
+  ptr = strchr(buf, '/');
   if (ptr)
     {
       *ptr = '\0';
@@ -91,14 +101,14 @@ parse_slash_separated_ints(char *string, uint32_t *firstval, uint32_t *secondval
         numvals++;
     }
 
-  if (safe_atou32(string, firstval) == 0)
+  if (safe_atou32(buf, firstval) == 0)
     numvals++;
 
   return numvals;
 }
 
 static int
-parse_track(struct media_file_info *mfi, char *track_string)
+parse_track(struct media_file_info *mfi, const char *track_string)
 {
   uint32_t *track = (uint32_t *) ((char *) mfi + mfi_offsetof(track));
   uint32_t *total_tracks = (uint32_t *) ((char *) mfi + mfi_offsetof(total_tracks));
@@ -107,7 +117,7 @@ parse_track(struct media_file_info *mfi, char *track_string)
 }
 
 static int
-parse_disc(struct media_file_info *mfi, char *disc_string)
+parse_disc(struct media_file_info *mfi, const char *disc_string)
 {
   uint32_t *disc = (uint32_t *) ((char *) mfi + mfi_offsetof(disc));
   uint32_t *total_discs = (uint32_t *) ((char *) mfi + mfi_offsetof(total_discs));
@@ -116,7 +126,7 @@ parse_disc(struct media_file_info *mfi, char *disc_string)
 }
 
 static int
-parse_date(struct media_file_info *mfi, char *date_string)
+parse_date(struct media_file_info *mfi, const char *date_string)
 {
   char year_string[32];
   uint32_t *year = (uint32_t *) ((char *) mfi + mfi_offsetof(year));
@@ -152,7 +162,7 @@ parse_date(struct media_file_info *mfi, char *date_string)
 }
 
 static int
-parse_albumid(struct media_file_info *mfi, char *id_string)
+parse_albumid(struct media_file_info *mfi, const char *id_string)
 {
   // Already set by a previous tag that we give higher priority
   if (mfi->songalbumid)
@@ -186,6 +196,7 @@ static const struct metadata_map md_map_generic[] =
     { "artist-sort",  0, mfi_offsetof(artist_sort),        NULL },
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
     { "compilation",  1, mfi_offsetof(compilation),        NULL },
+    { "lyrics",       0, mfi_offsetof(lyrics),             NULL },
 
     // ALAC sort tags
     { "sort_name",           0, mfi_offsetof(title_sort),         NULL },
@@ -279,60 +290,63 @@ static const struct metadata_map md_map_id3[] =
 
 
 static int
-extract_metadata_core(struct media_file_info *mfi, AVDictionary *md, const struct metadata_map *md_map)
+extract_metadata_from_kv(struct media_file_info *mfi, const char *key, const char *value, const struct metadata_map *md_map)
 {
-  AVDictionaryEntry *mdt;
   char **strval;
   uint32_t *intval;
-  int mdcount;
   int i;
-  int ret;
 
-#if 0
-  /* Dump all the metadata reported by ffmpeg */
-  mdt = NULL;
-  while ((mdt = av_dict_get(md, "", mdt, AV_DICT_IGNORE_SUFFIX)) != NULL)
-    DPRINTF(E_DBG, L_SCAN, " -> %s = %s\n", mdt->key, mdt->value);
-#endif
+  if ((value == NULL) || (strlen(value) == 0))
+    return 0;
 
-  mdcount = 0;
+  if (strncmp(key, "lyrics-", sizeof("lyrics-") - 1) == 0)
+    key = "lyrics";
 
-  /* Extract actual metadata */
   for (i = 0; md_map[i].key != NULL; i++)
     {
-      mdt = av_dict_get(md, md_map[i].key, NULL, 0);
-      if (mdt == NULL)
-	continue;
+      if (strcmp(key, md_map[i].key) == 0)
+	break;
+    }
 
-      if ((mdt->value == NULL) || (strlen(mdt->value) == 0))
-	continue;
+  if (md_map[i].key == NULL)
+    return 0; // Not found in map
 
-      if (md_map[i].handler_function)
-	{
-	  mdcount += md_map[i].handler_function(mfi, mdt->value);
-	  continue;
-	}
+  if (md_map[i].handler_function)
+    return md_map[i].handler_function(mfi, value);
 
-      mdcount++;
+  if (!md_map[i].as_int)
+    {
+      strval = (char **) ((char *) mfi + md_map[i].offset);
 
-      if (!md_map[i].as_int)
-	{
-	  strval = (char **) ((char *) mfi + md_map[i].offset);
+      if (*strval != NULL)
+	return 0;
 
-	  if (*strval == NULL)
-	    *strval = strdup(mdt->value);
-	}
-      else
-	{
-	  intval = (uint32_t *) ((char *) mfi + md_map[i].offset);
+      *strval = strdup(value);
+    }
+  else
+    {
+      intval = (uint32_t *) ((char *) mfi + md_map[i].offset);
 
-	  if (*intval == 0)
-	    {
-	      ret = safe_atou32(mdt->value, intval);
-	      if (ret < 0)
-		continue;
-	    }
-	}
+      if (*intval != 0)
+	return 0;
+
+      if (safe_atou32(value, intval) < 0)
+	return 0;
+    }
+
+  return 1;
+}
+
+static int
+extract_metadata_from_dict(struct media_file_info *mfi, AVDictionary *md, const struct metadata_map *md_map)
+{
+  const AVDictionaryEntry *mdt = NULL;
+  int mdcount = 0;
+
+  while ((mdt = av_dict_iterate(md, mdt)))
+    {
+//      DPRINTF(E_DBG, L_SCAN, " -> %s = %s\n", mdt->key, mdt->value);
+      mdcount += extract_metadata_from_kv(mfi, mdt->key, mdt->value, md_map);
     }
 
   return mdcount;
@@ -348,7 +362,7 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
 
   if (ctx->metadata)
     {
-      ret = extract_metadata_core(mfi, ctx->metadata, md_map);
+      ret = extract_metadata_from_dict(mfi, ctx->metadata, md_map);
       mdcount += ret;
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from file metadata\n", ret);
@@ -356,7 +370,7 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
 
   if (audio_stream->metadata)
     {
-      ret = extract_metadata_core(mfi, audio_stream->metadata, md_map);
+      ret = extract_metadata_from_dict(mfi, audio_stream->metadata, md_map);
       mdcount += ret;
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from audio stream metadata\n", ret);
@@ -364,7 +378,7 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
 
   if (video_stream && video_stream->metadata)
     {
-      ret = extract_metadata_core(mfi, video_stream->metadata, md_map);
+      ret = extract_metadata_from_dict(mfi, video_stream->metadata, md_map);
       mdcount += ret;
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from video stream metadata\n", ret);
@@ -518,7 +532,7 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
 		if (mfi->bits_per_sample == 0)
 		  mfi->bits_per_sample = av_get_bits_per_sample(codec_id);
 		mfi->channels = channels;
-	      } 
+	      }
 	    break;
 
 	  default:

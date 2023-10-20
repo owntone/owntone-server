@@ -106,8 +106,9 @@
         </div>
       </div>
     </div>
-    <div class="navbar-brand is-flex-grow-1">
-      <navbar-item-link :to="{ name: 'queue' }" exact class="mr-auto">
+   <div class="navbar-brand is-flex-grow-1">
+      <div class="navbar-item is-expanded is-justify-content-left is-no-basis">
+      <navbar-item-link :to="{ name: 'queue' }" exact>
         <mdicon class="icon" name="playlist-play" size="24" />
       </navbar-item-link>
       <navbar-item-link
@@ -126,6 +127,8 @@
           />
         </div>
       </navbar-item-link>
+      </div>
+      <div class="navbar-item is-expanded is-justify-content-center is-no-basis">
       <player-button-previous
         v-if="is_now_playing_page"
         class="navbar-item px-2"
@@ -153,8 +156,15 @@
         class="navbar-item px-2"
         :icon_size="24"
       />
+      </div>
+      <div class="navbar-item is-expanded is-justify-content-right is-no-basis">
+      <player-button-lyrics
+        v-if="is_now_playing_page"
+        class="navbar-item"
+        :icon_size="24"
+      />
       <a
-        class="navbar-item ml-auto"
+        class="navbar-item"
         @click="show_player_menu = !show_player_menu"
       >
         <mdicon
@@ -162,6 +172,7 @@
           :name="show_player_menu ? 'chevron-down' : 'chevron-up'"
         />
       </a>
+      </div>
     </div>
     <!-- Player menu for mobile and tablet -->
     <div
@@ -268,6 +279,7 @@ import { mdiCancel } from '@mdi/js'
 import NavbarItemLink from './NavbarItemLink.vue'
 import NavbarItemOutput from './NavbarItemOutput.vue'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume.vue'
+import PlayerButtonLyrics from '@/components/PlayerButtonLyrics.vue'
 import PlayerButtonNext from '@/components/PlayerButtonNext.vue'
 import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause.vue'
 import PlayerButtonPrevious from '@/components/PlayerButtonPrevious.vue'
@@ -284,6 +296,7 @@ export default {
     NavbarItemLink,
     NavbarItemOutput,
     PlayerButtonConsume,
+    PlayerButtonLyrics,
     PlayerButtonNext,
     PlayerButtonPlayPause,
     PlayerButtonPrevious,
