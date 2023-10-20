@@ -133,7 +133,7 @@ encoder_setup(enum player_format format, struct media_quality *quality)
     }
 
   if (format == PLAYER_FORMAT_MP3)
-    encode_ctx = transcode_encode_setup(XCODE_MP3, quality, decode_ctx, NULL, 0, 0);
+    encode_ctx = transcode_encode_setup(XCODE_MP3, quality, decode_ctx, 0, 0);
 
   if (!encode_ctx)
     {

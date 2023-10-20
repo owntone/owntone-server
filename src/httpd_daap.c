@@ -1148,12 +1148,14 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   const char *param;
   const char *client_codecs;
   const char *tag;
-  char *last_codectype;
   size_t len;
+  enum transcode_profile profile;
+  struct transcode_metadata_string xcode_metadata;
+  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, HTTPD_STREAM_BIT_RATE };
+  uint32_t len_ms;
   int nmeta = 0;
   int sort_headers;
   int nsongs;
-  int transcode;
   int ret;
 
   DPRINTF(E_DBG, L_DAAP, "Fetching song list for playlist %d\n", playlist);
@@ -1221,30 +1223,31 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
     }
 
   nsongs = 0;
-  last_codectype = NULL;
   while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
       nsongs++;
 
-      if (!dbmfi.codectype)
+      // Not sure if the is_remote path is really needed. Note that if you
+      // change the below you might need to do the same in rsp_reply_playlist()
+      profile = s->is_remote ? XCODE_WAV : transcode_needed(hreq->user_agent, client_codecs, dbmfi.codectype);
+      if (profile == XCODE_UNKNOWN)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Cannot transcode '%s', codec type is unknown\n", dbmfi.fname);
-
-	  transcode = 0;
 	}
-      else if (s->is_remote)
+      else if (profile != XCODE_NONE)
 	{
-	  transcode = 1;
-	}
-      else if (!last_codectype || (strcmp(last_codectype, dbmfi.codectype) != 0))
-	{
-	  transcode = transcode_needed(hreq->user_agent, client_codecs, dbmfi.codectype);
+	  if (safe_atou32(dbmfi.song_length, &len_ms) < 0)
+	    len_ms = 3 * 60 * 1000; // just a fallback default
 
-	  free(last_codectype);
-	  last_codectype = strdup(dbmfi.codectype);
+	  transcode_metadata_strings_set(&xcode_metadata, profile, &quality, len_ms);
+	  dbmfi.type        = xcode_metadata.type;
+	  dbmfi.codectype   = xcode_metadata.codectype;
+	  dbmfi.description = xcode_metadata.description;
+	  dbmfi.file_size   = xcode_metadata.file_size;
+	  dbmfi.bitrate     = xcode_metadata.bitrate;
 	}
 
-      ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, sort_headers, transcode);
+      ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, sort_headers);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Failed to encode song metadata\n");
@@ -1270,7 +1273,6 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 
   DPRINTF(E_DBG, L_DAAP, "Done with song list, %d songs\n", nsongs);
 
-  free(last_codectype);
   db_query_end(&qp);
 
   if (ret == -100)

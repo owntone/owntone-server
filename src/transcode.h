@@ -10,11 +10,13 @@
 enum transcode_profile
 {
   // Used for errors
-  XCODE_UNKNOWN = 0,
+  XCODE_UNKNOWN,
+  // No transcoding, send as-is
+  XCODE_NONE,
   // Decodes the best audio stream into PCM16 or PCM24, no resampling (does not add wav header)
   XCODE_PCM_NATIVE,
   // Decodes/resamples the best audio stream into PCM16 (with wav header)
-  XCODE_PCM16_HEADER,
+  XCODE_WAV,
   // Decodes/resamples the best audio stream into PCM16/24/32 (no wav headers)
   XCODE_PCM16,
   XCODE_PCM24,
@@ -60,20 +62,30 @@ struct transcode_evbuf_io
   void *seekfn_arg;
 };
 
+struct transcode_metadata_string
+{
+  char *type;
+  char *codectype;
+  char *description;
+  char file_size[64];
+  char bitrate[32];
+};
+
+
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t song_length);
+transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t len_ms);
 
 struct encode_ctx *
-transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, off_t *est_size, int width, int height);
+transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, int width, int height);
 
 struct transcode_ctx *
-transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size);
+transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t len_ms);
 
 struct decode_ctx *
 transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality *quality);
 
-int
+enum transcode_profile
 transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype);
 
 // Cleaning up
@@ -169,5 +181,11 @@ transcode_encode_query(struct encode_ctx *ctx, const char *query);
 // Metadata
 struct http_icy_metadata *
 transcode_metadata(struct transcode_ctx *ctx, int *changed);
+
+// When transcoding, we are in essence serving a different source file than the
+// original to the client. So we can't serve some of the file metadata from the
+// filescanner. This function creates strings to be used for override.
+void
+transcode_metadata_strings_set(struct transcode_metadata_string *s, enum transcode_profile profile, struct media_quality *q, uint32_t len_ms);
 
 #endif /* !__TRANSCODE_H__ */

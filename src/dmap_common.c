@@ -360,12 +360,11 @@ dmap_error_make(struct evbuffer *evbuf, const char *container, const char *errms
 }
 
 int
-dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int sort_tags, int force_wav)
+dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int sort_tags)
 {
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
   char **strval;
-  char *ptr;
   int32_t val;
   int want_mikd;
   int want_asdk;
@@ -444,40 +443,7 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
 	  continue;
 	}
 
-      val = 0;
-
-      if (force_wav)
-	{
-	  switch (dfm->mfi_offset)
-	    {
-	      case dbmfi_offsetof(type):
-		ptr = "wav";
-		strval = &ptr;
-		break;
-
-	      case dbmfi_offsetof(bitrate):
-		val = 0;
-		ret = safe_atoi32(dbmfi->samplerate, &val);
-		if ((ret < 0) || (val == 0))
-		  val = 1411;
-		else
-		  val = (val * 8) / 250;
-
-		ptr = NULL;
-		strval = &ptr;
-		break;
-
-	      case dbmfi_offsetof(description):
-		ptr = "wav audio file";
-		strval = &ptr;
-		break;
-
-	      default:
-		break;
-	    }
-	}
-
-      dmap_add_field(song, df, *strval, val);
+      dmap_add_field(song, df, *strval, 0);
 
       DPRINTF(E_SPAM, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
     }

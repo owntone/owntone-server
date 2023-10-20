@@ -139,8 +139,8 @@ struct decode_ctx
   struct stream_ctx audio_stream;
   struct stream_ctx video_stream;
 
-  // Duration (used to make wav header)
-  uint32_t duration;
+  // Source duration in ms as provided by caller
+  uint32_t len_ms;
 
   // Data kind (used to determine if ICY metadata is relevant to look for)
   enum data_kind data_kind;
@@ -186,7 +186,10 @@ struct encode_ctx
   AVPacket *encoded_pkt;
 
   // How many output bytes we have processed in total
-  off_t total_bytes;
+  off_t bytes_processed;
+
+  // Estimated total size of output
+  off_t bytes_total;
 
   // Used to check for ICY metadata changes at certain intervals
   uint32_t icy_interval;
@@ -240,7 +243,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->with_user_filters = true;
 	break;
 
-      case XCODE_PCM16_HEADER:
+      case XCODE_WAV:
 	settings->with_wav_header = true;
 	settings->with_user_filters = true;
       case XCODE_PCM16:
@@ -435,31 +438,47 @@ add_le32(uint8_t *dst, uint32_t val)
  * header must have size WAV_HEADER_LEN (44 bytes)
  */
 static void
-make_wav_header(uint8_t *header, off_t *est_size, int sample_rate, int bps, int channels, int duration)
+make_wav_header(uint8_t *header, int sample_rate, int bytes_per_sample, int channels, off_t bytes_total)
 {
-  uint32_t wav_len;
-
-  if (duration == 0)
-    duration = 3 * 60 * 1000; /* 3 minutes, in ms */
-
-  wav_len = channels * bps * sample_rate * (duration / 1000);
-
-  if (est_size)
-    *est_size = wav_len + WAV_HEADER_LEN;
+  uint32_t wav_size = bytes_total - WAV_HEADER_LEN;
 
   memcpy(header, "RIFF", 4);
-  add_le32(header + 4, 36 + wav_len);
+  add_le32(header + 4, 36 + wav_size);
   memcpy(header + 8, "WAVEfmt ", 8);
   add_le32(header + 16, 16);
   add_le16(header + 20, 1);
   add_le16(header + 22, channels);     /* channels */
   add_le32(header + 24, sample_rate);  /* samplerate */
-  add_le32(header + 28, sample_rate * channels * bps); /* byte rate */
-  add_le16(header + 32, channels * bps);               /* block align */
-  add_le16(header + 34, 8 * bps);                      /* bits per sample */
+  add_le32(header + 28, sample_rate * channels * bytes_per_sample); /* byte rate */
+  add_le16(header + 32, channels * bytes_per_sample);               /* block align */
+  add_le16(header + 34, 8 * bytes_per_sample);                      /* bits per sample */
   memcpy(header + 36, "data", 4);
-  add_le32(header + 40, wav_len);
+  add_le32(header + 40, wav_size);
 }
+
+static off_t
+size_estimate(enum transcode_profile profile, int bit_rate, int sample_rate, int bytes_per_sample, int channels, int len_ms)
+{
+  off_t bytes;
+
+  // If the source has a number of samples that doesn't match an even len_ms
+  // then the length may have been rounded up. We prefer an estimate that is on
+  // the low side, otherwise ffprobe won't trust the length from our wav header.
+  if (len_ms > 0)
+    len_ms -= 1;
+  else
+    len_ms = 3 * 60 * 1000;
+
+  if (profile == XCODE_WAV)
+    bytes = (int64_t)len_ms * channels * bytes_per_sample * sample_rate / 1000 + WAV_HEADER_LEN;
+  else if (profile == XCODE_MP3)
+    bytes = (int64_t)len_ms * bit_rate / 8000;
+  else
+    bytes = -1;
+
+  return bytes;
+}
+
 
 /*
  * Checks if this stream index is one that we are decoding
@@ -514,6 +533,8 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
       DPRINTF(E_LOG, L_XCODE, "Necessary encoder (%s) not found\n", codec_desc->name);
       return -1;
     }
+
+  DPRINTF(E_DBG, L_XCODE, "Selected encoder '%s'\n", encoder->long_name);
 
   CHECK_NULL(L_XCODE, s->stream = avformat_new_stream(ctx->ofmt_ctx, NULL));
   CHECK_NULL(L_XCODE, s->codec = avcodec_alloc_context3(encoder));
@@ -1529,6 +1550,11 @@ open_filters(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
       ret = create_filtergraph(&ctx->audio_stream, filters, ARRAY_SIZE(filters), &src_ctx->audio_stream);
       if (ret < 0)
 	goto out_fail;
+
+      // Many audio encoders require a fixed frame size. This will ensure that
+      // the filt_frame from av_buffersink_get_frame has that size (except EOF).
+      if (! (ctx->audio_stream.codec->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE))
+	av_buffersink_set_frame_size(ctx->audio_stream.buffersink_ctx, ctx->audio_stream.codec->frame_size);
     }
 
   if (ctx->settings.encode_video)
@@ -1563,7 +1589,7 @@ close_filters(struct encode_ctx *ctx)
 /*                                  Setup                                    */
 
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t song_length)
+transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t len_ms)
 {
   struct decode_ctx *ctx;
   int ret;
@@ -1572,7 +1598,7 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
   CHECK_NULL(L_XCODE, ctx->decoded_frame = av_frame_alloc());
   CHECK_NULL(L_XCODE, ctx->packet = av_packet_alloc());
 
-  ctx->duration = song_length;
+  ctx->len_ms = len_ms;
   ctx->data_kind = data_kind;
 
   ret = init_settings(&ctx->settings, profile, quality);
@@ -1603,11 +1629,11 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
 }
 
 struct encode_ctx *
-transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, off_t *est_size, int width, int height)
+transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, int width, int height)
 {
   struct encode_ctx *ctx;
-  int src_bps;
-  int dst_bps;
+  int src_bytes_per_sample;
+  int dst_bytes_per_sample;
   int channels;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct encode_ctx)));
@@ -1629,8 +1655,8 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
   // Caller did not specify a sample format -> determine from source
   if (!ctx->settings.sample_format && ctx->settings.encode_audio)
     {
-      src_bps = av_get_bytes_per_sample(src_ctx->audio_stream.codec->sample_fmt);
-      if (src_bps == 4)
+      src_bytes_per_sample = av_get_bytes_per_sample(src_ctx->audio_stream.codec->sample_fmt);
+      if (src_bytes_per_sample == 4)
 	{
 	  ctx->settings.sample_format = AV_SAMPLE_FMT_S32;
 	  ctx->settings.audio_codec = AV_CODEC_ID_PCM_S32LE;
@@ -1663,17 +1689,14 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
   channels = ctx->settings.channels;
 #endif
 
-  if (ctx->settings.with_wav_header)
-    {
-      dst_bps = av_get_bytes_per_sample(ctx->settings.sample_format);
-      make_wav_header(ctx->wav_header, est_size, ctx->settings.sample_rate, dst_bps, channels, src_ctx->duration);
-    }
+  dst_bytes_per_sample = av_get_bytes_per_sample(ctx->settings.sample_format);
 
+  ctx->bytes_total = size_estimate(profile, ctx->settings.bit_rate, ctx->settings.sample_rate, dst_bytes_per_sample, channels, src_ctx->len_ms);
+
+  if (ctx->settings.with_wav_header)
+    make_wav_header(ctx->wav_header, ctx->settings.sample_rate, dst_bytes_per_sample, channels, ctx->bytes_total);
   if (ctx->settings.with_icy && src_ctx->data_kind == DATA_KIND_HTTP)
-    {
-      dst_bps = av_get_bytes_per_sample(ctx->settings.sample_format);
-      ctx->icy_interval = METADATA_ICY_INTERVAL * channels * dst_bps * ctx->settings.sample_rate;
-    }
+    ctx->icy_interval = METADATA_ICY_INTERVAL * channels * dst_bytes_per_sample * ctx->settings.sample_rate;
 
   if (open_output(ctx, src_ctx) < 0)
     goto fail_free;
@@ -1693,20 +1716,20 @@ transcode_encode_setup(enum transcode_profile profile, struct media_quality *qua
 }
 
 struct transcode_ctx *
-transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t song_length, off_t *est_size)
+transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t len_ms)
 {
   struct transcode_ctx *ctx;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct transcode_ctx)));
 
-  ctx->decode_ctx = transcode_decode_setup(profile, quality, data_kind, path, NULL, song_length);
+  ctx->decode_ctx = transcode_decode_setup(profile, quality, data_kind, path, NULL, len_ms);
   if (!ctx->decode_ctx)
     {
       free(ctx);
       return NULL;
     }
 
-  ctx->encode_ctx = transcode_encode_setup(profile, quality, ctx->decode_ctx, est_size, 0, 0);
+  ctx->encode_ctx = transcode_encode_setup(profile, quality, ctx->decode_ctx, 0, 0);
   if (!ctx->encode_ctx)
     {
       transcode_decode_cleanup(&ctx->decode_ctx);
@@ -1779,87 +1802,73 @@ transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality 
   return NULL;
 }
 
-int
+enum transcode_profile
 transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype)
 {
   char *codectype;
   cfg_t *lib;
-  int size;
+  bool force_xcode;
+  int count;
   int i;
 
   if (!file_codectype)
     {
-      DPRINTF(E_LOG, L_XCODE, "Can't determine decode status, codec type is unknown\n");
-      return -1;
+      return XCODE_UNKNOWN;
     }
 
   lib = cfg_getsec(cfg, "library");
 
-  size = cfg_size(lib, "no_decode");
-  if (size > 0)
+  count = cfg_size(lib, "no_decode");
+  for (i = 0; i < count; i++)
     {
-      for (i = 0; i < size; i++)
-	{
-	  codectype = cfg_getnstr(lib, "no_decode", i);
-
-	  if (strcmp(file_codectype, codectype) == 0)
-	    return 0; // Codectype is in no_decode
-	}
+      codectype = cfg_getnstr(lib, "no_decode", i);
+      if (strcmp(file_codectype, codectype) == 0)
+	return XCODE_NONE; // Codectype is in no_decode
     }
 
-  size = cfg_size(lib, "force_decode");
-  if (size > 0)
+  count = cfg_size(lib, "force_decode");
+  for (i = 0, force_xcode = false; i < count && !force_xcode; i++)
     {
-      for (i = 0; i < size; i++)
-	{
-	  codectype = cfg_getnstr(lib, "force_decode", i);
+      codectype = cfg_getnstr(lib, "force_decode", i);
+      if (strcmp(file_codectype, codectype) == 0)
+	force_xcode = true; // Codectype is in force_decode
+    }
 
-	  if (strcmp(file_codectype, codectype) == 0)
-	    return 1; // Codectype is in force_decode
-	}
+  if (!client_codecs && user_agent)
+    {
+      if (strncmp(user_agent, "iTunes", strlen("iTunes")) == 0)
+	client_codecs = itunes_codecs;
+      else if (strncmp(user_agent, "Music/", strlen("Music/")) == 0) // Apple Music, include slash because the name is generic
+	client_codecs = itunes_codecs;
+      else if (strncmp(user_agent, "QuickTime", strlen("QuickTime")) == 0)
+	client_codecs = itunes_codecs; // Use iTunes codecs
+      else if (strncmp(user_agent, "Front%20Row", strlen("Front%20Row")) == 0)
+	client_codecs = itunes_codecs; // Use iTunes codecs
+      else if (strncmp(user_agent, "AppleCoreMedia", strlen("AppleCoreMedia")) == 0)
+	client_codecs = itunes_codecs; // Use iTunes codecs
+      else if (strncmp(user_agent, "Roku", strlen("Roku")) == 0)
+	client_codecs = roku_codecs;
+      else if (strncmp(user_agent, "Hifidelio", strlen("Hifidelio")) == 0)
+	/* Allegedly can't transcode for Hifidelio because their
+	 * HTTP implementation doesn't honour Connection: close.
+	 * At least, that's why mt-daapd didn't do it.
+	 */
+	return XCODE_NONE;
     }
 
   if (!client_codecs)
-    {
-      if (user_agent)
-	{
-	  if (strncmp(user_agent, "iTunes", strlen("iTunes")) == 0)
-	    client_codecs = itunes_codecs;
-	  else if (strncmp(user_agent, "Music/", strlen("Music/")) == 0) // Apple Music, include slash because the name is generic
-	    client_codecs = itunes_codecs;
-	  else if (strncmp(user_agent, "QuickTime", strlen("QuickTime")) == 0)
-	    client_codecs = itunes_codecs; // Use iTunes codecs
-	  else if (strncmp(user_agent, "Front%20Row", strlen("Front%20Row")) == 0)
-	    client_codecs = itunes_codecs; // Use iTunes codecs
-	  else if (strncmp(user_agent, "AppleCoreMedia", strlen("AppleCoreMedia")) == 0)
-	    client_codecs = itunes_codecs; // Use iTunes codecs
-	  else if (strncmp(user_agent, "Roku", strlen("Roku")) == 0)
-	    client_codecs = roku_codecs;
-	  else if (strncmp(user_agent, "Hifidelio", strlen("Hifidelio")) == 0)
-	    /* Allegedly can't transcode for Hifidelio because their
-	     * HTTP implementation doesn't honour Connection: close.
-	     * At least, that's why mt-daapd didn't do it.
-	     */
-	    return 0;
-	}
-    }
+    client_codecs = default_codecs;
   else
     DPRINTF(E_SPAM, L_XCODE, "Client advertises codecs: %s\n", client_codecs);
 
-  if (!client_codecs)
-    {
-      DPRINTF(E_SPAM, L_XCODE, "Could not identify client, using default codectype set\n");
-      client_codecs = default_codecs;
-    }
-
-  if (strstr(client_codecs, file_codectype))
-    {
-      DPRINTF(E_SPAM, L_XCODE, "Codectype supported by client, no decoding needed\n");
-      return 0;
-    }
-
-  DPRINTF(E_SPAM, L_XCODE, "Will decode\n");
-  return 1;
+  if (!force_xcode && strstr(client_codecs, file_codectype))
+    return XCODE_NONE;
+  else if (strstr(client_codecs, "mpeg"))
+    return XCODE_MP3;
+  else if (strstr(client_codecs, "wav"))
+    return XCODE_WAV;
+  else
+    return XCODE_UNKNOWN;
 }
 
 
@@ -2010,9 +2019,9 @@ transcode(struct evbuffer *evbuf, int *icy_timer, struct transcode_ctx *ctx, int
 
   evbuffer_add_buffer(evbuf, ctx->encode_ctx->obuf);
 
-  ctx->encode_ctx->total_bytes += processed;
+  ctx->encode_ctx->bytes_processed += processed;
   if (icy_timer && ctx->encode_ctx->icy_interval)
-    *icy_timer = (ctx->encode_ctx->total_bytes % ctx->encode_ctx->icy_interval < processed);
+    *icy_timer = (ctx->encode_ctx->bytes_processed % ctx->encode_ctx->icy_interval < processed);
 
   if ((ret < 0) && (ret != AVERROR_EOF))
     return ret;
@@ -2218,6 +2227,11 @@ transcode_encode_query(struct encode_ctx *ctx, const char *query)
       if (ctx->audio_stream.stream)
 	return ctx->audio_stream.stream->codecpar->frame_size;
     }
+  else if (strcmp(query, "estimated_size") == 0)
+    {
+      if (ctx->audio_stream.stream)
+	return ctx->bytes_total;
+    }
 
   return -1;
 }
@@ -2244,3 +2258,38 @@ transcode_metadata(struct transcode_ctx *ctx, int *changed)
   return m;
 }
 
+void
+transcode_metadata_strings_set(struct transcode_metadata_string *s, enum transcode_profile profile, struct media_quality *q, uint32_t len_ms)
+{
+  off_t bytes;
+
+  memset(s, 0, sizeof(struct transcode_metadata_string));
+
+  switch (profile)
+    {
+      case XCODE_WAV:
+	s->type = "wav";
+	s->codectype = "wav";
+	s->description = "WAV audio file";
+
+	snprintf(s->bitrate, sizeof(s->bitrate), "%d", 8 * STOB(q->sample_rate, q->bits_per_sample, q->channels) / 1000); // 44100/16/2 -> 1411
+
+	bytes = size_estimate(profile, q->bit_rate, q->sample_rate, q->bits_per_sample / 8, q->channels, len_ms);
+	snprintf(s->file_size, sizeof(s->file_size), "%d", (int)bytes);
+	break;
+
+      case XCODE_MP3:
+	s->type = "mp3";
+	s->codectype = "mpeg";
+	s->description = "MPEG audio file";
+
+	snprintf(s->bitrate, sizeof(s->bitrate), "%d", q->bit_rate / 1000);
+
+	bytes = size_estimate(profile, q->bit_rate, q->sample_rate, q->bits_per_sample / 8, q->channels, len_ms);
+	snprintf(s->file_size, sizeof(s->file_size), "%d", (int)bytes);
+	break;
+
+      default:
+	DPRINTF(E_WARN, L_XCODE, "transcode_metadata_strings_set() called with unknown profile %d\n", profile);
+    }
+}
