@@ -311,7 +311,7 @@ encoding_reset(struct media_quality *quality)
 
       profile = quality_to_xcode(&subscription->quality);
       if (profile != XCODE_UNKNOWN)
-	subscription->encode_ctx = transcode_encode_setup(profile, &subscription->quality, decode_ctx, NULL, 0, 0);
+	subscription->encode_ctx = transcode_encode_setup(profile, &subscription->quality, decode_ctx, 0, 0);
       else
 	DPRINTF(E_LOG, L_PLAYER, "Could not setup resampling to %d/%d/%d for output\n",
 	  subscription->quality.sample_rate, subscription->quality.bits_per_sample, subscription->quality.channels);

@@ -408,26 +408,81 @@ rsp_reply_db(struct httpd_request *hreq)
 }
 
 static int
+item_add(xml_node *parent, struct query_params *qp, const char *user_agent, const char *client_codecs, int mode)
+{
+  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, HTTPD_STREAM_BIT_RATE };
+  struct db_media_file_info dbmfi;
+  struct transcode_metadata_string xcode_metadata;
+  enum transcode_profile profile;
+  const char *orgcodec = NULL;
+  uint32_t len_ms;
+  xml_node *item;
+  char **strval;
+  int ret;
+  int i;
+
+  ret = db_query_fetch_file(&dbmfi, qp);
+  if (ret != 0)
+    return ret;
+
+  profile = transcode_needed(user_agent, client_codecs, dbmfi.codectype);
+  if (profile == XCODE_UNKNOWN)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Cannot transcode '%s', codec type is unknown\n", dbmfi.fname);
+    }
+  else if (profile != XCODE_NONE)
+    {
+      orgcodec = dbmfi.codectype;
+
+      if (safe_atou32(dbmfi.song_length, &len_ms) < 0)
+        len_ms = 3 * 60 * 1000; // just a fallback default
+
+      transcode_metadata_strings_set(&xcode_metadata, profile, &quality, len_ms);
+      dbmfi.type        = xcode_metadata.type;
+      dbmfi.codectype   = xcode_metadata.codectype;
+      dbmfi.description = xcode_metadata.description;
+      dbmfi.file_size   = xcode_metadata.file_size;
+      dbmfi.bitrate     = xcode_metadata.bitrate;
+    }
+
+  // Now add block with content
+  item = xml_new_node(parent, "item", NULL);
+
+  for (i = 0; rsp_fields[i].field; i++)
+    {
+      if (!(rsp_fields[i].flags & mode))
+	continue;
+
+      strval = (char **) ((char *)&dbmfi + rsp_fields[i].offset);
+      if (!(*strval) || (strlen(*strval) == 0))
+	continue;
+
+      xml_new_node(item, rsp_fields[i].field, *strval);
+
+      // In case we are transcoding
+      if (rsp_fields[i].offset == dbmfi_offsetof(codectype) && orgcodec)
+	xml_new_node(item, "original_codec", orgcodec);
+    }
+
+  return 0;
+}
+
+static int
 rsp_reply_playlist(struct httpd_request *hreq)
 {
   struct query_params qp;
-  struct db_media_file_info dbmfi;
   const char *param;
-  const char *ua;
   const char *client_codecs;
-  char **strval;
   xml_node *xml;
   xml_node *response;
   xml_node *items;
-  xml_node *item;
   int mode;
   int records;
-  int transcode;
-  int32_t bitrate;
-  int i;
   int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
+
+  client_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
 
   ret = safe_atoi32(hreq->path_parts[2], &qp.id);
   if (ret < 0)
@@ -485,70 +540,15 @@ rsp_reply_playlist(struct httpd_request *hreq)
 
   rsp_xml_response_new(&xml, &response, 0, "", records, qp.results);
 
+  // Add a parent items block (all items), and then one item per file
   items = xml_new_node(response, "items", NULL);
-
-  /* Items block (all items) */
-  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
+  do
     {
-      ua = httpd_header_find(hreq->in_headers, "User-Agent");
-      client_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
-
-      transcode = transcode_needed(ua, client_codecs, dbmfi.codectype);
-
-      /* Item block (one item) */
-      item = xml_new_node(items, "item", NULL);
-
-      for (i = 0; rsp_fields[i].field; i++)
-	{
-	  if (!(rsp_fields[i].flags & mode))
-	    continue;
-
-	  strval = (char **) ((char *)&dbmfi + rsp_fields[i].offset);
-
-	  if (!(*strval) || (strlen(*strval) == 0))
-	    continue;
-
-	  if (!transcode)
-	    {
-	      xml_new_node(item, rsp_fields[i].field, *strval);
-	      continue;
-	    }
-
-	  switch (rsp_fields[i].offset)
-	    {
-	      case dbmfi_offsetof(type):
-		xml_new_node(item, rsp_fields[i].field, "wav");
-		break;
-
-	      case dbmfi_offsetof(bitrate):
-		bitrate = 0;
-		ret = safe_atoi32(dbmfi.samplerate, &bitrate);
-		if ((ret < 0) || (bitrate == 0))
-		  bitrate = 1411;
-		else
-		  bitrate = (bitrate * 8) / 250;
-
-		xml_new_node_textf(item, rsp_fields[i].field, "%d", bitrate);
-		break;
-
-	      case dbmfi_offsetof(description):
-		xml_new_node(item, rsp_fields[i].field, "wav audio file");
-		break;
-
-	      case dbmfi_offsetof(codectype):
-		xml_new_node(item, rsp_fields[i].field, "wav");
-		xml_new_node(item, "original_codec", *strval);
-	        break;
-
-	      default:
-		xml_new_node(item, rsp_fields[i].field, *strval);
-		break;
-	    }
-	}
+      ret = item_add(items, &qp, hreq->user_agent, client_codecs, mode);
     }
+  while (ret == 0);
 
-  if (qp.filter)
-    free(qp.filter);
+  free(qp.filter);
 
   if (ret < 0)
     {

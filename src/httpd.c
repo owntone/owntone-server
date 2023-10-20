@@ -66,10 +66,6 @@
   "<h1>%s</h1>\n" \
   "</body>\n</html>\n"
 
-#define HTTPD_STREAM_SAMPLE_RATE 44100
-#define HTTPD_STREAM_BPS         16
-#define HTTPD_STREAM_CHANNELS    2
-
 extern struct httpd_module httpd_dacp;
 extern struct httpd_module httpd_daap;
 extern struct httpd_module httpd_jsonapi;
@@ -93,6 +89,7 @@ static struct httpd_module *httpd_modules[] = {
 
 struct content_type_map {
   char *ext;
+  enum transcode_profile profile;
   char *ctype;
 };
 
@@ -112,15 +109,18 @@ struct stream_ctx {
 
 static const struct content_type_map ext2ctype[] =
   {
-    { ".html", "text/html; charset=utf-8" },
-    { ".xml",  "text/xml; charset=utf-8" },
-    { ".css",  "text/css; charset=utf-8" },
-    { ".txt",  "text/plain; charset=utf-8" },
-    { ".js",   "application/javascript; charset=utf-8" },
-    { ".gif",  "image/gif" },
-    { ".ico",  "image/x-ico" },
-    { ".png",  "image/png" },
-    { NULL, NULL }
+    { ".html", XCODE_NONE, "text/html; charset=utf-8" },
+    { ".xml",  XCODE_NONE, "text/xml; charset=utf-8" },
+    { ".css",  XCODE_NONE, "text/css; charset=utf-8" },
+    { ".txt",  XCODE_NONE, "text/plain; charset=utf-8" },
+    { ".js",   XCODE_NONE, "application/javascript; charset=utf-8" },
+    { ".gif",  XCODE_NONE, "image/gif" },
+    { ".ico",  XCODE_NONE, "image/x-ico" },
+    { ".png",  XCODE_PNG,  "image/png" },
+    { ".jpg",  XCODE_JPEG, "image/jpeg" },
+    { ".mp3",  XCODE_MP3,  "audio/mpeg" },
+    { ".wav",  XCODE_WAV,  "audio/wav" },
+    { NULL,    XCODE_NONE, NULL }
   };
 
 static char webroot_directory[PATH_MAX];
@@ -172,6 +172,40 @@ scrobble_cb(void *arg)
   lastfm_scrobble(*id);
 }
 #endif
+
+static const char *
+content_type_from_ext(const char *ext)
+{
+  int i;
+
+  if (!ext)
+    return NULL;
+
+  for (i = 0; ext2ctype[i].ext; i++)
+    {
+      if (strcmp(ext, ext2ctype[i].ext) == 0)
+	return ext2ctype[i].ctype;
+    }
+
+  return NULL;
+}
+
+static const char *
+content_type_from_profile(enum transcode_profile profile)
+{
+  int i;
+
+  if (profile == XCODE_NONE)
+    return NULL;
+
+  for (i = 0; ext2ctype[i].ext; i++)
+    {
+      if (profile == ext2ctype[i].profile)
+	return ext2ctype[i].ctype;
+    }
+
+  return NULL;
+}
 
 
 /* --------------------------- MODULES INTERFACE ---------------------------- */
@@ -424,13 +458,11 @@ httpd_response_not_cachable(struct httpd_request *hreq)
 static void
 serve_file(struct httpd_request *hreq)
 {
-  char *ext;
   char path[PATH_MAX];
   char deref[PATH_MAX];
-  char *ctype;
+  const char *ctype;
   struct stat sb;
   int fd;
-  int i;
   uint8_t buf[4096];
   bool slashed;
   int ret;
@@ -544,19 +576,9 @@ serve_file(struct httpd_request *hreq)
       goto out_fail;
     }
 
-  ctype = "application/octet-stream";
-  ext = strrchr(path, '.');
-  if (ext)
-    {
-      for (i = 0; ext2ctype[i].ext; i++)
-	{
-	  if (strcmp(ext, ext2ctype[i].ext) == 0)
-	    {
-	      ctype = ext2ctype[i].ctype;
-	      break;
-	    }
-	}
-    }
+  ctype = content_type_from_ext(strrchr(path, '.'));
+  if (!ctype)
+    ctype = "application/octet-stream";
 
   httpd_header_add(hreq->out_headers, "Content-Type", ctype);
 
@@ -569,7 +591,6 @@ serve_file(struct httpd_request *hreq)
   httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal error");
   close(fd);
 }
-
 
 /* ---------------------------- STREAM HANDLING ----------------------------- */
 
@@ -653,10 +674,11 @@ stream_new(struct media_file_info *mfi, struct httpd_request *hreq, event_callba
 }
 
 static struct stream_ctx *
-stream_new_transcode(struct media_file_info *mfi, struct httpd_request *hreq, int64_t offset, int64_t end_offset, event_callback_fn stream_cb)
+stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile, struct httpd_request *hreq,
+                     int64_t offset, int64_t end_offset, event_callback_fn stream_cb)
 {
   struct stream_ctx *st;
-  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, 0 };
+  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, HTTPD_STREAM_BIT_RATE };
 
   st = stream_new(mfi, hreq, stream_cb);
   if (!st)
@@ -664,10 +686,19 @@ stream_new_transcode(struct media_file_info *mfi, struct httpd_request *hreq, in
       goto error;
     }
 
-  st->xcode = transcode_setup(XCODE_PCM16_HEADER, &quality, mfi->data_kind, mfi->path, mfi->song_length, &st->size);
+  st->xcode = transcode_setup(profile, &quality, mfi->data_kind, mfi->path, mfi->song_length);
   if (!st->xcode)
     {
       DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");
+
+      httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
+      goto error;
+    }
+
+  st->size = transcode_encode_query(st->xcode->encode_ctx, "estimated_size");
+  if (st->size < 0)
+    {
+      DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, could not determine estimated size\n");
 
       httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
       goto error;
@@ -913,12 +944,13 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 {
   struct media_file_info *mfi = NULL;
   struct stream_ctx *st = NULL;
+  enum transcode_profile profile;
   const char *param;
   const char *param_end;
+  const char *ctype;
   char buf[64];
   int64_t offset = 0;
   int64_t end_offset = 0;
-  int transcode;
   int ret;
 
   param = httpd_header_find(hreq->in_headers, "Range");
@@ -973,18 +1005,29 @@ httpd_stream_file(struct httpd_request *hreq, int id)
     }
 
   param = httpd_header_find(hreq->in_headers, "Accept-Codecs");
+  profile = transcode_needed(hreq->user_agent, param, mfi->codectype);
+  if (profile == XCODE_UNKNOWN)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not serve '%s' to client, unable to determine output format\n", mfi->path);
 
-  transcode = transcode_needed(hreq->user_agent, param, mfi->codectype);
-  if (transcode)
+      httpd_send_error(hreq, HTTP_INTERNAL, "Cannot stream, unable to determine output format");
+      goto error;
+    }
+
+  if (profile != XCODE_NONE)
     {
       DPRINTF(E_INFO, L_HTTPD, "Preparing to transcode %s\n", mfi->path);
 
-      st = stream_new_transcode(mfi, hreq, offset, end_offset, stream_chunk_xcode_cb);
+      st = stream_new_transcode(mfi, profile, hreq, offset, end_offset, stream_chunk_xcode_cb);
       if (!st)
 	goto error;
 
+      ctype = content_type_from_profile(profile);
+      if (!ctype)
+	goto error;
+
       if (!httpd_header_find(hreq->out_headers, "Content-Type"))
-	httpd_header_add(hreq->out_headers, "Content-Type", "audio/wav");
+	httpd_header_add(hreq->out_headers, "Content-Type", ctype);
     }
   else
     {
@@ -1027,7 +1070,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
       // If we are not decoding, send the Content-Length. We don't do that if we
       // are decoding because we can only guesstimate the size in this case and
       // the error margin is unknown and variable.
-      if (!transcode)
+      if (profile == XCODE_NONE)
 	{
 	  ret = snprintf(buf, sizeof(buf), "%" PRIi64, (int64_t)st->size);
 	  if ((ret < 0) || (ret >= sizeof(buf)))
@@ -1059,7 +1102,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
     }
 
 #ifdef HAVE_POSIX_FADVISE
-  if (!transcode)
+  if (profile == XCODE_NONE)
     {
       // Hint the OS
       if ( (ret = posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_WILLNEED)) != 0 ||

@@ -703,13 +703,13 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *in_buf, bool is
     }
 
   if (dst_format == ART_FMT_JPEG)
-    xcode_encode = transcode_encode_setup(XCODE_JPEG, NULL, xcode_decode, NULL, dst_width, dst_height);
+    xcode_encode = transcode_encode_setup(XCODE_JPEG, NULL, xcode_decode, dst_width, dst_height);
   else if (dst_format == ART_FMT_PNG)
-    xcode_encode = transcode_encode_setup(XCODE_PNG, NULL, xcode_decode, NULL, dst_width, dst_height);
+    xcode_encode = transcode_encode_setup(XCODE_PNG, NULL, xcode_decode, dst_width, dst_height);
   else if (dst_format == ART_FMT_VP8)
-    xcode_encode = transcode_encode_setup(XCODE_VP8, NULL, xcode_decode, NULL, dst_width, dst_height);
+    xcode_encode = transcode_encode_setup(XCODE_VP8, NULL, xcode_decode, dst_width, dst_height);
   else
-    xcode_encode = transcode_encode_setup(XCODE_JPEG, NULL, xcode_decode, NULL, dst_width, dst_height);
+    xcode_encode = transcode_encode_setup(XCODE_JPEG, NULL, xcode_decode, dst_width, dst_height);
 
   if (!xcode_encode)
     {

@@ -38,7 +38,7 @@ setup(struct input_source *source)
 {
   struct transcode_ctx *ctx;
 
-  ctx = transcode_setup(XCODE_PCM_NATIVE, NULL, source->data_kind, source->path, source->len_ms, NULL);
+  ctx = transcode_setup(XCODE_PCM_NATIVE, NULL, source->data_kind, source->path, source->len_ms);
   if (!ctx)
     return -1;
 

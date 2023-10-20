@@ -2399,7 +2399,7 @@ cast_init(void)
       goto out_tls_deinit;
     }
 
-  cast_encode_ctx = transcode_encode_setup(XCODE_OPUS, &cast_quality_default, decode_ctx, NULL, 0, 0);
+  cast_encode_ctx = transcode_encode_setup(XCODE_OPUS, &cast_quality_default, decode_ctx, 0, 0);
   transcode_decode_cleanup(&decode_ctx);
   if (!cast_encode_ctx)
     {

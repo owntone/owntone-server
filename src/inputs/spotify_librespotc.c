@@ -404,7 +404,7 @@ download_xcode_setup(struct download_ctx *download)
   if (!xcode->decode_ctx)
     goto error;
 
-  xcode->encode_ctx = transcode_encode_setup(XCODE_PCM16, NULL, xcode->decode_ctx, NULL, 0, 0);
+  xcode->encode_ctx = transcode_encode_setup(XCODE_PCM16, NULL, xcode->decode_ctx, 0, 0);
   if (!xcode->encode_ctx)
     goto error;
 

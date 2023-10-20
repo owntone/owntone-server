@@ -1153,7 +1153,7 @@ master_session_make(struct media_quality *quality)
       goto error;
     }
 
-  rms->encode_ctx = transcode_encode_setup(XCODE_ALAC, quality, decode_ctx, NULL, 0, 0);
+  rms->encode_ctx = transcode_encode_setup(XCODE_ALAC, quality, decode_ctx, 0, 0);
   transcode_decode_cleanup(&decode_ctx);
   if (!rms->encode_ctx)
     {
