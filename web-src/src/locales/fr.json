@@ -578,8 +578,7 @@
       "shuffle-disabled": "Lire les pistes dans l’ordre",
       "skip-backward": "Reculer à la piste précédente",
       "skip-forward": "Avancer à la piste suivante",
-      "stop": "Arrêter la lecture",
-      "toggle-lyrics": "Voir/Cacher les paroles"
+      "stop": "Arrêter la lecture"
     }
   },
   "setting": {

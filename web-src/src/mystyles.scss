@@ -3,27 +3,6 @@
 @import 'bulma/bulma.sass';
 @import 'bulma-switch';
 
-.is-no-basis {
-  flex-basis: 0;
-}
-
-/* Fix bulma issue for a group under a navbar-brand container (contrary to documentation) */
-.navbar.is-white .navbar-brand > .navbar-item *:focus,  .navbar.is-white .navbar-brand >  .navbar-item *:hover, .navbar.is-white .navbar-brand > .navbar-item *.is-active {
-  color: $black;
-}
-
-.navbar.is-dark .navbar-brand > .navbar-item:focus, .navbar.is-dark .navbar-brand > .navbar-item:hover, .navbar.is-dark .navbar-brand >  .navbar-item.is-active 
-.navbar.is-dark .navbar-brand > .navbar-item *:focus, .navbar.is-dark .navbar-brand > .navbar-item *:hover, .navbar.is-dark .navbar-brand >  .navbar-item *.is-active  {
-  background-color: $black-ter;;
-  color: $white;
-}
-
-.navbar.is-dark .navbar-brand .navbar-item, 
-.navbar.is-white.is-dark .navbar-brand .navbar-item, 
-{
-  color: $white;
-}
-
 .progress-bar {
   background-color: $info;
   border-radius: 2px;

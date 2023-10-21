@@ -578,8 +578,7 @@
       "shuffle-disabled": "按顺序播放曲目",
       "skip-backward": "播放上一首",
       "skip-forward": "播放下一首",
-      "stop": "停止",
-      "toggle-lyrics": "显示/隐藏歌词"
+      "stop": "停止"
     }
   },
   "setting": {
