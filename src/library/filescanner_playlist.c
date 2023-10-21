@@ -255,7 +255,8 @@ process_url(int pl_id, const char *path, struct media_file_info *mfi)
       m3u.album_artist = safe_strdup(mfi->album_artist);
       m3u.album = safe_strdup(mfi->album);
       m3u.title = safe_strdup(mfi->title);
-
+      m3u.genre = safe_strdup(mfi->genre);
+	    
       scan_metadata_stream(mfi, path);
 
       if (m3u.artist)
@@ -266,6 +267,8 @@ process_url(int pl_id, const char *path, struct media_file_info *mfi)
 	swap_pointers(&mfi->album, &m3u.album);
       if (m3u.title)
 	swap_pointers(&mfi->title, &m3u.title);
+      if (m3u.genre)
+	swap_pointers(&mfi->genre, &m3u.genre);
 
       free_mfi(&m3u, 1);
     }
