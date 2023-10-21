@@ -1,0 +1,27 @@
+name: Web UI Lint
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'web-src/**'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'web-src/**'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        working-directory: web-src
+        run: npm install
+
+      - name: Run linter
+        working-directory: web-src
+        run: npm run lint --no-fix
