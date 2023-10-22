@@ -181,7 +181,7 @@ Note: if for some reason you've installed the avahi port, you need to
 add `--without-avahi` to configure above.
 
 Edit `/usr/local/etc/owntone.conf` and change the `uid` to a nice
-system daemon (eg: unknown), and run the following:
+system daemon (eg: unknown) and optionnally the `gid`, and run the following:
 
 ```bash
 sudo mkdir -p /usr/local/var/run

@@ -117,6 +117,7 @@ daemonize(bool background, char *pidfile)
   int fd;
   int ret;
   char *runas;
+  char *runasgroup;
 
   if (background)
     {
@@ -189,12 +190,27 @@ daemonize(bool background, char *pidfile)
     {
       runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
 
-      ret = initgroups(runas, runas_gid);
-      if (ret != 0)
+      runasgroup = cfg_getstr(cfg_getsec(cfg, "general"), "gid");
+      if (strlen(runasgroup))
 	{
-	  DPRINTF(E_FATAL, L_MAIN, "initgroups() failed: %s\n", strerror(errno));
+	  struct group * grp = getgrnam(runasgroup);
+	  if (grp != NULL)
+	    runas_gid = grp->gr_gid;
+	  else
+	    {
+	      DPRINTF(E_FATAL, L_MAIN, "getgrnam() failed: %s\n", strerror(errno));
 
-	  return -1;
+	      return -1;
+	    } 
+	} else
+	{
+	  ret = initgroups(runas, runas_gid);
+	  if (ret != 0)
+	    {
+	      DPRINTF(E_FATAL, L_MAIN, "initgroups() failed: %s\n", strerror(errno));
+
+	      return -1;
+	    }
 	}
 
       ret = setegid(runas_gid);

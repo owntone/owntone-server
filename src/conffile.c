@@ -45,6 +45,7 @@ static int cb_loglevel(cfg_t *cfg, cfg_opt_t *opt, const char *value, void *resu
 static cfg_opt_t sec_general[] =
   {
     CFG_STR("uid", "nobody", CFGF_NONE),
+    CFG_STR("gid", "", CFGF_NONE),
     CFG_STR("db_path", STATEDIR "/cache/" PACKAGE "/songs3.db", CFGF_NONE),
     CFG_STR("db_backup_path", NULL, CFGF_NONE),
     CFG_STR("logfile", STATEDIR "/log/" PACKAGE ".log", CFGF_NONE),

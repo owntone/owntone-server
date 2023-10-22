@@ -12,6 +12,11 @@ general {
 	# Make sure the user has read access to the library directories you set
 	# below, and full access to the databases, log and local audio
 	uid = "@OWNTONE_USER@"
+	
+	# User group
+	# The library might be shared by multiple users that all belong to this group. 
+	# Default to the first group declared for the user
+#	gid = "@OWNTONE_USER@"
 
 	# Database location
 #	db_path = "@localstatedir@/cache/@PACKAGE@/songs3.db"
