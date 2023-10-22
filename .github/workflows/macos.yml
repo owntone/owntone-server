@@ -2,9 +2,19 @@ name: MacOS
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - 'htdocs/**'
+      - 'web-src/**'
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - 'htdocs/**'
+      - 'web-src/**'
   workflow_dispatch:
 
 jobs:
