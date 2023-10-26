@@ -299,12 +299,12 @@ extract_metadata_from_kv(struct media_file_info *mfi, const char *key, const cha
   if ((value == NULL) || (strlen(value) == 0))
     return 0;
 
-  if (strncmp(key, "lyrics-", sizeof("lyrics-") - 1) == 0)
+  if (strncasecmp(key, "lyrics-", sizeof("lyrics-") - 1) == 0)
     key = "lyrics";
 
   for (i = 0; md_map[i].key != NULL; i++)
     {
-      if (strcmp(key, md_map[i].key) == 0)
+      if (strcasecmp(key, md_map[i].key) == 0)
 	break;
     }
 
