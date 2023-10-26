@@ -456,6 +456,10 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
     {
       len = strlen(buf);
 
+      // Check for and strip byte-order mark
+      if (memcmp("\xef\xbb\xbf", buf, 3) == 0)
+	memmove(buf, buf + 3, len - 3 + 1);
+
       // rtrim and check that length is sane (ignore blank lines)
       while ((len > 0) && isspace(buf[len - 1]))
 	{
