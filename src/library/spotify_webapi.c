@@ -1739,8 +1739,8 @@ saved_playlist_add(json_object *item, int index, int total, enum spotify_request
 
   if (!playlist.uri || !playlist.name || playlist.tracks_count == 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Ignoring playlist '%s' with %d tracks (%s)\n", playlist.name, playlist.tracks_count, playlist.uri);
-      return -1;
+      DPRINTF(E_INFO, L_SPOTIFY, "Ignoring playlist '%s' with %d tracks (%s)\n", playlist.name, playlist.tracks_count, playlist.uri);
+      return 0; // Ignore
     }
 
   map_playlist_to_pli(&pli, &playlist);
