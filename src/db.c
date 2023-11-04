@@ -6391,7 +6391,7 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
   ret = db_blocking_step(stmt);
   if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_WARN, L_DB, "Watch not found: '%s'\n", query);
+      DPRINTF(E_DBG, L_DB, "Watch not found: '%s'\n", query);
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
@@ -6618,7 +6618,7 @@ db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
   ret = db_blocking_step(we->stmt);
   if (ret == SQLITE_DONE)
     {
-      DPRINTF(E_INFO, L_DB, "End of watch enum results\n");
+      DPRINTF(E_DBG, L_DB, "End of watch enum results\n");
       return 0;
     }
   else if (ret != SQLITE_ROW)
