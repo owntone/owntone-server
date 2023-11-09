@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <stdint.h>
 
@@ -800,4 +801,231 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
   /* All done */
 
   return 0;
+}
+
+static int
+file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
+{
+  int  ret = 0;
+
+  AVFormatContext *out_fmt_ctx = NULL;
+  AVPacket pkt;
+  AVDictionaryEntry *tag = NULL;
+  AVDictionary *opts = NULL;
+
+  int i;
+  int stream_idx = 0;
+  int *stream_mapping = NULL;
+  int number_of_streams = 0;
+
+
+  if ((ret = avformat_find_stream_info (in_fmt_ctx, NULL)) < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Failed to retrieve input stream information '%s' - %s\n", in_fmt_ctx->url, av_err2str(ret));
+      goto end;
+    }
+
+  // we've hacked the name of the output file so its not going to get scanned
+  // by the library for no reason
+  const struct AVOutputFormat*  out_fmt = av_guess_format(in_fmt_ctx->iformat->name, in_fmt_ctx->url, in_fmt_ctx->iformat->mime_type);
+  if (out_fmt == NULL)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not determine output format from '%s'\n", in_fmt_ctx->url);
+      ret = AVERROR_UNKNOWN;
+      goto end;
+    }
+
+  ret = avformat_alloc_output_context2 (&out_fmt_ctx, out_fmt, NULL, NULL);
+  if (!out_fmt_ctx)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not create output context '%s' - %s\n", in_fmt_ctx->url, av_err2str(ret));
+      ret = AVERROR_UNKNOWN;
+      goto end;
+    }
+
+  number_of_streams = in_fmt_ctx->nb_streams;
+  stream_mapping = av_calloc(number_of_streams, sizeof (*stream_mapping));
+
+  if (!stream_mapping)
+    {
+      ret = AVERROR (ENOMEM);
+      goto end;
+    }
+
+  // copy the basic/generic meta
+  while ((tag = av_dict_get(in_fmt_ctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
+    {
+      av_dict_set(&(out_fmt_ctx->metadata), tag->key, tag->value, 0);
+    }
+
+  for (i = 0; i < in_fmt_ctx->nb_streams; i++)
+    {
+      AVStream *out_stream;
+      AVStream *in_stream = in_fmt_ctx->streams[i];
+      AVCodecParameters *in_codecpar = in_stream->codecpar;
+      if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
+	  in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO)
+      {
+	  stream_mapping[i] = -1;
+	  continue;
+      }
+
+      stream_mapping[i] = stream_idx++;
+      out_stream = avformat_new_stream (out_fmt_ctx, NULL);
+      if (!out_stream)
+      {
+	  DPRINTF(E_LOG, L_SCAN, "Failed allocating output stream '%s'\n", in_fmt_ctx->url);
+	  ret = AVERROR_UNKNOWN;
+	  goto end;
+      }
+      ret = avcodec_parameters_copy (out_stream->codecpar, in_codecpar);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Failed to copy codec parameters '%s' - %s\n", in_fmt_ctx->url, av_err2str(ret));
+	  goto end;
+	}
+
+      if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+	{
+	  if (in_stream->metadata)
+	    {
+	      while ((tag = av_dict_get(in_stream->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
+		{
+		  av_dict_set(&(out_stream->metadata), tag->key, tag->value, 0);
+		}
+	    }
+	}
+    }
+
+  ret = avio_open (&out_fmt_ctx->pb, dest, AVIO_FLAG_WRITE);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not open output rating file '%s' - %s\n", dest, av_err2str(ret));
+      goto end;
+    }
+
+  ret = avformat_write_header (out_fmt_ctx, &opts);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error occurred when writing output header: '%s' - %s\n", dest, av_err2str(ret));
+      goto end;
+    }
+
+  while (1)
+    {
+      AVStream *in_stream, *out_stream;
+      ret = av_read_frame (in_fmt_ctx, &pkt);
+      if (ret < 0)
+	break;
+
+      in_stream = in_fmt_ctx->streams[pkt.stream_index];
+      if (pkt.stream_index >= number_of_streams || stream_mapping[pkt.stream_index] < 0)
+	{
+	  av_packet_unref (&pkt);
+	  continue;
+	}
+
+      pkt.stream_index = stream_mapping[pkt.stream_index];
+      out_stream = out_fmt_ctx->streams[pkt.stream_index];
+
+      /* copy packet */
+      pkt.pts = av_rescale_q_rnd (pkt.pts, in_stream->time_base, out_stream->time_base, AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX);
+      pkt.dts = av_rescale_q_rnd (pkt.dts, in_stream->time_base, out_stream->time_base, AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX);
+      pkt.duration = av_rescale_q (pkt.duration, in_stream->time_base, out_stream->time_base);
+      pkt.pos = -1;
+
+      ret = av_interleaved_write_frame (out_fmt_ctx, &pkt);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Error muxing pkt for rating '%s' - %s\n", in_fmt_ctx->url, av_err2str(ret));
+	  break;
+	}
+      av_packet_unref (&pkt);
+    }
+  av_write_trailer (out_fmt_ctx);
+
+end:
+  if (out_fmt_ctx && !(out_fmt_ctx->oformat->flags & AVFMT_NOFILE))
+    {
+      avio_closep (&out_fmt_ctx->pb);
+    }
+  avformat_free_context (out_fmt_ctx);
+  av_freep (&stream_mapping);
+  if (ret < 0 && ret != AVERROR_EOF)
+    {
+      return -1;
+    }
+  return 0;
+}
+
+int
+filescanner_ffmpeg_sync_metadata(const char *path, uint32_t req_rating)
+{
+  int ret;
+  char rating[5] = { '\0' };
+  char dest[PATH_MAX];
+  int i;
+  bool supported = false;
+
+  AVFormatContext*  ctx = NULL;
+  if ( (ret = avformat_open_input(&ctx, path, NULL, NULL)) != 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "failed to open library file for rating metadata update '%s' - %s\n", path, av_err2str(ret));
+      return ENOENT;
+    }
+
+  for (i=0; i<ctx->nb_streams && !supported; ++i)
+  {
+      if (ctx->streams[i]->codecpar->codec_type != AVMEDIA_TYPE_AUDIO)
+        continue;
+
+      switch (ctx->streams[i]->codecpar->codec_id)
+      {
+	// ffmpeg's metadata update are limited - some formats do not support
+	// rating update even though the write completes; keep this in sync with
+	// supported formats
+        case AV_CODEC_ID_FLAC:
+        case AV_CODEC_ID_MP3:
+	  supported = true;
+	  break;
+
+        default:
+	  DPRINTF(E_WARN, L_SCAN, "unsupported metadata update for 'rating' on '%s' (%d) - skipping\n", path, ctx->streams[i]->codecpar->codec_id);
+      }
+  }
+
+  if (!supported)
+    goto end;
+
+  safe_snprintf_cat(rating, 4, "%d", req_rating);
+
+  // Save a potential write if metadata on the underlying file matches requested rating
+  AVDictionaryEntry*  entry = av_dict_get(ctx->metadata, "rating", NULL, 0);
+  if (entry == NULL || (entry && entry->value == NULL) || (entry && strcmp(entry->value, rating) != 0) )
+    {
+      av_dict_set(&ctx->metadata, "rating", rating, 0);
+      DPRINTF(E_LOG, L_SCAN, "updating rating to %s on '%s'\n", rating, path);
+
+      sprintf(dest, "%s-%d.metadata", ctx->url, getpid());
+
+      if ( (ret = file_clone_metadata(ctx, dest)) == 0)
+	{
+	  ret = rename(dest, ctx->url);
+
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "failed to replace library rating file '%s' with temp '%s' - %s\n", ctx->url, dest, strerror(errno));
+	      unlink(dest);
+	      ret = EACCES;
+	    }
+	}
+      else
+	{
+	  unlink(dest);
+	  ret = EIO;
+	}
+    }
+end:
+  avformat_close_input(&ctx);
+  return ret;
 }

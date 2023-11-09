@@ -156,6 +156,8 @@ filescanner_rescan();
 static int
 filescanner_fullrescan();
 
+int
+filescanner_ffmpeg_sync_metadata(const char *path, uint32_t rating);
 
 /* ----------------------- Internal utility functions --------------------- */
 
@@ -172,6 +174,18 @@ virtual_path_make(char *virtual_path, int virtual_path_len, const char *path)
     }
 
   return 0;
+}
+
+static const char *
+virtual_path_to_path(const char *virtual_path)
+{
+  if (strncmp(virtual_path, "/file:", strlen("/file:")) == 0)
+    return virtual_path + strlen("/file:");
+
+  if (strncmp(virtual_path, "file:", strlen("file:")) == 0)
+    return virtual_path + strlen("file:");
+
+  return NULL;
 }
 
 static int
@@ -1720,6 +1734,99 @@ filescanner_fullrescan()
 }
 
 static int
+filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t rating)
+{
+  int ret;
+  unsigned long flags;
+  char id_path[PATH_MAX] = { 0 };
+  char inotify_path[PATH_MAX] = { 0 };
+  struct watch_info wi = { 0 };
+  char *path;
+  int id_kind = 0;
+
+  if (virtual_path == NULL && id == NULL)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Bug! Invalid params %s:%d\n", __FILE__, __LINE__);
+      return -1;
+    }
+
+  if (virtual_path)
+    {
+      path = (char*)virtual_path_to_path(virtual_path);
+      if (!path)
+	{
+	  DPRINTF(E_INFO, L_SCAN, "Ignoring non local media %s requested for metadata sync\n", virtual_path);
+	  return -1;
+	}
+    }
+  else
+    {
+      // Determine if this is local media
+      id_kind = db_file_data_kind_byid(*id);
+      if (id_kind != DATA_KIND_FILE)
+	{
+	  DPRINTF(E_INFO, L_SCAN, "Ignoring non local media id=%d (%s) requested for metadata sync\n", *id,db_data_kind_label(id_kind));
+	  return -1;
+	}
+
+      path = db_file_path_byid(*id);
+      if (!path)
+        {
+	  DPRINTF(E_LOG, L_SCAN, "No known path for local media id=%d\n", *id);
+	  return -1;
+	}
+      strcpy(id_path, path);
+      free(path);
+
+      path = id_path;
+    }
+
+  // Inotify watches dir paths
+  strcpy(inotify_path, path);
+  dirname(inotify_path);
+
+  if (access(path, W_OK) < 0 || access(inotify_path, W_OK) < 0)
+    {
+      DPRINTF(E_INFO, L_SCAN, "No permissions to update metadata, skipping %s\n", path);
+      return 0;
+    }
+
+  // Temporarily disable inotify
+  ret = db_watch_get_bypath(&wi, inotify_path);
+  if (ret == 0)
+    {
+      watches_clear(wi.wd, wi.path);
+      free_wi(&wi, 1);
+    }
+
+
+  filescanner_ffmpeg_sync_metadata(path, rating);
+
+
+  // and re-enable
+#ifdef __linux__
+  flags = IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF;
+#else
+  flags = IN_CREATE | IN_DELETE | IN_MOVE;
+#endif
+
+  wi.wd = inotify_add_watch(inofd, inotify_path, flags);
+  if (wi.wd < 0)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", inotify_path, strerror(errno));
+      return -1;
+    }
+
+  wi.cookie = 0;
+  wi.path = inotify_path;
+
+  db_watch_add(&wi);
+ 
+  return ret;
+}
+
+
+static int
 queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct media_file_info mfi = { 0 };
@@ -1765,18 +1872,6 @@ queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, 
     }
 
   return LIBRARY_PATH_INVALID;
-}
-
-static const char *
-virtual_path_to_path(const char *virtual_path)
-{
-  if (strncmp(virtual_path, "/file:", strlen("/file:")) == 0)
-    return virtual_path + strlen("/file:");
-
-  if (strncmp(virtual_path, "file:", strlen("file:")) == 0)
-    return virtual_path + strlen("file:");
-
-  return NULL;
 }
 
 static bool
@@ -2166,6 +2261,7 @@ struct library_source filescanner =
   .rescan = filescanner_rescan,
   .metarescan = filescanner_metarescan,
   .fullrescan = filescanner_fullrescan,
+  .sync_metadata = filescanner_sync_metadata,
   .playlist_item_add = playlist_item_add,
   .playlist_remove = playlist_remove,
   .queue_save = queue_save,
