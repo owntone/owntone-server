@@ -76,6 +76,13 @@
 #define F_SCAN_TYPE_AUDIOBOOK    (1 << 2)
 #define F_SCAN_TYPE_COMPILATION  (1 << 3)
 
+#ifdef __linux__
+#define INOTIFY_FLAGS  (IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF)
+#else
+#define INOTIFY_FLAGS  (IN_CREATE | IN_DELETE | IN_MOVE)
+#endif
+
+
 
 enum file_type {
   FILE_UNKNOWN = 0,
@@ -156,6 +163,8 @@ filescanner_rescan();
 static int
 filescanner_fullrescan();
 
+int
+filescanner_ffmpeg_write_rating(const struct media_file_info *mfi);
 
 /* ----------------------- Internal utility functions --------------------- */
 
@@ -906,11 +915,7 @@ process_directory(char *path, int parent_id, int flags)
 
   // Add inotify watch (for FreeBSD we limit the flags so only dirs will be
   // opened, otherwise we will be opening way too many files)
-#ifdef __linux__
-  wi.wd = inotify_add_watch(inofd, path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
-#else
-  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MOVE);
-#endif
+  wi.wd = inotify_add_watch(inofd, path, INOTIFY_FLAGS);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
@@ -1720,6 +1725,85 @@ filescanner_fullrescan()
 }
 
 static int
+filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_t rating)
+{
+  int ret;
+  char inotify_path[PATH_MAX] = { 0 };
+  struct watch_info wi = { 0 };
+  struct media_file_info*  mfi = NULL;
+
+  if (virtual_path)
+    {
+      mfi = db_file_fetch_byvirtualpath(virtual_path);
+      if (!mfi)
+	{
+	  DPRINTF(E_INFO, L_SCAN, "No known path for local media, (%s) requested for rating write\n", virtual_path);
+	  return -1;
+	}
+    }
+  else
+    {
+      // Determine if this is local media
+      mfi = db_file_fetch_byid(*id);
+      if (!mfi)
+        {
+	  DPRINTF(E_LOG, L_SCAN, "No known path for local media, (%d) requested for rating write\n", *id);
+	  return -1;
+	}
+    }
+
+  if (mfi->data_kind != DATA_KIND_FILE)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Ignoring non local media (%d/%s is %s) requested for rating write\n", mfi->id, mfi->path, db_data_kind_label(mfi->data_kind));
+      ret = -1;
+      goto cleanup;
+    }
+
+  // Inotify watches dir paths
+  strcpy(inotify_path, mfi->path);
+  dirname(inotify_path);
+
+  if (access(mfi->path, W_OK) < 0 || access(inotify_path, W_OK) < 0)
+    {
+      DPRINTF(E_INFO, L_SCAN, "No permissions to update metadata, skipping %s\n", mfi->path);
+      ret = 0;
+      goto cleanup;
+    }
+
+  // Temporarily disable inotify
+  ret = db_watch_get_bypath(&wi, inotify_path);
+  if (ret == 0)
+    {
+      inotify_rm_watch(inofd, wi.wd);
+      db_watch_delete_bywd(wi.wd);
+      free_wi(&wi, 1);
+    }
+
+
+  filescanner_ffmpeg_write_rating(mfi);
+
+
+  // and re-enable
+  wi.wd = inotify_add_watch(inofd, inotify_path, INOTIFY_FLAGS);
+  if (wi.wd < 0)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", inotify_path, strerror(errno));
+      ret = -1;
+      goto cleanup;
+    }
+
+  wi.cookie = 0;
+  wi.path = inotify_path;
+
+  db_watch_add(&wi);
+
+cleanup:
+  free_mfi(mfi, 0);
+
+  return ret;
+}
+
+static int
 queue_item_file_add(const char *sub_uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct query_params query_params = { 0 };
@@ -2217,6 +2301,7 @@ struct library_source filescanner =
   .rescan = filescanner_rescan,
   .metarescan = filescanner_metarescan,
   .fullrescan = filescanner_fullrescan,
+  .write_metadata = filescanner_write_metadata,
   .playlist_item_add = playlist_item_add,
   .playlist_remove = playlist_remove,
   .queue_save = queue_save,

@@ -89,6 +89,11 @@ struct library_source
   int (*fullrescan)(void);
 
   /*
+   * write meta to media, via virtual_path OR id
+   */
+  int (*write_metadata)(const char *virtual_path, const uint32_t *id, uint32_t rating);
+
+  /*
    * Add an item to the library
    */
   int (*item_add)(const char *path);
