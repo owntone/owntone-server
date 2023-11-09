@@ -3440,9 +3440,11 @@ db_file_seek_update(int id, uint32_t seek)
 }
 
 static int
-db_file_rating_update(char *query)
+db_file_rating_update(char *query, uint32_t rating, const char *virtual_path, const uint32_t *id)
 {
   int ret;
+  int i;
+  struct library_source **sources;
 
   ret = db_query_run(query, 1, 0);
 
@@ -3450,6 +3452,16 @@ db_file_rating_update(char *query)
     {
       db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
       listener_notify(LISTENER_RATING);
+
+      if (cfg_getbool(cfg_getsec(cfg, "library"), "rating_sync"))
+	{
+	  sources = library_sources();
+	  for (i=0; sources[i]; ++i)
+	    {
+	      if (!sources[i]->disabled && sources[i]->sync_metadata)
+		sources[i]->sync_metadata(virtual_path, id, rating);
+	    }
+	}
     }
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
@@ -3463,7 +3475,7 @@ db_file_rating_update_byid(uint32_t id, uint32_t rating)
 
   query = sqlite3_mprintf(Q_TMPL, rating, id);
 
-  return db_file_rating_update(query);
+  return db_file_rating_update(query, rating, NULL, &id);
 #undef Q_TMPL
 }
 
@@ -3475,7 +3487,7 @@ db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating)
 
   query = sqlite3_mprintf(Q_TMPL, rating, virtual_path);
 
-  return db_file_rating_update(query);
+  return db_file_rating_update(query, rating, virtual_path, NULL);
 #undef Q_TMPL
 }
 
