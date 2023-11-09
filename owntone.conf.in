@@ -223,6 +223,12 @@ library {
 	# new rating = 0.75 * stable rating + 0.25 * rolling rating)
 #	rating_updates = false
 
+	# Enable automatic rating sync to media
+	# If enabled, rating updates within the libray/server will be reflected on
+	# the library source/underlying media if library source supports (ie local
+	# media)
+#	rating_sync = false
+
 	# Allows creating, deleting and modifying m3u playlists in the library directories.
 	# Only supported by the player web interface and some mpd clients
 	# Defaults to being disabled.
