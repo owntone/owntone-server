@@ -107,6 +107,7 @@ owntone_SOURCES = main.c \
 	artwork.c artwork.h \
 	misc.c misc.h \
 	misc_json.c misc_json.h \
+	misc_xml.c misc_xml.h \
 	rng.c rng.h \
 	smartpl_query.c smartpl_query.h \
 	player.c player.h \
@@ -128,7 +129,6 @@ owntone_SOURCES = main.c \
 	$(MPD_SRC) \
 	listener.c listener.h \
 	commands.c commands.h \
-	mxml-compat.h \
 	outputs/plist_wrap.h \
 	$(LIBWEBSOCKETS_SRC) \
 	$(GPERF_SRC) \
