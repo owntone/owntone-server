@@ -52,10 +52,9 @@
 #include <event2/event.h>
 #include <event2/buffer.h>
 
-#include "mxml-compat.h"
-
 #include "input.h"
 #include "misc.h"
+#include "misc_xml.h"
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"
@@ -531,35 +530,33 @@ log_incoming(int severity, const char *msg, uint32_t type, uint32_t code, int da
   DPRINTF(severity, L_PLAYER, "%s (type=%s, code=%s, len=%d)\n", msg, typestr, codestr, data_len);
 }
 
+/* Example of xml item:
+
+<item><type>73736e63</type><code>6d647374</code><length>9</length>
+<data encoding="base64">
+NDE5OTg3OTU0</data></item>
+*/
 static int
 parse_item_xml(uint32_t *type, uint32_t *code, uint8_t **data, int *data_len, const char *item)
 {
-  mxml_node_t *xml;
-  mxml_node_t *haystack;
-  mxml_node_t *needle;
+  xml_node *xml;
   const char *s;
 
-  xml = mxmlNewXML("1.0");
+//  DPRINTF(E_DBG, L_PLAYER, "Got pipe metadata item: '%s'\n", item);
+
+  xml = xml_from_string(item);
   if (!xml)
-    return -1;
-
-//  DPRINTF(E_DBG, L_PLAYER, "Parsing %s\n", item);
-
-  haystack = mxmlLoadString(xml, item, MXML_NO_CALLBACK);
-  if (!haystack)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not parse pipe metadata: %s\n", item);
+      DPRINTF(E_LOG, L_PLAYER, "Could not parse pipe metadata item: %s\n", item);
       goto error;
     }
 
   *type = 0;
-  if ( (needle = mxmlFindElement(haystack, haystack, "type", NULL, NULL, MXML_DESCEND)) &&
-       (s = mxmlGetText(needle, NULL)) )
+  if ((s = xml_get_val(xml, "item/type")))
     sscanf(s, "%8x", type);
 
   *code = 0;
-  if ( (needle = mxmlFindElement(haystack, haystack, "code", NULL, NULL, MXML_DESCEND)) &&
-       (s = mxmlGetText(needle, NULL)) )
+  if ((s = xml_get_val(xml, "item/code")))
     sscanf(s, "%8x", code);
 
   if (*type == 0 || *code == 0)
@@ -570,8 +567,7 @@ parse_item_xml(uint32_t *type, uint32_t *code, uint8_t **data, int *data_len, co
 
   *data = NULL;
   *data_len = 0;
-  if ( (needle = mxmlFindElement(haystack, haystack, "data", NULL, NULL, MXML_DESCEND)) &&
-       (s = mxmlGetText(needle, NULL)) )
+  if ((s = xml_get_val(xml, "item/data")))
     {
       *data = b64_decode(data_len, s);
       if (*data == NULL)
@@ -583,11 +579,11 @@ parse_item_xml(uint32_t *type, uint32_t *code, uint8_t **data, int *data_len, co
 
   log_incoming(E_SPAM, "Read Shairport metadata", *type, *code, *data_len);
 
-  mxmlDelete(xml);
+  xml_free(xml);
   return 0;
 
  error:
-  mxmlDelete(xml);
+  xml_free(xml);
   return -1;
 }
 

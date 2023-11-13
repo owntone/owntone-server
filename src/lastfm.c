@@ -34,14 +34,13 @@
 #include <event2/buffer.h>
 #include <event2/http.h>
 
-#include "mxml-compat.h"
-
 #include "db.h"
 #include "conffile.h"
 #include "lastfm.h"
 #include "listener.h"
 #include "logger.h"
 #include "misc.h"
+#include "misc_xml.h"
 #include "http.h"
 
 // LastFM becomes disabled if we get a scrobble, try initialising session,
@@ -119,15 +118,44 @@ param_sign(struct keyval *kv)
 
 /* --------------------------------- MAIN --------------------------------- */
 
+/* Example responses
+
+<?xml version="1.0" encoding="UTF-8"?>
+<lfm status="ok">
+  <session>
+    <name>myname</name>
+    <key>dsfjDFDS22</key>
+    <subscriber>0</subscriber>
+  </session>
+</lfm>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<lfm status="failed">
+  <error code="4">Authentication Failed - You do not have permissions to access the service</error>
+</lfm>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<lfm status="ok">
+  <scrobbles ignored="0" accepted="1">
+    <scrobble>
+      <track corrected="0">Hard Place</track>
+      <artist corrected="0">My Artist</artist>
+      <album corrected="0">My Album</album>
+      <albumArtist corrected="0">My Album Artist</albumArtist>
+      <timestamp>1699649816</timestamp>
+      <ignoredMessage code="0"></ignoredMessage>
+    </scrobble>
+  </scrobbles>
+</lfm>
+*/
+
 static int
 response_process(struct http_client_ctx *ctx, char **errmsg)
 {
-  mxml_node_t *tree;
-  mxml_node_t *s_node;
-  mxml_node_t *e_node;
+  xml_node *tree;
+  const char *error;
   char *body;
   char *sk;
-  int ret;
 
   // NULL-terminate the buffer
   evbuffer_add(ctx->input_body, "", 1);
@@ -139,67 +167,55 @@ response_process(struct http_client_ctx *ctx, char **errmsg)
       return -1;
     }
 
-  tree = mxmlLoadString(NULL, body, MXML_OPAQUE_CALLBACK);
+  tree = xml_from_string(body);
   if (!tree)
     {
       DPRINTF(E_LOG, L_LASTFM, "Failed to parse LastFM response:\n%s\n", body);
       return -1;
     }
 
-  // Look for errors
-  e_node = mxmlFindElement(tree, tree, "error", NULL, NULL, MXML_DESCEND);
-  if (e_node)
+  error = xml_get_val(tree, "lfm/error");
+  if (error)
     {
-      DPRINTF(E_LOG, L_LASTFM, "Request to LastFM failed: %s\n", mxmlGetOpaque(e_node));
+      DPRINTF(E_LOG, L_LASTFM, "Request to LastFM failed: %s\n", error);
       DPRINTF(E_DBG, L_LASTFM, "LastFM response:\n%s\n", body);
 
       if (errmsg)
-	*errmsg = atrim(mxmlGetOpaque(e_node));
+	*errmsg = atrim(error);
 
-      mxmlDelete(tree);
+      xml_free(tree);
       return -1;
     }
 
   DPRINTF(E_SPAM, L_LASTFM, "LastFM response:\n%s\n", body);
 
   // Was it a scrobble request? Then do nothing. TODO: Check for error messages
-  s_node = mxmlFindElement(tree, tree, "scrobbles", NULL, NULL, MXML_DESCEND);
-  if (s_node)
+  if (xml_get_node(tree, "lfm/scrobbles/scrobble"))
     {
       DPRINTF(E_DBG, L_LASTFM, "Scrobble callback\n");
-      mxmlDelete(tree);
+      xml_free(tree);
       return 0;
     }
 
   // Otherwise an auth request, so get the session key
-  s_node = mxmlFindElement(tree, tree, "key", NULL, NULL, MXML_DESCEND);
-  if (!s_node)
+  sk = atrim(xml_get_val(tree, "lfm/session/key"));
+  if (!sk)
     {
       DPRINTF(E_LOG, L_LASTFM, "Session key not found\n");
-      mxmlDelete(tree);
+      xml_free(tree);
       return -1;
     }
 
-  sk = atrim(mxmlGetOpaque(s_node));
-  if (sk)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Got session key from LastFM: %s\n", sk);
-      db_admin_set(DB_ADMIN_LASTFM_SESSION_KEY, sk);
+  DPRINTF(E_INFO, L_LASTFM, "Got session key from LastFM: %s\n", sk);
+  db_admin_set(DB_ADMIN_LASTFM_SESSION_KEY, sk);
 
-      if (lastfm_session_key)
-	free(lastfm_session_key);
+  free(lastfm_session_key);
 
-      lastfm_session_key = sk;
-      lastfm_disabled = false;
-      ret = 0;
-    }
-  else
-    {
-      ret = -1;
-    }
+  lastfm_session_key = sk;
+  lastfm_disabled = false;
 
-  mxmlDelete(tree);
-  return ret;
+  xml_free(tree);
+  return 0;
 }
 
 /*

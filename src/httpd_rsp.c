@@ -30,13 +30,12 @@
 #include <sys/types.h>
 #include <limits.h>
 
-#include "mxml-compat.h"
-
 #include "httpd_internal.h"
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"
 #include "misc.h"
+#include "misc_xml.h"
 #include "transcode.h"
 #include "parsers/rsp_parser.h"
 
@@ -120,12 +119,12 @@ static const struct field_map rsp_fields[] =
 /* -------------------------------- HELPERS --------------------------------- */
 
 static int
-mxml_to_evbuf(struct evbuffer *evbuf, mxml_node_t *tree)
+xml_to_evbuf(struct evbuffer *evbuf, xml_node *tree)
 {
   char *xml;
   int ret;
 
-  xml = mxmlSaveAllocString(tree, MXML_NO_CALLBACK);
+  xml = xml_to_string(tree);
   if (!xml)
     {
       DPRINTF(E_LOG, L_RSP, "Could not finalize RSP reply\n");
@@ -144,36 +143,32 @@ mxml_to_evbuf(struct evbuffer *evbuf, mxml_node_t *tree)
 }
 
 static void
+rsp_xml_response_new(xml_node **xml_ptr, xml_node **response_ptr, int errorcode, const char *errorstring, int records, int totalrecords)
+{
+  xml_node *xml = xml_new_node(NULL, RSP_XML_ROOT, NULL);
+  xml_node *response = xml_new_node(xml, "response", NULL);
+  xml_node *status = xml_new_node(response, "status", NULL);
+
+  xml_new_node_textf(status, "errorcode", "%d", errorcode);
+  xml_new_node(status, "errorstring", errorstring);
+  xml_new_node_textf(status, "records", "%d", records);
+  xml_new_node_textf(status, "totalrecords", "%d", totalrecords);
+
+  if (response_ptr)
+    *response_ptr = response;
+  if (xml_ptr)
+    *xml_ptr = xml;
+}
+
+static void
 rsp_send_error(struct httpd_request *hreq, char *errmsg)
 {
-  mxml_node_t *reply;
-  mxml_node_t *status;
-  mxml_node_t *node;
+  xml_node *xml;
   int ret;
 
-  /* We'd use mxmlNewXML(), but then we can't put any attributes
-   * on the root node and we need some.
-   */
-  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
-
-  node = mxmlNewElement(reply, "response");
-  status = mxmlNewElement(node, "status");
-
-  /* Status block */
-  node = mxmlNewElement(status, "errorcode");
-  mxmlNewText(node, 0, "1");
-
-  node = mxmlNewElement(status, "errorstring");
-  mxmlNewText(node, 0, errmsg);
-
-  node = mxmlNewElement(status, "records");
-  mxmlNewText(node, 0, "0");
-
-  node = mxmlNewElement(status, "totalrecords");
-  mxmlNewText(node, 0, "0");
-
-  ret = mxml_to_evbuf(hreq->out_body, reply);
-  mxmlDelete(reply);
+  rsp_xml_response_new(&xml, NULL, 1, errmsg, 0, 0);
+  ret = xml_to_evbuf(hreq->out_body, xml);
+  xml_free(xml);
 
   if (ret < 0)
     {
@@ -259,12 +254,12 @@ query_params_set(struct query_params *qp, struct httpd_request *hreq)
 }
 
 static void
-rsp_send_reply(struct httpd_request *hreq, mxml_node_t *reply)
+rsp_send_reply(struct httpd_request *hreq, xml_node *reply)
 {
   int ret;
 
-  ret = mxml_to_evbuf(hreq->out_body, reply);
-  mxmlDelete(reply);
+  ret = xml_to_evbuf(hreq->out_body, reply);
+  xml_free(reply);
 
   if (ret < 0)
     {
@@ -310,10 +305,9 @@ rsp_request_authorize(struct httpd_request *hreq)
 static int
 rsp_reply_info(struct httpd_request *hreq)
 {
-  mxml_node_t *reply;
-  mxml_node_t *status;
-  mxml_node_t *info;
-  mxml_node_t *node;
+  xml_node *xml;
+  xml_node *response;
+  xml_node *info;
   cfg_t *lib;
   char *library;
   uint32_t songcount;
@@ -323,43 +317,16 @@ rsp_reply_info(struct httpd_request *hreq)
   lib = cfg_getsec(cfg, "library");
   library = cfg_getstr(lib, "name");
 
-  /* We'd use mxmlNewXML(), but then we can't put any attributes
-   * on the root node and we need some.
-   */
-  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
+  rsp_xml_response_new(&xml, &response, 0, "", 0, 0);
 
-  node = mxmlNewElement(reply, "response");
-  status = mxmlNewElement(node, "status");
-  info = mxmlNewElement(node, "info");
+  info = xml_new_node(response, "info", NULL);
 
-  /* Status block */
-  node = mxmlNewElement(status, "errorcode");
-  mxmlNewText(node, 0, "0");
+  xml_new_node_textf(info, "count", "%d", (int)songcount);
+  xml_new_node(info, "rsp-version", RSP_VERSION);
+  xml_new_node(info, "server-version", VERSION);
+  xml_new_node(info, "name", library);
 
-  node = mxmlNewElement(status, "errorstring");
-  mxmlNewText(node, 0, "");
-
-  node = mxmlNewElement(status, "records");
-  mxmlNewText(node, 0, "0");
-
-  node = mxmlNewElement(status, "totalrecords");
-  mxmlNewText(node, 0, "0");
-
-  /* Info block */
-  node = mxmlNewElement(info, "count");
-  mxmlNewTextf(node, 0, "%d", (int)songcount);
-
-  node = mxmlNewElement(info, "rsp-version");
-  mxmlNewText(node, 0, RSP_VERSION);
-
-  node = mxmlNewElement(info, "server-version");
-  mxmlNewText(node, 0, VERSION);
-
-  node = mxmlNewElement(info, "name");
-  mxmlNewText(node, 0, library);
-
-  rsp_send_reply(hreq, reply);
-
+  rsp_send_reply(hreq, xml);
   return 0;
 }
 
@@ -369,11 +336,10 @@ rsp_reply_db(struct httpd_request *hreq)
   struct query_params qp;
   struct db_playlist_info dbpli;
   char **strval;
-  mxml_node_t *reply;
-  mxml_node_t *status;
-  mxml_node_t *pls;
-  mxml_node_t *pl;
-  mxml_node_t *node;
+  xml_node *xml;
+  xml_node *response;
+  xml_node *pls;
+  xml_node *pl;
   int i;
   int ret;
 
@@ -391,27 +357,9 @@ rsp_reply_db(struct httpd_request *hreq)
       return -1;
     }
 
-  /* We'd use mxmlNewXML(), but then we can't put any attributes
-   * on the root node and we need some.
-   */
-  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
+  rsp_xml_response_new(&xml, &response, 0, "", qp.results, qp.results);
 
-  node = mxmlNewElement(reply, "response");
-  status = mxmlNewElement(node, "status");
-  pls = mxmlNewElement(node, "playlists");
-
-  /* Status block */
-  node = mxmlNewElement(status, "errorcode");
-  mxmlNewText(node, 0, "0");
-
-  node = mxmlNewElement(status, "errorstring");
-  mxmlNewText(node, 0, "");
-
-  node = mxmlNewElement(status, "records");
-  mxmlNewTextf(node, 0, "%d", qp.results);
-
-  node = mxmlNewElement(status, "totalrecords");
-  mxmlNewTextf(node, 0, "%d", qp.results);
+  pls = xml_new_node(response, "playlists", NULL);
 
   /* Playlists block (all playlists) */
   while (((ret = db_query_fetch_pl(&dbpli, &qp)) == 0) && (dbpli.id))
@@ -421,7 +369,7 @@ rsp_reply_db(struct httpd_request *hreq)
 	continue;
 
       /* Playlist block (one playlist) */
-      pl = mxmlNewElement(pls, "playlist");
+      pl = xml_new_node(pls, "playlist", NULL);
 
       for (i = 0; pl_fields[i].field; i++)
 	{
@@ -429,8 +377,7 @@ rsp_reply_db(struct httpd_request *hreq)
 	    {
 	      strval = (char **) ((char *)&dbpli + pl_fields[i].offset);
 
-	      node = mxmlNewElement(pl, pl_fields[i].field);
-	      mxmlNewText(node, 0, *strval);
+	      xml_new_node(pl, pl_fields[i].field, *strval);
             }
         }
     }
@@ -439,7 +386,7 @@ rsp_reply_db(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
-      mxmlDelete(reply);
+      xml_free(xml);
       db_query_end(&qp);
       rsp_send_error(hreq, "Error fetching query results");
       return -1;
@@ -451,11 +398,11 @@ rsp_reply_db(struct httpd_request *hreq)
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
   if (qp.results == 0)
-    mxmlNewText(pls, 0, "");
+    xml_new_text(pls, "");
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq, reply);
+  rsp_send_reply(hreq, xml);
 
   return 0;
 }
@@ -469,11 +416,10 @@ rsp_reply_playlist(struct httpd_request *hreq)
   const char *ua;
   const char *client_codecs;
   char **strval;
-  mxml_node_t *reply;
-  mxml_node_t *status;
-  mxml_node_t *items;
-  mxml_node_t *item;
-  mxml_node_t *node;
+  xml_node *xml;
+  xml_node *response;
+  xml_node *items;
+  xml_node *item;
   int mode;
   int records;
   int transcode;
@@ -537,27 +483,9 @@ rsp_reply_playlist(struct httpd_request *hreq)
   if (qp.limit && (records > qp.limit))
     records = qp.limit;
 
-  /* We'd use mxmlNewXML(), but then we can't put any attributes
-   * on the root node and we need some.
-   */
-  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
+  rsp_xml_response_new(&xml, &response, 0, "", records, qp.results);
 
-  node = mxmlNewElement(reply, "response");
-  status = mxmlNewElement(node, "status");
-  items = mxmlNewElement(node, "items");
-
-  /* Status block */
-  node = mxmlNewElement(status, "errorcode");
-  mxmlNewText(node, 0, "0");
-
-  node = mxmlNewElement(status, "errorstring");
-  mxmlNewText(node, 0, "");
-
-  node = mxmlNewElement(status, "records");
-  mxmlNewTextf(node, 0, "%d", records);
-
-  node = mxmlNewElement(status, "totalrecords");
-  mxmlNewTextf(node, 0, "%d", qp.results);
+  items = xml_new_node(response, "items", NULL);
 
   /* Items block (all items) */
   while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
@@ -568,7 +496,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
       transcode = transcode_needed(ua, client_codecs, dbmfi.codectype);
 
       /* Item block (one item) */
-      item = mxmlNewElement(items, "item");
+      item = xml_new_node(items, "item", NULL);
 
       for (i = 0; rsp_fields[i].field; i++)
 	{
@@ -580,44 +508,41 @@ rsp_reply_playlist(struct httpd_request *hreq)
 	  if (!(*strval) || (strlen(*strval) == 0))
 	    continue;
 
-	  node = mxmlNewElement(item, rsp_fields[i].field);
-
 	  if (!transcode)
-	    mxmlNewText(node, 0, *strval);
-	  else
 	    {
-	      switch (rsp_fields[i].offset)
-		{
-		  case dbmfi_offsetof(type):
-		    mxmlNewText(node, 0, "wav");
-		    break;
+	      xml_new_node(item, rsp_fields[i].field, *strval);
+	      continue;
+	    }
 
-		  case dbmfi_offsetof(bitrate):
-		    bitrate = 0;
-		    ret = safe_atoi32(dbmfi.samplerate, &bitrate);
-		    if ((ret < 0) || (bitrate == 0))
-		      bitrate = 1411;
-		    else
-		      bitrate = (bitrate * 8) / 250;
+	  switch (rsp_fields[i].offset)
+	    {
+	      case dbmfi_offsetof(type):
+		xml_new_node(item, rsp_fields[i].field, "wav");
+		break;
 
-		    mxmlNewTextf(node, 0, "%d", bitrate);
-		    break;
+	      case dbmfi_offsetof(bitrate):
+		bitrate = 0;
+		ret = safe_atoi32(dbmfi.samplerate, &bitrate);
+		if ((ret < 0) || (bitrate == 0))
+		  bitrate = 1411;
+		else
+		  bitrate = (bitrate * 8) / 250;
 
-		  case dbmfi_offsetof(description):
-		    mxmlNewText(node, 0, "wav audio file");
-		    break;
+		xml_new_node_textf(item, rsp_fields[i].field, "%d", bitrate);
+		break;
 
-		  case dbmfi_offsetof(codectype):
-		    mxmlNewText(node, 0, "wav");
+	      case dbmfi_offsetof(description):
+		xml_new_node(item, rsp_fields[i].field, "wav audio file");
+		break;
 
-		    node = mxmlNewElement(item, "original_codec");
-		    mxmlNewText(node, 0, *strval);
-		    break;
+	      case dbmfi_offsetof(codectype):
+		xml_new_node(item, rsp_fields[i].field, "wav");
+		xml_new_node(item, "original_codec", *strval);
+	        break;
 
-		  default:
-		    mxmlNewText(node, 0, *strval);
-		    break;
-		}
+	      default:
+		xml_new_node(item, rsp_fields[i].field, *strval);
+		break;
 	    }
 	}
     }
@@ -629,7 +554,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
-      mxmlDelete(reply);
+      xml_free(xml);
       db_query_end(&qp);
       rsp_send_error(hreq, "Error fetching query results");
       return -1;
@@ -641,11 +566,11 @@ rsp_reply_playlist(struct httpd_request *hreq)
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
   if (qp.results == 0)
-    mxmlNewText(items, 0, "");
+    xml_new_text(items, "");
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq, reply);
+  rsp_send_reply(hreq, xml);
 
   return 0;
 }
@@ -655,10 +580,9 @@ rsp_reply_browse(struct httpd_request *hreq)
 {
   struct query_params qp;
   char *browse_item;
-  mxml_node_t *reply;
-  mxml_node_t *status;
-  mxml_node_t *items;
-  mxml_node_t *node;
+  xml_node *xml;
+  xml_node *response;
+  xml_node *items;
   int records;
   int ret;
 
@@ -719,33 +643,14 @@ rsp_reply_browse(struct httpd_request *hreq)
   if (qp.limit && (records > qp.limit))
     records = qp.limit;
 
-  /* We'd use mxmlNewXML(), but then we can't put any attributes
-   * on the root node and we need some.
-   */
-  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
+  rsp_xml_response_new(&xml, &response, 0, "", records, qp.results);
 
-  node = mxmlNewElement(reply, "response");
-  status = mxmlNewElement(node, "status");
-  items = mxmlNewElement(node, "items");
-
-  /* Status block */
-  node = mxmlNewElement(status, "errorcode");
-  mxmlNewText(node, 0, "0");
-
-  node = mxmlNewElement(status, "errorstring");
-  mxmlNewText(node, 0, "");
-
-  node = mxmlNewElement(status, "records");
-  mxmlNewTextf(node, 0, "%d", records);
-
-  node = mxmlNewElement(status, "totalrecords");
-  mxmlNewTextf(node, 0, "%d", qp.results);
+  items = xml_new_node(response, "items", NULL);
 
   /* Items block (all items) */
   while (((ret = db_query_fetch_string(&browse_item, &qp)) == 0) && (browse_item))
     {
-      node = mxmlNewElement(items, "item");
-      mxmlNewText(node, 0, browse_item);
+      xml_new_node(items, "item", browse_item);
     }
 
   if (qp.filter)
@@ -755,7 +660,7 @@ rsp_reply_browse(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
-      mxmlDelete(reply);
+      xml_free(xml);
       db_query_end(&qp);
       rsp_send_error(hreq, "Error fetching query results");
       return -1;
@@ -767,11 +672,11 @@ rsp_reply_browse(struct httpd_request *hreq)
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
   if (qp.results == 0)
-    mxmlNewText(items, 0, "");
+    xml_new_text(items, "");
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq, reply);
+  rsp_send_reply(hreq, xml);
 
   return 0;
 }

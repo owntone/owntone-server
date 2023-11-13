@@ -40,14 +40,13 @@
 
 #include <event2/buffer.h>
 
-#include "mxml-compat.h"
-
 #include "conffile.h"
 #include "logger.h"
 #include "db.h"
 #include "http.h"
 #include "misc.h"
 #include "misc_json.h"
+#include "misc_xml.h"
 #include "library.h"
 #include "library/filescanner.h"
 
@@ -233,12 +232,12 @@ playlist_fetch(bool *is_new, const char *path)
   return NULL;
 }
 
-static mxml_node_t *
+static xml_node *
 rss_xml_get(const char *url)
 {
   struct http_client_ctx ctx = { 0 };
   const char *raw = NULL;
-  mxml_node_t *xml = NULL;
+  xml_node *xml = NULL;
   char *feedurl;
   int ret;
 
@@ -267,7 +266,7 @@ rss_xml_get(const char *url)
 
   raw = (const char*)evbuffer_pullup(ctx.input_body, -1);
 
-  xml = mxmlLoadString(NULL, raw, MXML_OPAQUE_CALLBACK);
+  xml = xml_from_string(raw);
   if (!xml)
     {
       DPRINTF(E_LOG, L_LIB, "Failed to parse RSS XML from '%s'\n", ctx.url);
@@ -281,85 +280,39 @@ rss_xml_get(const char *url)
 }
 
 static int
-rss_xml_parse_feed(const char **feed_title, const char **feed_author, const char **feed_artwork, mxml_node_t *xml)
+feed_metadata_from_xml(const char **feed_title, const char **feed_author, const char **feed_artwork, xml_node *xml)
 {
-  mxml_node_t *channel;
-  mxml_node_t *node;
-
-  channel = mxmlFindElement(xml, xml, "channel", NULL, NULL, MXML_DESCEND);
+  xml_node *channel = xml_get_node(xml, "rss/channel");
   if (!channel)
     {
       DPRINTF(E_LOG, L_LIB, "Invalid RSS/xml, missing 'channel' node\n");
       return -1;
     }
 
-  node = mxmlFindElement(channel, channel, "title", NULL, NULL, MXML_DESCEND_FIRST);
-  if (!node)
+  *feed_title = xml_get_val(channel, "title");
+  if (!*feed_title)
     {
       DPRINTF(E_LOG, L_LIB, "Invalid RSS/xml, missing 'title' node\n");
       return -1;
     }
-  *feed_title = mxmlGetOpaque(node);
 
-  node = mxmlFindElement(channel, channel, "itunes:author", NULL, NULL, MXML_DESCEND_FIRST);
-  *feed_author = node ? mxmlGetOpaque(node) : NULL;
-
-  *feed_artwork = NULL;
-  node = mxmlFindElement(channel, channel, "image", NULL, NULL, MXML_DESCEND_FIRST);
-  if (node)
-    {
-      node = mxmlFindElement(node, node, "url", NULL, NULL, MXML_DESCEND_FIRST);
-      *feed_artwork = node ? mxmlGetOpaque(node) : NULL;
-    }
+  *feed_author = xml_get_val(channel, "itunes:author");
+  *feed_artwork = xml_get_val(channel, "image/url");
 
   return 0;
 }
 
-static int
-rss_xml_parse_item(struct rss_item_info *ri, mxml_node_t *xml, void **saveptr)
+static void
+ri_from_item(struct rss_item_info *ri, xml_node *item)
 {
-  mxml_node_t *item;
-  mxml_node_t *node;
-  const char *s;
-
-  if (*saveptr)
-    {
-      item = (mxml_node_t *)(*saveptr);
-      while ( (item = mxmlGetNextSibling(item)) )
-	{
-	  s = mxmlGetElement(item);
-	  if (s && strcmp(s, "item") == 0)
-	    break;
-	}
-      *saveptr = item;
-    }
-  else
-    {
-      item = mxmlFindElement(xml, xml, "item", NULL, NULL, MXML_DESCEND);
-      *saveptr = item;
-    }
-
-  if (!item)
-    return -1; // No more items
-
   memset(ri, 0, sizeof(struct rss_item_info));
 
-  node = mxmlFindElement(item, item, "title", NULL, NULL, MXML_DESCEND_FIRST);
-  ri->title = mxmlGetOpaque(node);
+  ri->title   = xml_get_val(item, "title");
+  ri->pubdate = xml_get_val(item, "pubDate");
+  ri->link    = xml_get_val(item, "link");
 
-  node = mxmlFindElement(item, item, "pubDate", NULL, NULL, MXML_DESCEND_FIRST);
-  ri->pubdate = mxmlGetOpaque(node);
-
-  node = mxmlFindElement(item, item, "link", NULL, NULL, MXML_DESCEND_FIRST);
-  ri->link = mxmlGetOpaque(node);
-
-  node = mxmlFindElement(item, item, "enclosure", NULL, NULL, MXML_DESCEND_FIRST);
-  ri->url = mxmlElementGetAttr(node, "url");
-  ri->type = mxmlElementGetAttr(node, "type");
-
-  DPRINTF(E_DBG, L_LIB, "RSS/xml item: title '%s' pubdate: '%s' link: '%s' url: '%s' type: '%s'\n", ri->title, ri->pubdate, ri->link, ri->url, ri->type);
-
-  return 0;
+  ri->url     = xml_get_attr(item, "enclosure", "url");
+  ri->type    = xml_get_attr(item, "enclosure", "type");
 }
 
 // The RSS spec states:
@@ -411,14 +364,14 @@ mfi_metadata_fixup(struct media_file_info *mfi, struct rss_item_info *ri, const 
 static int
 rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
 {
-  mxml_node_t *xml;
+  xml_node *xml;
+  xml_node *item;
   const char *feed_title;
   const char *feed_author;
   const char *feed_artwork;
   struct media_file_info mfi = { 0 };
   struct rss_item_info ri;
   uint32_t time_added;
-  void *ptr = NULL;
   int ret;
 
   xml = rss_xml_get(pli->path);
@@ -428,11 +381,11 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
       return -1;
     }
 
-  ret = rss_xml_parse_feed(&feed_title, &feed_author, &feed_artwork, xml);
+  ret = feed_metadata_from_xml(&feed_title, &feed_author, &feed_artwork, xml);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_LIB, "Invalid RSS/xml received from '%s' (id %d)\n", pli->path, pli->id);
-      mxmlDelete(xml);
+      xml_free(xml);
       return -1;
     }
 
@@ -455,20 +408,23 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
   *count = 0;
   db_transaction_begin();
   db_pl_clear_items(pli->id);
-  while ((ret = rss_xml_parse_item(&ri, xml, &ptr)) == 0 && (*count < pli->query_limit))
+  for (item = xml_get_node(xml, "rss/channel/item"); item && (*count < pli->query_limit); item = xml_get_next(xml, item))
     {
       if (library_is_exiting())
 	{
 	  db_transaction_rollback();
-	  mxmlDelete(xml);
+	  xml_free(xml);
 	  return -1;
 	}
 
+      ri_from_item(&ri, item);
       if (!ri.url)
 	{
 	  DPRINTF(E_WARN, L_LIB, "Missing URL for item '%s' (date %s) in RSS feed '%s'\n", ri.title, ri.pubdate, feed_title);
 	  continue;
 	}
+
+      DPRINTF(E_DBG, L_LIB, "RSS/xml item: title '%s' pubdate: '%s' link: '%s' url: '%s' type: '%s'\n", ri.title, ri.pubdate, ri.link, ri.url, ri.type);
 
       db_pl_add_item_bypath(pli->id, ri.url);
       (*count)++;
@@ -499,7 +455,7 @@ rss_save(struct playlist_info *pli, int *count, enum rss_scan_type scan_type)
     }
 
   db_transaction_end();
-  mxmlDelete(xml);
+  xml_free(xml);
 
   return 0;
 }
