@@ -14,14 +14,14 @@
         :key="item"
         :class="key == lyricIndex && is_sync && 'gradient'"
       >
-        <ul v-if="key == lyricIndex && is_sync">
+        <ul v-if="key == lyricIndex && is_sync && is_playing">
           <template v-for="timedWord in splitLyric" :key="timedWord.delay">
             <li :style="{ animationDuration: timedWord.delay + 's' }">
               {{ timedWord.text }}
             </li>
           </template>
         </ul>
-        <template v-if="key != lyricIndex || !is_sync">
+        <template v-if="key != lyricIndex || !is_sync || !is_playing">
           {{ item[0] }}
         </template>
       </div>
@@ -47,6 +47,9 @@ export default {
     }
   },
   computed: {
+    is_playing() {
+      return this.player.state === 'play'
+    },
     is_sync() {
       return this.lyricsArr.length && this.lyricsArr[0].length > 1
     },
@@ -102,7 +105,7 @@ export default {
       return this.$store.state.player
     },
     splitLyric() {
-      if (this.lyricIndex == 0 || !this.lyricsArr.length) return {}
+      if (!this.lyricsArr.length) return {}
 
       // Need to split evenly the transition in the lyrics's word (based on the word size / lyrics size)
       const lyric = this.lyricsArr[this.lyricIndex][0]
@@ -168,10 +171,10 @@ export default {
 <style scoped>
 .lyrics-overlay {
   position: absolute;
-  top: -1rem;
+  top: -2rem;
   left: calc(50% - 50vw);
   width: 100vw;
-  height: calc(100% - 9rem);
+  height: calc(100% - 8rem);
   z-index: 3;
   pointer-events: none;
 }
@@ -197,10 +200,13 @@ export default {
   flex-direction: column;
 }
 
-.lyrics-wrapper .lyrics .gradient ul li {
-  display: inline;
+.lyrics-wrapper .lyrics .gradient {
   font-weight: bold;
   font-size: 120%;
+}
+
+.lyrics-wrapper .lyrics .gradient ul li {
+  display: inline;
   animation: pop-color 0s linear forwards;
 }
 
