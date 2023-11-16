@@ -1,4 +1,5 @@
 <template>
+  <div class="lyrics-overlay"></div>
   <div
     ref="lyricsWrapper"
     class="lyrics-wrapper"
@@ -8,13 +9,22 @@
     @wheel.passive="startedScroll"
   >
     <div class="lyrics">
-      <p
+      <div
         v-for="(item, key) in lyricsArr"
         :key="item"
         :class="key == lyricIndex && is_sync && 'gradient'"
       >
-        {{ item[0] }}
-      </p>
+        <ul v-if="key == lyricIndex && is_sync">
+          <template v-for="timedWord in splitLyric" :key="timedWord.delay">
+            <li :style="{ animationDuration: timedWord.delay + 's' }">
+              {{ timedWord.text }}
+            </li>
+          </template>
+        </ul>
+        <template v-if="key != lyricIndex || !is_sync">
+          {{ item[0] }}
+        </template>
+      </div>
     </div>
   </div>
 </template>
@@ -37,14 +47,9 @@ export default {
     }
   },
   computed: {
-    player() {
-      return this.$store.state.player
-    },
-
     is_sync() {
       return this.lyricsArr.length && this.lyricsArr[0].length > 1
     },
-
     lyricIndex() {
       // We have to perform a dichotomic search in the time array to find the index that's matching
       const curTime = this.player.item_progress_ms / 1000
@@ -92,6 +97,25 @@ export default {
     },
     lyricsArr() {
       return this.$store.getters.lyrics
+    },
+    player() {
+      return this.$store.state.player
+    },
+    splitLyric() {
+      if (this.lyricIndex == 0 || !this.lyricsArr.length) return {}
+
+      // Need to split evenly the transition in the lyrics's word (based on the word size / lyrics size)
+      const lyric = this.lyricsArr[this.lyricIndex][0]
+      const lyricDur = this.lyricDuration / lyric.length
+
+      // Split lyrics in words
+      const parsedWords = lyric.match(/\S+\s*/g)
+      let duration = 0
+      return parsedWords.map((w) => {
+        let d = duration
+        duration += (w.length + 1) * lyricDur
+        return { delay: d, text: w }
+      })
     }
   },
   watch: {
@@ -135,59 +159,54 @@ export default {
       })
 
       // Then prepare the animated gradient too
-      currentLyric.style.animationDuration = this.lyricDuration + 's'
+      //      currentLyric.style.animationDuration = this.lyricDuration + 's'
     }
   }
 }
 </script>
 
 <style scoped>
+.lyrics-overlay {
+  position: absolute;
+  top: -1rem;
+  left: calc(50% - 50vw);
+  width: 100vw;
+  height: calc(100% - 9rem);
+  z-index: 3;
+  pointer-events: none;
+}
+
 .lyrics-wrapper {
   position: absolute;
   top: -1rem;
-  left: calc(50% - 40vw);
-  right: calc(50% - 40vw);
-  bottom: 0;
-  max-height: calc(100% - 9rem);
+  left: calc(50% - 50vw);
+  width: 100vw;
+  height: calc(100% - 9rem);
+  z-index: 1;
   overflow: auto;
 
   /* Glass effect */
   background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  border: 1px solid rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 .lyrics-wrapper .lyrics {
   display: flex;
   align-items: center;
   flex-direction: column;
 }
-.lyrics-wrapper .lyrics .gradient {
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+
+.lyrics-wrapper .lyrics .gradient ul li {
+  display: inline;
   font-weight: bold;
   font-size: 120%;
-  animation: slide-right 1 linear;
-  background-size: 200% 100%;
-
-  background-image: -webkit-linear-gradient(left, #080 50%, #000 50%);
+  animation: pop-color 0s linear forwards;
 }
 
-@keyframes slide-right {
-  0% {
-    background-position: 100% 0%;
-  }
-  100% {
-    background-position: 0% 0%;
-  }
-}
-
-.lyrics-wrapper .lyrics p {
+.lyrics-wrapper .lyrics div {
   line-height: 3rem;
   text-align: center;
   font-size: 1rem;
-  color: #000;
 }
 </style>

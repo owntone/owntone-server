@@ -3,6 +3,24 @@
 @import 'bulma/bulma.sass';
 @import 'bulma-switch';
 
+/* Lyrics animation */
+@keyframes pop-color {
+  0% {
+    color: $black;
+  }
+  100% {
+    color: $success;
+  }
+}
+
+.lyrics-wrapper .lyrics div {
+  color: $black;
+}
+.lyrics-overlay {
+  box-shadow: 0px 100px 100px 0px $white inset,
+    0px -100px 100px 0px $white inset;
+}
+
 .progress-bar {
   background-color: $info;
   border-radius: 2px;
