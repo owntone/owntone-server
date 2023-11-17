@@ -578,7 +578,8 @@
       "shuffle-disabled": "Play tracks in order",
       "skip-backward": "Skip to previous track",
       "skip-forward": "Skip to next track",
-      "stop": "Stop"
+      "stop": "Stop",
+      "toggle-lyrics": "Toggle lyrics"
     }
   },
   "setting": {

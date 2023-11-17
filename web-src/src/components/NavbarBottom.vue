@@ -100,6 +100,7 @@
                 <player-button-repeat class="button" />
                 <player-button-shuffle class="button" />
                 <player-button-consume class="button" />
+                <player-button-lyrics class="button" />
               </div>
             </div>
           </div>
@@ -176,6 +177,7 @@
             <player-button-repeat class="button" />
             <player-button-shuffle class="button" />
             <player-button-consume class="button" />
+            <player-button-lyrics class="button" />
           </div>
         </div>
         <hr class="my-3" />
@@ -268,6 +270,7 @@ import { mdiCancel } from '@mdi/js'
 import NavbarItemLink from './NavbarItemLink.vue'
 import NavbarItemOutput from './NavbarItemOutput.vue'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume.vue'
+import PlayerButtonLyrics from '@/components/PlayerButtonLyrics.vue'
 import PlayerButtonNext from '@/components/PlayerButtonNext.vue'
 import PlayerButtonPlayPause from '@/components/PlayerButtonPlayPause.vue'
 import PlayerButtonPrevious from '@/components/PlayerButtonPrevious.vue'
@@ -284,6 +287,7 @@ export default {
     NavbarItemLink,
     NavbarItemOutput,
     PlayerButtonConsume,
+    PlayerButtonLyrics,
     PlayerButtonNext,
     PlayerButtonPlayPause,
     PlayerButtonPrevious,

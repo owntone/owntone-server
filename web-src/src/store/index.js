@@ -33,6 +33,12 @@ export default createStore({
         item_length_ms: 0,
         item_progress_ms: 0
       },
+      lyrics: {
+        found: false,
+        lyrics_id: -1,
+        lyrics_pane: false,
+        lyrics: []
+      },
       queue: {
         version: 0,
         count: 0,
@@ -70,6 +76,18 @@ export default createStore({
   },
 
   getters: {
+    lyrics: (state) => {
+      return state.lyrics.lyrics
+    },
+
+    lyrics_found: (state) => {
+      return state.lyrics.found
+    },
+
+    lyrics_pane: (state) => {
+      return state.lyrics.lyrics_pane
+    },
+
     now_playing: (state) => {
       const item = state.queue.items.find(function (item) {
         return item.id === state.player.item_id
@@ -187,6 +205,28 @@ export default createStore({
     },
     [types.UPDATE_QUEUE](state, queue) {
       state.queue = queue
+    },
+    [types.UPDATE_LYRICS](state, lyrics) {
+      // Parse from .LRC or text format to synchronized lyrics
+      function parse(lyrics) {
+        let lyricsObj = []
+        let tempArr = lyrics.split('\n')
+        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
+
+        tempArr.forEach((item) => {
+          let matches = regex.exec(item)
+          if (matches !== null && matches[4].length) {
+            let obj = [matches[4]]
+            if (matches[2] != null && matches[3] != null)
+              obj.push(parseInt(matches[2], 10) * 60 + parseInt(matches[3], 10))
+            lyricsObj.push(obj)
+          }
+        })
+        return lyricsObj
+      }
+      state.lyrics.lyrics = 'lyrics' in lyrics ? parse(lyrics.lyrics) : ''
+      if (!state.lyrics.found)
+        state.lyrics.found = state.lyrics.lyrics.length > 0
     },
     [types.UPDATE_LASTFM](state, lastfm) {
       state.lastfm = lastfm
