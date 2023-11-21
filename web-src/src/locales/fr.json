@@ -317,27 +317,6 @@
         "genres": "Genres"
       }
     },
-    "browse": {
-      "albums": "albums",
-      "show-more": "Afficher plus",
-      "tracks": "pistes",
-      "recently-added": {
-        "albums": "albums",
-        "title": "Ajouts récents"
-      },
-      "recently-played": {
-        "title": "Lectures récentes",
-        "tracks": "pistes"
-      },
-      "tabs": {
-        "albums": "Albums",
-        "artists": "Artistes",
-        "browse": "Parcourir",
-        "composers": "Compositeurs",
-        "genres": "Genres",
-        "spotify": "Spotify"
-      }
-    },
     "composer": {
       "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
@@ -369,6 +348,23 @@
     "genres": {
       "count": "{count} genre|{count} genre|{count} genres",
       "title": "Genres"
+    },
+    "music": {
+      "show-more": "Afficher plus",
+      "recently-added": {
+        "title": "Ajouts récents"
+      },
+      "recently-played": {
+        "title": "Lectures récentes"
+      },
+      "tabs": {
+        "albums": "Albums",
+        "artists": "Artistes",
+        "composers": "Compositeurs",
+        "genres": "Genres",
+        "history": "Historique",
+        "spotify": "Spotify"
+      }
     },
     "now-playing": {
       "info": "Ajoutez des pistes en parcourant votre bibliothèque",
@@ -532,7 +528,7 @@
         "album-count": "{count} album|{count} album|{count} albums",
         "shuffle": "Lecture aléatoire"
       },
-      "browse": {
+      "music": {
         "featured-playlists": "Listes de lecture en vedette",
         "new-releases": "Nouvelle sorties",
         "show-more": "Afficher plus"

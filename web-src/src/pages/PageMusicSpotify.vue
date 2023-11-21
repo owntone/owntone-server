@@ -4,7 +4,7 @@
     <!-- New Releases -->
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.spotify.browse.new-releases')" />
+        <p class="title is-4" v-text="$t('page.spotify.music.new-releases')" />
       </template>
       <template #content>
         <list-item-album-spotify
@@ -45,7 +45,7 @@
             <router-link
               :to="{ name: 'music-spotify-new-releases' }"
               class="button is-light is-small is-rounded"
-              >{{ $t('page.spotify.browse.show-more') }}</router-link
+              >{{ $t('page.spotify.music.show-more') }}</router-link
             >
           </p>
         </nav>
@@ -56,7 +56,7 @@
       <template #heading-left>
         <p
           class="title is-4"
-          v-text="$t('page.spotify.browse.featured-playlists')"
+          v-text="$t('page.spotify.music.featured-playlists')"
         />
       </template>
       <template #content>
@@ -87,7 +87,7 @@
             <router-link
               :to="{ name: 'music-spotify-featured-playlists' }"
               class="button is-light is-small is-rounded"
-              >{{ $t('page.spotify.browse.show-more') }}</router-link
+              >{{ $t('page.spotify.music.show-more') }}</router-link
             >
           </p>
         </nav>
@@ -143,7 +143,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'SpotifyPageBrowse',
+  name: 'PageMusicSpotify',
   components: {
     ContentWithHeading,
     CoverArtwork,

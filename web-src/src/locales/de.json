@@ -317,27 +317,6 @@
         "genres": "Genres"
       }
     },
-    "browse": {
-      "albums": "Alben",
-      "show-more": "Zeige mehr",
-      "tracks": "Tracks",
-      "recently-added": {
-        "albums": "Alben",
-        "title": "Kürzlich hinzugefügt"
-      },
-      "recently-played": {
-        "title": "Kürzlich gespielt",
-        "tracks": "Tracks"
-      },
-      "tabs": {
-        "albums": "Alben",
-        "artists": "Künstler",
-        "browse": "Auswählen",
-        "composers": "Komponisten",
-        "genres": "Genres",
-        "spotify": "Spotify"
-      }
-    },
     "composer": {
       "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
@@ -369,6 +348,23 @@
     "genres": {
       "count": "{count} Genre|{count} Genre|{count} Genres",
       "title": "Genres"
+    },
+    "music": {
+      "show-more": "Zeige mehr",
+      "recently-added": {
+        "title": "Kürzlich hinzugefügt"
+      },
+      "recently-played": {
+        "title": "Kürzlich gespielt"
+      },
+      "tabs": {
+        "albums": "Alben",
+        "artists": "Künstler",
+        "composers": "Komponisten",
+        "genres": "Genres",
+        "history": "Verlauf",
+        "spotify": "Spotify"
+      }
     },
     "now-playing": {
       "info": "Tracks durch Auswählen aus der Bibliothek anfügen",
@@ -532,7 +528,7 @@
         "album-count": "{count} Album|{count} Album|{count} Alben",
         "shuffle": "Zufallswiedergabe"
       },
-      "browse": {
+      "music": {
         "featured-playlists": "Ausgezeichnete Playlisten",
         "new-releases": "Neuvorstellung",
         "show-more": "Zeige mehr"

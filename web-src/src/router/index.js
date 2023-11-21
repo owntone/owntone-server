@@ -13,12 +13,6 @@ import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
 import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
 import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
 import PageAudiobooksGenres from '@/pages/PageAudiobooksGenres.vue'
-import PageBrowse from '@/pages/PageBrowse.vue'
-import PageBrowseRecentlyAdded from '@/pages/PageBrowseRecentlyAdded.vue'
-import PageBrowseRecentlyPlayed from '@/pages/PageBrowseRecentlyPlayed.vue'
-import PageBrowseSpotify from '@/pages/PageBrowseSpotify.vue'
-import PageBrowseSpotifyNewReleases from '@/pages/PageBrowseSpotifyNewReleases.vue'
-import PageBrowseSpotifyFeaturedPlaylists from '@/pages/PageBrowseSpotifyFeaturedPlaylists.vue'
 import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
@@ -26,12 +20,18 @@ import PageFiles from '@/pages/PageFiles.vue'
 import PageGenreAlbums from '@/pages/PageGenreAlbums.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
 import PageGenres from '@/pages/PageGenres.vue'
+import PageMusic from '@/pages/PageMusic.vue'
+import PageMusicSpotify from '@/pages/PageMusicSpotify.vue'
+import PageMusicSpotifyNewReleases from '@/pages/PageMusicSpotifyNewReleases.vue'
+import PageMusicSpotifyFeaturedPlaylists from '@/pages/PageMusicSpotifyFeaturedPlaylists.vue'
+import PageMusicRecentlyAdded from '@/pages/PageMusicRecentlyAdded.vue'
+import PageMusicRecentlyPlayed from '@/pages/PageMusicRecentlyPlayed.vue'
+import PageNowPlaying from '@/pages/PageNowPlaying.vue'
 import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
 import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
 import PagePlaylistTracksSpotify from '@/pages/PagePlaylistTracksSpotify.vue'
 import PagePodcast from '@/pages/PagePodcast.vue'
 import PagePodcasts from '@/pages/PagePodcasts.vue'
-import PageNowPlaying from '@/pages/PageNowPlaying.vue'
 import PageQueue from '@/pages/PageQueue.vue'
 import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
 import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
@@ -133,40 +133,40 @@ export const router = createRouter({
     {
       name: 'music',
       path: '/music',
-      redirect: { name: 'music-browse' }
+      redirect: { name: 'music-history' }
     },
     {
-      component: PageBrowse,
+      component: PageMusic,
       meta: { has_tabs: true, show_progress: true },
-      name: 'music-browse',
-      path: '/music/browse'
+      name: 'music-history',
+      path: '/music/history'
     },
     {
-      component: PageBrowseRecentlyAdded,
+      component: PageMusicRecentlyAdded,
       meta: { has_tabs: true, show_progress: true },
-      name: 'music-browse-recently-added',
-      path: '/music/browse/recently-added'
+      name: 'music-recently-added',
+      path: '/music/recently-added'
     },
     {
-      component: PageBrowseRecentlyPlayed,
+      component: PageMusicRecentlyPlayed,
       meta: { has_tabs: true, show_progress: true },
-      name: 'music-browse-recently-played',
-      path: '/music/browse/recently-played'
+      name: 'music-recently-played',
+      path: '/music/recently-played'
     },
     {
-      component: PageBrowseSpotify,
+      component: PageMusicSpotify,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-spotify',
       path: '/music/spotify'
     },
     {
-      component: PageBrowseSpotifyFeaturedPlaylists,
+      component: PageMusicSpotifyFeaturedPlaylists,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-spotify-featured-playlists',
       path: '/music/spotify/featured-playlists'
     },
     {
-      component: PageBrowseSpotifyNewReleases,
+      component: PageMusicSpotifyNewReleases,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-spotify-new-releases',
       path: '/music/spotify/new-releases'

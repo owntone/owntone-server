@@ -5,7 +5,7 @@
       <template #heading-left>
         <p
           class="title is-4"
-          v-text="$t('page.spotify.browse.featured-playlists')"
+          v-text="$t('page.spotify.music.featured-playlists')"
         />
       </template>
       <template #content>
@@ -65,7 +65,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'SpotifyPageBrowseFeaturedPlaylists',
+  name: 'PageMusicSpotifyFeaturedPlaylists',
   components: {
     ContentWithHeading,
     ListItemPlaylistSpotify,

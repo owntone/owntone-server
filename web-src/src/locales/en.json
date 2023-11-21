@@ -317,27 +317,6 @@
         "genres": "Genres"
       }
     },
-    "browse": {
-      "albums": "albums",
-      "show-more": "Show more",
-      "tracks": "tracks",
-      "recently-added": {
-        "albums": "albums",
-        "title": "Recently added"
-      },
-      "recently-played": {
-        "title": "Recently played",
-        "tracks": "tracks"
-      },
-      "tabs": {
-        "albums": "Albums",
-        "artists": "Artists",
-        "browse": "Browse",
-        "composers": "Composers",
-        "genres": "Genres",
-        "spotify": "Spotify"
-      }
-    },
     "composer": {
       "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Shuffle",
@@ -369,6 +348,23 @@
     "genres": {
       "count": "{count} genre|{count} genre|{count} genres",
       "title": "Genres"
+    },
+    "music": {
+      "show-more": "Show more",
+      "recently-added": {
+        "title": "Recently added"
+      },
+      "recently-played": {
+        "title": "Recently played"
+      },
+      "tabs": {
+        "albums": "Albums",
+        "artists": "Artists",
+        "composers": "Composers",
+        "genres": "Genres",
+        "history": "History",
+        "spotify": "Spotify"
+      }
     },
     "now-playing": {
       "info": "Add some tracks by browsing your library",
@@ -532,7 +528,7 @@
         "album-count": "{count} album|{count} album|{count} albums",
         "shuffle": "Shuffle"
       },
-      "browse": {
+      "music": {
         "featured-playlists": "Featured Playlists",
         "new-releases": "New Releases",
         "show-more": "Show More"

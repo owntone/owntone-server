@@ -3,7 +3,7 @@
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.spotify.browse.new-releases')" />
+        <p class="title is-4" v-text="$t('page.spotify.music.new-releases')" />
       </template>
       <template #content>
         <list-item-album-spotify
@@ -74,7 +74,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PageBrowseSpotifyNewReleases',
+  name: 'PageMusicSpotifyNewReleases',
   components: {
     ContentWithHeading,
     CoverArtwork,

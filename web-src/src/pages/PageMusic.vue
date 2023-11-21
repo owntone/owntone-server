@@ -4,8 +4,7 @@
     <!-- Recently added -->
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.browse.recently-added.title')" />
-        <p class="heading" v-text="$t('page.browse.albums')" />
+        <p class="title is-4" v-text="$t('page.music.recently-added.title')" />
       </template>
       <template #content>
         <list-albums :albums="recently_added" />
@@ -15,8 +14,8 @@
           <p class="level-item">
             <router-link
               class="button is-light is-small is-rounded"
-              :to="{ name: 'music-browse-recently-added' }"
-              >{{ $t('page.browse.show-more') }}</router-link
+              :to="{ name: 'music-recently-added' }"
+              >{{ $t('page.music.show-more') }}</router-link
             >
           </p>
         </nav>
@@ -25,11 +24,7 @@
     <!-- Recently played -->
     <content-with-heading>
       <template #heading-left>
-        <p
-          class="title is-4"
-          v-text="$t('page.browse.recently-played.title')"
-        />
-        <p class="heading" v-text="$t('page.browse.tracks')" />
+        <p class="title is-4" v-text="$t('page.music.recently-played.title')" />
       </template>
       <template #content>
         <list-tracks :tracks="recently_played" />
@@ -39,8 +34,8 @@
           <p class="level-item">
             <router-link
               class="button is-light is-small is-rounded"
-              :to="{ name: 'music-browse-recently-played' }"
-              >{{ $t('page.browse.show-more') }}</router-link
+              :to="{ name: 'music-recently-played' }"
+              >{{ $t('page.music.show-more') }}</router-link
             >
           </p>
         </nav>
@@ -82,7 +77,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PageBrowse',
+  name: 'PageMusic',
   components: { ContentWithHeading, ListAlbums, ListTracks, TabsMusic },
 
   beforeRouteEnter(to, from, next) {

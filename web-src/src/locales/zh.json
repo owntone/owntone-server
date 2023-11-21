@@ -317,27 +317,6 @@
         "genres": "流派"
       }
     },
-    "browse": {
-      "albums": "专辑",
-      "show-more": "显示更多",
-      "tracks": "曲目",
-      "recently-added": {
-        "albums": "专辑",
-        "title": "最近添加"
-      },
-      "recently-played": {
-        "title": "最近播放",
-        "tracks": "曲目"
-      },
-      "tabs": {
-        "albums": "专辑",
-        "artists": "艺人",
-        "browse": "浏览",
-        "composers": "作曲家",
-        "genres": "流派",
-        "spotify": "Spotify"
-      }
-    },
     "composer": {
       "album-count": "{count} 张专辑|{count} 张专辑",
       "shuffle": "随机播放",
@@ -369,6 +348,23 @@
     "genres": {
       "count": "{count} 个流派|{count} 个流派",
       "title": "流派"
+    },
+    "music": {
+      "show-more": "显示更多",
+      "recently-added": {
+        "title": "最近添加"
+      },
+      "recently-played": {
+        "title": "最近播放"
+      },
+      "tabs": {
+        "albums": "专辑",
+        "artists": "艺人",
+        "composers": "作曲家",
+        "genres": "流派",
+        "history": "历史",
+        "spotify": "Spotify"
+      }
     },
     "now-playing": {
       "info": "浏览资料库添加曲目",
@@ -532,7 +528,7 @@
         "album-count": "{count} 张专辑|{count} 张专辑",
         "shuffle": "随机播放"
       },
-      "browse": {
+      "music": {
         "featured-playlists": "特色列表",
         "new-releases": "最新发行",
         "show-more": "显示更多"
