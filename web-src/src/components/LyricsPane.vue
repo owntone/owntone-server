@@ -9,6 +9,7 @@
     @wheel.passive="startedScroll"
   >
     <div class="lyrics">
+      <div class="space"></div>
       <div
         v-for="(item, key) in lyricsArr"
         :key="item"
@@ -25,6 +26,7 @@
           {{ item[0] }}
         </template>
       </div>
+      <div class="space"></div>
     </div>
   </div>
 </template>
@@ -35,7 +37,7 @@ export default {
   data() {
     // Non reactive
     // Used as a cache to speed up finding the lyric index in the array for the current time
-    this.lastIndex = 0
+    this.lastIndex = -1
     // Fired upon scrolling, that's disabling the auto scrolling for 5s
     this.scrollTimer = null
     this.lastItemId = -1
@@ -57,10 +59,13 @@ export default {
       // We have to perform a dichotomic search in the time array to find the index that's matching
       const curTime = this.player.item_progress_ms / 1000
       const la = this.lyricsArr
-      if (la.length && la[0].length === 1) return 0 // Bail out for non synchronized lyrics
+      if (la.length && la[0].length === 1) {
+        this.resetPosCache()
+        return -1 // Bail out for non synchronized lyrics
+      }
       if (
         this.player.item_id != this.lastItemId ||
-        (this.lastIndex < la.length && la[this.lastIndex][1] > curTime)
+        (this.lastIndexValid() && la[this.lastIndex][1] > curTime)
       ) {
         // Song changed or time scrolled back, let's reset the cache
         this.resetPosCache()
@@ -89,7 +94,7 @@ export default {
       if (!this.lyricsArr.length || this.lyricsArr[0].length < 2) return 3600
       // The index is 0 before the first lyric until the end of the first lyric
       if (
-        !this.lyricIndex &&
+        this.lyricIndex == -1 &&
         this.player.item_progress_ms / 1000 < this.lyricsArr[0][1]
       )
         return this.lyricsArr[0][1]
@@ -105,7 +110,7 @@ export default {
       return this.$store.state.player
     },
     splitLyric() {
-      if (!this.lyricsArr.length) return {}
+      if (!this.lyricsArr.length || this.lyricIndex == -1) return {}
 
       // Need to split evenly the transition in the lyrics's word (based on the word size / lyrics size)
       const lyric = this.lyricsArr[this.lyricIndex][0]
@@ -129,9 +134,17 @@ export default {
     }
   },
   methods: {
+    lastIndexValid() {
+      return this.lastIndex >= 0 && this.lastIndex < this.lyricsArr.length
+    },
+
     resetPosCache() {
+      // Scroll to the start of the track's lyric in all cases
+      if (this.player.item_id != this.lastItemId && this.$refs.lyricsWrapper)
+        this.$refs.lyricsWrapper.scrollTo(0, 0)
+
       this.lastItemId = this.player.item_id
-      this.lastIndex = 0
+      this.lastIndex = -1
     },
     startedScroll(e) {
       // Ugly trick to check if a scroll event comes from the user or from JS
@@ -146,8 +159,13 @@ export default {
     },
 
     _scrollToElement() {
-      let scrollTouch = this.$refs.lyricsWrapper,
-        currentLyric = scrollTouch.children[0].children[this.lyricIndex],
+      let scrollTouch = this.$refs.lyricsWrapper
+      if (this.lyricIndex == -1) {
+        scrollTouch.scrollTo(0, 0)
+        return
+      }
+
+      let currentLyric = scrollTouch.children[0].children[this.lyricIndex],
         offsetToCenter = scrollTouch.offsetHeight >> 1
       if (!this.lyricsArr || !currentLyric) return
 
@@ -214,5 +232,9 @@ export default {
   line-height: 3rem;
   text-align: center;
   font-size: 1rem;
+}
+
+.lyrics-wrapper .lyrics .space {
+  height: 20vh;
 }
 </style>
