@@ -21,9 +21,7 @@
   color: $black;
 }
 .lyrics-overlay {
-  box-shadow:
-    0px 40px 40px 0px $white inset,
-    0px -40px 40px 0px $white inset;
+  box-shadow: 0px 40px 40px 0px $white inset, 0px -40px 40px 0px $white inset;
 }
 
 .progress-bar {
@@ -80,9 +78,7 @@ a.navbar-item {
 }
 
 .fd-has-shadow img {
-  box-shadow:
-    0 4px 8px 0 rgba(0, 0, 0, 0.2),
-    0 6px 20px 0 rgba(0, 0, 0, 0.19);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }
 
 .fd-page {
