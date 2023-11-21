@@ -97,7 +97,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PageAlbum',
+  name: 'PageAlbumSpotify',
   components: {
     ContentWithHero,
     CoverArtwork,

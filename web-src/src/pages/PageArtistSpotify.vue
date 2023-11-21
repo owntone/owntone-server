@@ -106,7 +106,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'SpotifyPageArtist',
+  name: 'PageArtistSpotify',
   components: {
     ContentWithHeading,
     CoverArtwork,

@@ -40,7 +40,7 @@ const dataObject = {
 }
 
 export default {
-  name: 'PageAudiobookGenres',
+  name: 'PageAudiobooksGenres',
   components: {
     ContentWithHeading,
     IndexButtonList,
