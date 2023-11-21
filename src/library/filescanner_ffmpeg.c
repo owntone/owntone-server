@@ -812,6 +812,10 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
   AVPacket pkt;
   AVDictionaryEntry *tag = NULL;
   AVDictionary *opts = NULL;
+  AVStream *out_stream;
+  AVStream *in_stream;
+  AVCodecParameters *in_codecpar;
+  const struct AVOutputFormat *out_fmt;
 
   int i;
   int stream_idx = 0;
@@ -827,7 +831,7 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
 
   // we've hacked the name of the output file so its not going to get scanned
   // by the library for no reason
-  const struct AVOutputFormat*  out_fmt = av_guess_format(in_fmt_ctx->iformat->name, in_fmt_ctx->url, in_fmt_ctx->iformat->mime_type);
+  out_fmt = av_guess_format(in_fmt_ctx->iformat->name, in_fmt_ctx->url, in_fmt_ctx->iformat->mime_type);
   if (out_fmt == NULL)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not determine output format from '%s'\n", in_fmt_ctx->url);
@@ -860,24 +864,23 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
 
   for (i = 0; i < in_fmt_ctx->nb_streams; i++)
     {
-      AVStream *out_stream;
-      AVStream *in_stream = in_fmt_ctx->streams[i];
-      AVCodecParameters *in_codecpar = in_stream->codecpar;
+      in_stream = in_fmt_ctx->streams[i];
+      in_codecpar = in_stream->codecpar;
       if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
 	  in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO)
-      {
+        {
 	  stream_mapping[i] = -1;
 	  continue;
-      }
+        }
 
       stream_mapping[i] = stream_idx++;
       out_stream = avformat_new_stream (out_fmt_ctx, NULL);
       if (!out_stream)
-      {
+        {
 	  DPRINTF(E_LOG, L_SCAN, "Failed allocating output stream '%s'\n", in_fmt_ctx->url);
 	  ret = AVERROR_UNKNOWN;
 	  goto end;
-      }
+        }
       ret = avcodec_parameters_copy (out_stream->codecpar, in_codecpar);
       if (ret < 0)
 	{
@@ -913,7 +916,6 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
 
   while (1)
     {
-      AVStream *in_stream, *out_stream;
       ret = av_read_frame (in_fmt_ctx, &pkt);
       if (ret < 0)
 	break;
@@ -966,8 +968,9 @@ filescanner_ffmpeg_sync_metadata(const char *path, uint32_t req_rating)
   char dest[PATH_MAX];
   int i;
   bool supported = false;
+  AVDictionaryEntry  *entry;
 
-  AVFormatContext*  ctx = NULL;
+  AVFormatContext *ctx = NULL;
   if ( (ret = avformat_open_input(&ctx, path, NULL, NULL)) != 0)
     {
       DPRINTF(E_LOG, L_SCAN, "failed to open library file for rating metadata update '%s' - %s\n", path, av_err2str(ret));
@@ -1000,7 +1003,7 @@ filescanner_ffmpeg_sync_metadata(const char *path, uint32_t req_rating)
   safe_snprintf_cat(rating, 4, "%d", req_rating);
 
   // Save a potential write if metadata on the underlying file matches requested rating
-  AVDictionaryEntry*  entry = av_dict_get(ctx->metadata, "rating", NULL, 0);
+  entry = av_dict_get(ctx->metadata, "rating", NULL, 0);
   if (entry == NULL || (entry && entry->value == NULL) || (entry && strcmp(entry->value, rating) != 0) )
     {
       av_dict_set(&ctx->metadata, "rating", rating, 0);
@@ -1025,6 +1028,7 @@ filescanner_ffmpeg_sync_metadata(const char *path, uint32_t req_rating)
 	  ret = EIO;
 	}
     }
+
 end:
   avformat_close_input(&ctx);
   return ret;
