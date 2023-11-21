@@ -165,12 +165,15 @@ export default {
         return
       }
 
-      let currentLyric = scrollTouch.children[0].children[this.lyricIndex],
+      let currentLyric = scrollTouch.children[0].children[this.lyricIndex + 1], // Because of space item
         offsetToCenter = scrollTouch.offsetHeight >> 1
       if (!this.lyricsArr || !currentLyric) return
 
       let currOff = scrollTouch.scrollTop,
-        destOff = currentLyric.offsetTop - offsetToCenter
+        destOff =
+          currentLyric.offsetTop -
+          offsetToCenter +
+          (currentLyric.offsetHeight >> 1)
       // Using scrollBy ensure that scrolling will happen
       // even if the element is visible before scrolling
       scrollTouch.scrollBy({
