@@ -686,12 +686,6 @@ char *
 db_file_path_byid(int id);
 
 int
-db_file_data_kind_byid(int id);
-
-int
-db_file_data_kind_byvirtualpath(const char *path);
-
-int
 db_file_id_bypath(const char *path);
 
 int

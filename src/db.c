@@ -3141,55 +3141,6 @@ db_file_id_byquery(const char *query)
 }
 
 int
-db_file_data_kind_byid(int id)
-{
-#define Q_TMPL "SELECT f.data_kind FROM files f WHERE f.id = %d;"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return 0;
-    }
-
-  ret = db_file_id_byquery(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
-#undef Q_TMPL
-}
-
-int
-db_file_data_kind_byvirtualpath(const char *path)
-{
-#define Q_TMPL "SELECT f.data_kind FROM files f WHERE f.virtual_path = '%q';"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return -1;
-    }
-
-  ret = db_file_id_byquery(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
-#undef Q_TMPL
-}
-
-
-int
 db_file_id_bypath(const char *path)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.path = '%q';"
