@@ -1786,7 +1786,8 @@ filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_
   ret = db_watch_get_bypath(&wi, inotify_path);
   if (ret == 0)
     {
-      watches_clear(wi.wd, wi.path);
+      inotify_rm_watch(inofd, wi.wd);
+      db_watch_delete_bywd(wi.wd);
       free_wi(&wi, 1);
     }
 
