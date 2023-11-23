@@ -19,6 +19,7 @@
                   v-model="pairing_req.pin"
                   class="input"
                   type="text"
+                  pattern="[\d]{4}"
                   :placeholder="$t('page.settings.devices.pairing-code')"
                 />
               </div>
@@ -74,6 +75,7 @@
                   v-model="verification_req.pin"
                   class="input"
                   type="text"
+                  pattern="[\d]{4}"
                   :placeholder="$t('page.settings.devices.verification-code')"
                 />
               </div>
