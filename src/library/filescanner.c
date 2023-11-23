@@ -1737,7 +1737,7 @@ filescanner_fullrescan()
 }
 
 static int
-filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t rating)
+filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_t rating)
 {
   int ret;
   char inotify_path[PATH_MAX] = { 0 };
@@ -2256,7 +2256,7 @@ struct library_source filescanner =
   .rescan = filescanner_rescan,
   .metarescan = filescanner_metarescan,
   .fullrescan = filescanner_fullrescan,
-  .sync_metadata = filescanner_sync_metadata,
+  .write_metadata = filescanner_write_metadata,
   .playlist_item_add = playlist_item_add,
   .playlist_remove = playlist_remove,
   .queue_save = queue_save,

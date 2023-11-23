@@ -3458,8 +3458,8 @@ db_file_rating_update(char *query, uint32_t rating, const char *virtual_path, co
 	  sources = library_sources();
 	  for (i=0; sources[i]; ++i)
 	    {
-	      if (!sources[i]->disabled && sources[i]->sync_metadata)
-		sources[i]->sync_metadata(virtual_path, id, rating);
+	      if (!sources[i]->disabled && sources[i]->write_metadata)
+		sources[i]->write_metadata(virtual_path, id, rating);
 	    }
 	}
     }

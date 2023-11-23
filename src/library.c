@@ -141,7 +141,7 @@ library_media_save(struct media_file_info *mfi)
     {
       ret = db_file_update(mfi);
       if (mfi->data_kind == DATA_KIND_FILE)
-        filescanner.sync_metadata(mfi->virtual_path, NULL, mfi->rating);
+        filescanner.write_metadata(mfi->virtual_path, NULL, mfi->rating);
     }
   return ret;
 }
