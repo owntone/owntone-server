@@ -1744,12 +1744,6 @@ filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_
   struct watch_info wi = { 0 };
   struct media_file_info*  mfi = NULL;
 
-  if (virtual_path == NULL && id == NULL)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Bug! Invalid params %s:%d\n", __FILE__, __LINE__);
-      return -1;
-    }
-
   if (virtual_path)
     {
       mfi = db_file_fetch_byvirtualpath(virtual_path);
