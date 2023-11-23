@@ -25,7 +25,7 @@
               </div>
             </div>
             <footer v-if="loading" class="card-footer">
-              <a class="card-footer-item button is-loading">
+              <a class="card-footer-item has-text-dark">
                 <mdicon class="icon" name="web" size="16" />
                 <span
                   class="is-size-7"
