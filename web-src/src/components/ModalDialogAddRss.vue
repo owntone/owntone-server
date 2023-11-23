@@ -4,25 +4,25 @@
       <div v-if="show" class="modal is-active">
         <div class="modal-background" @click="$emit('close')" />
         <div class="modal-content fd-modal-card">
-          <div class="card">
+          <form class="card" @submit.prevent="add_stream">
             <div class="card-content">
               <p class="title is-4" v-text="$t('dialog.add.rss.title')" />
-              <form @submit.prevent="add_stream">
-                <div class="field">
-                  <p class="control is-expanded has-icons-left">
-                    <input
-                      ref="url_field"
-                      v-model="url"
-                      class="input is-shadowless"
-                      type="text"
-                      :placeholder="$t('dialog.add.rss.placeholder')"
-                      :disabled="loading"
-                    />
-                    <mdicon class="icon is-left" name="rss" size="16" />
-                  </p>
-                  <p class="help" v-text="$t('dialog.add.rss.help')" />
-                </div>
-              </form>
+              <div class="field">
+                <p class="control is-expanded has-icons-left">
+                  <input
+                    ref="url_field"
+                    v-model="url"
+                    class="input is-shadowless"
+                    type="url"
+                    pattern="http[s]?://.*"
+                    required
+                    :placeholder="$t('dialog.add.rss.placeholder')"
+                    :disabled="loading"
+                  />
+                  <mdicon class="icon is-left" name="rss" size="16" />
+                </p>
+                <p class="help" v-text="$t('dialog.add.rss.help')" />
+              </div>
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item button is-loading">
@@ -49,7 +49,7 @@
                 <span class="is-size-7" v-text="$t('dialog.add.rss.add')" />
               </a>
             </footer>
-          </div>
+          </form>
         </div>
         <button
           class="modal-close is-large"

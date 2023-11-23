@@ -4,24 +4,24 @@
       <div v-if="show" class="modal is-active">
         <div class="modal-background" @click="$emit('close')" />
         <div class="modal-content fd-modal-card">
-          <div class="card">
+          <form class="card" @submit.prevent="play">
             <div class="card-content">
               <p class="title is-4" v-text="$t('dialog.add.stream.title')" />
-              <form class="mb-5" @submit.prevent="play">
-                <div class="field">
-                  <p class="control is-expanded has-icons-left">
-                    <input
-                      ref="url_field"
-                      v-model="url"
-                      class="input is-shadowless"
-                      type="text"
-                      :placeholder="$t('dialog.add.stream.placeholder')"
-                      :disabled="loading"
-                    />
-                    <mdicon class="icon is-left" name="web" size="16" />
-                  </p>
-                </div>
-              </form>
+              <div class="field">
+                <p class="control is-expanded has-icons-left">
+                  <input
+                    ref="url_field"
+                    v-model="url"
+                    class="input is-shadowless"
+                    type="url"
+                    pattern="http[s]?://.*"
+                    required
+                    :placeholder="$t('dialog.add.stream.placeholder')"
+                    :disabled="loading"
+                  />
+                  <mdicon class="icon is-left" name="web" size="16" />
+                </p>
+              </div>
             </div>
             <footer v-if="loading" class="card-footer">
               <a class="card-footer-item has-text-dark">
@@ -55,7 +55,7 @@
                 <span class="is-size-7" v-text="$t('dialog.add.stream.play')" />
               </a>
             </footer>
-          </div>
+          </form>
         </div>
         <button
           class="modal-close is-large"
