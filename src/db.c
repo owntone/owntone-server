@@ -3453,7 +3453,7 @@ db_file_rating_update(char *query, uint32_t rating, const char *virtual_path, co
       db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
       listener_notify(LISTENER_RATING);
 
-      if (cfg_getbool(cfg_getsec(cfg, "library"), "rating_sync"))
+      if (cfg_getbool(cfg_getsec(cfg, "library"), "write_rating"))
 	{
 	  sources = library_sources();
 	  for (i=0; sources[i]; ++i)
