@@ -110,9 +110,7 @@ export default {
     },
 
     play_expression() {
-      return (
-        'path starts with "' + this.current_directory + '" order by path asc'
-      )
+      return `path starts with "${this.current_directory}" order by path asc`
     }
   },
 

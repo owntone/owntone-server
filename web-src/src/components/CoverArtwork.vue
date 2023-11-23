@@ -44,7 +44,7 @@ export default {
     },
 
     alt_text() {
-      return this.artist + ' - ' + this.album
+      return `${this.artist} - ${this.album}`
     },
 
     caption() {

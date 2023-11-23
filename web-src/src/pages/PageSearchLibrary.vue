@@ -430,12 +430,7 @@ export default {
       if (query.query.startsWith('query:')) {
         searchParams.expression = query.query.replace(/^query:/, '').trim()
       } else {
-        searchParams.expression =
-          '((album includes "' +
-          query.query +
-          '" or artist includes "' +
-          query.query +
-          '") and media_kind is audiobook)'
+        searchParams.expression = `((album includes "${query.query}" or artist includes "${query.query}") and media_kind is audiobook)`
       }
 
       if (query.limit) {
@@ -461,12 +456,7 @@ export default {
       if (query.query.startsWith('query:')) {
         searchParams.expression = query.query.replace(/^query:/, '').trim()
       } else {
-        searchParams.expression =
-          '((album includes "' +
-          query.query +
-          '" or artist includes "' +
-          query.query +
-          '") and media_kind is podcast)'
+        searchParams.expression = `((album includes "${query.query}" or artist includes "${query.query}") and media_kind is podcast)`
       }
 
       if (query.limit) {

@@ -49,7 +49,7 @@ export default {
     play() {
       this.$emit('close')
       webapi.player_play_expression(
-        'path starts with "' + this.directory + '" order by path asc',
+        `path starts with "${this.directory}" order by path asc`,
         false
       )
     },
@@ -57,14 +57,14 @@ export default {
     queue_add() {
       this.$emit('close')
       webapi.queue_expression_add(
-        'path starts with "' + this.directory + '" order by path asc'
+        `path starts with "${this.directory}" order by path asc`
       )
     },
 
     queue_add_next() {
       this.$emit('close')
       webapi.queue_expression_add_next(
-        'path starts with "' + this.directory + '" order by path asc'
+        `path starts with "${this.directory}" order by path asc`
       )
     }
   }

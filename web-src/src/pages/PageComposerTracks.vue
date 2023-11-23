@@ -130,7 +130,7 @@ export default {
 
   computed: {
     expression() {
-      return 'composer is "' + this.composer.name + '" and media_kind is music'
+      return `composer is "${this.composer.name}" and media_kind is music`
     },
     selected_groupby_option_id: {
       get() {

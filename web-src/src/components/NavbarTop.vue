@@ -231,7 +231,7 @@ export default {
 
     search_name: {
       get() {
-        return 'search-' + this.$store.state.search_source
+        return `search-${this.$store.state.search_source}`
       }
     },
 

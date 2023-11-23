@@ -19,7 +19,7 @@ export default {
       return 0
     },
     width_percent() {
-      return this.width + '%'
+      return `${this.width}%`
     }
   }
 }

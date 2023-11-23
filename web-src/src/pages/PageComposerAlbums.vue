@@ -105,7 +105,7 @@ export default {
 
     play() {
       webapi.player_play_expression(
-        'composer is "' + this.composer.name + '" and media_kind is music',
+        `composer is "${this.composer.name}" and media_kind is music`,
         true
       )
     }

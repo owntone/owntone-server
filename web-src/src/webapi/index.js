@@ -33,10 +33,7 @@ export default {
   },
 
   settings_update(categoryName, option) {
-    return axios.put(
-      './api/settings/' + categoryName + '/' + option.name,
-      option
-    )
+    return axios.put(`./api/settings/${categoryName}/${option.name}`, option)
   },
 
   library_stats() {
@@ -60,7 +57,7 @@ export default {
   },
 
   library_count(expression) {
-    return axios.get('./api/library/count?expression=' + expression)
+    return axios.get(`./api/library/count?expression=${expression}`)
   },
 
   queue() {
@@ -72,17 +69,15 @@ export default {
   },
 
   queue_remove(itemId) {
-    return axios.delete('./api/queue/items/' + itemId)
+    return axios.delete(`./api/queue/items/${itemId}`)
   },
 
   queue_move(itemId, newPosition) {
-    return axios.put(
-      './api/queue/items/' + itemId + '?new_position=' + newPosition
-    )
+    return axios.put(`./api/queue/items/${itemId}?new_position=${newPosition}`)
   },
 
   queue_add(uri) {
-    return axios.post('./api/queue/items/add?uris=' + uri).then((response) => {
+    return axios.post(`./api/queue/items/add?uris=${uri}`).then((response) => {
       store.dispatch('add_notification', {
         text: t('server.appended-tracks', { count: response.data.count }),
         type: 'info',
@@ -98,7 +93,7 @@ export default {
       position = store.getters.now_playing.position + 1
     }
     return axios
-      .post('./api/queue/items/add?uris=' + uri + '&position=' + position)
+      .post(`./api/queue/items/add?uris=${uri}&position=${position}`)
       .then((response) => {
         store.dispatch('add_notification', {
           text: t('server.appended-tracks', {
@@ -195,11 +190,11 @@ export default {
   },
 
   player_playpos(position) {
-    return axios.put('./api/player/play?position=' + position)
+    return axios.put(`./api/player/play?position=${position}`)
   },
 
   player_playid(itemId) {
-    return axios.put('./api/player/play?item_id=' + itemId)
+    return axios.put(`./api/player/play?item_id=${itemId}`)
   },
 
   player_pause() {
@@ -220,34 +215,34 @@ export default {
 
   player_shuffle(newState) {
     const shuffle = newState ? 'true' : 'false'
-    return axios.put('./api/player/shuffle?state=' + shuffle)
+    return axios.put(`./api/player/shuffle?state=${shuffle}`)
   },
 
   player_consume(newState) {
     const consume = newState ? 'true' : 'false'
-    return axios.put('./api/player/consume?state=' + consume)
+    return axios.put(`./api/player/consume?state=${consume}`)
   },
 
   player_repeat(newRepeatMode) {
-    return axios.put('./api/player/repeat?state=' + newRepeatMode)
+    return axios.put(`./api/player/repeat?state=${newRepeatMode}`)
   },
 
   player_volume(volume) {
-    return axios.put('./api/player/volume?volume=' + volume)
+    return axios.put(`./api/player/volume?volume=${volume}`)
   },
 
   player_output_volume(outputId, outputVolume) {
     return axios.put(
-      './api/player/volume?volume=' + outputVolume + '&output_id=' + outputId
+      `./api/player/volume?volume=${outputVolume}&output_id=${outputId}`
     )
   },
 
   player_seek_to_pos(newPosition) {
-    return axios.put('./api/player/seek?position_ms=' + newPosition)
+    return axios.put(`./api/player/seek?position_ms=${newPosition}`)
   },
 
   player_seek(seekMs) {
-    return axios.put('./api/player/seek?seek_ms=' + seekMs)
+    return axios.put(`./api/player/seek?seek_ms=${seekMs}`)
   },
 
   outputs() {
@@ -255,11 +250,11 @@ export default {
   },
 
   output_update(outputId, output) {
-    return axios.put('./api/outputs/' + outputId, output)
+    return axios.put(`./api/outputs/${outputId}`, output)
   },
 
   output_toggle(outputId) {
-    return axios.put('./api/outputs/' + outputId + '/toggle')
+    return axios.put(`./api/outputs/${outputId}/toggle`)
   },
 
   library_artists(media_kind = undefined) {
@@ -269,11 +264,11 @@ export default {
   },
 
   library_artist(artistId) {
-    return axios.get('./api/library/artists/' + artistId)
+    return axios.get(`./api/library/artists/${artistId}`)
   },
 
   library_artist_albums(artistId) {
-    return axios.get('./api/library/artists/' + artistId + '/albums')
+    return axios.get(`./api/library/artists/${artistId}/albums`)
   },
 
   library_albums(media_kind = undefined) {
@@ -283,17 +278,17 @@ export default {
   },
 
   library_album(albumId) {
-    return axios.get('./api/library/albums/' + albumId)
+    return axios.get(`./api/library/albums/${albumId}`)
   },
 
   library_album_tracks(albumId, filter = { limit: -1, offset: 0 }) {
-    return axios.get('./api/library/albums/' + albumId + '/tracks', {
+    return axios.get(`./api/library/albums/${albumId}/tracks`, {
       params: filter
     })
   },
 
   library_album_track_update(albumId, attributes) {
-    return axios.put('./api/library/albums/' + albumId + '/tracks', undefined, {
+    return axios.put(`./api/library/albums/${albumId}/tracks`, undefined, {
       params: attributes
     })
   },
@@ -375,7 +370,7 @@ export default {
     if (artist) {
       const artistParams = {
         type: 'tracks',
-        expression: 'songartistid is "' + artist + '"'
+        expression: `songartistid is "${artist}"`
       }
       return axios.get('./api/search', {
         params: artistParams
@@ -397,10 +392,7 @@ export default {
   library_podcast_episodes(albumId) {
     const episodesParams = {
       type: 'tracks',
-      expression:
-        'media_kind is podcast and songalbumid is "' +
-        albumId +
-        '" ORDER BY date_released DESC'
+      expression: `media_kind is podcast and songalbumid is "${albumId}" ORDER BY date_released DESC`
     }
     return axios.get('./api/search', {
       params: episodesParams
@@ -412,7 +404,7 @@ export default {
   },
 
   library_playlist_delete(playlistId) {
-    return axios.delete('./api/library/playlists/' + playlistId, undefined)
+    return axios.delete(`./api/library/playlists/${playlistId}`, undefined)
   },
 
   library_playlists() {
@@ -420,27 +412,27 @@ export default {
   },
 
   library_playlist_folder(playlistId = 0) {
-    return axios.get('./api/library/playlists/' + playlistId + '/playlists')
+    return axios.get(`./api/library/playlists/${playlistId}/playlists`)
   },
 
   library_playlist(playlistId) {
-    return axios.get('./api/library/playlists/' + playlistId)
+    return axios.get(`./api/library/playlists/${playlistId}`)
   },
 
   library_playlist_tracks(playlistId) {
-    return axios.get('./api/library/playlists/' + playlistId + '/tracks')
+    return axios.get(`./api/library/playlists/${playlistId}/tracks`)
   },
 
   library_track(trackId) {
-    return axios.get('./api/library/tracks/' + trackId)
+    return axios.get(`./api/library/tracks/${trackId}`)
   },
 
   library_track_playlists(trackId) {
-    return axios.get('./api/library/tracks/' + trackId + '/playlists')
+    return axios.get(`./api/library/tracks/${trackId}/playlists`)
   },
 
   library_track_update(trackId, attributes = {}) {
-    return axios.put('./api/library/tracks/' + trackId, undefined, {
+    return axios.put(`./api/library/tracks/${trackId}`, undefined, {
       params: attributes
     })
   },
@@ -493,9 +485,9 @@ export default {
   artwork_url_append_size_params(artworkUrl, maxwidth = 600, maxheight = 600) {
     if (artworkUrl && artworkUrl.startsWith('/')) {
       if (artworkUrl.includes('?')) {
-        return artworkUrl + '&maxwidth=' + maxwidth + '&maxheight=' + maxheight
+        return `${artworkUrl}&maxwidth=${maxwidth}&maxheight=${maxheight}`
       }
-      return artworkUrl + '?maxwidth=' + maxwidth + '&maxheight=' + maxheight
+      return `${artworkUrl}?maxwidth=${maxwidth}&maxheight=${maxheight}`
     }
     return artworkUrl
   }

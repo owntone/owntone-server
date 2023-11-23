@@ -78,7 +78,7 @@ export default {
     play() {
       this.$emit('close')
       webapi.player_play_expression(
-        'composer is "' + this.composer.name + '" and media_kind is music',
+        `composer is "${this.composer.name}" and media_kind is music`,
         false
       )
     },
@@ -86,14 +86,14 @@ export default {
     queue_add() {
       this.$emit('close')
       webapi.queue_expression_add(
-        'composer is "' + this.composer.name + '" and media_kind is music'
+        `composer is "${this.composer.name}" and media_kind is music`
       )
     },
 
     queue_add_next() {
       this.$emit('close')
       webapi.queue_expression_add_next(
-        'composer is "' + this.composer.name + '" and media_kind is music'
+        `composer is "${this.composer.name}" and media_kind is music`
       )
     },
 
