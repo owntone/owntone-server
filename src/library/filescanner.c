@@ -76,6 +76,13 @@
 #define F_SCAN_TYPE_AUDIOBOOK    (1 << 2)
 #define F_SCAN_TYPE_COMPILATION  (1 << 3)
 
+#ifdef __linux__
+#define INOTIFY_FLAGS  (IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF)
+#else
+#define INOTIFY_FLAGS  (IN_CREATE | IN_DELETE | IN_MOVE)
+#endif
+
+
 
 enum file_type {
   FILE_UNKNOWN = 0,
@@ -920,11 +927,7 @@ process_directory(char *path, int parent_id, int flags)
 
   // Add inotify watch (for FreeBSD we limit the flags so only dirs will be
   // opened, otherwise we will be opening way too many files)
-#ifdef __linux__
-  wi.wd = inotify_add_watch(inofd, path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
-#else
-  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MOVE);
-#endif
+  wi.wd = inotify_add_watch(inofd, path, INOTIFY_FLAGS);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
@@ -1737,7 +1740,6 @@ static int
 filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t rating)
 {
   int ret;
-  unsigned long flags;
   char inotify_path[PATH_MAX] = { 0 };
   struct watch_info wi = { 0 };
   struct media_file_info*  mfi = NULL;
@@ -1799,13 +1801,7 @@ filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t
 
 
   // and re-enable
-#ifdef __linux__
-  flags = IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF;
-#else
-  flags = IN_CREATE | IN_DELETE | IN_MOVE;
-#endif
-
-  wi.wd = inotify_add_watch(inofd, inotify_path, flags);
+  wi.wd = inotify_add_watch(inofd, inotify_path, INOTIFY_FLAGS);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", inotify_path, strerror(errno));
