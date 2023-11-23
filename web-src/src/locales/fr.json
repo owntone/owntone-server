@@ -460,7 +460,7 @@
         "verify": "Vérifier"
       },
       "general": {
-        "album-lists": "Listes d’album",
+        "album-lists": "Listes d’albums",
         "audiobooks": "Livres audio",
         "files": "Fichiers",
         "genres": "Genres",
@@ -473,7 +473,7 @@
         "playlists": "Listes de lecture",
         "podcasts": "Podcasts",
         "radio": "Radio",
-        "recently-added-page-info": "Limiter le nombre d’album affichés dans la section « Ajouts récents »",
+        "recently-added-page-info": "Limiter le nombre d’albums affichés dans la section « Ajouts récents »",
         "recently-added-page": "Page « Ajouts récents »",
         "search": "Recherche",
         "show-composer-genres-info-1": "Liste des genres, séparés par des virgules, que le compositeur doit afficher sur la page « En cours de lecture ».",
