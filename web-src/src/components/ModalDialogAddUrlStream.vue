@@ -33,10 +33,7 @@
               </a>
             </footer>
             <footer v-else class="card-footer is-clipped">
-              <a
-                class="card-footer-item has-text-danger"
-                @click="$emit('close')"
-              >
+              <a class="card-footer-item has-text-dark" @click="$emit('close')">
                 <mdicon class="icon" name="cancel" size="16" />
                 <span
                   class="is-size-7"
