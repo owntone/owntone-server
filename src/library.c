@@ -119,7 +119,8 @@ static struct library_callback_register library_cb_register[LIBRARY_MAX_CALLBACK
 int
 library_media_save(struct media_file_info *mfi)
 {
-  int ret;
+  int ret, i;
+  struct library_source **ls;
 
   if (!mfi->path || !mfi->fname || !mfi->scan_kind)
     {
@@ -140,8 +141,13 @@ library_media_save(struct media_file_info *mfi)
   else
     {
       ret = db_file_update(mfi);
-      if (mfi->data_kind == DATA_KIND_FILE)
-        filescanner.write_metadata(mfi->virtual_path, NULL, mfi->rating);
+
+      ls = sources;
+      for (i=0; ls[i]; ++i)
+        {
+	  if (!ls[i]->disabled && ls[i]->write_metadata)
+	    ls[i]->write_metadata(mfi->virtual_path, NULL, mfi->rating);
+        }
     }
   return ret;
 }
