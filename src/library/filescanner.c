@@ -164,7 +164,7 @@ static int
 filescanner_fullrescan();
 
 int
-filescanner_ffmpeg_sync_metadata(const char *path, uint32_t rating);
+filescanner_ffmpeg_write_rating(const struct media_file_info *mfi);
 
 /* ----------------------- Internal utility functions --------------------- */
 
@@ -1797,7 +1797,7 @@ filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t
     }
 
 
-  filescanner_ffmpeg_sync_metadata(mfi->path, mfi->rating);
+  filescanner_ffmpeg_write_rating(mfi);
 
 
   // and re-enable

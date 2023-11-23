@@ -961,7 +961,7 @@ end:
 }
 
 int
-filescanner_ffmpeg_sync_metadata(const char *path, uint32_t req_rating)
+filescanner_ffmpeg_write_rating(const struct media_file_info *mfi)
 {
   int ret;
   char rating[5] = { '\0' };
@@ -971,9 +971,9 @@ filescanner_ffmpeg_sync_metadata(const char *path, uint32_t req_rating)
   AVDictionaryEntry  *entry;
 
   AVFormatContext *ctx = NULL;
-  if ( (ret = avformat_open_input(&ctx, path, NULL, NULL)) != 0)
+  if ( (ret = avformat_open_input(&ctx, mfi->path, NULL, NULL)) != 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "failed to open library file for rating metadata update '%s' - %s\n", path, av_err2str(ret));
+      DPRINTF(E_LOG, L_SCAN, "failed to open library file for rating metadata update '%s' - %s\n", mfi->path, av_err2str(ret));
       return ENOENT;
     }
 
@@ -993,21 +993,21 @@ filescanner_ffmpeg_sync_metadata(const char *path, uint32_t req_rating)
 	  break;
 
         default:
-	  DPRINTF(E_WARN, L_SCAN, "unsupported metadata update for 'rating' on '%s' (%d) - skipping\n", path, ctx->streams[i]->codecpar->codec_id);
+	  DPRINTF(E_WARN, L_SCAN, "unsupported metadata update for 'rating' on '%s' (%d) - skipping\n", mfi->path, ctx->streams[i]->codecpar->codec_id);
       }
   }
 
   if (!supported)
     goto end;
 
-  safe_snprintf_cat(rating, 4, "%d", req_rating);
+  safe_snprintf_cat(rating, 4, "%d", mfi->rating);
 
   // Save a potential write if metadata on the underlying file matches requested rating
   entry = av_dict_get(ctx->metadata, "rating", NULL, 0);
   if (entry == NULL || (entry && entry->value == NULL) || (entry && strcmp(entry->value, rating) != 0) )
     {
       av_dict_set(&ctx->metadata, "rating", rating, 0);
-      DPRINTF(E_LOG, L_SCAN, "updating rating to %s on '%s'\n", rating, path);
+      DPRINTF(E_LOG, L_SCAN, "updating rating to %s on '%s'\n", rating, mfi->path);
 
       sprintf(dest, "%s-%d.metadata", ctx->url, getpid());
 
