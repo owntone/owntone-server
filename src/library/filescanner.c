@@ -1738,11 +1738,9 @@ filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t
 {
   int ret;
   unsigned long flags;
-  char id_path[PATH_MAX] = { 0 };
   char inotify_path[PATH_MAX] = { 0 };
   struct watch_info wi = { 0 };
-  char *path;
-  int id_kind = 0;
+  struct media_file_info*  mfi = NULL;
 
   if (virtual_path == NULL && id == NULL)
     {
@@ -1752,43 +1750,40 @@ filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t
 
   if (virtual_path)
     {
-      path = (char*)virtual_path_to_path(virtual_path);
-      if (!path)
+      mfi = db_file_fetch_byvirtualpath(virtual_path);
+      if (!mfi)
 	{
-	  DPRINTF(E_INFO, L_SCAN, "Ignoring non local media %s requested for metadata sync\n", virtual_path);
+	  DPRINTF(E_INFO, L_SCAN, "No known path for local media, (%s) requested for rating write\n", virtual_path);
 	  return -1;
 	}
     }
   else
     {
       // Determine if this is local media
-      id_kind = db_file_data_kind_byid(*id);
-      if (id_kind != DATA_KIND_FILE)
-	{
-	  DPRINTF(E_INFO, L_SCAN, "Ignoring non local media id=%d (%s) requested for metadata sync\n", *id,db_data_kind_label(id_kind));
-	  return -1;
-	}
-
-      path = db_file_path_byid(*id);
-      if (!path)
+      mfi = db_file_fetch_byid(*id);
+      if (!mfi)
         {
-	  DPRINTF(E_LOG, L_SCAN, "No known path for local media id=%d\n", *id);
+	  DPRINTF(E_LOG, L_SCAN, "No known path for local media, (%d) requested for rating write\n", *id);
 	  return -1;
 	}
-      strcpy(id_path, path);
-      free(path);
+    }
 
-      path = id_path;
+  if (mfi->data_kind != DATA_KIND_FILE)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Ignoring non local media (%d/%s is %s) requested for rating write\n", mfi->id, mfi->path, db_data_kind_label(mfi->data_kind));
+      ret = -1;
+      goto cleanup;
     }
 
   // Inotify watches dir paths
-  strcpy(inotify_path, path);
+  strcpy(inotify_path, mfi->path);
   dirname(inotify_path);
 
-  if (access(path, W_OK) < 0 || access(inotify_path, W_OK) < 0)
+  if (access(mfi->path, W_OK) < 0 || access(inotify_path, W_OK) < 0)
     {
-      DPRINTF(E_INFO, L_SCAN, "No permissions to update metadata, skipping %s\n", path);
-      return 0;
+      DPRINTF(E_INFO, L_SCAN, "No permissions to update metadata, skipping %s\n", mfi->path);
+      ret = 0;
+      goto cleanup;
     }
 
   // Temporarily disable inotify
@@ -1800,7 +1795,7 @@ filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t
     }
 
 
-  filescanner_ffmpeg_sync_metadata(path, rating);
+  filescanner_ffmpeg_sync_metadata(mfi->path, mfi->rating);
 
 
   // and re-enable
@@ -1814,13 +1809,17 @@ filescanner_sync_metadata(const char *virtual_path, const uint32_t *id, uint32_t
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", inotify_path, strerror(errno));
-      return -1;
+      ret = -1;
+      goto cleanup;
     }
 
   wi.cookie = 0;
   wi.path = inotify_path;
 
   db_watch_add(&wi);
+
+cleanup:
+  free_mfi(mfi, 0);
  
   return ret;
 }
