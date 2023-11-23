@@ -16,7 +16,7 @@
         "help": "添加一个可生成播放列表的播客RSS链接，这将允许OwnTone管理订阅",
         "placeholder": "https://url-to-rss",
         "processing": "处理中…",
-        "title": "添加播客RSS订阅链接"
+        "title": "添加播客"
       },
       "stream": {
         "add": "添加",
@@ -24,7 +24,7 @@
         "loading": "加载中…",
         "placeholder": "https://url-to-stream",
         "play": "播放",
-        "title": "添加流链接"
+        "title": "添加流"
       }
     },
     "album": {
@@ -184,7 +184,7 @@
       "rescan-metadata": "重新扫描未修改文件的元数据",
       "rescan": "重新扫描",
       "spotify": "仅更新Spotify",
-      "title": "资料库更新"
+      "title": "更新资料库"
     }
   },
   "language": {

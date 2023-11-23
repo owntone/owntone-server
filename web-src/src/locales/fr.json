@@ -16,7 +16,7 @@
         "help": "L’ajout d’un podcast inclut la création d’une liste de lecture RSS, qui permettra à OwnTone de gérer l’abonnement au podcast.",
         "placeholder": "https://url-du-flux-rss",
         "processing": "Traitement en cours…",
-        "title": "Ajouter l’URL du flux RSS du podcast"
+        "title": "Ajouter un podcast"
       },
       "stream": {
         "add": "Ajouter",
@@ -24,7 +24,7 @@
         "loading": "Chargement…",
         "placeholder": "https://url-du-flux",
         "play": "Lire",
-        "title": "Ajouter l’URL du flux"
+        "title": "Ajouter un flux"
       }
     },
     "album": {
@@ -184,7 +184,7 @@
       "rescan-metadata": "Analyser les métadonnées des fichiers non modifiés",
       "rescan": "Analyser",
       "spotify": "Actualiser uniquement Spotify",
-      "title": "Actualisation de la bibliothèque"
+      "title": "Actualiser la bibliothèque"
     }
   },
   "language": {

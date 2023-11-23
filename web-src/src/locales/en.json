@@ -16,7 +16,7 @@
         "help": "Adding a podcast includes creating an RSS playlist, that will allow OwnTone to manage the podcast subscription.",
         "placeholder": "https://url-to-rss",
         "processing": "Processing…",
-        "title": "Add Podcast RSS feed URL"
+        "title": "Add podcast"
       },
       "stream": {
         "add": "Add",
@@ -24,7 +24,7 @@
         "loading": "Loading…",
         "placeholder": "https://url-to-stream",
         "play": "Play",
-        "title": "Add Stream URL"
+        "title": "Add stream"
       }
     },
     "album": {
@@ -184,7 +184,7 @@
       "rescan-metadata": "Rescan metadata of unmodified files",
       "rescan": "Rescan",
       "spotify": "Only update Spotify",
-      "title": "Library update"
+      "title": "Update library"
     }
   },
   "language": {

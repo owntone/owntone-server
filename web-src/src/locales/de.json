@@ -16,7 +16,7 @@
         "help": "Hinzufügen eines Podcasts führt zur Anlage einer RSS-Playlist, so kann Owntone das Podcast-Abo verwalten.",
         "placeholder": "https://url-to-rss",
         "processing": "Verarbeite…",
-        "title": "Füge Podcast RSS-Feed-Url hinzu"
+        "title": "Podcast hinzufügen"
       },
       "stream": {
         "add": "Hinzufügen",
@@ -24,7 +24,7 @@
         "loading": "Lade…",
         "placeholder": "https://url-to-stream",
         "play": "Spielen",
-        "title": "Stream-URL hinzufügen"
+        "title": "Stream hinzufügen"
       }
     },
     "album": {
