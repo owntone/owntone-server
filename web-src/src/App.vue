@@ -91,10 +91,10 @@ export default {
   created() {
     this.connect()
 
-    //  Start the progress bar on app start
+    // Start the progress bar on app start
     this.$Progress.start()
 
-    //  Hook the progress bar to start before we move router-view
+    // Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
       if (to.meta.show_progress && !(to.path === from.path && to.hash)) {
         if (to.meta.progress !== undefined) {
@@ -106,7 +106,7 @@ export default {
       next()
     })
 
-    //  Hook the progress bar to finish after we've finished moving router-view
+    // Hook the progress bar to finish after we've finished moving router-view
     this.$router.afterEach((to, from) => {
       if (to.meta.show_progress) {
         this.$Progress.finish()
@@ -156,8 +156,10 @@ export default {
       }`
 
       if (import.meta.env.DEV && import.meta.env.VITE_OWNTONE_URL) {
-        // If we are running in development mode, construct the websocket url
-        // from the host of the environment variable VITE_OWNTONE_URL
+        /*
+         * If we are running in development mode, construct the websocket
+         * url from the host of the environment variable VITE_OWNTONE_URL
+         */
         const owntoneUrl = new URL(import.meta.env.VITE_OWNTONE_URL)
         wsUrl = `${protocol + owntoneUrl.hostname}:${
           vm.$store.state.config.websocket_port
@@ -201,11 +203,13 @@ export default {
         // vm.$store.dispatch('add_notification', { text: 'Connection closed', type: 'danger', timeout: 2000 })
       }
 
-      // When the app becomes active, force an update of all information, because we
-      // may have missed notifications while the app was inactive.
-      // There are two relevant events (focus and visibilitychange), so we throttle
-      // the updates to avoid multiple redundant updates
-      var update_throttled = false
+      /*
+       * When the app becomes active, force an update of all information,
+       * because we may have missed notifications while the app was inactive.
+       * There are two relevant events - focus and visibilitychange, so we
+       * throttle the updates to avoid multiple redundant updates.
+       */
+      let update_throttled = false
 
       function update_info() {
         if (update_throttled) {
@@ -227,8 +231,10 @@ export default {
         }, 500)
       }
 
-      // These events are fired when the window becomes active in different ways
-      // When this happens, we should update 'now playing' info etc
+      /*
+       * These events are fired when the window becomes active in different
+       * ways. When this happens, we should update 'now playing' info, etc.
+       */
       window.addEventListener('focus', update_info)
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {

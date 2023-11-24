@@ -35,16 +35,19 @@
 export default {
   name: 'LyricsPane',
   data() {
-    // Non reactive
-    // Used as a cache to speed up finding the lyric index in the array for the current time
+    /*
+     * Non reactive. Used as a cache to speed up the finding of lyrics
+     * index in the array for the current time.
+     */
     this.lastIndex = -1
-    // Fired upon scrolling, that's disabling the auto scrolling for 5s
+    // Fired upon scrolling, thus disabling the auto scrolling for 5 seconds
     this.scrollTimer = null
     this.lastItemId = -1
     // Reactive
     return {
       scroll: {},
-      autoScroll: true // stop scroll to element when touch
+      // Stops scrolling when a touch event is detected
+      autoScroll: true
     }
   },
   computed: {
@@ -55,18 +58,22 @@ export default {
       return this.lyricsArr.length && this.lyricsArr[0].length > 1
     },
     lyricIndex() {
-      // We have to perform a dichotomic search in the time array to find the index that's matching
+      /*
+       * A dichotomous search is performed in
+       * the time array to find the matching index.
+       */
       const curTime = this.player.item_progress_ms / 1000
       const la = this.lyricsArr
       if (la.length && la[0].length === 1) {
         this.resetPosCache()
-        return -1 // Bail out for non synchronized lyrics
+        // Bail out for non synchronized lyrics
+        return -1
       }
       if (
         this.player.item_id != this.lastItemId ||
         (this.lastIndexValid() && la[this.lastIndex][1] > curTime)
       ) {
-        // Song changed or time scrolled back, let's reset the cache
+        // Reset the cache when the track has changed or has been rewind
         this.resetPosCache()
       }
       // Check the cached value to avoid searching the times
@@ -75,10 +82,10 @@ export default {
       if (this.lastIndex < la.length - 2 && la[this.lastIndex + 2][1] > curTime)
         return this.lastIndex + 1
 
-      // Not found in the next 2 items, so start dichotomic search for the best time
+      // Not found in the next 2 items, so start dichotomous search for the best time
       let i
-      let start = 0,
-        end = la.length - 1
+      let start = 0
+      let end = la.length - 1
       while (start <= end) {
         i = ((end + start) / 2) | 0
         if (la[i][1] <= curTime && la.length > i + 1 && la[i + 1][1] > curTime)
@@ -89,9 +96,9 @@ export default {
       return i
     },
     lyricDuration() {
-      // Ignore unsynchronized lyrics.
+      // Ignore unsynchronized lyrics
       if (!this.lyricsArr.length || this.lyricsArr[0].length < 2) return 3600
-      // The index is 0 before the first lyric until the end of the first lyric
+      // The index is 0 before the first lyrics and until their end
       if (
         this.lyricIndex == -1 &&
         this.player.item_progress_ms / 1000 < this.lyricsArr[0][1]
@@ -111,15 +118,15 @@ export default {
     splitLyric() {
       if (!this.lyricsArr.length || this.lyricIndex == -1) return {}
 
-      // Need to split evenly the transition in the lyrics's word (based on the word size / lyrics size)
+      // Split evenly the transition in the lyrics word (based on the word size / lyrics size)
       const lyric = this.lyricsArr[this.lyricIndex][0]
       const lyricDur = this.lyricDuration / lyric.length
 
-      // Split lyrics in words
+      // Split lyrics into words
       const parsedWords = lyric.match(/\S+\s*/g)
       let duration = 0
       return parsedWords.map((w) => {
-        let d = duration
+        const d = duration
         duration += (w.length + 1) * lyricDur
         return { delay: d, text: w }
       })
@@ -127,7 +134,10 @@ export default {
   },
   watch: {
     lyricIndex() {
-      // Scroll current lyric in the center of the view unless user manipulated
+      /*
+       * Scroll current lyrics in the center of the view
+       * unless manipulated by user
+       */
       this.autoScroll && this._scrollToElement()
       this.lastIndex = this.lyricIndex
     }
@@ -138,7 +148,7 @@ export default {
     },
 
     resetPosCache() {
-      // Scroll to the start of the track's lyric in all cases
+      // Scroll to the start of the track lyrics in all cases
       if (this.player.item_id != this.lastItemId && this.$refs.lyricsWrapper)
         this.$refs.lyricsWrapper.scrollTo(0, 0)
 
@@ -146,12 +156,15 @@ export default {
       this.lastIndex = -1
     },
     startedScroll(e) {
-      // Ugly trick to check if a scroll event comes from the user or from JS
-      if (!e.screenX || e.screenX == 0 || !e.screenY || e.screenY == 0) return // Programmatically triggered event are ignored here
+      /*
+       * Distinguish scroll event triggered by a user or programmatically
+       * Programmatically triggered event are ignored
+       */
+      if (!e.screenX || e.screenX == 0 || !e.screenY || e.screenY == 0) return 
       this.autoScroll = false
       if (this.scrollTimer) clearTimeout(this.scrollTimer)
       let t = this
-      // Re-enable automatic scrolling after 5s
+      // Reenable automatic scrolling after 5 seconds
       this.scrollTimer = setTimeout(function () {
         t.autoScroll = true
       }, 5000)
@@ -173,8 +186,10 @@ export default {
           currentLyric.offsetTop -
           offsetToCenter +
           (currentLyric.offsetHeight >> 1)
-      // Using scrollBy ensure that scrolling will happen
-      // even if the element is visible before scrolling
+      /*
+       * Using scrollBy ensures the scrolling will happen
+       * even if the element is visible before scrolling
+       */
       scrollTouch.scrollBy({
         top: destOff - currOff,
         left: 0,
