@@ -34,10 +34,8 @@ export default createStore({
         item_progress_ms: 0
       },
       lyrics: {
-        found: false,
-        lyrics_id: -1,
-        lyrics_pane: false,
-        lyrics: []
+        pane: false,
+        content: []
       },
       queue: {
         version: 0,
@@ -76,17 +74,9 @@ export default createStore({
   },
 
   getters: {
-    lyrics: (state) => {
-      return state.lyrics.lyrics
-    },
+    lyrics: (state) => state.lyrics.content,
 
-    lyrics_found: (state) => {
-      return state.lyrics.found
-    },
-
-    lyrics_pane: (state) => {
-      return state.lyrics.lyrics_pane
-    },
+    lyrics_pane: (state) => state.lyrics.pane,
 
     now_playing: (state) => {
       const item = state.queue.items.find(function (item) {
@@ -206,27 +196,28 @@ export default createStore({
     [types.UPDATE_QUEUE](state, queue) {
       state.queue = queue
     },
-    [types.UPDATE_LYRICS](state, lyrics) {
+    [types.UPDATE_LYRICS](state, track) {
       // Parse from .LRC or text format to synchronized lyrics
       function parse(lyrics) {
-        let lyricsObj = []
-        let tempArr = lyrics.split('\n')
-        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
-
-        tempArr.forEach((item) => {
-          let matches = regex.exec(item)
-          if (matches !== null && matches[4].length) {
-            let obj = [matches[4]]
-            if (matches[2] != null && matches[3] != null)
-              obj.push(parseInt(matches[2], 10) * 60 + parseInt(matches[3], 10))
-            lyricsObj.push(obj)
-          }
-        })
-        return lyricsObj
+        if (lyrics) {
+          const lyricsObj = []
+          const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
+          lyrics.split('\n').forEach((item) => {
+            const matches = regex.exec(item)
+            if (matches !== null && matches[4].length) {
+              const obj = [matches[4]]
+              if (matches[2] != null && matches[3] != null)
+                obj.push(
+                  parseInt(matches[2], 10) * 60 + parseInt(matches[3], 10)
+                )
+              lyricsObj.push(obj)
+            }
+          })
+          return lyricsObj
+        }
+        return {}
       }
-      state.lyrics.lyrics = 'lyrics' in lyrics ? parse(lyrics.lyrics) : ''
-      if (!state.lyrics.found)
-        state.lyrics.found = state.lyrics.lyrics.length > 0
+      state.lyrics.content = track ? parse(track.lyrics) : ''
     },
     [types.UPDATE_LASTFM](state, lastfm) {
       state.lastfm = lastfm

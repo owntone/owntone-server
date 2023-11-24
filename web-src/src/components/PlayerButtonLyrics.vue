@@ -36,8 +36,7 @@ export default {
 
   methods: {
     toggle_lyrics() {
-      this.$store.state.lyrics.lyrics_pane =
-        !this.$store.state.lyrics.lyrics_pane
+      this.$store.state.lyrics.pane = !this.$store.state.lyrics.pane
     }
   }
 }

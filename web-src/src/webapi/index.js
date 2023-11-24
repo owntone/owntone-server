@@ -424,9 +424,7 @@ export default {
   },
 
   library_track(trackId) {
-    if (trackId) { // Temporary fix
-      return axios.get(`./api/library/tracks/${trackId}`)
-    }
+    return axios.get(`./api/library/tracks/${trackId}`)
   },
 
   library_track_playlists(trackId) {

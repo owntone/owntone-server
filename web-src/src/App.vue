@@ -305,13 +305,14 @@ export default {
     },
 
     update_lyrics() {
-      let track = this.$store.state.queue.items.filter(
-        (e) => e.id == this.$store.state.player.item_id
-      )
-      if (track.length >= 1)
-        webapi.library_track(track[0].track_id).then(({ data }) => {
+      const track = this.$store.getters.now_playing
+      if (track && track.track_id) {
+        webapi.library_track(track.track_id).then(({ data }) => {
           this.$store.commit(types.UPDATE_LYRICS, data)
         })
+      } else {
+        this.$store.commit(types.UPDATE_LYRICS)
+      }
     },
 
     update_settings() {
