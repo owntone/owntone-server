@@ -1,16 +1,8 @@
 <template>
-  <a :class="{ 'is-active': is_active }" @click="toggle_lyrics">
+  <a :class="{ 'is-info': is_active }" @click="toggle_lyrics">
     <mdicon
-      v-if="!is_active"
       class="icon"
-      name="script-text-outline"
-      :size="icon_size"
-      :title="$t('player.button.toggle-lyrics')"
-    />
-    <mdicon
-      v-if="is_active"
-      class="icon"
-      name="script-text-play"
+      :name="icon_name"
       :size="icon_size"
       :title="$t('player.button.toggle-lyrics')"
     />
@@ -31,6 +23,9 @@ export default {
   computed: {
     is_active() {
       return this.$store.getters.lyrics_pane
+    },
+    icon_name() {
+      return this.is_active ? 'script-text-play' : 'script-text-outline'
     }
   },
 
