@@ -27,7 +27,7 @@ const dataObject = {
       type: 'album',
       expression:
         'media_kind is music having track_count > 3 order by time_added desc',
-      limit: limit
+      limit
     })
   },
 

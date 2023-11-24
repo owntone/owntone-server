@@ -7,11 +7,11 @@ export const filters = {
   durationInHours(value_ms) {
     const seconds = Math.floor(value_ms / 1000)
     if (seconds > 3600) {
-      return Duration.fromObject({ seconds: seconds })
+      return Duration.fromObject({ seconds })
         .shiftTo('hours', 'minutes', 'seconds')
         .toFormat('hh:mm:ss')
     }
-    return Duration.fromObject({ seconds: seconds })
+    return Duration.fromObject({ seconds })
       .shiftTo('minutes', 'seconds')
       .toFormat('mm:ss')
   },
@@ -19,18 +19,15 @@ export const filters = {
   durationInDays(value_ms) {
     const minutes = Math.floor(value_ms / 60000)
     if (minutes > 1440) {
-      // 60 * 24
-      return Duration.fromObject({ minutes: minutes })
+      return Duration.fromObject({ minutes })
         .shiftTo('days', 'hours', 'minutes')
         .toHuman()
     } else if (minutes > 60) {
-      return Duration.fromObject({ minutes: minutes })
+      return Duration.fromObject({ minutes })
         .shiftTo('hours', 'minutes')
         .toHuman()
     }
-    return Duration.fromObject({ minutes: minutes })
-      .shiftTo('minutes')
-      .toHuman()
+    return Duration.fromObject({ minutes }).shiftTo('minutes').toHuman()
   },
 
   date(value) {

@@ -60,9 +60,7 @@ const dataObject = {
       vm.playlists = new GroupByList(response.data.playlists)
       vm.tracks = new GroupByList(response.data.tracks)
     } else {
-      vm.dirs = vm.$store.state.config.directories.map((dir) => {
-        return { path: dir }
-      })
+      vm.dirs = vm.$store.state.config.directories.map((dir) => ({ path: dir }))
       vm.playlists = new GroupByList()
       vm.tracks = new GroupByList()
     }

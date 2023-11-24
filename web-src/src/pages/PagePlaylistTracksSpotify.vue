@@ -156,7 +156,7 @@ export default {
       )
       // Filters out null tracks and adds a position to the playable tracks
       data.items.forEach((item) => {
-        const track = item.track
+        const { track } = item
         if (track) {
           if (track.is_playable) {
             track.position = ++position

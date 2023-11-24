@@ -64,9 +64,8 @@ export default {
         return 'cast'
       } else if (this.output.type === 'fifo') {
         return 'pipe'
-      } else {
-        return 'server'
       }
+      return 'server'
     }
   },
 

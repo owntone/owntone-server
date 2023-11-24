@@ -26,9 +26,8 @@ export function byName(field, keepSortOrder = false, defaultValue = '_') {
         return value.toUpperCase()
       } else if (value.match(/\p{Number}/gu)) {
         return '#'
-      } else {
-        return '⌘'
       }
+      return '⌘'
     }
   }
 }
@@ -137,9 +136,11 @@ export class GroupByList {
   }
 
   [Symbol.iterator]() {
-    // Use a new index for each iterator. This makes multiple
-    // iterations over the iterable safe for non-trivial cases,
-    // such as use of break or nested looping over the same iterable.
+    /*
+     * Use a new index for each iterator. This makes multiple
+     * iterations over the iterable safe for non-trivial cases,
+     * such as use of break or nested looping over the same iterable.
+     */
     let groupIndex = -1
     let itemIndex = -1
 
@@ -148,16 +149,18 @@ export class GroupByList {
         if (this.isEmpty()) {
           return { done: true }
         } else if (groupIndex >= this.indexList.length) {
-          // We reached the end of all groups and items
-          //
-          // This should never happen, as the we already
-          // return "done" after we reached the last item
-          // of the last group
+          /*
+           * End of all groups and items reached
+           * This should never happen, as the we already
+           * return "done" after we reached the last item
+           * of the last group
+           */
           return { done: true }
         } else if (groupIndex < 0) {
-          // We start iterating
-          //
-          // Return the first group title as the next item
+          /*
+           * Start iterating
+           * Return the first group title as the next item
+           */
           ++groupIndex
           itemIndex = 0
 
@@ -179,9 +182,10 @@ export class GroupByList {
         let currentGroupItems = this.itemsByGroup[currentGroupKey]
 
         if (itemIndex < currentGroupItems.length) {
-          // We are in a group with items left
-          //
-          // Return the current item and increment the item index
+          /*
+           * Within a group with remaining items
+           * Return the current item and increment the item index
+           */
           const currentItem = this.itemsByGroup[currentGroupKey][itemIndex++]
           return {
             value: {
@@ -192,30 +196,29 @@ export class GroupByList {
             },
             done: false
           }
-        } else {
-          // We reached the end of the current groups item list
-          //
-          // Move to the next group and return the group key/title
-          // as the next item
-          ++groupIndex
-          itemIndex = 0
+        }
+        /*
+         * End of the current groups item list reached
+         * Move to the next group and return the group key/title
+         * as the next item
+         */
+        ++groupIndex
+        itemIndex = 0
 
-          if (groupIndex < this.indexList.length) {
-            currentGroupKey = this.indexList[groupIndex]
-            return {
-              value: {
-                groupKey: currentGroupKey,
-                itemId: currentGroupKey,
-                isItem: false,
-                item: {}
-              },
-              done: false
-            }
-          } else {
-            // No group left, we are done iterating
-            return { done: true }
+        if (groupIndex < this.indexList.length) {
+          currentGroupKey = this.indexList[groupIndex]
+          return {
+            value: {
+              groupKey: currentGroupKey,
+              itemId: currentGroupKey,
+              isItem: false,
+              item: {}
+            },
+            done: false
           }
         }
+        // No group left, we are done iterating
+        return { done: true }
       }
     }
   }

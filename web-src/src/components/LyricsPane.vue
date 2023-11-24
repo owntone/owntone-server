@@ -160,7 +160,7 @@ export default {
        * Distinguish scroll event triggered by a user or programmatically
        * Programmatically triggered event are ignored
        */
-      if (!e.screenX || e.screenX == 0 || !e.screenY || e.screenY == 0) return 
+      if (!e.screenX || e.screenX == 0 || !e.screenY || e.screenY == 0) return
       this.autoScroll = false
       if (this.scrollTimer) clearTimeout(this.scrollTimer)
       let t = this

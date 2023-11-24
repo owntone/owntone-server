@@ -79,9 +79,7 @@ export default createStore({
     lyrics_pane: (state) => state.lyrics.pane,
 
     now_playing: (state) => {
-      const item = state.queue.items.find(function (item) {
-        return item.id === state.player.item_id
-      })
+      const item = state.queue.items.find((e) => e.id === state.player.item_id)
       return item === undefined ? {} : item
     },
 
@@ -142,11 +140,8 @@ export default createStore({
       return false
     },
 
-    settings_category: (state) => (categoryName) => {
-      return state.settings.categories.find(
-        (elem) => elem.name === categoryName
-      )
-    },
+    settings_category: (state) => (categoryName) =>
+      state.settings.categories.find((e) => e.name === categoryName),
 
     settings_option: (state) => (categoryName, optionName) => {
       const category = state.settings.categories.find(
@@ -168,11 +163,11 @@ export default createStore({
     },
     [types.UPDATE_SETTINGS_OPTION](state, option) {
       const settingCategory = state.settings.categories.find(
-        (elem) => elem.name === option.category
-      )
-      const settingOption = settingCategory.options.find(
-        (elem) => elem.name === option.name
-      )
+          (e) => e.name === option.category
+        ),
+        settingOption = settingCategory.options.find(
+          (e) => e.name === option.name
+        )
       settingOption.value = option.value
     },
     [types.UPDATE_LIBRARY_STATS](state, libraryStats) {

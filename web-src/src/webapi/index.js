@@ -5,10 +5,8 @@ import i18n from '@/i18n'
 const { t } = i18n.global
 
 axios.interceptors.response.use(
-  function (response) {
-    return response
-  },
-  function (error) {
+  (response) => response,
+  (error) => {
     if (error.request.status && error.request.responseURL) {
       store.dispatch('add_notification', {
         text: t('server.request-failed', {
@@ -45,7 +43,7 @@ export default {
     if (scanKind) {
       params.scan_kind = scanKind
     }
-    return axios.put('./api/update', undefined, { params: params })
+    return axios.put('./api/update', undefined, { params })
   },
 
   library_rescan(scanKind) {
@@ -53,7 +51,7 @@ export default {
     if (scanKind) {
       params.scan_kind = scanKind
     }
-    return axios.put('./api/rescan', undefined, { params: params })
+    return axios.put('./api/rescan', undefined, { params })
   },
 
   library_count(expression) {
@@ -148,10 +146,10 @@ export default {
 
   queue_save_playlist(name) {
     return axios
-      .post('./api/queue/save', undefined, { params: { name: name } })
+      .post('./api/queue/save', undefined, { params: { name } })
       .then((response) => {
         store.dispatch('add_notification', {
-          text: t('server.queue-saved', { name: name }),
+          text: t('server.queue-saved', { name }),
           type: 'info',
           timeout: 2000
         })
@@ -259,7 +257,7 @@ export default {
 
   library_artists(media_kind = undefined) {
     return axios.get('./api/library/artists', {
-      params: { media_kind: media_kind }
+      params: { media_kind }
     })
   },
 
@@ -273,7 +271,7 @@ export default {
 
   library_albums(media_kind = undefined) {
     return axios.get('./api/library/albums', {
-      params: { media_kind: media_kind }
+      params: { media_kind }
     })
   },
 
@@ -295,13 +293,13 @@ export default {
 
   library_genres(media_kind = undefined) {
     return axios.get('./api/library/genres', {
-      params: { media_kind: media_kind }
+      params: { media_kind }
     })
   },
 
   library_genre(genre, media_kind = undefined) {
     return axios.get(`./api/library/genres/${encodeURIComponent(genre)}`, {
-      params: { media_kind: media_kind }
+      params: { media_kind }
     })
   },
 
@@ -332,13 +330,13 @@ export default {
       expression: 'data_kind is url and song_length = 0'
     }
     return axios.get('./api/search', {
-      params: params
+      params
     })
   },
 
   library_composers(media_kind = undefined) {
     return axios.get('./api/library/composers', {
-      params: { media_kind: media_kind }
+      params: { media_kind }
     })
   },
 
@@ -352,7 +350,7 @@ export default {
       expression: `composer is "${composer}" and media_kind is music`
     }
     return axios.get('./api/search', {
-      params: params
+      params
     })
   },
 
@@ -362,7 +360,7 @@ export default {
       expression: `composer is "${composer}" and media_kind is music`
     }
     return axios.get('./api/search', {
-      params: params
+      params
     })
   },
 
@@ -400,7 +398,7 @@ export default {
   },
 
   library_add(url) {
-    return axios.post('./api/library/add', undefined, { params: { url: url } })
+    return axios.post('./api/library/add', undefined, { params: { url } })
   },
 
   library_playlist_delete(playlistId) {
@@ -438,7 +436,7 @@ export default {
   },
 
   library_files(directory = undefined) {
-    const filesParams = { directory: directory }
+    const filesParams = { directory }
     return axios.get('./api/library/files', {
       params: filesParams
     })

@@ -67,9 +67,8 @@ export default {
         return 'folder'
       } else if (playlist.type === 'rss') {
         return 'rss'
-      } else {
-        return 'music-box-multiple'
       }
+      return 'music-box-multiple'
     }
   }
 }

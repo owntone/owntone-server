@@ -54,7 +54,7 @@ function renderSVG(caption, alt_text, params) {
     height: params.height,
     textColor: text_color,
     backgroundColor: background_color,
-    caption: caption,
+    caption,
     fontFamily: params.font_family,
     fontSize: params.font_size,
     fontWeight: params.font_weight
