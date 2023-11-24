@@ -194,8 +194,8 @@ export default createStore({
     [types.UPDATE_LYRICS](state, track) {
       // Parse from .LRC or text format to synchronized lyrics
       function parse(lyrics) {
+        const lyricsObj = []
         if (lyrics) {
-          const lyricsObj = []
           const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
           lyrics.split('\n').forEach((item) => {
             const matches = regex.exec(item)
@@ -208,9 +208,8 @@ export default createStore({
               lyricsObj.push(obj)
             }
           })
-          return lyricsObj
         }
-        return {}
+        return lyricsObj
       }
       state.lyrics.content = track ? parse(track.lyrics) : ''
     },

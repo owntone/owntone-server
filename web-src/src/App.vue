@@ -199,9 +199,6 @@ export default {
         vm.update_lastfm()
         vm.update_pairing()
       }
-      socket.onclose = function () {
-        // vm.$store.dispatch('add_notification', { text: 'Connection closed', type: 'danger', timeout: 2000 })
-      }
 
       /*
        * When the app becomes active, force an update of all information,

@@ -120,7 +120,7 @@ export class GroupByList {
     this.count = itemsFiltered.length
 
     // Sort item list
-    let itemsSorted = options.compareFn
+    const itemsSorted = options.compareFn
       ? [...itemsFiltered].sort(options.compareFn)
       : itemsFiltered
 

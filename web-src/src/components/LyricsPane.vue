@@ -163,25 +163,26 @@ export default {
       if (!e.screenX || e.screenX == 0 || !e.screenY || e.screenY == 0) return
       this.autoScroll = false
       if (this.scrollTimer) clearTimeout(this.scrollTimer)
-      let t = this
+      const t = this
       // Reenable automatic scrolling after 5 seconds
-      this.scrollTimer = setTimeout(function () {
+      this.scrollTimer = setTimeout(() => {
         t.autoScroll = true
       }, 5000)
     },
 
     _scrollToElement() {
-      let scrollTouch = this.$refs.lyricsWrapper
+      const scrollTouch = this.$refs.lyricsWrapper
       if (this.lyricIndex == -1) {
         scrollTouch.scrollTo(0, 0)
         return
       }
 
-      let currentLyric = scrollTouch.children[0].children[this.lyricIndex + 1], // Because of space item
+      const currentLyric =
+          scrollTouch.children[0].children[this.lyricIndex + 1], // Because of space item
         offsetToCenter = scrollTouch.offsetHeight >> 1
       if (!this.lyricsArr || !currentLyric) return
 
-      let currOff = scrollTouch.scrollTop,
+      const currOff = scrollTouch.scrollTop,
         destOff =
           currentLyric.offsetTop -
           offsetToCenter +

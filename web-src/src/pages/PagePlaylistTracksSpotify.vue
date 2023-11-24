@@ -74,7 +74,7 @@ import webapi from '@/webapi'
 const PAGE_SIZE = 50
 
 const dataObject = {
-  load: function (to) {
+  load(to) {
     const spotifyApi = new SpotifyWebApi()
     spotifyApi.setAccessToken(store.state.spotify.webapi_token)
     return Promise.all([
