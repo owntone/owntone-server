@@ -44,7 +44,6 @@ export default {
     // Reactive
     return {
       scroll: {},
-      // lineHeight: 42,
       autoScroll: true // stop scroll to element when touch
     }
   },
@@ -181,9 +180,6 @@ export default {
         left: 0,
         behavior: 'smooth'
       })
-
-      // Then prepare the animated gradient too
-      //      currentLyric.style.animationDuration = this.lyricDuration + 's'
     }
   }
 }
