@@ -7,6 +7,7 @@
           :artist="track.artist"
           :album="track.album"
           class="is-clickable fd-has-shadow fd-cover-big-image"
+          :class="{ 'is-masked': lyrics_visible }"
           @click="open_dialog(track)"
         />
         <lyrics-pane v-if="lyrics_visible" />

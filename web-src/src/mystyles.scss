@@ -13,19 +13,6 @@
   }
 }
 
-.lyrics-wrapper .lyrics .gradient {
-  color: $success;
-}
-
-.lyrics-wrapper .lyrics div {
-  color: $black;
-}
-.lyrics-overlay {
-  box-shadow:
-    0px 40px 40px 0px $white inset,
-    0px -40px 40px 0px $white inset;
-}
-
 .progress-bar {
   background-color: $info;
   border-radius: 2px;
@@ -138,6 +125,9 @@ a.navbar-item {
     img {
       border-radius: $radius-large;
       max-height: calc(100vh - 26rem);
+    }
+    &.is-masked {
+      filter: blur(0.5rem) opacity(0.2);
     }
   }
 }
