@@ -159,7 +159,6 @@ export default {
         verseDuration = this.lyrics[index + 1][1] - verse[1]
       }
       const unitDuration = verseDuration / verse[0].length
-      console.log(`${unitDuration}`)
       // Split verse into words
       let duration = 0
       return verse[0].match(/\S+\s*/g).map((word) => {
