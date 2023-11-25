@@ -14,6 +14,7 @@
       >
         <span
           v-for="word in split_verse(index)"
+          :key="word.duration"
           class="has-text-weight-bold is-size-5"
         >
           <span
