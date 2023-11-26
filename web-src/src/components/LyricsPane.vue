@@ -13,8 +13,8 @@
         :class="{ 'is-highlighted': is_playing }"
       >
         <span
-          v-for="(word, index) in verse.words"
-          :key="index"
+          v-for="word in verse.words"
+          :key="word"
           class="has-text-weight-bold is-size-5"
         >
           <span
