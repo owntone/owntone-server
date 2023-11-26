@@ -7,24 +7,24 @@
     @scroll.passive="start_scrolling"
     @wheel.passive="start_scrolling"
   >
-    <template v-for="(item, index) in lyrics" :key="item">
+    <template v-for="(verse, index) in lyrics" :key="index">
       <div
-        v-if="is_sync && index == verse_index"
+        v-if="index === verse_index"
         :class="{ 'is-highlighted': is_playing }"
       >
         <span
-          v-for="word in split_verse(index)"
-          :key="word.duration"
+          v-for="(word, index) in verse.words"
+          :key="index"
           class="has-text-weight-bold is-size-5"
         >
           <span
-            :style="{ animationDuration: word.duration + 's' }"
-            v-text="word.content"
+            :style="{ 'animation-duration': `${word.delay}s` }"
+            v-text="word.text"
           />
         </span>
       </div>
       <div v-else>
-        {{ item.text }}
+        {{ verse.text }}
       </div>
     </template>
   </div>
@@ -40,7 +40,7 @@ export default {
      */
     this.lastIndex = -1
     // Fired upon scrolling, thus disabling the auto scrolling for 5 seconds
-    this.scrollTimer = null
+    this.scrollingTimer = null
     this.lastItemId = -1
     return {
       autoScrolling: true
@@ -50,48 +50,68 @@ export default {
     is_playing() {
       return this.player.state === 'play'
     },
-    is_sync() {
-      return this.lyrics.length && this.lyrics[0].time
-    },
     verse_index() {
-      if (!this.is_sync) {
+      if (this.lyrics.length && this.lyrics[0].time) {
+        const curTime = this.player.item_progress_ms / 1000,
+          la = this.lyrics,
+          trackChanged = this.player.item_id !== this.lastItemId,
+          trackSeeked =
+            this.lastIndex >= 0 &&
+            this.lastIndex < la.length &&
+            la[this.lastIndex].time > curTime
+        if (trackChanged || trackSeeked) {
+          // Reset the cache when the track has changed or has been rewind
+          this.reset_scrolling()
+        }
+        // Check the cached value to avoid searching the times
+        if (
+          this.lastIndex < la.length - 1 &&
+          la[this.lastIndex + 1].time > curTime
+        )
+          return this.lastIndex
+        if (
+          this.lastIndex < la.length - 2 &&
+          la[this.lastIndex + 2].time > curTime
+        )
+          return this.lastIndex + 1
+        // Not found in the next 2 items, so start searching for the best time
+        return la.findLastIndex((verse) => verse.time <= curTime)
+      } else {
         this.reset_scrolling()
         return -1
       }
-      const curTime = this.player.item_progress_ms / 1000,
-        la = this.lyrics,
-        trackChanged = this.player.item_id !== this.lastItemId,
-        trackSeeked =
-          this.lastIndex >= 0 &&
-          this.lastIndex < la.length &&
-          la[this.lastIndex].time > curTime
-      if (trackChanged || trackSeeked) {
-        // Reset the cache when the track has changed or has been rewind
-        this.reset_scrolling()
-      }
-      // Check the cached value to avoid searching the times
-      if (this.lastIndex < la.length - 1 && la[this.lastIndex + 1].time > curTime)
-        return this.lastIndex
-      if (this.lastIndex < la.length - 2 && la[this.lastIndex + 2].time > curTime)
-        return this.lastIndex + 1
-      // Not found in the next 2 items, so start searching for the best time
-      return la.findLastIndex((verse) => verse.time <= curTime)
     },
     lyrics() {
       const raw = this.$store.getters.lyrics
       const parsed = []
       if (raw) {
+        // Parse the lyrics
         const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
-        raw.split('\n').forEach((item) => {
+        raw.split('\n').forEach((item, index) => {
           const matches = regex.exec(item)
           if (matches && matches[4]) {
-            const verse = {}
-            verse.text = matches[4]
-            if (matches[2] && matches[3]) {
-              verse.time = matches[2] * 60 + matches[3] * 1
+            const verse = {
+              text: matches[4],
+              time: matches[2] * 60 + matches[3] * 1
             }
             parsed.push(verse)
           }
+        })
+        // Split the verses into words
+        parsed.forEach((verse, index, lyrics) => {
+          const duration =
+            index < lyrics.length - 1 ? lyrics[index + 1].time - verse.time : 3
+          const unitDuration = duration / verse.text.length
+          let delay = 0
+          verse.words = verse.text.match(/\S+\s*/g).map((text) => {
+            const duration = text.length * unitDuration
+            delay += duration
+            return {
+              duration,
+              delay,
+              text
+            }
+          })
         })
       }
       return parsed
@@ -108,7 +128,7 @@ export default {
   },
   methods: {
     reset_scrolling() {
-      // Scroll to the start of the track lyrics in all cases
+      // Scroll to the start of the lyrics in all cases
       if (this.player.item_id != this.lastItemId && this.$refs.lyrics) {
         this.$refs.lyrics.scrollTo(0, 0)
       }
@@ -116,20 +136,15 @@ export default {
       this.lastIndex = -1
     },
     start_scrolling(e) {
-      /*
-       * Distinguish scroll event triggered by a user or programmatically
-       * Programmatically triggered event are ignored
-       */
-      if (!e.screenX || e.screenX == 0 || !e.screenY || e.screenY == 0) return
-      this.autoScrolling = false
-      if (this.scrollTimer) {
-        clearTimeout(this.scrollTimer)
+      // Consider only user events
+      if (e.screenX || e.screenX != 0 || e.screenY || e.screenY != 0) {
+        this.autoScrolling = false
+        if (this.scrollingTimer) {
+          clearTimeout(this.scrollingTimer)
+        }
+        // Reenable automatic scrolling after 2 seconds
+        this.scrollingTimer = setTimeout((this.autoScrolling = true), 2000)
       }
-      const t = this
-      // Reenable automatic scrolling after 5 seconds
-      this.scrollTimer = setTimeout(() => {
-        t.autoScrolling = true
-      }, 2000)
     },
     scroll_to_verse() {
       const pane = this.$refs.lyrics
@@ -138,36 +153,14 @@ export default {
         return
       }
       const currentVerse = pane.children[this.verse_index]
-      const offsetToCenter = pane.offsetHeight >> 1
-      if (!this.lyrics || !currentVerse) return
-      const top =
-        currentVerse.offsetTop -
-        offsetToCenter +
-        (currentVerse.offsetHeight >> 1) -
-        pane.scrollTop
-      /*
-       * Using scrollBy ensures the scrolling will happen
-       * even if the element is visible before scrolling
-       */
       pane.scrollBy({
-        top,
+        top:
+          currentVerse.offsetTop -
+          (pane.offsetHeight >> 1) +
+          (currentVerse.offsetHeight >> 1) -
+          pane.scrollTop,
         left: 0,
         behavior: 'smooth'
-      })
-    },
-    split_verse(index) {
-      const verse = this.lyrics[index]
-      let verseDuration = 3 // Default duration for a verse
-      if (index < this.lyrics.length - 1) {
-        verseDuration = this.lyrics[index + 1].time - verse.time
-      }
-      const unitDuration = verseDuration / verse.text.length
-      // Split verse into words
-      let duration = 0
-      return verse.text.match(/\S+\s*/g).map((word) => {
-        const d = duration
-        duration += word.length * unitDuration
-        return { duration: d, content: word }
       })
     }
   }
