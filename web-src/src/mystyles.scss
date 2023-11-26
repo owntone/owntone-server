@@ -124,7 +124,7 @@ a.navbar-item {
     }
     img {
       border-radius: $radius-large;
-      max-height: calc(100vh - 26rem);
+      height: calc(100vh - 26rem);
     }
     &.is-masked {
       filter: blur(0.5rem) opacity(0.2);
