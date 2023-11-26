@@ -24,7 +24,7 @@
         </span>
       </div>
       <div v-else>
-        {{ item[0] }}
+        {{ item.text }}
       </div>
     </template>
   </div>
@@ -51,7 +51,7 @@ export default {
       return this.player.state === 'play'
     },
     is_sync() {
-      return this.lyrics.length && this.lyrics[0].length > 1
+      return this.lyrics.length && this.lyrics[0].time
     },
     verse_index() {
       if (!this.is_sync) {
@@ -64,35 +64,37 @@ export default {
         trackSeeked =
           this.lastIndex >= 0 &&
           this.lastIndex < la.length &&
-          la[this.lastIndex][1] > curTime
+          la[this.lastIndex].time > curTime
       if (trackChanged || trackSeeked) {
         // Reset the cache when the track has changed or has been rewind
         this.reset_scrolling()
       }
       // Check the cached value to avoid searching the times
-      if (this.lastIndex < la.length - 1 && la[this.lastIndex + 1][1] > curTime)
+      if (this.lastIndex < la.length - 1 && la[this.lastIndex + 1].time > curTime)
         return this.lastIndex
-      if (this.lastIndex < la.length - 2 && la[this.lastIndex + 2][1] > curTime)
+      if (this.lastIndex < la.length - 2 && la[this.lastIndex + 2].time > curTime)
         return this.lastIndex + 1
       // Not found in the next 2 items, so start searching for the best time
-      return la.findLastIndex((verse) => verse[1] <= curTime)
+      return la.findLastIndex((verse) => verse.time <= curTime)
     },
     lyrics() {
-      const lyrics = this.$store.getters.lyrics
-      const lyricsObj = []
-      if (lyrics) {
+      const raw = this.$store.getters.lyrics
+      const parsed = []
+      if (raw) {
         const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
-        lyrics.split('\n').forEach((item) => {
+        raw.split('\n').forEach((item) => {
           const matches = regex.exec(item)
           if (matches && matches[4]) {
-            const obj = [matches[4]]
-            if (matches[2] && matches[3])
-              obj.push(matches[2] * 60 + matches[3] * 1)
-            lyricsObj.push(obj)
+            const verse = {}
+            verse.text = matches[4]
+            if (matches[2] && matches[3]) {
+              verse.time = matches[2] * 60 + matches[3] * 1
+            }
+            parsed.push(verse)
           }
         })
       }
-      return lyricsObj
+      return parsed
     },
     player() {
       return this.$store.state.player
@@ -157,12 +159,12 @@ export default {
       const verse = this.lyrics[index]
       let verseDuration = 3 // Default duration for a verse
       if (index < this.lyrics.length - 1) {
-        verseDuration = this.lyrics[index + 1][1] - verse[1]
+        verseDuration = this.lyrics[index + 1].time - verse.time
       }
-      const unitDuration = verseDuration / verse[0].length
+      const unitDuration = verseDuration / verse.text.length
       // Split verse into words
       let duration = 0
-      return verse[0].match(/\S+\s*/g).map((word) => {
+      return verse.text.match(/\S+\s*/g).map((word) => {
         const d = duration
         duration += word.length * unitDuration
         return { duration: d, content: word }
