@@ -80,21 +80,19 @@ export default {
     lyrics() {
       const lyrics = this.$store.getters.lyrics
       const lyricsObj = []
-        if (lyrics) {
-          const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
-          lyrics.split('\n').forEach((item) => {
-            const matches = regex.exec(item)
-            if (matches && matches[4]) {
-              const obj = [matches[4]]
-              if (matches[2] && matches[3])
-                obj.push(
-                  matches[2] * 60 + matches[3] * 1
-                )
-              lyricsObj.push(obj)
-            }
-          })
-        }
-        return lyricsObj
+      if (lyrics) {
+        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
+        lyrics.split('\n').forEach((item) => {
+          const matches = regex.exec(item)
+          if (matches && matches[4]) {
+            const obj = [matches[4]]
+            if (matches[2] && matches[3])
+              obj.push(matches[2] * 60 + matches[3] * 1)
+            lyricsObj.push(obj)
+          }
+        })
+      }
+      return lyricsObj
     },
     player() {
       return this.$store.state.player
