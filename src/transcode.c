@@ -48,7 +48,6 @@
 #define USE_CONST_AVCODEC (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
 #define USE_NO_CLEAR_AVFMT_NOFILE (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
 #define USE_CH_LAYOUT (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR > 24))
-#define USE_ALAC_FRAME_SIZE_HACK (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR > 31))
 
 // Interval between ICY metadata checks for streams, in seconds
 #define METADATA_ICY_INTERVAL 5
@@ -97,6 +96,7 @@ struct settings_ctx
   int channels;
 #endif
   int bit_rate;
+  int frame_size;
   enum AVSampleFormat sample_format;
   bool with_wav_header;
   bool with_icy;
@@ -286,6 +286,7 @@ init_settings(struct settings_ctx *settings, enum transcode_profile profile, str
 	settings->format = "data"; // Means we get the raw packet from the encoder, no muxing
 	settings->audio_codec = AV_CODEC_ID_ALAC;
 	settings->sample_format = AV_SAMPLE_FMT_S16P;
+	settings->frame_size = 352;
 	break;
 
       case XCODE_OGG:
@@ -572,10 +573,8 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   // frame capability). This worked with no issues until ffmpeg 6, where it
   // seems a frame size check was added. The below circumvents the check, but is
   // dirty because we shouldn't be writing to this data element.
-#if USE_ALAC_FRAME_SIZE_HACK
-  if (codec_id == AV_CODEC_ID_ALAC)
-    s->codec->frame_size = 352;
-#endif
+  if (ctx->settings.frame_size)
+    s->codec->frame_size = ctx->settings.frame_size;
 
   // Copy the codec parameters we just set to the stream, so the muxer knows them
   ret = avcodec_parameters_from_context(s->stream->codecpar, s->codec);
