@@ -149,12 +149,8 @@ library_playlist_save(struct playlist_info *pli)
       return -1;
     }
 
-  if (!pli->directory_id || !pli->virtual_path)
-    {
-      // Missing informations for virtual_path and directory_id (may) lead to misplaced appearance in mpd clients
-      DPRINTF(E_WARN, L_LIB, "Playlist with missing values (path='%s', directory='%d', virtual_path='%s')\n",
-	      pli->path, pli->directory_id, pli->virtual_path);
-    }
+  // Missing virtual_path and directory_id (may) lead to misplaced appearance in
+  // mpd clients, but for e.g. spotify:playlistfolder they will not be set
 
   if (pli->id == 0)
     return db_pl_add(pli);
