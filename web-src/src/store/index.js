@@ -191,27 +191,8 @@ export default createStore({
     [types.UPDATE_QUEUE](state, queue) {
       state.queue = queue
     },
-    [types.UPDATE_LYRICS](state, track) {
-      // Parse from .LRC or text format to synchronized lyrics
-      function parse(lyrics) {
-        const lyricsObj = []
-        if (lyrics) {
-          const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
-          lyrics.split('\n').forEach((item) => {
-            const matches = regex.exec(item)
-            if (matches !== null && matches[4].length) {
-              const obj = [matches[4]]
-              if (matches[2] != null && matches[3] != null)
-                obj.push(
-                  parseInt(matches[2], 10) * 60 + parseInt(matches[3], 10)
-                )
-              lyricsObj.push(obj)
-            }
-          })
-        }
-        return lyricsObj
-      }
-      state.lyrics.content = track ? parse(track.lyrics) : ''
+    [types.UPDATE_LYRICS](state, lyrics) {
+      state.lyrics.content = lyrics
     },
     [types.UPDATE_LASTFM](state, lastfm) {
       state.lastfm = lastfm

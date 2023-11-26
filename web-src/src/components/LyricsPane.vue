@@ -74,24 +74,27 @@ export default {
         return this.lastIndex
       if (this.lastIndex < la.length - 2 && la[this.lastIndex + 2][1] > curTime)
         return this.lastIndex + 1
-      // Not found in the next 2 items, so start dichotomous search for the best time
-      let start = 0,
-        end = la.length - 1,
-        index
-      while (start <= end) {
-        index = (start + end) >> 1
-        if (
-          la[index][1] <= curTime &&
-          (la[index + 1]?.[1] > curTime || !la[index + 1])
-        ) {
-          return index
-        }
-        la[index][1] < curTime ? (start = index + 1) : (end = index - 1)
-      }
-      return -1
+      // Not found in the next 2 items, so start searching for the best time
+      return la.findLastIndex((verse) => verse[1] <= curTime)
     },
     lyrics() {
-      return this.$store.getters.lyrics
+      const lyrics = this.$store.getters.lyrics
+      const lyricsObj = []
+        if (lyrics) {
+          const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
+          lyrics.split('\n').forEach((item) => {
+            const matches = regex.exec(item)
+            if (matches && matches[4]) {
+              const obj = [matches[4]]
+              if (matches[2] && matches[3])
+                obj.push(
+                  matches[2] * 60 + matches[3] * 1
+                )
+              lyricsObj.push(obj)
+            }
+          })
+        }
+        return lyricsObj
     },
     player() {
       return this.$store.state.player

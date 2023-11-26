@@ -311,7 +311,7 @@ export default {
       const track = this.$store.getters.now_playing
       if (track && track.track_id) {
         webapi.library_track(track.track_id).then(({ data }) => {
-          this.$store.commit(types.UPDATE_LYRICS, data)
+          this.$store.commit(types.UPDATE_LYRICS, data.lyrics)
         })
       } else {
         this.$store.commit(types.UPDATE_LYRICS)
