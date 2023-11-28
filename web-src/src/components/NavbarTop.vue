@@ -112,7 +112,6 @@
             <navbar-item-link :to="{ name: 'about' }">{{
               $t('navigation.about')
             }}</navbar-item-link>
-            <div class="navbar-item is-hidden-desktop" />
           </div>
         </div>
       </div>
