@@ -52,30 +52,48 @@ export default {
     },
     verse_index() {
       if (this.lyrics.length && this.lyrics[0].time) {
-        const curTime = this.player.item_progress_ms / 1000,
+        const currentTime = this.player.item_progress_ms / 1000,
           la = this.lyrics,
           trackChanged = this.player.item_id !== this.lastItemId,
           trackSeeked =
             this.lastIndex >= 0 &&
             this.lastIndex < la.length &&
-            la[this.lastIndex].time > curTime
+            la[this.lastIndex].time > currentTime
+        // Reset the cache when the track has changed or has been seeked
         if (trackChanged || trackSeeked) {
-          // Reset the cache when the track has changed or has been rewind
           this.reset_scrolling()
         }
-        // Check the cached value to avoid searching the times
+        // Check the next two items and the last one before searching
         if (
-          this.lastIndex < la.length - 1 &&
-          la[this.lastIndex + 1].time > curTime
+          (this.lastIndex < la.length - 1 &&
+            la[this.lastIndex + 1].time > currentTime) ||
+          this.lastIndex === la.length - 1
         )
           return this.lastIndex
         if (
           this.lastIndex < la.length - 2 &&
-          la[this.lastIndex + 2].time > curTime
+          la[this.lastIndex + 2].time > currentTime
         )
           return this.lastIndex + 1
-        // Not found in the next 2 items, so start searching for the best time
-        return la.findLastIndex((verse) => verse.time <= curTime)
+        // Not found, then start a binary search
+        let start = 0,
+          end = la.length - 1,
+          index
+        while (start <= end) {
+          index = (start + end) >> 1
+          const currentVerse = la[index]
+          const nextVerse = la[index + 1]
+          if (
+            currentVerse.time <= currentTime &&
+            (nextVerse?.time > currentTime || !nextVerse)
+          ) {
+            return index
+          }
+          currentVerse.time < currentTime
+            ? (start = index + 1)
+            : (end = index - 1)
+        }
+        return -1
       } else {
         this.reset_scrolling()
         return -1
