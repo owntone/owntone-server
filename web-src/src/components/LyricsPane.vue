@@ -173,6 +173,7 @@ export default {
   left: calc(50% - 50vw);
   width: 100vw;
   height: calc(100vh - 26rem);
+  max-height: min(100% - 8rem, 100vh - 26rem + 3.5rem); /* When the art picture underneath is in portrait rather than landscape, we have to clip the area to the picture height */
   position: absolute;
   overflow: auto;
   --mask: linear-gradient(
