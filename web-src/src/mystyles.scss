@@ -53,10 +53,10 @@ a.navbar-item {
 }
 
 .fd-tabs-section {
-  padding-bottom: 3px;
-  padding-top: 3px;
+  padding-bottom: 0;
+  padding-top: 0;
   background: $white;
-  top: 3.25rem;
+  top: $navbar-height;
   z-index: 20;
   position: fixed;
   width: 100%;
@@ -73,17 +73,17 @@ a.navbar-item {
 }
 
 .fd-page {
-  margin-top: 3.25rem;
-  margin-bottom: 3.25rem;
+  margin-top: $navbar-height;
+  margin-bottom: $navbar-height;
   &-with-tabs {
-    margin-top: 6.25rem !important;
-    margin-bottom: 3.25rem;
+    margin-top: calc(2 * $navbar-height) !important;
+    margin-bottom: $navbar-height;
   }
 }
 
 /* Set minimum height to hide "option" section */
 .fd-content-with-option {
-  min-height: calc(100vh - 3.25rem - 3.25rem);
+  min-height: calc(100vh - calc(2 * $navbar-height));
 }
 
 .fd-cover {
@@ -182,14 +182,14 @@ a.navbar-item {
 /* Show scrollbar for navbar menu in desktop mode if content exceeds the screen size */
 @media only screen and (min-width: 1024px) {
   .navbar-dropdown {
-    max-height: calc(100vh - 3.25rem - 3.25rem - 2rem);
+    max-height: calc(100vh - calc(2 * $navbar-height) - 2rem);
     overflow: auto;
   }
 }
 
 /* Limit the size of the bottom navbar menu to not be displayed behind the Safari browser menu on iOS */
 .fd-bottom-navbar .navbar-menu {
-  max-height: calc(100vh - 3.25rem - 3.25rem - 1rem);
+  max-height: calc(100vh - calc(2 * $navbar-height) - 1rem);
   overflow: scroll;
 }
 
