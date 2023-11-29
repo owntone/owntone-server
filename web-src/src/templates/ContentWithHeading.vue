@@ -12,7 +12,7 @@
               /></router-link>
             </nav>
           </section>
-          <div :class="{ 'fd-content-with-option': $slots.options }">
+          <div :class="{ 'is-full-height': $slots.options }">
             <nav id="top" class="level is-clipped">
               <!-- Left side -->
               <div class="level-left is-flex-shrink-1">

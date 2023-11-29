@@ -1,5 +1,5 @@
 <template>
-  <div class="hero is-fullheight">
+  <div class="hero is-full-height">
     <div v-if="track.id > 0" class="hero-body">
       <div class="container has-text-centered" style="max-width: 500px">
         <cover-artwork

@@ -76,8 +76,7 @@ a.navbar-item {
   margin-top: $navbar-height !important;
 }
 
-/* Set minimum height to hide "option" section */
-.fd-content-with-option {
+.is-full-height {
   min-height: calc(100vh - calc(2 * $navbar-height));
 }
 
