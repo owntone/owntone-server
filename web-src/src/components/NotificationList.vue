@@ -5,7 +5,7 @@
         <div
           v-for="notification in notifications"
           :key="notification.id"
-          class="notification has-shadow"
+          class="notification"
           :class="[
             'notification',
             notification.type ? `is-${notification.type}` : ''
