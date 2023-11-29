@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page">
+  <div>
     <!-- Search field + recent searches -->
     <section class="section pb-0">
       <div class="container">

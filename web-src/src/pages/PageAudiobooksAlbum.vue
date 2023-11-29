@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page">
+  <div>
     <content-with-hero>
       <template #heading-left>
         <h1 class="title is-5" v-text="album.name" />

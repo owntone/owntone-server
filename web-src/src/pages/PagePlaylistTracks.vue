@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page">
+  <div>
     <content-with-heading>
       <template #heading-left>
         <div class="title is-4" v-text="playlist.name" />

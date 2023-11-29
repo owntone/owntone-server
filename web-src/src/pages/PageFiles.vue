@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page">
+  <div>
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.files.title')" />

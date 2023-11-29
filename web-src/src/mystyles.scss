@@ -72,13 +72,8 @@ a.navbar-item {
     0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }
 
-.fd-page {
-  margin-top: $navbar-height;
-  margin-bottom: $navbar-height;
-  &-with-tabs {
-    margin-top: calc(2 * $navbar-height) !important;
-    margin-bottom: $navbar-height;
-  }
+.fd-page-with-tabs {
+  margin-top: $navbar-height !important;
 }
 
 /* Set minimum height to hide "option" section */

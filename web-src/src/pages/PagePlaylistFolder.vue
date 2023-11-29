@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page">
+  <div>
     <content-with-heading>
       <template #heading-left>
         <p

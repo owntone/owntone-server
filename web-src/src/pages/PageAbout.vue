@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page">
+  <div>
     <section class="section">
       <div class="container">
         <div class="columns is-centered">

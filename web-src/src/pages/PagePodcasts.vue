@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page">
+  <div>
     <content-with-heading v-if="new_episodes.items.length > 0">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.podcasts.new-episodes')" />
