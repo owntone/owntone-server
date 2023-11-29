@@ -1,6 +1,6 @@
 <template>
   <div class="hero is-full-height">
-    <div v-if="track.id > 0" class="hero-body">
+    <div v-if="track.id > 0" class="hero-body is-flex is-align-items-center">
       <div class="container has-text-centered" style="max-width: 500px">
         <cover-artwork
           :artwork_url="track.artwork_url"
@@ -40,7 +40,7 @@
         />
       </div>
     </div>
-    <div v-else class="hero-body">
+    <div v-else class="hero-body is-flex is-align-items-center">
       <div class="container has-text-centered">
         <p class="title is-5" v-text="$t('page.now-playing.title')" />
         <p class="subtitle" v-text="$t('page.now-playing.info')" />
