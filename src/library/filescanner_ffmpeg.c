@@ -816,7 +816,10 @@ file_write_rating(AVFormatContext* in_fmt_ctx, const char* new_rating_file)
   AVStream *out_stream;
   AVStream *in_stream;
   AVCodecParameters *in_codecpar;
-  const struct AVOutputFormat *out_fmt;
+#if (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR > 24))
+  const
+#endif
+  struct AVOutputFormat *out_fmt;
 
   int i;
   int stream_idx;
