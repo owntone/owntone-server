@@ -803,24 +803,24 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
   return 0;
 }
 
+// based on FFmpeg's doc/examples and in particular mux.c
 static int
-file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
+file_write_rating(AVFormatContext* in_fmt_ctx, const char* new_rating_file)
 {
-  int  ret = 0;
+  int ret;
 
-  AVFormatContext *out_fmt_ctx = NULL;
+  AVFormatContext *out_fmt_ctx;
   AVPacket pkt;
-  AVDictionaryEntry *tag = NULL;
-  AVDictionary *opts = NULL;
+  const AVDictionaryEntry *tag;
+  AVDictionary *opts;
   AVStream *out_stream;
   AVStream *in_stream;
   AVCodecParameters *in_codecpar;
   const struct AVOutputFormat *out_fmt;
 
   int i;
-  int stream_idx = 0;
-  int *stream_mapping = NULL;
-  int number_of_streams = 0;
+  int stream_idx;
+  int *stream_mapping;
 
 
   if ((ret = avformat_find_stream_info (in_fmt_ctx, NULL)) < 0)
@@ -829,8 +829,9 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
       goto end;
     }
 
-  // we've hacked the name of the output file so its not going to get scanned
-  // by the library for no reason
+  // The output file has an extension that is to be ignored by the server so its not going to get scanned
+  // by the library (and added to db) only to be removed shortly after - this is why we look at the input
+  // file name to guess output fmt
   out_fmt = av_guess_format(in_fmt_ctx->iformat->name, in_fmt_ctx->url, in_fmt_ctx->iformat->mime_type);
   if (out_fmt == NULL)
     {
@@ -847,8 +848,7 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
       goto end;
     }
 
-  number_of_streams = in_fmt_ctx->nb_streams;
-  stream_mapping = av_calloc(number_of_streams, sizeof (*stream_mapping));
+  stream_mapping = av_calloc(in_fmt_ctx->nb_streams, sizeof (*stream_mapping));
 
   if (!stream_mapping)
     {
@@ -857,21 +857,17 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
     }
 
   // copy the basic/generic meta
-  while ((tag = av_dict_get(in_fmt_ctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
+  tag = NULL;
+  while ((tag = av_dict_iterate(in_fmt_ctx->metadata, tag)))
     {
       av_dict_set(&(out_fmt_ctx->metadata), tag->key, tag->value, 0);
     }
 
+  stream_idx = 0;
   for (i = 0; i < in_fmt_ctx->nb_streams; i++)
     {
       in_stream = in_fmt_ctx->streams[i];
       in_codecpar = in_stream->codecpar;
-      if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
-	  in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO)
-        {
-	  stream_mapping[i] = -1;
-	  continue;
-        }
 
       stream_mapping[i] = stream_idx++;
       out_stream = avformat_new_stream (out_fmt_ctx, NULL);
@@ -888,29 +884,28 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
 	  goto end;
 	}
 
-      if (in_codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+      if (in_stream->metadata)
 	{
-	  if (in_stream->metadata)
+	  tag = NULL;
+	  while ((tag = av_dict_iterate(in_stream->metadata, tag)))
 	    {
-	      while ((tag = av_dict_get(in_stream->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
-		{
-		  av_dict_set(&(out_stream->metadata), tag->key, tag->value, 0);
-		}
+	      av_dict_set(&(out_stream->metadata), tag->key, tag->value, 0);
 	    }
 	}
     }
 
-  ret = avio_open (&out_fmt_ctx->pb, dest, AVIO_FLAG_WRITE);
+  ret = avio_open (&out_fmt_ctx->pb, new_rating_file, AVIO_FLAG_WRITE);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not open output rating file '%s' - %s\n", dest, av_err2str(ret));
+      DPRINTF(E_LOG, L_SCAN, "Could not open output rating file '%s' - %s\n", new_rating_file, av_err2str(ret));
       goto end;
     }
 
+  opts = NULL;
   ret = avformat_write_header (out_fmt_ctx, &opts);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Error occurred when writing output header: '%s' - %s\n", dest, av_err2str(ret));
+      DPRINTF(E_LOG, L_SCAN, "Error occurred when writing output header: '%s' - %s\n", new_rating_file, av_err2str(ret));
       goto end;
     }
 
@@ -921,7 +916,7 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
 	break;
 
       in_stream = in_fmt_ctx->streams[pkt.stream_index];
-      if (pkt.stream_index >= number_of_streams || stream_mapping[pkt.stream_index] < 0)
+      if (pkt.stream_index >= in_fmt_ctx->nb_streams || stream_mapping[pkt.stream_index] < 0)
 	{
 	  av_packet_unref (&pkt);
 	  continue;
@@ -937,12 +932,12 @@ file_clone_metadata(AVFormatContext* in_fmt_ctx, const char* dest)
       pkt.pos = -1;
 
       ret = av_interleaved_write_frame (out_fmt_ctx, &pkt);
+      av_packet_unref (&pkt);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Error muxing pkt for rating '%s' - %s\n", in_fmt_ctx->url, av_err2str(ret));
 	  break;
 	}
-      av_packet_unref (&pkt);
     }
   av_write_trailer (out_fmt_ctx);
 
@@ -955,6 +950,7 @@ end:
   av_freep (&stream_mapping);
   if (ret < 0 && ret != AVERROR_EOF)
     {
+      unlink(new_rating_file);
       return -1;
     }
   return 0;
@@ -965,15 +961,16 @@ filescanner_ffmpeg_write_rating(const struct media_file_info *mfi)
 {
   int ret;
   char rating[5] = { '\0' };
-  char dest[PATH_MAX];
+  char new_rating_file[PATH_MAX];
   int i;
   bool supported = false;
   AVDictionaryEntry  *entry;
+  int fd = -1;
 
   AVFormatContext *ctx = NULL;
   if ( (ret = avformat_open_input(&ctx, mfi->path, NULL, NULL)) != 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "failed to open library file for rating metadata update '%s' - %s\n", mfi->path, av_err2str(ret));
+      DPRINTF(E_LOG, L_SCAN, "Failed to open library file for rating metadata update '%s' - %s\n", mfi->path, av_err2str(ret));
       return ENOENT;
     }
 
@@ -993,43 +990,46 @@ filescanner_ffmpeg_write_rating(const struct media_file_info *mfi)
 	  break;
 
         default:
-	  DPRINTF(E_WARN, L_SCAN, "unsupported metadata update for 'rating' on '%s' (%s) - skipping\n", mfi->path, avcodec_get_name(ctx->streams[i]->codecpar->codec_id));
+	  DPRINTF(E_WARN, L_SCAN, "Unsupported metadata update for 'rating' on '%s' (%s) - skipping\n", mfi->path, avcodec_get_name(ctx->streams[i]->codecpar->codec_id));
       }
   }
 
   if (!supported)
     goto end;
 
-  safe_snprintf_cat(rating, 4, "%d", mfi->rating);
+  safe_snprintf_cat(rating, sizeof(rating)-1, "%d", mfi->rating);
 
   // Save a potential write if metadata on the underlying file matches requested rating
   entry = av_dict_get(ctx->metadata, "rating", NULL, 0);
-  if (entry == NULL || (entry && entry->value == NULL) || (entry && strcmp(entry->value, rating) != 0) )
+  if ( !(entry == NULL || (entry && entry->value == NULL) || (entry && strcmp(entry->value, rating) != 0) ))
+    goto end;
+
+  av_dict_set(&ctx->metadata, "rating", rating, 0);
+  DPRINTF(E_LOG, L_SCAN, "Updating rating to %s on '%s'\n", rating, mfi->path);
+
+  // We ignore the fd - we use mkstemps to generate a unique filename that is
+  // stored in 'new_rating_file' string; a string filename is required by ffmpeg
+  // to create the output
+  sprintf(new_rating_file, "%s.XXXXXX.metadata", ctx->url);
+  fd = mkstemps(new_rating_file, 9);
+  if (fd < 0)
     {
-      av_dict_set(&ctx->metadata, "rating", rating, 0);
-      DPRINTF(E_LOG, L_SCAN, "updating rating to %s on '%s'\n", rating, mfi->path);
+      DPRINTF(E_WARN, L_SCAN, "Failed to create temp rating file '%s - %s'\n", new_rating_file, strerror(errno));
+      goto end;
+    }
 
-      sprintf(dest, "%s-%d.metadata", ctx->url, getpid());
+  file_write_rating(ctx, new_rating_file);
+  ret = rename(new_rating_file, ctx->url);
 
-      if ( (ret = file_clone_metadata(ctx, dest)) == 0)
-	{
-	  ret = rename(dest, ctx->url);
-
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "failed to replace library rating file '%s' with temp '%s' - %s\n", ctx->url, dest, strerror(errno));
-	      unlink(dest);
-	      ret = EACCES;
-	    }
-	}
-      else
-	{
-	  unlink(dest);
-	  ret = EIO;
-	}
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Failed to replace library rating file '%s' with temp '%s' - %s\n", ctx->url, new_rating_file, strerror(errno));
+      unlink(new_rating_file);
+      ret = EACCES;
     }
 
 end:
   avformat_close_input(&ctx);
+  close(fd);
   return ret;
 }
