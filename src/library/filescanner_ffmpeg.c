@@ -809,21 +809,21 @@ file_write_rating(AVFormatContext* in_fmt_ctx, const char* new_rating_file)
 {
   int ret;
 
-  AVFormatContext *out_fmt_ctx;
+  AVFormatContext *out_fmt_ctx = NULL;
   AVPacket pkt;
   const AVDictionaryEntry *tag;
   AVDictionary *opts;
   AVStream *out_stream;
   AVStream *in_stream;
   AVCodecParameters *in_codecpar;
-#if (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR > 24))
+#if (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR >= 0) && (LIBAVCODEC_VERSION_MICRO >= 24))
   const
 #endif
-  struct AVOutputFormat *out_fmt;
+  struct AVOutputFormat *out_fmt = NULL;
 
   int i;
   int stream_idx;
-  int *stream_mapping;
+  int *stream_mapping = NULL;
 
 
   if ((ret = avformat_find_stream_info (in_fmt_ctx, NULL)) < 0)
