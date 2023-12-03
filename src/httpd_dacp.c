@@ -1397,6 +1397,7 @@ dacp_reply_playspec(struct httpd_request *hreq)
   const char *shuffle;
   uint32_t plid;
   uint32_t id;
+  struct query_params qp = { 0 };
   struct db_queue_item *queue_item = NULL;
   int ret;
 
@@ -1482,11 +1483,10 @@ dacp_reply_playspec(struct httpd_request *hreq)
 
   db_queue_clear(0);
 
-  if (plid > 0)
-    ret = db_queue_add_by_playlistid(plid, status.shuffle, status.item_id, -1, NULL, NULL);
-  else if (id > 0)
-    ret = db_queue_add_by_fileid(id, status.shuffle, status.item_id, -1, NULL, NULL);
+  qp.type = (plid > 0) ? Q_PLITEMS : Q_ITEMS;
+  qp.id = (plid > 0) ? plid : id;
 
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, -1, NULL, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Could not build song queue from playlist %d\n", plid);

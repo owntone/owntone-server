@@ -902,18 +902,6 @@ int
 db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id);
 
 int
-db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id);
-
-int
-db_queue_add_by_artistid(int64_t songartistid, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id);
-
-int
-db_queue_add_by_albumid(int64_t songalbumid, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id);
-
-int
-db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id);
-
-int
 db_queue_add_start(struct db_queue_add_info *queue_add_info, int pos);
 
 int

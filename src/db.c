@@ -1969,6 +1969,8 @@ db_free_query_clause(struct query_clause *qc)
   free(qc);
 }
 
+// Builds the generic parts of the query. Parts that are specific to the query
+// type are in db_build_query_* implementations.
 static struct query_clause *
 db_build_query_clause(struct query_params *qp)
 {
@@ -2076,8 +2078,21 @@ db_build_query_items(struct query_params *qp, struct query_clause *qc)
   char *count;
   char *query;
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s;", qc->where);
-  query = sqlite3_mprintf("SELECT f.* FROM files f %s %s %s %s;", qc->where, qc->group, qc->order, qc->index);
+  if (qp->id == 0)
+    {
+      count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s;", qc->where);
+      query = sqlite3_mprintf("SELECT f.* FROM files f %s %s %s %s;", qc->where, qc->group, qc->order, qc->index);
+    }
+  else if (qc->where[0] == '\0')
+    {
+      count = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.id = %d;", qp->id);
+      query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.id = %d %s %s %s;", qp->id, qc->group, qc->order, qc->index);
+    }
+  else
+    {
+      count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s AND f.id = %d;", qc->where, qp->id);
+      query = sqlite3_mprintf("SELECT f.* FROM files f %s AND f.id = %d %s %s %s;", qc->where, qp->id, qc->group, qc->order, qc->index);
+    }
 
   return db_build_query_check(qp, count, query);
 }
@@ -5272,70 +5287,6 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
   queue_transaction_end(ret, queue_version);
 
   return ret;
-}
-
-/*
- * Adds the file with the given id to the queue
- *
- * @param id Id of the file
- * @param reshuffle If 1 queue will be reshuffled after adding new items
- * @param item_id The base item id, all items after this will be reshuffled
- * @param position The position in the queue for the new queue item, -1 to add at end of queue
- * @param count If not NULL returns the number of items added to the queue
- * @param new_item_id If not NULL return the queue item id of the first new queue item
- * @return 0 on success, -1 on failure
- */
-int
-db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
-{
-  struct query_params qp = { .type = Q_ITEMS, .idx_type = I_NONE };
-  char buf[124];
-
-  snprintf(buf, sizeof(buf), "f.id = %" PRIu32, id);
-  qp.filter = buf;
-
-  return db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
-}
-
-/*
- * Adds the artist with the given id to the queue, see db_queue_add_by_fileid()
- */
-int
-db_queue_add_by_artistid(int64_t id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
-{
-  struct query_params qp = { .type = Q_ITEMS, .idx_type = I_NONE, .sort = S_ALBUM };
-  char buf[124];
-
-  snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, id);
-  qp.filter = buf;
-
-  return db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
-}
-
-/*
- * Adds the artist with the given id to the queue, see db_queue_add_by_fileid()
- */
-int
-db_queue_add_by_albumid(int64_t id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
-{
-  struct query_params qp = { .type = Q_ITEMS, .idx_type = I_NONE, .sort = S_ALBUM };
-  char buf[124];
-
-  snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, id);
-  qp.filter = buf;
-
-  return db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
-}
-
-/*
- * Adds the playlist with the given id to the queue, see db_queue_add_by_fileid()
- */
-int
-db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
-{
-  struct query_params qp = { .type = Q_PLITEMS, .id = plid };
-
-  return db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
 }
 
 static int
