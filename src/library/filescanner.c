@@ -1720,6 +1720,41 @@ filescanner_fullrescan()
 }
 
 static int
+queue_item_file_add(const char *sub_uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+{
+  int64_t id;
+
+  if (strncmp(sub_uri, "artist:", strlen("artist:")) == 0)
+    {
+      if (safe_atoi64(sub_uri + (strlen("artist:")), &id) < 0)
+	return -1;
+      return db_queue_add_by_artistid(id, reshuffle, item_id, position, count, new_item_id);
+    }
+  else if (strncmp(sub_uri, "album:", strlen("album:")) == 0)
+    {
+      if (safe_atoi64(sub_uri + (strlen("album:")), &id) < 0)
+	return -1;
+      return db_queue_add_by_albumid(id, reshuffle, item_id, position, count, new_item_id);
+    }
+  else if (strncmp(sub_uri, "track:", strlen("track:")) == 0)
+    {
+      if (safe_atoi64(sub_uri + (strlen("track:")), &id) < 0)
+	return -1;
+      return db_queue_add_by_fileid((int)id, reshuffle, item_id, position, count, new_item_id);
+    }
+  else if (strncmp(sub_uri, "playlist:", strlen("playlist:")) == 0)
+    {
+      if (safe_atoi64(sub_uri + (strlen("playlist:")), &id) < 0)
+	return -1;
+      return db_queue_add_by_playlistid((int)id, reshuffle, item_id, position, count, new_item_id);
+    }
+  else
+    {
+      return -1;
+    }
+}
+
+static int
 queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct media_file_info mfi = { 0 };
@@ -1758,13 +1793,16 @@ queue_item_stream_add(const char *path, int position, char reshuffle, uint32_t i
 static int
 queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
-  if (net_is_http_or_https(uri))
-    {
-      queue_item_stream_add(uri, position, reshuffle, item_id, count, new_item_id);
-      return LIBRARY_OK;
-    }
+  int ret;
 
-  return LIBRARY_PATH_INVALID;
+  if (strncmp(uri, "library:", strlen("library:")) == 0)
+    ret = queue_item_file_add(uri + strlen("library:"), position, reshuffle, item_id, count, new_item_id);
+  else if (net_is_http_or_https(uri))
+    ret = queue_item_stream_add(uri, position, reshuffle, item_id, count, new_item_id);
+  else
+    ret = -1;
+
+  return (ret == 0) ? LIBRARY_OK : LIBRARY_PATH_INVALID;
 }
 
 static const char *

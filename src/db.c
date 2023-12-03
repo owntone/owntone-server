@@ -5275,33 +5275,6 @@ db_queue_add_by_query(struct query_params *qp, char reshuffle, uint32_t item_id,
 }
 
 /*
- * Adds the items of the stored playlist with the given id to the end of the queue
- *
- * @param plid Id of the stored playlist
- * @param reshuffle If 1 queue will be reshuffled after adding new items
- * @param item_id The base item id, all items after this will be reshuffled
- * @param position The position in the queue for the new queue item, -1 to add at end of queue
- * @param count If not NULL returns the number of items added to the queue
- * @param new_item_id If not NULL return the queue item id of the first new queue item
- * @return 0 on success, -1 on failure
- */
-int
-db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
-{
-  struct query_params qp;
-  int ret;
-
-  memset(&qp, 0, sizeof(struct query_params));
-
-  qp.id = plid;
-  qp.type = Q_PLITEMS;
-
-  ret = db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
-
-  return ret;
-}
-
-/*
  * Adds the file with the given id to the queue
  *
  * @param id Id of the file
@@ -5315,19 +5288,54 @@ db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id, int posit
 int
 db_queue_add_by_fileid(int id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
 {
-  struct query_params qp;
+  struct query_params qp = { .type = Q_ITEMS, .idx_type = I_NONE };
   char buf[124];
-  int ret;
 
-  memset(&qp, 0, sizeof(struct query_params));
-
-  qp.type = Q_ITEMS;
   snprintf(buf, sizeof(buf), "f.id = %" PRIu32, id);
   qp.filter = buf;
 
-  ret = db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
+  return db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
+}
 
-  return ret;
+/*
+ * Adds the artist with the given id to the queue, see db_queue_add_by_fileid()
+ */
+int
+db_queue_add_by_artistid(int64_t id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
+{
+  struct query_params qp = { .type = Q_ITEMS, .idx_type = I_NONE, .sort = S_ALBUM };
+  char buf[124];
+
+  snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, id);
+  qp.filter = buf;
+
+  return db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
+}
+
+/*
+ * Adds the artist with the given id to the queue, see db_queue_add_by_fileid()
+ */
+int
+db_queue_add_by_albumid(int64_t id, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
+{
+  struct query_params qp = { .type = Q_ITEMS, .idx_type = I_NONE, .sort = S_ALBUM };
+  char buf[124];
+
+  snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, id);
+  qp.filter = buf;
+
+  return db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
+}
+
+/*
+ * Adds the playlist with the given id to the queue, see db_queue_add_by_fileid()
+ */
+int
+db_queue_add_by_playlistid(int plid, char reshuffle, uint32_t item_id, int position, int *count, int *new_item_id)
+{
+  struct query_params qp = { .type = Q_PLITEMS, .id = plid };
+
+  return db_queue_add_by_query(&qp, reshuffle, item_id, position, count, new_item_id);
 }
 
 static int
