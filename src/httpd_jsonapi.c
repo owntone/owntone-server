@@ -2228,9 +2228,8 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 }
 
 static int
-queue_tracks_add_byuris(const char *param, int pos, int *total_count, int *new_item_id)
+queue_tracks_add_byuris(const char *param, char shuffle, uint32_t item_id, int pos, int *total_count, int *new_item_id)
 {
-  struct player_status status;
   char *uris;
   const char *uri;
   char *ptr;
@@ -2250,24 +2249,20 @@ queue_tracks_add_byuris(const char *param, int pos, int *total_count, int *new_i
       goto error;
     }
 
-  player_get_status(&status);
-
   for (; uri; uri = strtok_r(NULL, ",", &ptr))
     {
-      ret = library_queue_item_add(uri, pos, status.shuffle, status.item_id, &count, &new);
+      ret = library_queue_item_add(uri, pos, shuffle, item_id, &count, &new);
       if (ret != LIBRARY_OK)
 	{
 	  DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
 	  goto error;
 	}
 
+      *total_count += count;
       if (pos >= 0)
 	pos += count;
-
-      *new_item_id = (*new_item_id == -1) ? new : MIN(*new_item_id, new);
-      *total_count += count;
-
-      DPRINTF(E_DBG, L_WEB, "pos %d, count %d, new %d, new_item_id %d\n", pos, count, new, *new_item_id);
+      if (*new_item_id == -1)
+        *new_item_id = new;
     }
 
   free(uris);
@@ -2279,12 +2274,11 @@ queue_tracks_add_byuris(const char *param, int pos, int *total_count, int *new_i
 }
 
 static int
-queue_tracks_add_byexpression(const char *param, int pos, int limit, int *total_count, int *new_item_id)
+queue_tracks_add_byexpression(const char *param, char shuffle, uint32_t item_id, int pos, int limit, int *total_count, int *new_item_id)
 {
   struct query_params query_params = { .type = Q_ITEMS, .sort = S_NAME };
   struct smartpl smartpl_expression = { 0 };
   char *expression;
-  struct player_status status;
   int ret;
 
   expression = safe_asprintf("\"query\" { %s }", param);
@@ -2300,12 +2294,30 @@ queue_tracks_add_byexpression(const char *param, int pos, int limit, int *total_
   query_params.idx_type = query_params.limit > 0 ? I_FIRST : I_NONE;
   free_smartpl(&smartpl_expression, 1);
 
-  player_get_status(&status);
-
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, new_item_id);
+  ret = db_queue_add_by_query(&query_params, shuffle, item_id, pos, total_count, new_item_id);
 
   free_query_params(&query_params, 1);
   return ret;
+}
+
+static int
+create_reply_queue_tracks_add(struct evbuffer *evbuf, int count, int new_item_id, char shuffle)
+{
+  json_object *reply = json_object_new_object();
+  int ret;
+
+  json_object_object_add(reply, "count", json_object_new_int(count));
+
+  ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
+  if (ret < 0)
+    goto error;
+
+  jparse_free(reply);
+  return 0;
+
+ error:
+  jparse_free(reply);
+  return -1;
 }
 
 static int
@@ -2315,12 +2327,12 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   const char *param_uris;
   const char *param_expression;
   const char *param;
+  struct player_status status;
   int pos;
   int limit;
   bool shuffle;
   int total_count = 0;
   int new_item_id = 0;
-  json_object *reply;
   int ret = 0;
 
 
@@ -2365,29 +2377,25 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
       player_shuffle_set(shuffle);
     }
 
+  player_get_status(&status);
+
   if (param_uris)
     {
-      ret = queue_tracks_add_byuris(param_uris, pos, &total_count, &new_item_id);
+      ret = queue_tracks_add_byuris(param_uris, status.shuffle, status.item_id, pos, &total_count, &new_item_id);
     }
   else
     {
       // This overrides the value specified in query
       param = httpd_query_value_find(hreq->query, "limit");
       if (param && safe_atoi32(param, &limit) == 0)
-	ret = queue_tracks_add_byexpression(param_expression, pos, limit, &total_count, &new_item_id);
+	ret = queue_tracks_add_byexpression(param_expression, status.shuffle, status.item_id, pos, limit, &total_count, &new_item_id);
       else
-	ret = queue_tracks_add_byexpression(param_expression, pos, -1, &total_count, &new_item_id);
+	ret = queue_tracks_add_byexpression(param_expression, status.shuffle, status.item_id, pos, -1, &total_count, &new_item_id);
     }
+  if (ret < 0)
+    return HTTP_INTERNAL;
 
-  if (ret == 0)
-    {
-      reply = json_object_new_object();
-      json_object_object_add(reply, "count", json_object_new_int(total_count));
-
-      ret = evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(reply));
-      jparse_free(reply);
-    }
-
+  ret = create_reply_queue_tracks_add(hreq->out_body, total_count, new_item_id, status.shuffle);
   if (ret < 0)
     return HTTP_INTERNAL;
 

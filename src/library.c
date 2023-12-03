@@ -842,6 +842,8 @@ int
 library_queue_item_add(const char *path, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct queue_item_add_param param;
+  int count_internal;
+  int new_item_id_internal;
 
   if (library_is_scanning())
     return -1;
@@ -850,8 +852,8 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
   param.position = position;
   param.reshuffle = reshuffle;
   param.item_id = item_id;
-  param.count = count;
-  param.new_item_id = new_item_id;
+  param.count = count ? count : &count_internal;
+  param.new_item_id = new_item_id ? new_item_id : &new_item_id_internal;
 
   return commands_exec_sync(cmdbase, queue_item_add, NULL, &param);
 }

@@ -2461,6 +2461,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   char *path;
   struct playlist_info *pli;
   struct player_status status;
+  struct query_params qp = { .type = Q_PLITEMS };
   int ret;
 
   if (!default_pl_dir || strstr(argv[1], ":/"))
@@ -2484,10 +2485,12 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 
   //TODO If a second parameter is given only add the specified range of songs to the playqueue
 
+  qp.id = pli->id;
+  free_pli(pli, 0);
+
   player_get_status(&status);
 
-  ret = db_queue_add_by_playlistid(pli->id, status.shuffle, status.item_id, -1, NULL, NULL);
-  free_pli(pli, 0);
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, -1, NULL, NULL);
   if (ret < 0)
     {
       *errmsg = safe_asprintf("Failed to add song '%s' to playlist", argv[1]);

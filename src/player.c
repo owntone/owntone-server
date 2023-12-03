@@ -2118,9 +2118,11 @@ playback_start_item(void *arg, int *retval)
 static enum command_state
 playback_start_id(void *arg, int *retval)
 {
+  struct query_params qp = { .type = Q_ITEMS };
   struct db_queue_item *queue_item = NULL;
   union player_arg *cmdarg = arg;
   enum command_state cmd_state;
+  int new_item_id;
   int ret;
 
   *retval = -1;
@@ -2129,11 +2131,13 @@ playback_start_id(void *arg, int *retval)
     {
       db_queue_clear(0);
 
-      ret = db_queue_add_by_fileid(cmdarg->id, 0, 0, -1, NULL, NULL);
+      qp.id = cmdarg->id;
+
+      ret = db_queue_add_by_query(&qp, 0, 0, -1, NULL, &new_item_id);
       if (ret < 0)
 	return COMMAND_END;
 
-      queue_item = db_queue_fetch_byfileid(cmdarg->id);
+      queue_item = db_queue_fetch_byitemid(new_item_id);
       if (!queue_item)
 	return COMMAND_END;
     }

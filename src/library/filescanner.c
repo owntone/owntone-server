@@ -1722,36 +1722,49 @@ filescanner_fullrescan()
 static int
 queue_item_file_add(const char *sub_uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
+  struct query_params query_params = { 0 };
   int64_t id;
 
   if (strncmp(sub_uri, "artist:", strlen("artist:")) == 0)
     {
       if (safe_atoi64(sub_uri + (strlen("artist:")), &id) < 0)
 	return -1;
-      return db_queue_add_by_artistid(id, reshuffle, item_id, position, count, new_item_id);
+
+      query_params.type = Q_GROUP_ITEMS;
+      query_params.sort = S_ALBUM;
+      query_params.persistentid = id;
     }
   else if (strncmp(sub_uri, "album:", strlen("album:")) == 0)
     {
       if (safe_atoi64(sub_uri + (strlen("album:")), &id) < 0)
 	return -1;
-      return db_queue_add_by_albumid(id, reshuffle, item_id, position, count, new_item_id);
+
+      query_params.type = Q_GROUP_ITEMS;
+      query_params.sort = S_ALBUM;
+      query_params.persistentid = id;
     }
   else if (strncmp(sub_uri, "track:", strlen("track:")) == 0)
     {
       if (safe_atoi64(sub_uri + (strlen("track:")), &id) < 0)
 	return -1;
-      return db_queue_add_by_fileid((int)id, reshuffle, item_id, position, count, new_item_id);
+
+      query_params.type = Q_ITEMS;
+      query_params.id = id;
     }
   else if (strncmp(sub_uri, "playlist:", strlen("playlist:")) == 0)
     {
       if (safe_atoi64(sub_uri + (strlen("playlist:")), &id) < 0)
 	return -1;
-      return db_queue_add_by_playlistid((int)id, reshuffle, item_id, position, count, new_item_id);
+
+      query_params.type = Q_PLITEMS;
+      query_params.id = id;
     }
   else
     {
       return -1;
     }
+
+  return db_queue_add_by_query(&query_params, reshuffle, item_id, position, count, new_item_id);
 }
 
 static int
