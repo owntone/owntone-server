@@ -655,7 +655,9 @@ On success returns the HTTP `200 OK` success status response code.
 
 | Key             | Type     | Value                                     |
 | --------------- | -------- | ----------------------------------------- |
-| count           | integer  | number of tracks added to the queue       |
+| version         | integer  | Version number of the current queue       |
+| count           | integer  | Number of tracks added to the queue       |
+| items           | array    | Array of [`queue item`](#queue-item-object) objects added |
 
 
 **Example**
@@ -668,7 +670,32 @@ curl -X POST "http://localhost:3689/api/queue/items/add?uris=library:playlist:68
 
 ```json
 {
-  "count": 42
+  "version": 833,
+  "count": 20,
+  "items": [
+    {
+      "id": 12122,
+      "position": 0,
+      "track_id": 10749,
+      "title": "Angels",
+      "artist": "The xx",
+      "artist_sort": "xx, The",
+      "album": "Coexist",
+      "album_sort": "Coexist",
+      "albumartist": "The xx",
+      "albumartist_sort": "xx, The",
+      "genre": "Indie Rock",
+      "year": 2012,
+      "track_number": 1,
+      "disc_number": 1,
+      "length_ms": 171735,
+      "media_kind": "music",
+      "data_kind": "file",
+      "path": "/music/srv/The xx/Coexist/01 Angels.mp3",
+      "uri": "library:track:10749"
+    },
+    ...
+  ]
 }
 ```
 
@@ -680,7 +707,32 @@ curl -X POST "http://localhost:3689/api/queue/items/add?expression=media_kind+is
 
 ```json
 {
-  "count": 42
+  "version": 833,
+  "count": 20,
+  "items": [
+    {
+      "id": 12122,
+      "position": 0,
+      "track_id": 10749,
+      "title": "Angels",
+      "artist": "The xx",
+      "artist_sort": "xx, The",
+      "album": "Coexist",
+      "album_sort": "Coexist",
+      "albumartist": "The xx",
+      "albumartist_sort": "xx, The",
+      "genre": "Indie Rock",
+      "year": 2012,
+      "track_number": 1,
+      "disc_number": 1,
+      "length_ms": 171735,
+      "media_kind": "music",
+      "data_kind": "file",
+      "path": "/music/srv/The xx/Coexist/01 Angels.mp3",
+      "uri": "library:track:10749"
+    },
+    ...
+  ]
 }
 ```
 

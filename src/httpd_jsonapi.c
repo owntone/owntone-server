@@ -2304,18 +2304,45 @@ static int
 create_reply_queue_tracks_add(struct evbuffer *evbuf, int count, int new_item_id, char shuffle)
 {
   json_object *reply = json_object_new_object();
+  json_object *items = json_object_new_array();
+  json_object *item;
+  struct query_params query_params = { 0 };
+  struct db_queue_item queue_item;
+  int version = 0;
   int ret;
 
+  db_admin_getint(&version, DB_ADMIN_QUEUE_VERSION);
+
+  json_object_object_add(reply, "version", json_object_new_int(version));
   json_object_object_add(reply, "count", json_object_new_int(count));
+  json_object_object_add(reply, "items", items);
+
+  ret = db_queue_enum_start(&query_params);
+  if (ret < 0)
+    goto error;
+
+  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
+    {
+      if (queue_item.id < new_item_id)
+	continue;
+
+      item = queue_item_to_json(&queue_item, shuffle);
+      if (!item)
+	goto error;
+
+      json_object_array_add(items, item);
+    }
 
   ret = evbuffer_add_printf(evbuf, "%s", json_object_to_json_string(reply));
   if (ret < 0)
     goto error;
 
+  db_queue_enum_end(&query_params);
   jparse_free(reply);
   return 0;
 
  error:
+  db_queue_enum_end(&query_params);
   jparse_free(reply);
   return -1;
 }
