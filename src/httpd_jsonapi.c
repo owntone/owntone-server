@@ -2228,199 +2228,65 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 }
 
 static int
-queue_tracks_add_artist(const char *id, int pos)
-{
-  struct query_params query_params;
-  struct player_status status;
-  int count = 0;
-  int ret = 0;
-
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  query_params.type = Q_ITEMS;
-  query_params.sort = S_ALBUM;
-  query_params.idx_type = I_NONE;
-  query_params.filter = db_mprintf("(f.songartistid = %q)", id);
-
-  player_get_status(&status);
-
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, &count, NULL);
-
-  free(query_params.filter);
-
-  if (ret == 0)
-    return count;
-
-  return ret;
-}
-
-static int
-queue_tracks_add_album(const char *id, int pos)
-{
-  struct query_params query_params;
-  struct player_status status;
-  int count = 0;
-  int ret = 0;
-
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  query_params.type = Q_ITEMS;
-  query_params.sort = S_ALBUM;
-  query_params.idx_type = I_NONE;
-  query_params.filter = db_mprintf("(f.songalbumid = %q)", id);
-
-  player_get_status(&status);
-
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, &count, NULL);
-
-  free(query_params.filter);
-
-  if (ret == 0)
-    return count;
-
-  return ret;
-}
-
-static int
-queue_tracks_add_track(const char *id, int pos)
-{
-  struct query_params query_params;
-  struct player_status status;
-  int count = 0;
-  int ret = 0;
-
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  query_params.type = Q_ITEMS;
-  query_params.sort = S_ALBUM;
-  query_params.idx_type = I_NONE;
-  query_params.filter = db_mprintf("(f.id = %q)", id);
-
-  player_get_status(&status);
-
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, &count, NULL);
-
-  free(query_params.filter);
-
-  if (ret == 0)
-    return count;
-
-  return ret;
-}
-
-static int
-queue_tracks_add_playlist(const char *id, int pos)
-{
-  struct player_status status;
-  int playlist_id;
-  int count = 0;
-  int ret;
-
-  ret = safe_atoi32(id, &playlist_id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_WEB, "No valid playlist id given '%s'\n", id);
-
-      return HTTP_BADREQUEST;
-    }
-
-  player_get_status(&status);
-
-  ret = db_queue_add_by_playlistid(playlist_id, status.shuffle, status.item_id, pos, &count, NULL);
-
-  if (ret == 0)
-    return count;
-
-  return ret;
-}
-
-static int
-queue_tracks_add_byuris(const char *param, int pos, int *total_count)
+queue_tracks_add_byuris(const char *param, int pos, int *total_count, int *new_item_id)
 {
   struct player_status status;
   char *uris;
-  char *uri;
+  const char *uri;
   char *ptr;
-  const char *id;
-  int count = 0;
-  int ret = 0;
+  int count;
+  int new;
+  int ret;
 
   *total_count = 0;
+  *new_item_id = -1;
 
   CHECK_NULL(L_WEB, uris = strdup(param));
-  uri = strtok_r(uris, ",", &ptr);
 
+  uri = strtok_r(uris, ",", &ptr);
   if (!uri)
     {
       DPRINTF(E_LOG, L_WEB, "Empty query parameter 'uris'\n");
-      free(uris);
-      return -1;
+      goto error;
     }
 
-  do
+  player_get_status(&status);
+
+  for (; uri; uri = strtok_r(NULL, ",", &ptr))
     {
-      count = 0;
-
-      if (strncmp(uri, "library:artist:", strlen("library:artist:")) == 0)
+      ret = library_queue_item_add(uri, pos, status.shuffle, status.item_id, &count, &new);
+      if (ret != LIBRARY_OK)
 	{
-	  id = uri + (strlen("library:artist:"));
-	  count = queue_tracks_add_artist(id, pos);
-	}
-      else if (strncmp(uri, "library:album:", strlen("library:album:")) == 0)
-	{
-	  id = uri + (strlen("library:album:"));
-	  count = queue_tracks_add_album(id, pos);
-	}
-      else if (strncmp(uri, "library:track:", strlen("library:track:")) == 0)
-	{
-	  id = uri + (strlen("library:track:"));
-	  count = queue_tracks_add_track(id, pos);
-	}
-      else if (strncmp(uri, "library:playlist:", strlen("library:playlist:")) == 0)
-	{
-	  id = uri + (strlen("library:playlist:"));
-	  count = queue_tracks_add_playlist(id, pos);
-	}
-      else
-	{
-	  player_get_status(&status);
-
-	  ret = library_queue_item_add(uri, pos, status.shuffle, status.item_id, &count, NULL);
-	  if (ret != LIBRARY_OK)
-	    {
-	      DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
-	      break;
-	    }
-	  pos += count;
+	  DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
+	  goto error;
 	}
 
       if (pos >= 0)
 	pos += count;
 
+      *new_item_id = (*new_item_id == -1) ? new : MIN(*new_item_id, new);
       *total_count += count;
+
+      DPRINTF(E_DBG, L_WEB, "pos %d, count %d, new %d, new_item_id %d\n", pos, count, new, *new_item_id);
     }
-  while ((uri = strtok_r(NULL, ",", &ptr)));
 
   free(uris);
+  return 0;
 
-  return ret;
+ error:
+  free(uris);
+  return -1;
 }
 
 static int
-queue_tracks_add_byexpression(const char *param, int pos, int limit, int *total_count)
+queue_tracks_add_byexpression(const char *param, int pos, int limit, int *total_count, int *new_item_id)
 {
+  struct query_params query_params = { .type = Q_ITEMS, .sort = S_NAME };
+  struct smartpl smartpl_expression = { 0 };
   char *expression;
-  struct smartpl smartpl_expression;
-  struct query_params query_params;
   struct player_status status;
   int ret;
 
-  memset(&query_params, 0, sizeof(struct query_params));
-
-  query_params.type = Q_ITEMS;
-  query_params.sort = S_NAME;
-
-  memset(&smartpl_expression, 0, sizeof(struct smartpl));
   expression = safe_asprintf("\"query\" { %s }", param);
   ret = smartpl_query_parse_string(&smartpl_expression, expression);
   free(expression);
@@ -2431,18 +2297,15 @@ queue_tracks_add_byexpression(const char *param, int pos, int limit, int *total_
   query_params.filter = strdup(smartpl_expression.query_where);
   query_params.order = safe_strdup(smartpl_expression.order);
   query_params.limit = limit > 0 ? limit : smartpl_expression.limit;
+  query_params.idx_type = query_params.limit > 0 ? I_FIRST : I_NONE;
   free_smartpl(&smartpl_expression, 1);
 
   player_get_status(&status);
 
-  query_params.idx_type = query_params.limit > 0 ?  I_FIRST : I_NONE;
-
-  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, NULL);
+  ret = db_queue_add_by_query(&query_params, status.shuffle, status.item_id, pos, total_count, new_item_id);
 
   free_query_params(&query_params, 1);
-
   return ret;
-
 }
 
 static int
@@ -2456,6 +2319,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   int limit;
   bool shuffle;
   int total_count = 0;
+  int new_item_id = 0;
   json_object *reply;
   int ret = 0;
 
@@ -2470,7 +2334,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 	  return HTTP_BADREQUEST;
 	}
 
-      DPRINTF(E_DBG, L_WEB, "Add tracks starting at position '%d\n", pos);
+      DPRINTF(E_DBG, L_WEB, "Add tracks starting at position %d\n", pos);
     }
   else
     pos = -1;
@@ -2503,16 +2367,16 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
   if (param_uris)
     {
-      ret = queue_tracks_add_byuris(param_uris, pos, &total_count);
+      ret = queue_tracks_add_byuris(param_uris, pos, &total_count, &new_item_id);
     }
   else
     {
       // This overrides the value specified in query
       param = httpd_query_value_find(hreq->query, "limit");
       if (param && safe_atoi32(param, &limit) == 0)
-	ret = queue_tracks_add_byexpression(param_expression, pos, limit, &total_count);
+	ret = queue_tracks_add_byexpression(param_expression, pos, limit, &total_count, &new_item_id);
       else
-	ret = queue_tracks_add_byexpression(param_expression, pos, -1, &total_count);
+	ret = queue_tracks_add_byexpression(param_expression, pos, -1, &total_count, &new_item_id);
     }
 
   if (ret == 0)
