@@ -410,7 +410,7 @@ rsp_reply_db(struct httpd_request *hreq)
 static int
 item_add(xml_node *parent, struct query_params *qp, const char *user_agent, const char *client_codecs, int mode)
 {
-  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, HTTPD_STREAM_BIT_RATE };
+  struct media_quality quality = { 0 };
   struct db_media_file_info dbmfi;
   struct transcode_metadata_string xcode_metadata;
   enum transcode_profile profile;
@@ -436,6 +436,11 @@ item_add(xml_node *parent, struct query_params *qp, const char *user_agent, cons
 
       if (safe_atou32(dbmfi.song_length, &len_ms) < 0)
         len_ms = 3 * 60 * 1000; // just a fallback default
+
+      safe_atoi32(dbmfi.samplerate, &quality.sample_rate);
+      safe_atoi32(dbmfi.bits_per_sample, &quality.bits_per_sample);
+      safe_atoi32(dbmfi.channels, &quality.channels);
+      quality.bit_rate = cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
 
       transcode_metadata_strings_set(&xcode_metadata, profile, &quality, len_ms);
       dbmfi.type        = xcode_metadata.type;
@@ -710,6 +715,16 @@ rsp_stream(struct httpd_request *hreq)
 //  /rsp/stream/36364
 //  /rsp/db/0?query=id%3D36365&type=full
 //  /rsp/stream/36365
+//
+// Headers sent from Roku M2000 and M1001 in stream requests (and other?):
+//
+// 'User-Agent': 'Roku SoundBridge/3.0'
+// 'Host': '192.168.1.119:3689'
+// 'Accept': '*/*'
+// 'Pragma': 'no-cache'
+// 'accept-codecs': 'wma,mpeg,wav,mp4a,alac'
+// 'rsp-version': '0.1'
+// 'transcode-codecs': 'wav,mp3'
 static struct httpd_uri_map rsp_handlers[] =
   {
     {

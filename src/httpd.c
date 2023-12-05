@@ -109,18 +109,19 @@ struct stream_ctx {
 
 static const struct content_type_map ext2ctype[] =
   {
-    { ".html", XCODE_NONE, "text/html; charset=utf-8" },
-    { ".xml",  XCODE_NONE, "text/xml; charset=utf-8" },
-    { ".css",  XCODE_NONE, "text/css; charset=utf-8" },
-    { ".txt",  XCODE_NONE, "text/plain; charset=utf-8" },
-    { ".js",   XCODE_NONE, "application/javascript; charset=utf-8" },
-    { ".gif",  XCODE_NONE, "image/gif" },
-    { ".ico",  XCODE_NONE, "image/x-ico" },
-    { ".png",  XCODE_PNG,  "image/png" },
-    { ".jpg",  XCODE_JPEG, "image/jpeg" },
-    { ".mp3",  XCODE_MP3,  "audio/mpeg" },
-    { ".wav",  XCODE_WAV,  "audio/wav" },
-    { NULL,    XCODE_NONE, NULL }
+    { ".html", XCODE_NONE,      "text/html; charset=utf-8" },
+    { ".xml",  XCODE_NONE,      "text/xml; charset=utf-8" },
+    { ".css",  XCODE_NONE,      "text/css; charset=utf-8" },
+    { ".txt",  XCODE_NONE,      "text/plain; charset=utf-8" },
+    { ".js",   XCODE_NONE,      "application/javascript; charset=utf-8" },
+    { ".gif",  XCODE_NONE,      "image/gif" },
+    { ".ico",  XCODE_NONE,      "image/x-ico" },
+    { ".png",  XCODE_PNG,       "image/png" },
+    { ".jpg",  XCODE_JPEG,      "image/jpeg" },
+    { ".mp3",  XCODE_MP3,       "audio/mpeg" },
+    { ".m4a",  XCODE_MP4_ALAC,  "audio/mp4" },
+    { ".wav",  XCODE_WAV,       "audio/wav" },
+    { NULL,    XCODE_NONE,      NULL }
   };
 
 static char webroot_directory[PATH_MAX];
@@ -677,8 +678,8 @@ static struct stream_ctx *
 stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile, struct httpd_request *hreq,
                      int64_t offset, int64_t end_offset, event_callback_fn stream_cb)
 {
+  struct media_quality quality = { 0 };
   struct stream_ctx *st;
-  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, HTTPD_STREAM_BIT_RATE };
 
   st = stream_new(mfi, hreq, stream_cb);
   if (!st)
@@ -686,6 +687,8 @@ stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile
       goto error;
     }
 
+  // We use source sample rate etc, but for MP3 we must set a bit rate
+  quality.bit_rate = cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
   st->xcode = transcode_setup(profile, &quality, mfi->data_kind, mfi->path, mfi->song_length);
   if (!st->xcode)
     {
