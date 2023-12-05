@@ -36,11 +36,6 @@
 #define HTTP_BADGATEWAY        502	/**< received an invalid response from the upstream */
 #define HTTP_SERVUNAVAIL       503	/**< the server is not available */
 
-#define HTTPD_STREAM_SAMPLE_RATE 44100
-#define HTTPD_STREAM_BPS         16
-#define HTTPD_STREAM_CHANNELS    2
-#define HTTPD_STREAM_BIT_RATE    320000
-
 
 struct httpd_request;
 

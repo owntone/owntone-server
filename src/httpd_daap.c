@@ -1151,7 +1151,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   size_t len;
   enum transcode_profile profile;
   struct transcode_metadata_string xcode_metadata;
-  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, HTTPD_STREAM_BIT_RATE };
+  struct media_quality quality = { 0 };
   uint32_t len_ms;
   int nmeta = 0;
   int sort_headers;
@@ -1238,6 +1238,11 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 	{
 	  if (safe_atou32(dbmfi.song_length, &len_ms) < 0)
 	    len_ms = 3 * 60 * 1000; // just a fallback default
+
+	  safe_atoi32(dbmfi.samplerate, &quality.sample_rate);
+	  safe_atoi32(dbmfi.bits_per_sample, &quality.bits_per_sample);
+	  safe_atoi32(dbmfi.channels, &quality.channels);
+	  quality.bit_rate = cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
 
 	  transcode_metadata_strings_set(&xcode_metadata, profile, &quality, len_ms);
 	  dbmfi.type        = xcode_metadata.type;

@@ -23,10 +23,14 @@ enum transcode_profile
   XCODE_PCM32,
   // Transcodes the best audio stream to MP3
   XCODE_MP3,
-  // Transcodes the best audio stream to OPUS
+  // Transcodes the best audio stream to raw OPUS (no container)
   XCODE_OPUS,
-  // Transcodes the best audio stream to ALAC
+  // Transcodes the best audio stream to raw ALAC (no container)
   XCODE_ALAC,
+  // Transcodes the best audio stream to ALAC in a MP4 container
+  XCODE_MP4_ALAC,
+  // Produces just the header for a MP4 container with ALAC
+  XCODE_MP4_ALAC_HEADER,
   // Transcodes the best audio stream from OGG
   XCODE_OGG,
   // Transcodes the best video stream to JPEG/PNG/VP8
@@ -78,6 +82,9 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
 
 struct encode_ctx *
 transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, int width, int height);
+
+struct encode_ctx *
+transcode_encode_setup_with_io(enum transcode_profile profile, struct media_quality *quality, struct transcode_evbuf_io *evbuf_io, struct decode_ctx *src_ctx, int width, int height);
 
 struct transcode_ctx *
 transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t len_ms);
@@ -182,9 +189,15 @@ transcode_encode_query(struct encode_ctx *ctx, const char *query);
 struct http_icy_metadata *
 transcode_metadata(struct transcode_ctx *ctx, int *changed);
 
-// When transcoding, we are in essence serving a different source file than the
-// original to the client. So we can't serve some of the file metadata from the
-// filescanner. This function creates strings to be used for override.
+/* When transcoding, we are in essence serving a different source file than the
+ * original to the client. So we can't serve some of the file metadata from the
+ * filescanner. This function creates strings to be used for override.
+ *
+ * @out s          Structure with (non-allocated) strings
+ * @in  profile    Transcoding profile
+ * @in  q          Transcoding quality
+ * @in  len_ms     Length of source track
+ */
 void
 transcode_metadata_strings_set(struct transcode_metadata_string *s, enum transcode_profile profile, struct media_quality *q, uint32_t len_ms);
 
