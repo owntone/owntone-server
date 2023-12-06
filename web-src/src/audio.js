@@ -1,23 +1,17 @@
 /**
  * Audio handler object
- * Taken from https://github.com/rainner/soma-fm-player (released under MIT licence)
+ * Inspired by https://github.com/rainner/soma-fm-player
+ * (released under MIT licence)
  */
 export default {
   _audio: new Audio(),
   _context: null,
-  _source: null,
-  _gain: null,
 
   // Setup audio routing
   setupAudio() {
-    const AudioContext = window.AudioContext || window.webkitAudioContext
-    this._context = new AudioContext()
-    this._source = this._context.createMediaElementSource(this._audio)
-    this._gain = this._context.createGain()
-
-    this._source.connect(this._gain)
-    this._gain.connect(this._context.destination)
-
+    this._context = new (window.AudioContext || window.webkitAudioContext)()
+    const source = this._context.createMediaElementSource(this._audio)
+    source.connect(this._context.destination)
     this._audio.addEventListener('canplaythrough', (e) => {
       this._audio.play()
     })
@@ -29,11 +23,9 @@ export default {
 
   // Set audio volume
   setVolume(volume) {
-    if (!this._gain) return
-    volume = parseFloat(volume) || 0.0
-    volume = volume < 0 ? 0 : volume
-    volume = volume > 1 ? 1 : volume
-    this._gain.gain.value = volume
+    if (this._audio) {
+      this._audio.volume = Math.min(1, Math.max(0, parseFloat(volume) || 0.0))
+    }
   },
 
   // Play audio source url
