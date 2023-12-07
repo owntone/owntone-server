@@ -63,7 +63,7 @@ a.navbar-item {
 }
 
 .fd-progress-bar {
-  top: 52px !important;
+  top: $navbar-height !important;
 }
 
 .fd-has-shadow img {
@@ -85,12 +85,12 @@ a.navbar-item {
   display: flex;
   justify-content: center;
   &-small-image {
-    width: 64px;
-    height: 64px;
+    width: 4rem;
+    height: 4rem;
     img {
       border-radius: $radius-small;
-      max-width: 64px;
-      max-height: 64px;
+      max-width: 4rem;
+      max-height: 4rem;
     }
   }
   &-medium-image {
@@ -135,8 +135,7 @@ a.navbar-item {
 }
 
 .media:first-of-type {
-  padding-top: 17px;
-  margin-top: 16px;
+  padding-top: 1rem;
 }
 
 /* Transition effect */
@@ -174,7 +173,7 @@ a.navbar-item {
 }
 
 /* Show scrollbar for navbar menu in desktop mode if content exceeds the screen size */
-@media only screen and (min-width: 1024px) {
+@include desktop {
   .navbar-dropdown {
     max-height: calc(100vh - calc(2 * $navbar-height) - 2rem);
     overflow: auto;
