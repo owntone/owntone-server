@@ -99,7 +99,6 @@ export default {
       recently_added: [],
       recently_played: { items: [] },
       selected_track: {},
-      show_track_details_modal: false
     }
   }
 }

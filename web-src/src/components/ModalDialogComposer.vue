@@ -106,7 +106,6 @@ export default {
     },
 
     open_tracks() {
-      this.show_details_modal = false
       this.$router.push({
         name: 'music-composer-tracks',
         params: { name: this.composer.name }
