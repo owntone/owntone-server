@@ -8,7 +8,7 @@
         <div class="buttons is-centered">
           <a
             class="button is-small is-light is-rounded"
-            @click="show_composer_details_modal = true"
+            @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
@@ -36,9 +36,9 @@
         </p>
         <list-albums :albums="albums_list" :hide_group_title="true" />
         <modal-dialog-composer
-          :show="show_composer_details_modal"
+          :show="show_details_modal"
           :composer="composer"
-          @close="show_composer_details_modal = false"
+          @close="show_details_modal = false"
         />
       </template>
     </content-with-heading>
@@ -89,9 +89,9 @@ export default {
 
   data() {
     return {
-      composer: {},
       albums_list: new GroupByList(),
-      show_composer_details_modal: false
+      composer: {},
+      show_details_modal: false
     }
   },
 

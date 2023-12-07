@@ -17,7 +17,7 @@
           </a>
           <a
             class="button is-small is-light is-rounded"
-            @click="show_album_details_modal = true"
+            @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
@@ -29,7 +29,7 @@
           :artist="album.artist"
           :album="album.name"
           class="is-clickable fd-has-shadow fd-cover fd-cover-medium-image"
-          @click="show_album_details_modal = true"
+          @click="show_details_modal = true"
         />
       </template>
       <template #content>
@@ -56,16 +56,16 @@
             </a>
           </template>
         </list-item-track-spotify>
+        <modal-dialog-album-spotify
+          :show="show_details_modal"
+          :album="album"
+          @close="show_details_modal = false"
+        />
         <modal-dialog-track-spotify
           :show="show_track_details_modal"
           :track="selected_track"
           :album="album"
           @close="show_track_details_modal = false"
-        />
-        <modal-dialog-album-spotify
-          :show="show_album_details_modal"
-          :album="album"
-          @close="show_album_details_modal = false"
         />
       </template>
     </content-with-hero>
@@ -126,7 +126,7 @@ export default {
       show_track_details_modal: false,
       selected_track: {},
 
-      show_album_details_modal: false
+      show_details_modal: false
     }
   },
 

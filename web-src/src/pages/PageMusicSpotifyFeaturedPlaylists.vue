@@ -25,9 +25,9 @@
           </template>
         </list-item-playlist-spotify>
         <modal-dialog-playlist-spotify
-          :show="show_playlist_details_modal"
+          :show="show_details_modal"
           :playlist="selected_playlist"
-          @close="show_playlist_details_modal = false"
+          @close="show_details_modal = false"
         />
       </template>
     </content-with-heading>
@@ -88,8 +88,8 @@ export default {
 
   data() {
     return {
-      show_playlist_details_modal: false,
-      selected_playlist: {}
+      selected_playlist: {},
+      show_details_modal: false
     }
   },
 
@@ -102,7 +102,7 @@ export default {
   methods: {
     open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
-      this.show_playlist_details_modal = true
+      this.show_details_modal = true
     }
   }
 }

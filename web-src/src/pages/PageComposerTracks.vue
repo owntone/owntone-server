@@ -20,7 +20,7 @@
         <div class="buttons is-centered">
           <a
             class="button is-small is-light is-rounded"
-            @click="show_composer_details_modal = true"
+            @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
@@ -50,9 +50,9 @@
         </p>
         <list-tracks :tracks="tracks" :expression="expression" />
         <modal-dialog-composer
-          :show="show_composer_details_modal"
+          :show="show_details_modal"
           :composer="composer"
-          @close="show_composer_details_modal = false"
+          @close="show_details_modal = false"
         />
       </template>
     </content-with-heading>
@@ -108,6 +108,7 @@ export default {
 
   data() {
     return {
+      composer: {},
       groupby_options: [
         {
           id: 1,
@@ -122,8 +123,7 @@ export default {
           })
         }
       ],
-      composer: {},
-      show_composer_details_modal: false,
+      show_details_modal: false,
       tracks_list: new GroupByList()
     }
   },

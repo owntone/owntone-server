@@ -20,7 +20,7 @@
         <div class="buttons is-centered">
           <a
             class="button is-small is-light is-rounded"
-            @click="show_artist_details_modal = true"
+            @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
@@ -48,9 +48,9 @@
         </p>
         <list-tracks :tracks="tracks" :uris="track_uris" />
         <modal-dialog-artist
-          :show="show_artist_details_modal"
+          :show="show_details_modal"
           :artist="artist"
-          @close="show_artist_details_modal = false"
+          @close="show_details_modal = false"
         />
       </template>
     </content-with-heading>
@@ -121,7 +121,7 @@ export default {
           })
         }
       ],
-      show_artist_details_modal: false,
+      show_details_modal: false,
       tracks_list: new GroupByList()
     }
   },

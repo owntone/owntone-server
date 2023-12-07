@@ -33,9 +33,9 @@
           </template>
         </list-item-album-spotify>
         <modal-dialog-album-spotify
-          :show="show_album_details_modal"
+          :show="show_details_modal"
           :album="selected_album"
-          @close="show_album_details_modal = false"
+          @close="show_details_modal = false"
         />
       </template>
     </content-with-heading>
@@ -98,7 +98,7 @@ export default {
 
   data() {
     return {
-      show_album_details_modal: false,
+      show_details_modal: false,
       selected_album: {}
     }
   },
@@ -126,7 +126,7 @@ export default {
 
     open_album_dialog(album) {
       this.selected_album = album
-      this.show_album_details_modal = true
+      this.show_details_modal = true
     },
 
     artwork_url(album) {

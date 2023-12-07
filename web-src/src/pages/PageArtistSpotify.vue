@@ -8,7 +8,7 @@
         <div class="buttons is-centered">
           <a
             class="button is-small is-light is-rounded"
-            @click="show_artist_details_modal = true"
+            @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
@@ -52,15 +52,15 @@
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #no-more> . </template>
         </VueEternalLoading>
-        <modal-dialog-album-spotify
+        <modal-dialog-artist-spotify
           :show="show_details_modal"
-          :album="selected_album"
+          :artist="artist"
           @close="show_details_modal = false"
         />
-        <modal-dialog-artist-spotify
-          :show="show_artist_details_modal"
-          :artist="artist"
-          @close="show_artist_details_modal = false"
+        <modal-dialog-album-spotify
+          :show="show_album_details_modal"
+          :album="selected_album"
+          @close="show_album_details_modal = false"
         />
       </template>
     </content-with-heading>
@@ -131,15 +131,14 @@ export default {
 
   data() {
     return {
-      artist: {},
       albums: [],
-      total: 0,
+      artist: {},
       offset: 0,
+      selected_album: {},
+      show_album_details_modal: false,
 
       show_details_modal: false,
-      selected_album: {},
-
-      show_artist_details_modal: false
+      total: 0
     }
   },
 
@@ -175,7 +174,7 @@ export default {
     },
 
     play() {
-      this.show_details_modal = false
+      this.show_album_details_modal = false
       webapi.player_play_uri(this.artist.uri, true)
     },
 
@@ -188,7 +187,7 @@ export default {
 
     open_dialog(album) {
       this.selected_album = album
-      this.show_details_modal = true
+      this.show_album_details_modal = true
     },
 
     artwork_url(album) {
