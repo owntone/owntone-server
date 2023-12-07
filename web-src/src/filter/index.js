@@ -5,15 +5,8 @@ const { t, locale } = i18n.global
 
 export const filters = {
   durationInHours(value_ms) {
-    const seconds = Math.floor(value_ms / 1000)
-    if (seconds > 3600) {
-      return Duration.fromObject({ seconds })
-        .shiftTo('hours', 'minutes', 'seconds')
-        .toFormat('hh:mm:ss')
-    }
-    return Duration.fromObject({ seconds })
-      .shiftTo('minutes', 'seconds')
-      .toFormat('mm:ss')
+    const format = value_ms >= 3600000 ? 'h:mm:ss' : 'm:ss'
+    return Duration.fromMillis(value_ms).toFormat(format)
   },
 
   durationInDays(value_ms) {
@@ -44,7 +37,6 @@ export const filters = {
 
   timeFromNow(value) {
     const diff = DateTime.now().diff(DateTime.fromISO(value))
-
     return this.durationInDays(diff.as('milliseconds'))
   },
 
