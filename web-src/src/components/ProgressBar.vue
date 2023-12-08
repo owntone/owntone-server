@@ -1,26 +1,21 @@
 <template>
-  <div
-    v-if="width > 0"
-    class="progress-bar"
-    :style="{ width: width_percent }"
+  <progress
+    v-if="value > 0"
+    class="progress is-info"
+    :value="value"
+    :max="max"
   />
 </template>
 
 <script>
 export default {
   name: 'ProgressBar',
-  props: ['max', 'value'],
-
-  computed: {
-    width() {
-      if (this.value > 0 && this.max > 0) {
-        return parseInt((this.value * 100) / this.max)
-      }
-      return 0
-    },
-    width_percent() {
-      return `${this.width}%`
-    }
-  }
+  props: ['max', 'value']
 }
 </script>
+
+<style scoped>
+.progress {
+  height: 0.25rem;
+}
+</style>
