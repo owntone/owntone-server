@@ -482,7 +482,7 @@
         "show-composer-genres": "Afficher le compositeur uniquement pour les genres listés",
         "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché sur la page « En cours de lecture »",
         "show-composer": "Afficher le compositeur",
-        "show-coverart": "Afficher les illustration dans la liste d’albums",
+        "show-coverart": "Afficher les illustrations dans la liste d’albums",
         "show-path": "Afficher le chemin du fichier sur la page « En cours de lecture »"
       },
       "services": {
