@@ -48,6 +48,21 @@ export function byRating(field, { direction = 'asc', defaultValue = 0 }) {
   }
 }
 
+export function byMedium(field, direction = 'asc', defaultValue = 1) {
+  return {
+    compareFn: (a, b) => {
+      const fieldA = a[field] || defaultValue
+      const fieldB = b[field] || defaultValue
+      const result = fieldA - fieldB
+      return direction === 'asc' ? result : result * -1
+    },
+
+    groupKeyFn: (item) => {
+      return item[field] || defaultValue
+    }
+  }
+}
+
 export function byYear(field, { direction = 'asc', defaultValue = '0000' }) {
   return {
     compareFn: (a, b) => {
