@@ -180,16 +180,6 @@ export default {
   },
 
   methods: {
-    remove() {
-      this.$emit('close')
-      webapi.queue_remove(this.item.id)
-    },
-
-    play() {
-      this.$emit('close')
-      webapi.player_play({ item_id: this.item.id })
-    },
-
     open_album() {
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
@@ -242,6 +232,16 @@ export default {
         params: { name: this.item.genre },
         query: { media_kind: this.item.media_kind }
       })
+    },
+
+    play() {
+      this.$emit('close')
+      webapi.player_play({ item_id: this.item.id })
+    },
+
+    remove() {
+      this.$emit('close')
+      webapi.queue_remove(this.item.id)
     }
   }
 }
