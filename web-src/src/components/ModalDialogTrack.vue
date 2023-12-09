@@ -197,7 +197,11 @@ export default {
 
   watch: {
     track() {
-      if (this.track && this.track.data_kind === 'spotify') {
+      if (
+        this.track &&
+        this.track.data_kind === 'spotify' &&
+        this.track.media_kind !== 'podcast'
+      ) {
         const spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
         spotifyApi
@@ -231,7 +235,10 @@ export default {
     },
 
     open_album() {
-      if (this.track.data_kind === 'spotify') {
+      if (
+        this.track.data_kind === 'spotify' &&
+        this.track.media_kind !== 'podcast'
+      ) {
         this.$router.push({
           name: 'music-spotify-album',
           params: { id: this.spotify_track.album.id }
