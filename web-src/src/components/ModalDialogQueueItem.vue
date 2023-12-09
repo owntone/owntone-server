@@ -9,18 +9,16 @@
               <p class="title is-4" v-text="item.title" />
               <p class="subtitle" v-text="item.artist" />
               <div class="content is-small">
-                <p>
+                <p v-if="item.album">
                   <span
                     class="heading"
                     v-text="$t('dialog.queue-item.album')"
                   />
                   <a
-                    v-if="item.album_id"
                     class="title is-6 has-text-link"
                     @click="open_album"
                     v-text="item.album"
                   />
-                  <span v-else class="title is-6" v-text="item.album" />
                 </p>
                 <p v-if="item.album_artist">
                   <span
@@ -28,12 +26,10 @@
                     v-text="$t('dialog.queue-item.album-artist')"
                   />
                   <a
-                    v-if="item.album_artist_id"
                     class="title is-6 has-text-link"
                     @click="open_album_artist"
                     v-text="item.album_artist"
                   />
-                  <span v-else class="title is-6" v-text="item.album_artist" />
                 </p>
                 <p v-if="item.composer">
                   <span
@@ -42,7 +38,7 @@
                   />
                   <span class="title is-6" v-text="item.composer" />
                 </p>
-                <p v-if="item.year > 0">
+                <p v-if="item.year">
                   <span class="heading" v-text="$t('dialog.queue-item.year')" />
                   <span class="title is-6" v-text="item.year" />
                 </p>
@@ -57,7 +53,7 @@
                     v-text="item.genre"
                   />
                 </p>
-                <p>
+                <p v-if="item.disc_number">
                   <span
                     class="heading"
                     v-text="$t('dialog.queue-item.position')"
@@ -67,7 +63,7 @@
                     v-text="[item.disc_number, item.track_number].join(' / ')"
                   />
                 </p>
-                <p>
+                <p v-if="item.length_ms">
                   <span
                     class="heading"
                     v-text="$t('dialog.queue-item.duration')"
@@ -92,22 +88,9 @@
                         ].join(' - ')
                       "
                     />
-                    <span
-                      v-if="item.data_kind === 'spotify'"
-                      class="has-text-weight-normal"
-                    >
-                      (<a
-                        @click="open_spotify_artist"
-                        v-text="$t('dialog.queue-item.spotify-artist')"
-                      />,
-                      <a
-                        @click="open_spotify_album"
-                        v-text="$t('dialog.queue-item.spotify-album')"
-                      />)
-                    </span>
                   </span>
                 </p>
-                <p>
+                <p v-if="item.samplerate">
                   <span
                     class="heading"
                     v-text="$t('dialog.queue-item.quality')"
@@ -208,7 +191,12 @@ export default {
     },
 
     open_album() {
-      if (this.item.media_kind === 'podcast') {
+      if (this.item.data_kind === 'spotify') {
+        this.$router.push({
+          name: 'music-spotify-album',
+          params: { id: this.spotify_track.album.id }
+        })
+      } else if (this.item.media_kind === 'podcast') {
         this.$router.push({
           name: 'podcast',
           params: { id: this.item.album_id }
@@ -218,7 +206,7 @@ export default {
           name: 'audiobooks-album',
           params: { id: this.item.album_id }
         })
-      } else {
+      } else if (this.item.media_kind === 'music') {
         this.$router.push({
           name: 'music-album',
           params: { id: this.item.album_id }
@@ -227,10 +215,25 @@ export default {
     },
 
     open_album_artist() {
-      this.$router.push({
-        name: 'music-artist',
-        params: { id: this.item.album_artist_id }
-      })
+      if (this.item.data_kind === 'spotify') {
+        this.$router.push({
+          name: 'music-spotify-artist',
+          params: { id: this.spotify_track.artists[0].id }
+        })
+      } else if (
+        this.item.media_kind === 'music' ||
+        this.item.media_kind === 'podcast'
+      ) {
+        this.$router.push({
+          name: 'music-artist',
+          params: { id: this.item.album_artist_id }
+        })
+      } else if (this.item.media_kind === 'audiobook') {
+        this.$router.push({
+          name: 'audiobooks-artist',
+          params: { id: this.item.album_artist_id }
+        })
+      }
     },
 
     open_genre() {
@@ -238,22 +241,6 @@ export default {
         name: 'genre-albums',
         params: { name: this.item.genre },
         query: { media_kind: this.item.media_kind }
-      })
-    },
-
-    open_spotify_artist() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-spotify-artist',
-        params: { id: this.spotify_track.artists[0].id }
-      })
-    },
-
-    open_spotify_album() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-spotify-album',
-        params: { id: this.spotify_track.album.id }
       })
     }
   }
