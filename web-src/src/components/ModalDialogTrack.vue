@@ -23,7 +23,7 @@
                 />
               </div>
               <div class="content is-small">
-                <p>
+                <p v-if="track.album">
                   <span class="heading" v-text="$t('dialog.track.album')" />
                   <a
                     class="title is-6 has-text-link"
@@ -40,7 +40,7 @@
                   />
                   <a
                     class="title is-6 has-text-link"
-                    @click="open_artist"
+                    @click="open_album_artist"
                     v-text="track.album_artist"
                   />
                 </p>
@@ -58,7 +58,7 @@
                     v-text="$filters.date(track.date_released)"
                   />
                 </p>
-                <p v-else-if="track.year > 0">
+                <p v-else-if="track.year">
                   <span class="heading" v-text="$t('dialog.track.year')" />
                   <span class="title is-6" v-text="track.year" />
                 </p>
@@ -70,14 +70,14 @@
                     v-text="track.genre"
                   />
                 </p>
-                <p>
+                <p v-if="track.disc_number">
                   <span class="heading" v-text="$t('dialog.track.position')" />
                   <span
                     class="title is-6"
                     v-text="[track.disc_number, track.track_number].join(' / ')"
                   />
                 </p>
-                <p>
+                <p v-if="track.length_ms">
                   <span class="heading" v-text="$t('dialog.track.duration')" />
                   <span
                     class="title is-6"
@@ -99,22 +99,9 @@
                         ].join(' - ')
                       "
                     />
-                    <span
-                      v-if="track.data_kind === 'spotify'"
-                      class="has-text-weight-normal"
-                    >
-                      (<a
-                        @click="open_spotify_artist"
-                        v-text="$t('dialog.track.spotify-artist')"
-                      />,
-                      <a
-                        @click="open_spotify_album"
-                        v-text="$t('dialog.track.spotify-album')"
-                      />)
-                    </span>
                   </span>
                 </p>
-                <p>
+                <p v-if="track.samplerate">
                   <span class="heading" v-text="$t('dialog.track.quality')" />
                   <span class="title is-6">
                     <span v-text="track.type" />
@@ -175,7 +162,7 @@
                 <mdicon class="icon" name="playlist-play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.track.add-next')" />
               </a>
-              <a class="card-footer-item has-text-dark" @click="play_track">
+              <a class="card-footer-item has-text-dark" @click="play">
                 <mdicon class="icon" name="play" size="16" />
                 <span class="is-size-7" v-text="$t('dialog.track.play')" />
               </a>
@@ -225,73 +212,6 @@ export default {
   },
 
   methods: {
-    play_track() {
-      this.$emit('close')
-      webapi.player_play_uri(this.track.uri, false)
-    },
-
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_add(this.track.uri)
-    },
-
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_add_next(this.track.uri)
-    },
-
-    open_album() {
-      this.$emit('close')
-      if (this.track.media_kind === 'podcast') {
-        this.$router.push({
-          name: 'podcast',
-          params: { id: this.track.album_id }
-        })
-      } else if (this.track.media_kind === 'audiobook') {
-        this.$router.push({
-          name: 'audiobooks-album',
-          params: { id: this.track.album_id }
-        })
-      } else {
-        this.$router.push({
-          name: 'music-album',
-          params: { id: this.track.album_id }
-        })
-      }
-    },
-
-    open_artist() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-artist',
-        params: { id: this.track.album_artist_id }
-      })
-    },
-
-    open_genre() {
-      this.$router.push({
-        name: 'genre-albums',
-        params: { name: this.track.genre },
-        query: { media_kind: this.track.media_kind }
-      })
-    },
-
-    open_spotify_artist() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-spotify-artist',
-        params: { id: this.spotify_track.artists[0].id }
-      })
-    },
-
-    open_spotify_album() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-spotify-album',
-        params: { id: this.spotify_track.album.id }
-      })
-    },
-
     mark_new() {
       webapi
         .library_track_update(this.track.id, { play_count: 'reset' })
@@ -308,6 +228,75 @@ export default {
           this.$emit('play-count-changed')
           this.$emit('close')
         })
+    },
+
+    open_album() {
+      if (this.track.data_kind === 'spotify') {
+        this.$router.push({
+          name: 'music-spotify-album',
+          params: { id: this.spotify_track.album.id }
+        })
+      } else if (this.track.media_kind === 'podcast') {
+        this.$router.push({
+          name: 'podcast',
+          params: { id: this.track.album_id }
+        })
+      } else if (this.track.media_kind === 'audiobook') {
+        this.$router.push({
+          name: 'audiobooks-album',
+          params: { id: this.track.album_id }
+        })
+      } else if (this.track.media_kind === 'music') {
+        this.$router.push({
+          name: 'music-album',
+          params: { id: this.track.album_id }
+        })
+      }
+    },
+
+    open_album_artist() {
+      if (this.track.data_kind === 'spotify') {
+        this.$router.push({
+          name: 'music-spotify-artist',
+          params: { id: this.spotify_track.artists[0].id }
+        })
+      } else if (
+        this.track.media_kind === 'music' ||
+        this.track.media_kind === 'podcast'
+      ) {
+        this.$router.push({
+          name: 'music-artist',
+          params: { id: this.track.album_artist_id }
+        })
+      } else if (this.track.media_kind === 'audiobook') {
+        this.$router.push({
+          name: 'audiobooks-artist',
+          params: { id: this.track.album_artist_id }
+        })
+      }
+    },
+
+    open_genre() {
+      this.$router.push({
+        name: 'genre-albums',
+        params: { name: this.track.genre },
+        query: { media_kind: this.track.media_kind }
+      })
+    },
+
+    play() {
+      this.$emit('close')
+      webapi.player_play_uri(this.track.uri, false)
+    },
+
+    queue_add() {
+      this.$emit('close')
+      webapi.queue_add(this.track.uri)
+    },
+
+    queue_add_next() {
+      this.$emit('close')
+      webapi.queue_add_next(this.track.uri)
     }
   }
 }
