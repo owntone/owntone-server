@@ -25,7 +25,10 @@
           }"
           v-text="track.item.title"
         />
-        <h2 class="subtitle is-7 has-text-grey" v-text="track.item.artist" />
+        <h2
+          class="subtitle is-7 has-text-grey has-text-weight-bold"
+          v-text="track.item.artist"
+        />
         <h2 class="subtitle is-7 has-text-grey" v-text="track.item.album" />
         <progress-bar
           v-if="show_progress"

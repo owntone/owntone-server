@@ -20,15 +20,14 @@
         v-text="item.title"
       />
       <h2
-        class="subtitle is-7"
+        class="subtitle is-7 has-text-weight-bold"
         :class="{
           'has-text-primary': item.id === state.item_id,
           'has-text-grey-light': !is_next,
           'has-text-grey': is_next && item.id !== state.item_id
         }"
-      >
-        <b v-text="item.artist" />
-      </h2>
+        v-text="item.artist"
+      />
       <h2
         class="subtitle is-7"
         :class="{

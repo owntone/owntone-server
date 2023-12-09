@@ -23,12 +23,13 @@
       <div class="media-content is-clickable is-clipped">
         <div>
           <h1 class="title is-6" v-text="album.item.name" />
-          <h2 class="subtitle is-7 has-text-grey">
-            <b v-text="album.item.artist" />
-          </h2>
+          <h2
+            class="subtitle is-7 has-text-grey has-text-weight-bold"
+            v-text="album.item.artist"
+          />
           <h2
             v-if="album.item.date_released && album.item.media_kind === 'music'"
-            class="subtitle is-7 has-text-grey has-text-weight-normal"
+            class="subtitle is-7 has-text-grey"
             v-text="$filters.date(album.item.date_released)"
           />
         </div>
