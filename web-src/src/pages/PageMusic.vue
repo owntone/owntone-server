@@ -98,7 +98,7 @@ export default {
     return {
       recently_added: [],
       recently_played: { items: [] },
-      selected_track: {},
+      selected_track: {}
     }
   }
 }
