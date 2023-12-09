@@ -3,7 +3,7 @@
     <content-with-hero>
       <template #heading-left>
         <h1 class="title is-5" v-text="album.name" />
-        <h2 class="subtitle is-6 has-text-link has-text-weight-normal">
+        <h2 class="subtitle is-6 has-text-link">
           <a
             class="has-text-link"
             @click="open_artist"

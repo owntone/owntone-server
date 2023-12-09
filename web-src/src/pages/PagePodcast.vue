@@ -3,7 +3,7 @@
     <content-with-hero>
       <template #heading-left>
         <h1 class="title is-5" v-text="album.name" />
-        <h2 class="subtitle is-6 has-text-weight-normal">&nbsp;</h2>
+        <h2 class="subtitle is-6">&nbsp;</h2>
         <div class="buttons fd-is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
