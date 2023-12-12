@@ -4,73 +4,69 @@ import * as types from './mutation_types'
 export default createStore({
   state() {
     return {
+      albums_sort: 1,
+      artists_sort: 1,
+      artist_albums_sort: 1,
+      artist_tracks_sort: 1,
+      audiobooks_count: {},
+      composer_tracks_sort: 1,
       config: {
-        websocket_port: 0,
+        buildoptions: [],
         version: '',
-        buildoptions: []
+        websocket_port: 0
       },
-      settings: {
-        categories: []
-      },
+      genre_tracks_sort: 1,
+      hide_singles: false,
+      hide_spotify: false,
       library: {
-        artists: 0,
         albums: 0,
-        songs: 0,
+        artists: 0,
         db_playtime: 0,
+        songs: 0,
         started_at: '01',
         updated_at: '01',
         updating: false
       },
-      audiobooks_count: {},
       podcasts_count: {},
-      rss_count: {},
+      lastfm: {},
+      lyrics: {
+        content: [],
+        pane: false
+      },
+      notifications: {
+        list: [],
+        next_id: 1
+      },
       outputs: [],
+      pairing: {},
       player: {
-        state: 'stop',
-        repeat: 'off',
         consume: false,
-        shuffle: false,
-        volume: 0,
         item_id: 0,
         item_length_ms: 0,
-        item_progress_ms: 0
-      },
-      lyrics: {
-        pane: false,
-        content: []
+        item_progress_ms: 0,
+        shuffle: false,
+        state: 'stop',
+        repeat: 'off',
+        volume: 0
       },
       queue: {
-        version: 0,
         count: 0,
-        items: []
+        items: [],
+        version: 0
       },
-      lastfm: {},
-      spotify: {},
-      pairing: {},
-
-      spotify_new_releases: [],
-      spotify_featured_playlists: [],
-
-      notifications: {
-        next_id: 1,
-        list: []
-      },
-
-      search_source: 'library',
       recent_searches: [],
-
-      composer_tracks_sort: 1,
-      genre_tracks_sort: 1,
-      hide_singles: false,
-      hide_spotify: false,
-      artists_sort: 1,
-      artist_albums_sort: 1,
-      artist_tracks_sort: 1,
-      albums_sort: 1,
+      rss_count: {},
+      search_source: 'library',
+      settings: {
+        categories: []
+      },
       show_only_next_items: false,
       show_burger_menu: false,
       show_player_menu: false,
       show_update_dialog: false,
+      spotify: {},
+      spotify_featured_playlists: [],
+      spotify_new_releases: [],
       update_dialog_scan_kind: ''
     }
   },
