@@ -1737,7 +1737,7 @@ filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_
       mfi = db_file_fetch_byvirtualpath(virtual_path);
       if (!mfi)
 	{
-	  DPRINTF(E_INFO, L_SCAN, "No known path for local media, (%s) requested for rating write\n", virtual_path);
+	  DPRINTF(E_INFO, L_SCAN, "No known DB entry for media, '%s' to update metadata\n", virtual_path);
 	  return -1;
 	}
     }
@@ -1747,14 +1747,14 @@ filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_
       mfi = db_file_fetch_byid(*id);
       if (!mfi)
         {
-	  DPRINTF(E_LOG, L_SCAN, "No known path for local media, (%d) requested for rating write\n", *id);
+	  DPRINTF(E_INFO, L_SCAN, "No known DB entry for media, '%d' to update metadata\n", *id);
 	  return -1;
 	}
     }
 
   if (mfi->data_kind != DATA_KIND_FILE)
     {
-      DPRINTF(E_INFO, L_SCAN, "Ignoring non local media (%d/%s is %s) requested for rating write\n", mfi->id, mfi->path, db_data_kind_label(mfi->data_kind));
+      DPRINTF(E_INFO, L_SCAN, "Unsupported media (%s) to update metadata on '%s' (id=%d)\n", db_data_kind_label(mfi->data_kind), mfi->path, mfi->id);
       ret = -1;
       goto cleanup;
     }
@@ -1765,7 +1765,7 @@ filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_
 
   if (access(mfi->path, W_OK) < 0 || access(inotify_path, W_OK) < 0)
     {
-      DPRINTF(E_INFO, L_SCAN, "No permissions to update metadata, skipping %s\n", mfi->path);
+      DPRINTF(E_WARN, L_SCAN, "No permissions to update metadata on '%s' - skipping\n", mfi->path);
       ret = 0;
       goto cleanup;
     }

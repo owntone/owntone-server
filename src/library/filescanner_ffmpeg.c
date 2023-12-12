@@ -984,7 +984,7 @@ filescanner_ffmpeg_write_rating(const struct media_file_info *mfi)
 	  break;
 
         default:
-	  DPRINTF(E_WARN, L_SCAN, "Unsupported metadata update for 'rating' on '%s' (%s) - skipping\n", mfi->path, avcodec_get_name(ctx->streams[i]->codecpar->codec_id));
+	  DPRINTF(E_WARN, L_SCAN, "Unsupported metadata (%s) update for 'rating' on '%s' - skipping\n", avcodec_get_name(ctx->streams[i]->codecpar->codec_id), mfi->path);
       }
   }
 
