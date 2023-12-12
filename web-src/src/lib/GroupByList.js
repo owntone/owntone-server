@@ -120,10 +120,6 @@ export class GroupByList {
     this.group(noop())
   }
 
-  get() {
-    return this.itemsByGroup
-  }
-
   isEmpty() {
     return !this.items || this.items.length <= 0
   }
@@ -143,98 +139,35 @@ export class GroupByList {
     this.indexList = [...new Set(itemsSorted.map(options.groupKeyFn))]
 
     // Group item list
-    this.itemsByGroup = itemsSorted.reduce((r, item) => {
+    this.itemsGrouped = itemsSorted.reduce((r, item) => {
       const groupKey = options.groupKeyFn(item)
       r[groupKey] = [...(r[groupKey] || []), item]
       return r
     }, {})
   }
 
-  [Symbol.iterator]() {
-    /*
-     * Use a new index for each iterator. This makes multiple
-     * iterations over the iterable safe for non-trivial cases,
-     * such as use of break or nested looping over the same iterable.
-     */
-    let groupIndex = -1
-    let itemIndex = -1
-
-    return {
-      next: () => {
-        if (this.isEmpty()) {
-          return { done: true }
-        } else if (groupIndex >= this.indexList.length) {
-          /*
-           * End of all groups and items reached
-           * This should never happen, as the we already
-           * return "done" after we reached the last item
-           * of the last group
-           */
-          return { done: true }
-        } else if (groupIndex < 0) {
-          /*
-           * Start iterating
-           * Return the first group title as the next item
-           */
-          ++groupIndex
-          itemIndex = 0
-
-          if (this.indexList[groupIndex] !== GROUP_KEY_NONE) {
-            // Only return the group, if it is not the "noop" default group
-            return {
-              value: {
-                groupKey: this.indexList[groupIndex],
-                itemId: this.indexList[groupIndex],
-                isItem: false,
-                item: {}
-              },
-              done: false
-            }
-          }
+  *generate() {
+    for (const key in this.itemsGrouped) {
+      if (key !== GROUP_KEY_NONE) {
+        yield {
+          groupKey: key,
+          itemId: key,
+          isItem: false,
+          item: {}
         }
-
-        let currentGroupKey = this.indexList[groupIndex]
-        let currentGroupItems = this.itemsByGroup[currentGroupKey]
-
-        if (itemIndex < currentGroupItems.length) {
-          /*
-           * Within a group with remaining items
-           * Return the current item and increment the item index
-           */
-          const currentItem = this.itemsByGroup[currentGroupKey][itemIndex++]
-          return {
-            value: {
-              groupKey: currentGroupKey,
-              itemId: currentItem.id,
-              isItem: true,
-              item: currentItem
-            },
-            done: false
-          }
+      }
+      for (const item of this.itemsGrouped[key]) {
+        yield {
+          groupKey: key,
+          itemId: item.id,
+          isItem: true,
+          item: item
         }
-        /*
-         * End of the current groups item list reached
-         * Move to the next group and return the group key/title
-         * as the next item
-         */
-        ++groupIndex
-        itemIndex = 0
-
-        if (groupIndex < this.indexList.length) {
-          currentGroupKey = this.indexList[groupIndex]
-          return {
-            value: {
-              groupKey: currentGroupKey,
-              itemId: currentGroupKey,
-              isItem: false,
-              item: {}
-            },
-            done: false
-          }
-        }
-        // No group left, we are done iterating
-        return { done: true }
       }
     }
+  }
+
+  [Symbol.iterator]() {
+    return this.generate()
   }
 }
