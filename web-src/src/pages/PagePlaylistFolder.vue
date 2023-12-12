@@ -14,7 +14,7 @@
         />
       </template>
       <template #content>
-        <list-playlists v-if="has_playlists" :playlists="playlists" />
+        <list-playlists :playlists="playlists" />
       </template>
     </content-with-heading>
   </div>
@@ -65,9 +65,6 @@ export default {
   },
 
   computed: {
-    has_playlists() {
-      return Object.keys(this.playlists_list.itemsByGroup).length > 0
-    },
     playlists() {
       this.playlists_list.group(noop(), [
         (playlist) =>
