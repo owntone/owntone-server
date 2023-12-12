@@ -181,27 +181,6 @@ export default {
         'show_menu_item_search'
       ).value
     },
-
-    player() {
-      return this.$store.state.player
-    },
-
-    config() {
-      return this.$store.state.config
-    },
-
-    library() {
-      return this.$store.state.library
-    },
-
-    audiobooks() {
-      return this.$store.state.audiobooks_count
-    },
-
-    podcasts() {
-      return this.$store.state.podcasts_count
-    },
-
     spotify_enabled() {
       return this.$store.state.spotify.webapi_token_valid
     },
