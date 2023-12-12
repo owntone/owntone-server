@@ -17,6 +17,8 @@ export default createStore({
         albums: 0,
         songs: 0,
         db_playtime: 0,
+        started_at: '01',
+        updated_at: '01',
         updating: false
       },
       audiobooks_count: {},
