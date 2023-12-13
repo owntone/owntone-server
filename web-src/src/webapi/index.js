@@ -78,8 +78,8 @@ export default {
     return axios.post(`./api/queue/items/add?uris=${uri}`).then((response) => {
       store.dispatch('add_notification', {
         text: t('server.appended-tracks', { count: response.data.count }),
-        type: 'info',
-        timeout: 2000
+        timeout: 2000,
+        type: 'info'
       })
       return Promise.resolve(response)
     })
@@ -97,48 +97,44 @@ export default {
           text: t('server.appended-tracks', {
             count: response.data.count
           }),
-          type: 'info',
-          timeout: 2000
+          timeout: 2000,
+          type: 'info'
         })
         return Promise.resolve(response)
       })
   },
 
   queue_expression_add(expression) {
-    const options = {}
-    options.expression = expression
-
     return axios
-      .post('./api/queue/items/add', undefined, { params: options })
+      .post('./api/queue/items/add', undefined, { params: { expression } })
       .then((response) => {
         store.dispatch('add_notification', {
           text: t('server.appended-tracks', {
             count: response.data.count
           }),
-          type: 'info',
-          timeout: 2000
+          timeout: 2000,
+          type: 'info'
         })
         return Promise.resolve(response)
       })
   },
 
   queue_expression_add_next(expression) {
-    const options = {}
-    options.expression = expression
-    options.position = 0
+    const params = {}
+    params.expression = expression
+    params.position = 0
     if (store.getters.now_playing && store.getters.now_playing.id) {
-      options.position = store.getters.now_playing.position + 1
+      params.position = store.getters.now_playing.position + 1
     }
-
     return axios
-      .post('./api/queue/items/add', undefined, { params: options })
+      .post('./api/queue/items/add', undefined, { params })
       .then((response) => {
         store.dispatch('add_notification', {
           text: t('server.appended-tracks', {
             count: response.data.count
           }),
-          type: 'info',
-          timeout: 2000
+          timeout: 2000,
+          type: 'info'
         })
         return Promise.resolve(response)
       })
@@ -150,8 +146,8 @@ export default {
       .then((response) => {
         store.dispatch('add_notification', {
           text: t('server.queue-saved', { name }),
-          type: 'info',
-          timeout: 2000
+          timeout: 2000,
+          type: 'info'
         })
         return Promise.resolve(response)
       })
@@ -162,25 +158,25 @@ export default {
   },
 
   player_play_uri(uris, shuffle, position = undefined) {
-    const options = {}
-    options.uris = uris
-    options.shuffle = shuffle ? 'true' : 'false'
-    options.clear = 'true'
-    options.playback = 'start'
-    options.playback_from_position = position
-
-    return axios.post('./api/queue/items/add', undefined, { params: options })
+    const params = {
+      clear: 'true',
+      playback: 'start',
+      playback_from_position: position,
+      shuffle: `${shuffle}`,
+      uris
+    }
+    return axios.post('./api/queue/items/add', undefined, { params })
   },
 
   player_play_expression(expression, shuffle, position = undefined) {
-    const options = {}
-    options.expression = expression
-    options.shuffle = shuffle ? 'true' : 'false'
-    options.clear = 'true'
-    options.playback = 'start'
-    options.playback_from_position = position
-
-    return axios.post('./api/queue/items/add', undefined, { params: options })
+    const params = {
+      clear: 'true',
+      expression,
+      playback: 'start',
+      playback_from_position: position,
+      shuffle: `${shuffle}`
+    }
+    return axios.post('./api/queue/items/add', undefined, { params })
   },
 
   player_play(options = {}) {
@@ -211,18 +207,16 @@ export default {
     return axios.put('./api/player/previous')
   },
 
-  player_shuffle(newState) {
-    const shuffle = newState ? 'true' : 'false'
-    return axios.put(`./api/player/shuffle?state=${shuffle}`)
+  player_shuffle(state) {
+    return axios.put(`./api/player/shuffle?state=${state}`)
   },
 
-  player_consume(newState) {
-    const consume = newState ? 'true' : 'false'
-    return axios.put(`./api/player/consume?state=${consume}`)
+  player_consume(state) {
+    return axios.put(`./api/player/consume?state=${state}`)
   },
 
-  player_repeat(newRepeatMode) {
-    return axios.put(`./api/player/repeat?state=${newRepeatMode}`)
+  player_repeat(mode) {
+    return axios.put(`./api/player/repeat?state=${mode}`)
   },
 
   player_volume(volume) {
@@ -256,9 +250,7 @@ export default {
   },
 
   library_artists(media_kind = undefined) {
-    return axios.get('./api/library/artists', {
-      params: { media_kind }
-    })
+    return axios.get('./api/library/artists', { params: { media_kind } })
   },
 
   library_artist(artistId) {
@@ -270,9 +262,7 @@ export default {
   },
 
   library_albums(media_kind = undefined) {
-    return axios.get('./api/library/albums', {
-      params: { media_kind }
-    })
+    return axios.get('./api/library/albums', { params: { media_kind } })
   },
 
   library_album(albumId) {
@@ -292,9 +282,7 @@ export default {
   },
 
   library_genres(media_kind = undefined) {
-    return axios.get('./api/library/genres', {
-      params: { media_kind }
-    })
+    return axios.get('./api/library/genres', { params: { media_kind } })
   },
 
   library_genre(genre, media_kind = undefined) {
@@ -304,23 +292,19 @@ export default {
   },
 
   library_genre_albums(genre, media_kind) {
-    const genreParams = {
+    const params = {
       expression: `genre is "${genre}" and media_kind is ${media_kind}`,
       type: 'albums'
     }
-    return axios.get('./api/search', {
-      params: genreParams
-    })
+    return axios.get('./api/search', { params })
   },
 
   library_genre_tracks(genre, media_kind) {
-    const genreParams = {
+    const params = {
       expression: `genre is "${genre}" and media_kind is ${media_kind}`,
       type: 'tracks'
     }
-    return axios.get('./api/search', {
-      params: genreParams
-    })
+    return axios.get('./api/search', { params })
   },
 
   library_radio_streams() {
@@ -329,15 +313,11 @@ export default {
       media_kind: 'music',
       expression: 'data_kind is url and song_length = 0'
     }
-    return axios.get('./api/search', {
-      params
-    })
+    return axios.get('./api/search', { params })
   },
 
   library_composers(media_kind = undefined) {
-    return axios.get('./api/library/composers', {
-      params: { media_kind }
-    })
+    return axios.get('./api/library/composers', { params: { media_kind } })
   },
 
   library_composer(composer) {
@@ -346,55 +326,45 @@ export default {
 
   library_composer_albums(composer) {
     const params = {
-      type: 'albums',
-      expression: `composer is "${composer}" and media_kind is music`
+      expression: `composer is "${composer}" and media_kind is music`,
+      type: 'albums'
     }
-    return axios.get('./api/search', {
-      params
-    })
+    return axios.get('./api/search', { params })
   },
 
   library_composer_tracks(composer) {
     const params = {
-      type: 'tracks',
-      expression: `composer is "${composer}" and media_kind is music`
+      expression: `composer is "${composer}" and media_kind is music`,
+      type: 'tracks'
     }
-    return axios.get('./api/search', {
-      params
-    })
+    return axios.get('./api/search', { params })
   },
 
   library_artist_tracks(artist) {
     if (artist) {
-      const artistParams = {
-        type: 'tracks',
-        expression: `songartistid is "${artist}"`
+      const params = {
+        expression: `songartistid is "${artist}"`,
+        type: 'tracks'
       }
-      return axios.get('./api/search', {
-        params: artistParams
-      })
+      return axios.get('./api/search', { params })
     }
   },
 
   library_podcasts_new_episodes() {
-    const episodesParams = {
-      type: 'tracks',
+    const params = {
       expression:
-        'media_kind is podcast and play_count = 0 ORDER BY time_added DESC'
+        'media_kind is podcast and play_count = 0 ORDER BY time_added DESC',
+      type: 'tracks'
     }
-    return axios.get('./api/search', {
-      params: episodesParams
-    })
+    return axios.get('./api/search', { params })
   },
 
   library_podcast_episodes(albumId) {
-    const episodesParams = {
-      type: 'tracks',
-      expression: `media_kind is podcast and songalbumid is "${albumId}" ORDER BY date_released DESC`
+    const params = {
+      expression: `media_kind is podcast and songalbumid is "${albumId}" ORDER BY date_released DESC`,
+      type: 'tracks'
     }
-    return axios.get('./api/search', {
-      params: episodesParams
-    })
+    return axios.get('./api/search', { params })
   },
 
   library_add(url) {
@@ -436,16 +406,11 @@ export default {
   },
 
   library_files(directory = undefined) {
-    const filesParams = { directory }
-    return axios.get('./api/library/files', {
-      params: filesParams
-    })
+    return axios.get('./api/library/files', { params: { directory } })
   },
 
   search(searchParams) {
-    return axios.get('./api/search', {
-      params: searchParams
-    })
+    return axios.get('./api/search', { params: searchParams })
   },
 
   spotify() {
