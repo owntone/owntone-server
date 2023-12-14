@@ -215,7 +215,7 @@ export default {
 
     zindex() {
       if (this.show_player_menu) {
-        return 'z-index: 20'
+        return 'z-index: 21'
       }
       return ''
     }
