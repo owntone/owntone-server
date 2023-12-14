@@ -1,7 +1,6 @@
 <template>
   <nav
     class="navbar is-block is-white is-fixed-bottom fd-bottom-navbar"
-    :style="zindex"
     :class="{
       'is-transparent': is_now_playing_page,
       'is-dark': !is_now_playing_page
@@ -317,17 +316,6 @@ export default {
       set(value) {
         this.$store.commit(types.SHOW_PLAYER_MENU, value)
       }
-    },
-
-    show_burger_menu() {
-      return this.$store.state.show_burger_menu
-    },
-
-    zindex() {
-      if (this.show_burger_menu) {
-        return 'z-index: 20'
-      }
-      return ''
     },
 
     now_playing() {
