@@ -15,8 +15,8 @@ import * as types from '@/store/mutation_types'
 export default {
   name: 'NavbarItemLink',
   props: {
-    to: Object,
-    exact: Boolean
+    exact: Boolean,
+    to: Object
   },
 
   computed: {
@@ -27,15 +27,6 @@ export default {
       return this.$route.path.startsWith(this.to)
     },
 
-    show_player_menu: {
-      get() {
-        return this.$store.state.show_player_menu
-      },
-      set(value) {
-        this.$store.commit(types.SHOW_PLAYER_MENU, value)
-      }
-    },
-
     show_burger_menu: {
       get() {
         return this.$store.state.show_burger_menu
@@ -43,10 +34,24 @@ export default {
       set(value) {
         this.$store.commit(types.SHOW_BURGER_MENU, value)
       }
+    },
+
+    show_player_menu: {
+      get() {
+        return this.$store.state.show_player_menu
+      },
+      set(value) {
+        this.$store.commit(types.SHOW_PLAYER_MENU, value)
+      }
     }
   },
 
   methods: {
+    full_path() {
+      const resolved = this.$router.resolve(this.to)
+      return resolved.href
+    },
+  
     open_link() {
       if (this.show_burger_menu) {
         this.$store.commit(types.SHOW_BURGER_MENU, false)
@@ -55,11 +60,6 @@ export default {
         this.$store.commit(types.SHOW_PLAYER_MENU, false)
       }
       this.$router.push(this.to)
-    },
-
-    full_path() {
-      const resolved = this.$router.resolve(this.to)
-      return resolved.href
     }
   }
 }
