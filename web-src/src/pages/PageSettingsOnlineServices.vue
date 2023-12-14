@@ -140,9 +140,9 @@ export default {
   data() {
     return {
       lastfm_login: {
-        user: '',
+        errors: { error: '', password: '', user: '' },
         password: '',
-        errors: { user: '', password: '', error: '' }
+        user: ''
       }
     }
   },
@@ -177,9 +177,6 @@ export default {
   },
 
   methods: {
-    logout_spotify() {
-      webapi.spotify_logout()
-    },
     login_lastfm() {
       webapi.lastfm_login(this.lastfm_login).then((response) => {
         this.lastfm_login.user = ''
@@ -197,6 +194,9 @@ export default {
     },
     logoutLastfm() {
       webapi.lastfm_logout()
+    },
+    logout_spotify() {
+      webapi.spotify_logout()
     }
   }
 }

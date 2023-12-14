@@ -307,73 +307,62 @@ export default {
 
   data() {
     return {
-      search_query: '',
-      tracks: { items: [], total: 0 },
-      artists: { items: [], total: 0 },
       albums: { items: [], total: 0 },
+      artists: { items: [], total: 0 },
       playlists: { items: [], total: 0 },
-
       query: {},
       search_param: {},
-
-      show_track_details_modal: false,
-      selected_track: {},
-
-      show_album_details_modal: false,
+      search_query: '',
       selected_album: {},
-
-      show_artist_details_modal: false,
       selected_artist: {},
-
-      show_playlist_details_modal: false,
       selected_playlist: {},
-
+      selected_track: {},
+      show_album_details_modal: false,
+      show_artist_details_modal: false,
+      show_playlist_details_modal: false,
+      show_track_details_modal: false,
+      tracks: { items: [], total: 0 },
       validSearchTypes: ['track', 'artist', 'album', 'playlist']
     }
   },
 
   computed: {
+    is_visible_artwork() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_cover_artwork_in_album_lists'
+      ).value
+    },
     recent_searches() {
       return this.$store.state.recent_searches.filter(
         (search) => !search.startsWith('query:')
       )
     },
-
-    show_tracks() {
-      return this.$route.query.type && this.$route.query.type.includes('track')
-    },
-    show_all_tracks_button() {
-      return this.tracks.total > this.tracks.items.length
-    },
-
-    show_artists() {
-      return this.$route.query.type && this.$route.query.type.includes('artist')
-    },
-    show_all_artists_button() {
-      return this.artists.total > this.artists.items.length
-    },
-
     show_albums() {
       return this.$route.query.type && this.$route.query.type.includes('album')
     },
     show_all_albums_button() {
       return this.albums.total > this.albums.items.length
     },
-
+    show_all_artists_button() {
+      return this.artists.total > this.artists.items.length
+    },
+    show_all_playlists_button() {
+      return this.playlists.total > this.playlists.items.length
+    },
+    show_all_tracks_button() {
+      return this.tracks.total > this.tracks.items.length
+    },
+    show_artists() {
+      return this.$route.query.type && this.$route.query.type.includes('artist')
+    },
     show_playlists() {
       return (
         this.$route.query.type && this.$route.query.type.includes('playlist')
       )
     },
-    show_all_playlists_button() {
-      return this.playlists.total > this.playlists.items.length
-    },
-
-    is_visible_artwork() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_cover_artwork_in_album_lists'
-      ).value
+    show_tracks() {
+      return this.$route.query.type && this.$route.query.type.includes('track')
     }
   },
 
@@ -390,16 +379,97 @@ export default {
   },
 
   methods: {
+    artwork_url(album) {
+      if (album.images && album.images.length > 0) {
+        return album.images[0].url
+      }
+      return ''
+    },
+    new_search() {
+      if (!this.search_query) {
+        return
+      }
+      this.$router.push({
+        name: 'search-spotify',
+        query: {
+          limit: 3,
+          offset: 0,
+          query: this.search_query,
+          type: 'track,artist,album,playlist,audiobook,podcast'
+        }
+      })
+      this.$refs.search_field.blur()
+    },
+    open_album(album) {
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: album.id }
+      })
+    },
+    open_album_dialog(album) {
+      this.selected_album = album
+      this.show_album_details_modal = true
+    },
+    open_artist_dialog(artist) {
+      this.selected_artist = artist
+      this.show_artist_details_modal = true
+    },
+    open_playlist_dialog(playlist) {
+      this.selected_playlist = playlist
+      this.show_playlist_details_modal = true
+    },
+    open_recent_search(query) {
+      this.search_query = query
+      this.new_search()
+    },
+    open_search_albums() {
+      this.$router.push({
+        name: 'search-spotify',
+        query: {
+          query: this.$route.query.query,
+          type: 'album'
+        }
+      })
+    },
+    open_search_artists() {
+      this.$router.push({
+        name: 'search-spotify',
+        query: {
+          query: this.$route.query.query,
+          type: 'artist'
+        }
+      })
+    },
+    open_search_playlists() {
+      this.$router.push({
+        name: 'search-spotify',
+        query: {
+          query: this.$route.query.query,
+          type: 'playlist'
+        }
+      })
+    },
+    open_search_tracks() {
+      this.$router.push({
+        name: 'search-spotify',
+        query: {
+          query: this.$route.query.query,
+          type: 'track'
+        }
+      })
+    },
+    open_track_dialog(track) {
+      this.selected_track = track
+      this.show_track_details_modal = true
+    },
     reset() {
       this.tracks = { items: [], total: 0 }
       this.artists = { items: [], total: 0 }
       this.albums = { items: [], total: 0 }
       this.playlists = { items: [], total: 0 }
     },
-
     search() {
       this.reset()
-
       // If no search query present reset and focus search field
       if (
         !this.query.query ||
@@ -410,30 +480,20 @@ export default {
         this.$refs.search_field.focus()
         return
       }
-
       this.search_query = this.query.query
       this.search_param.limit = this.query.limit ? this.query.limit : PAGE_SIZE
       this.search_param.offset = this.query.offset ? this.query.offset : 0
-
       this.$store.commit(types.ADD_RECENT_SEARCH, this.query.query)
-
       this.search_all()
     },
-
-    spotify_search() {
-      return webapi.spotify().then(({ data }) => {
-        this.search_param.market = data.webapi_country
-
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(data.webapi_token)
-
-        const types = this.query.type
-          .split(',')
-          .filter((type) => this.validSearchTypes.includes(type))
-        return spotifyApi.search(this.query.query, types, this.search_param)
+    search_albums_next({ loaded }) {
+      this.spotify_search().then((data) => {
+        this.albums.items = this.albums.items.concat(data.albums.items)
+        this.albums.total = data.albums.total
+        this.search_param.offset += data.albums.limit
+        loaded(data.albums.items.length, PAGE_SIZE)
       })
     },
-
     search_all() {
       this.spotify_search().then((data) => {
         this.tracks = data.tracks ? data.tracks : { items: [], total: 0 }
@@ -444,141 +504,40 @@ export default {
           : { items: [], total: 0 }
       })
     },
-
-    search_tracks_next({ loaded }) {
-      this.spotify_search().then((data) => {
-        this.tracks.items = this.tracks.items.concat(data.tracks.items)
-        this.tracks.total = data.tracks.total
-        this.search_param.offset += data.tracks.limit
-
-        loaded(data.tracks.items.length, PAGE_SIZE)
-      })
-    },
-
     search_artists_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.artists.items = this.artists.items.concat(data.artists.items)
         this.artists.total = data.artists.total
         this.search_param.offset += data.artists.limit
-
         loaded(data.artists.items.length, PAGE_SIZE)
       })
     },
-
-    search_albums_next({ loaded }) {
-      this.spotify_search().then((data) => {
-        this.albums.items = this.albums.items.concat(data.albums.items)
-        this.albums.total = data.albums.total
-        this.search_param.offset += data.albums.limit
-
-        loaded(data.albums.items.length, PAGE_SIZE)
-      })
-    },
-
     search_playlists_next({ loaded }) {
       this.spotify_search().then((data) => {
         this.playlists.items = this.playlists.items.concat(data.playlists.items)
         this.playlists.total = data.playlists.total
         this.search_param.offset += data.playlists.limit
-
         loaded(data.playlists.items.length, PAGE_SIZE)
       })
     },
-
-    new_search() {
-      if (!this.search_query) {
-        return
-      }
-
-      this.$router.push({
-        name: 'search-spotify',
-        query: {
-          type: 'track,artist,album,playlist,audiobook,podcast',
-          query: this.search_query,
-          limit: 3,
-          offset: 0
-        }
-      })
-      this.$refs.search_field.blur()
-    },
-
-    open_search_tracks() {
-      this.$router.push({
-        name: 'search-spotify',
-        query: {
-          type: 'track',
-          query: this.$route.query.query
-        }
+    search_tracks_next({ loaded }) {
+      this.spotify_search().then((data) => {
+        this.tracks.items = this.tracks.items.concat(data.tracks.items)
+        this.tracks.total = data.tracks.total
+        this.search_param.offset += data.tracks.limit
+        loaded(data.tracks.items.length, PAGE_SIZE)
       })
     },
-
-    open_search_artists() {
-      this.$router.push({
-        name: 'search-spotify',
-        query: {
-          type: 'artist',
-          query: this.$route.query.query
-        }
+    spotify_search() {
+      return webapi.spotify().then(({ data }) => {
+        this.search_param.market = data.webapi_country
+        const spotifyApi = new SpotifyWebApi()
+        spotifyApi.setAccessToken(data.webapi_token)
+        const types = this.query.type
+          .split(',')
+          .filter((type) => this.validSearchTypes.includes(type))
+        return spotifyApi.search(this.query.query, types, this.search_param)
       })
-    },
-
-    open_search_albums() {
-      this.$router.push({
-        name: 'search-spotify',
-        query: {
-          type: 'album',
-          query: this.$route.query.query
-        }
-      })
-    },
-
-    open_search_playlists() {
-      this.$router.push({
-        name: 'search-spotify',
-        query: {
-          type: 'playlist',
-          query: this.$route.query.query
-        }
-      })
-    },
-
-    open_recent_search(query) {
-      this.search_query = query
-      this.new_search()
-    },
-
-    open_track_dialog(track) {
-      this.selected_track = track
-      this.show_track_details_modal = true
-    },
-
-    open_album_dialog(album) {
-      this.selected_album = album
-      this.show_album_details_modal = true
-    },
-
-    open_artist_dialog(artist) {
-      this.selected_artist = artist
-      this.show_artist_details_modal = true
-    },
-
-    open_playlist_dialog(playlist) {
-      this.selected_playlist = playlist
-      this.show_playlist_details_modal = true
-    },
-
-    open_album(album) {
-      this.$router.push({
-        name: 'music-spotify-album',
-        params: { id: album.id }
-      })
-    },
-
-    artwork_url(album) {
-      if (album.images && album.images.length > 0) {
-        return album.images[0].url
-      }
-      return ''
     }
   }
 }

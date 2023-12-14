@@ -5,9 +5,9 @@ export default createStore({
   state() {
     return {
       albums_sort: 1,
-      artists_sort: 1,
       artist_albums_sort: 1,
       artist_tracks_sort: 1,
+      artists_sort: 1,
       composer_tracks_sort: 1,
       config: {
         buildoptions: [],
@@ -17,6 +17,7 @@ export default createStore({
       genre_tracks_sort: 1,
       hide_singles: false,
       hide_spotify: false,
+      lastfm: {},
       library: {
         albums: 0,
         artists: 0,
@@ -26,7 +27,6 @@ export default createStore({
         updated_at: '01',
         updating: false
       },
-      lastfm: {},
       lyrics: {
         content: [],
         pane: false
@@ -42,9 +42,9 @@ export default createStore({
         item_id: 0,
         item_length_ms: 0,
         item_progress_ms: 0,
+        repeat: 'off',
         shuffle: false,
         state: 'stop',
-        repeat: 'off',
         volume: 0
       },
       queue: {
@@ -79,14 +79,8 @@ export default createStore({
       return item === undefined ? {} : item
     },
 
-    settings_webinterface: (state) => {
-      if (state.settings) {
-        return state.settings.categories.find(
-          (elem) => elem.name === 'webinterface'
-        )
-      }
-      return null
-    },
+    settings_category: (state) => (categoryName) =>
+      state.settings.categories.find((e) => e.name === categoryName),
 
     settings_option_recently_added_limit: (state, getters) => {
       if (getters.settings_webinterface) {
@@ -100,16 +94,14 @@ export default createStore({
       return 100
     },
 
-    settings_option_show_composer_now_playing: (state, getters) => {
-      if (getters.settings_webinterface) {
-        const option = getters.settings_webinterface.options.find(
-          (elem) => elem.name === 'show_composer_now_playing'
-        )
-        if (option) {
-          return option.value
-        }
+    settings_option: (state) => (categoryName, optionName) => {
+      const category = state.settings.categories.find(
+        (elem) => elem.name === categoryName
+      )
+      if (!category) {
+        return {}
       }
-      return false
+      return category.options.find((elem) => elem.name === optionName)
     },
 
     settings_option_show_composer_for_genre: (state, getters) => {
@@ -124,6 +116,18 @@ export default createStore({
       return null
     },
 
+    settings_option_show_composer_now_playing: (state, getters) => {
+      if (getters.settings_webinterface) {
+        const option = getters.settings_webinterface.options.find(
+          (elem) => elem.name === 'show_composer_now_playing'
+        )
+        if (option) {
+          return option.value
+        }
+      }
+      return false
+    },
+
     settings_option_show_filepath_now_playing: (state, getters) => {
       if (getters.settings_webinterface) {
         const option = getters.settings_webinterface.options.find(
@@ -136,17 +140,13 @@ export default createStore({
       return false
     },
 
-    settings_category: (state) => (categoryName) =>
-      state.settings.categories.find((e) => e.name === categoryName),
-
-    settings_option: (state) => (categoryName, optionName) => {
-      const category = state.settings.categories.find(
-        (elem) => elem.name === categoryName
-      )
-      if (!category) {
-        return {}
+    settings_webinterface: (state) => {
+      if (state.settings) {
+        return state.settings.categories.find(
+          (elem) => elem.name === 'webinterface'
+        )
       }
-      return category.options.find((elem) => elem.name === optionName)
+      return null
     }
   },
 
@@ -278,10 +278,10 @@ export default createStore({
     add_notification({ commit, state }, notification) {
       const newNotification = {
         id: state.notifications.next_id++,
-        type: notification.type,
         text: notification.text,
+        timeout: notification.timeout,
         topic: notification.topic,
-        timeout: notification.timeout
+        type: notification.type
       }
 
       commit(types.ADD_NOTIFICATION, newNotification)

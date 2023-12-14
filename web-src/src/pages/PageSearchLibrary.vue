@@ -283,14 +283,14 @@ export default {
 
   data() {
     return {
-      search_query: '',
-      tracks: new GroupByList(),
-      artists: new GroupByList(),
       albums: new GroupByList(),
+      artists: new GroupByList(),
+      audiobooks: new GroupByList(),
       composers: new GroupByList(),
       playlists: new GroupByList(),
-      audiobooks: new GroupByList(),
-      podcasts: new GroupByList()
+      podcasts: new GroupByList(),
+      search_query: '',
+      tracks: new GroupByList()
     }
   },
 
@@ -298,62 +298,55 @@ export default {
     recent_searches() {
       return this.$store.state.recent_searches
     },
-
-    show_tracks() {
-      return this.$route.query.type && this.$route.query.type.includes('track')
-    },
-    show_all_tracks_button() {
-      return this.tracks.total > this.tracks.items.length
-    },
-
-    show_artists() {
-      return this.$route.query.type && this.$route.query.type.includes('artist')
-    },
-    show_all_artists_button() {
-      return this.artists.total > this.artists.items.length
-    },
-
     show_albums() {
       return this.$route.query.type && this.$route.query.type.includes('album')
     },
     show_all_albums_button() {
       return this.albums.total > this.albums.items.length
     },
-
-    show_composers() {
-      return (
-        this.$route.query.type && this.$route.query.type.includes('composer')
-      )
+    show_all_artists_button() {
+      return this.artists.total > this.artists.items.length
+    },
+    show_all_audiobooks_button() {
+      return this.audiobooks.total > this.audiobooks.items.length
     },
     show_all_composers_button() {
       return this.composers.total > this.composers.items.length
     },
-
-    show_playlists() {
-      return (
-        this.$route.query.type && this.$route.query.type.includes('playlist')
-      )
-    },
     show_all_playlists_button() {
       return this.playlists.total > this.playlists.items.length
     },
-
+    show_all_podcasts_button() {
+      return this.podcasts.total > this.podcasts.items.length
+    },
+    show_all_tracks_button() {
+      return this.tracks.total > this.tracks.items.length
+    },
+    show_artists() {
+      return this.$route.query.type && this.$route.query.type.includes('artist')
+    },
     show_audiobooks() {
       return (
         this.$route.query.type && this.$route.query.type.includes('audiobook')
       )
     },
-    show_all_audiobooks_button() {
-      return this.audiobooks.total > this.audiobooks.items.length
+    show_composers() {
+      return (
+        this.$route.query.type && this.$route.query.type.includes('composer')
+      )
     },
-
+    show_playlists() {
+      return (
+        this.$route.query.type && this.$route.query.type.includes('playlist')
+      )
+    },
     show_podcasts() {
       return (
         this.$route.query.type && this.$route.query.type.includes('podcast')
       )
     },
-    show_all_podcasts_button() {
-      return this.podcasts.total > this.podcasts.items.length
+    show_tracks() {
+      return this.$route.query.type && this.$route.query.type.includes('track')
     }
   },
 
@@ -398,7 +391,7 @@ export default {
       }
 
       if (query.query.startsWith('query:')) {
-        searchParams.expression = query.query.replace(/^query:/, '').trim()
+        searchParams.expression = query.query.replace(/^query:/u, '').trim()
       } else {
         searchParams.query = query.query
       }
@@ -428,7 +421,7 @@ export default {
       }
 
       if (query.query.startsWith('query:')) {
-        searchParams.expression = query.query.replace(/^query:/, '').trim()
+        searchParams.expression = query.query.replace(/^query:/u, '').trim()
       } else {
         searchParams.expression = `((album includes "${query.query}" or artist includes "${query.query}") and media_kind is audiobook)`
       }
@@ -454,7 +447,7 @@ export default {
       }
 
       if (query.query.startsWith('query:')) {
-        searchParams.expression = query.query.replace(/^query:/, '').trim()
+        searchParams.expression = query.query.replace(/^query:/u, '').trim()
       } else {
         searchParams.expression = `((album includes "${query.query}" or artist includes "${query.query}") and media_kind is podcast)`
       }
@@ -477,10 +470,10 @@ export default {
       this.$router.push({
         name: 'search-library',
         query: {
-          type: 'track,artist,album,playlist,audiobook,podcast,composer',
-          query: this.search_query,
           limit: 3,
-          offset: 0
+          offset: 0,
+          query: this.search_query,
+          type: 'track,artist,album,playlist,audiobook,podcast,composer'
         }
       })
       this.$refs.search_field.blur()
@@ -490,8 +483,8 @@ export default {
       this.$router.push({
         name: 'search-library',
         query: {
-          type: 'track',
-          query: this.$route.query.query
+          query: this.$route.query.query,
+          type: 'track'
         }
       })
     },
@@ -500,8 +493,8 @@ export default {
       this.$router.push({
         name: 'search-library',
         query: {
-          type: 'artist',
-          query: this.$route.query.query
+          query: this.$route.query.query,
+          type: 'artist'
         }
       })
     },
@@ -510,8 +503,8 @@ export default {
       this.$router.push({
         name: 'search-library',
         query: {
-          type: 'album',
-          query: this.$route.query.query
+          query: this.$route.query.query,
+          type: 'album'
         }
       })
     },
@@ -520,8 +513,8 @@ export default {
       this.$router.push({
         name: 'search-library',
         query: {
-          type: 'tracks',
-          query: this.$route.query.query
+          query: this.$route.query.query,
+          type: 'tracks'
         }
       })
     },
@@ -530,8 +523,8 @@ export default {
       this.$router.push({
         name: 'search-library',
         query: {
-          type: 'playlist',
-          query: this.$route.query.query
+          query: this.$route.query.query,
+          type: 'playlist'
         }
       })
     },
@@ -540,8 +533,8 @@ export default {
       this.$router.push({
         name: 'search-library',
         query: {
-          type: 'audiobook',
-          query: this.$route.query.query
+          query: this.$route.query.query,
+          type: 'audiobook'
         }
       })
     },
@@ -550,8 +543,8 @@ export default {
       this.$router.push({
         name: 'search-library',
         query: {
-          type: 'podcast',
-          query: this.$route.query.query
+          query: this.$route.query.query,
+          type: 'podcast'
         }
       })
     },

@@ -122,11 +122,9 @@ export default {
   data() {
     return {
       album: { artists: [{}], tracks: {} },
-
-      show_track_details_modal: false,
       selected_track: {},
-
-      show_details_modal: false
+      show_details_modal: false,
+      show_track_details_modal: false
     }
   },
 
