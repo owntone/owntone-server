@@ -116,11 +116,11 @@ export default {
   name: 'PageQueue',
   components: {
     ContentWithHeading,
-    ListItemQueueItem,
     draggable,
-    ModalDialogQueueItem,
+    ListItemQueueItem,
     ModalDialogAddUrlStream,
-    ModalDialogPlaylistSave
+    ModalDialogPlaylistSave,
+    ModalDialogQueueItem
   },
 
   data() {
@@ -135,8 +135,11 @@ export default {
   },
 
   computed: {
-    state() {
-      return this.$store.state.player
+    current_position() {
+      const nowPlaying = this.$store.getters.now_playing
+      return nowPlaying === undefined || nowPlaying.position === undefined
+        ? -1
+        : this.$store.getters.now_playing.position
     },
     is_queue_save_allowed() {
       return (
@@ -155,30 +158,15 @@ export default {
         /* Do nothing? Send move request in @end event */
       }
     },
-    current_position() {
-      const nowPlaying = this.$store.getters.now_playing
-      return nowPlaying === undefined || nowPlaying.position === undefined
-        ? -1
-        : this.$store.getters.now_playing.position
-    },
     show_only_next_items() {
       return this.$store.state.show_only_next_items
+    },
+    state() {
+      return this.$store.state.player
     }
   },
 
   methods: {
-    queue_clear() {
-      webapi.queue_clear()
-    },
-
-    update_show_next_items(e) {
-      this.$store.commit(types.SHOW_ONLY_NEXT_ITEMS, !this.show_only_next_items)
-    },
-
-    remove(item) {
-      webapi.queue_remove(item.id)
-    },
-
     move_item(e) {
       const oldPosition = !this.show_only_next_items
         ? e.oldIndex
@@ -189,7 +177,6 @@ export default {
         webapi.queue_move(item.id, newPosition)
       }
     },
-
     open_dialog(item) {
       this.selected_item = item
       this.show_details_modal = true
@@ -198,7 +185,15 @@ export default {
     open_add_stream_dialog() {
       this.show_url_modal = true
     },
-
+    queue_clear() {
+      webapi.queue_clear()
+    },
+    remove(item) {
+      webapi.queue_remove(item.id)
+    },
+    update_show_next_items(e) {
+      this.$store.commit(types.SHOW_ONLY_NEXT_ITEMS, !this.show_only_next_items)
+    },
     save_dialog() {
       if (this.queue_items.length > 0) {
         this.show_pls_save_modal = true

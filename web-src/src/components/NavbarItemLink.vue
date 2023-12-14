@@ -51,7 +51,6 @@ export default {
       const resolved = this.$router.resolve(this.to)
       return resolved.href
     },
-  
     open_link() {
       if (this.show_burger_menu) {
         this.$store.commit(types.SHOW_BURGER_MENU, false)
