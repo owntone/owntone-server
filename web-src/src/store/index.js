@@ -8,7 +8,6 @@ export default createStore({
       artists_sort: 1,
       artist_albums_sort: 1,
       artist_tracks_sort: 1,
-      audiobooks_count: {},
       composer_tracks_sort: 1,
       config: {
         buildoptions: [],
@@ -27,7 +26,6 @@ export default createStore({
         updated_at: '01',
         updating: false
       },
-      podcasts_count: {},
       lastfm: {},
       lyrics: {
         content: [],
@@ -170,12 +168,6 @@ export default createStore({
     },
     [types.UPDATE_LIBRARY_STATS](state, libraryStats) {
       state.library = libraryStats
-    },
-    [types.UPDATE_LIBRARY_AUDIOBOOKS_COUNT](state, count) {
-      state.audiobooks_count = count
-    },
-    [types.UPDATE_LIBRARY_PODCASTS_COUNT](state, count) {
-      state.podcasts_count = count
     },
     [types.UPDATE_LIBRARY_RSS_COUNT](state, count) {
       state.rss_count = count

@@ -276,12 +276,6 @@ export default {
       webapi.library_stats().then(({ data }) => {
         this.$store.commit(types.UPDATE_LIBRARY_STATS, data)
       })
-      webapi.library_count('media_kind is audiobook').then(({ data }) => {
-        this.$store.commit(types.UPDATE_LIBRARY_AUDIOBOOKS_COUNT, data)
-      })
-      webapi.library_count('media_kind is podcast').then(({ data }) => {
-        this.$store.commit(types.UPDATE_LIBRARY_PODCASTS_COUNT, data)
-      })
       webapi.library_count('scan_kind is rss').then(({ data }) => {
         this.$store.commit(types.UPDATE_LIBRARY_RSS_COUNT, data)
       })
