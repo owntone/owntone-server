@@ -3,16 +3,14 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueI18n from '@intlify/unplugin-vue-i18n/vite'
 
-// Support for setting the OwnTone server URL as env var VITE_OWNTONE_URL
-// in development mode.
-// E. g. start the DEV server with
-//
-//     VITE_OWNTONE_URL=https://owntone.local:3689; npm run serve
-//
-// will connect the web interface with a remote OwnTone server.
+/*
+ * In development mode, use the VITE_OWNTONE_URL environment variable to set
+ * the remote OwnTone server URL. For example:
+ *
+ * export VITE_OWNTONE_URL=http://owntone.local:3689; npm run serve
+ */
 const owntoneUrl = process.env.VITE_OWNTONE_URL ?? 'http://localhost:3689'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   resolve: { alias: { '@': '/src' } },
   plugins: [
