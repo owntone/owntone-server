@@ -1,5 +1,45 @@
 import * as types from '@/store/mutation_types'
 import { createRouter, createWebHashHistory } from 'vue-router'
+import PageAbout from '@/pages/PageAbout.vue'
+import PageAlbum from '@/pages/PageAlbum.vue'
+import PageAlbumSpotify from '@/pages/PageAlbumSpotify.vue'
+import PageAlbums from '@/pages/PageAlbums.vue'
+import PageArtist from '@/pages/PageArtist.vue'
+import PageArtistSpotify from '@/pages/PageArtistSpotify.vue'
+import PageArtists from '@/pages/PageArtists.vue'
+import PageArtistTracks from '@/pages/PageArtistTracks.vue'
+import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
+import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
+import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
+import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
+import PageAudiobooksGenres from '@/pages/PageAudiobooksGenres.vue'
+import PageMusic from '@/pages/PageMusic.vue'
+import PageMusicRecentlyAdded from '@/pages/PageMusicRecentlyAdded.vue'
+import PageMusicRecentlyPlayed from '@/pages/PageMusicRecentlyPlayed.vue'
+import PageMusicSpotify from '@/pages/PageMusicSpotify.vue'
+import PageMusicSpotifyFeaturedPlaylists from '@/pages/PageMusicSpotifyFeaturedPlaylists.vue'
+import PageMusicSpotifyNewReleases from '@/pages/PageMusicSpotifyNewReleases.vue'
+import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
+import PageComposerTracks from '@/pages/PageComposerTracks.vue'
+import PageComposers from '@/pages/PageComposers.vue'
+import PageFiles from '@/pages/PageFiles.vue'
+import PageGenreAlbums from '@/pages/PageGenreAlbums.vue'
+import PageGenreTracks from '@/pages/PageGenreTracks.vue'
+import PageGenres from '@/pages/PageGenres.vue'
+import PageNowPlaying from '@/pages/PageNowPlaying.vue'
+import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
+import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
+import PagePlaylistTracksSpotify from '@/pages/PagePlaylistTracksSpotify.vue'
+import PagePodcast from '@/pages/PagePodcast.vue'
+import PagePodcasts from '@/pages/PagePodcasts.vue'
+import PageRadioStreams from '@/pages/PageRadioStreams.vue'
+import PageQueue from '@/pages/PageQueue.vue'
+import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
+import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
+import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
+import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
+import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
+import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import store from '@/store'
 
 const TOP_WITH_TABS = 140
@@ -9,78 +49,78 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
-      component: () => import('@/pages/PageAbout.vue'),
+      component: PageAbout,
       name: 'about',
       path: '/about'
     },
     {
-      component: () => import('@/pages/PageAlbum.vue'),
+      component: PageAlbum,
       meta: { show_progress: true },
       name: 'music-album',
       path: '/music/albums/:id'
     },
     {
-      component: () => import('@/pages/PageAlbumSpotify.vue'),
+      component: PageAlbumSpotify,
       meta: { show_progress: true },
       name: 'music-spotify-album',
       path: '/music/spotify/albums/:id'
     },
     {
-      component: () => import('@/pages/PageAlbums.vue'),
+      component: PageAlbums,
       meta: { has_index: true, has_tabs: true, show_progress: true },
       name: 'music-albums',
       path: '/music/albums'
     },
     {
-      component: () => import('@/pages/PageArtist.vue'),
+      component: PageArtist,
       meta: { has_index: true, show_progress: true },
       name: 'music-artist',
       path: '/music/artists/:id'
     },
     {
-      component: () => import('@/pages/PageArtistSpotify.vue'),
+      component: PageArtistSpotify,
       meta: { show_progress: true },
       name: 'music-spotify-artist',
       path: '/music/spotify/artists/:id'
     },
     {
-      component: () => import('@/pages/PageArtists.vue'),
+      component: PageArtists,
       meta: { has_index: true, has_tabs: true, show_progress: true },
       name: 'music-artists',
       path: '/music/artists'
     },
     {
-      component: () => import('@/pages/PageArtistTracks.vue'),
+      component: PageArtistTracks,
       meta: { has_index: true, show_progress: true },
       name: 'music-artist-tracks',
       path: '/music/artists/:id/tracks'
     },
     {
-      component: () => import('@/pages/PageAudiobooksAlbum.vue'),
+      component: PageAudiobooksAlbum,
       meta: { show_progress: true },
       name: 'audiobooks-album',
       path: '/audiobooks/albums/:id'
     },
     {
-      component: () => import('@/pages/PageAudiobooksAlbums.vue'),
+      component: PageAudiobooksAlbums,
       meta: { has_index: true, has_tabs: true, show_progress: true },
       name: 'audiobooks-albums',
       path: '/audiobooks/albums'
     },
     {
-      component: () => import('@/pages/PageAudiobooksArtist.vue'),
+      component: PageAudiobooksArtist,
       meta: { show_progress: true },
       name: 'audiobooks-artist',
       path: '/audiobooks/artists/:id'
     },
     {
-      component: () => import('@/pages/PageAudiobooksArtists.vue'),
+      component: PageAudiobooksArtists,
       meta: { has_index: true, has_tabs: true, show_progress: true },
       name: 'audiobooks-artists',
       path: '/audiobooks/artists'
     },
     {
-      component: () => import('@/pages/PageAudiobooksGenres.vue'),
+      component: PageAudiobooksGenres,
       meta: { has_index: true, has_tabs: true, show_progress: true },
       name: 'audiobooks-genres',
       path: '/audiobooks/genres'
@@ -96,85 +136,85 @@ export const router = createRouter({
       redirect: { name: 'music-history' }
     },
     {
-      component: () => import('@/pages/PageMusic.vue'),
+      component: PageMusic,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-history',
       path: '/music/history'
     },
     {
-      component: () => import('@/pages/PageMusicRecentlyAdded.vue'),
+      component: PageMusicRecentlyAdded,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-recently-added',
       path: '/music/recently-added'
     },
     {
-      component: () => import('@/pages/PageMusicRecentlyPlayed.vue'),
+      component: PageMusicRecentlyPlayed,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-recently-played',
       path: '/music/recently-played'
     },
     {
-      component: () => import('@/pages/PageMusicSpotify.vue'),
+      component: PageMusicSpotify,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-spotify',
       path: '/music/spotify'
     },
     {
-      component: () => import('@/pages/PageMusicSpotifyFeaturedPlaylists.vue'),
+      component: PageMusicSpotifyFeaturedPlaylists,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-spotify-featured-playlists',
       path: '/music/spotify/featured-playlists'
     },
     {
-      component: () => import('@/pages/PageMusicSpotifyNewReleases.vue'),
+      component: PageMusicSpotifyNewReleases,
       meta: { has_tabs: true, show_progress: true },
       name: 'music-spotify-new-releases',
       path: '/music/spotify/new-releases'
     },
     {
-      component: () => import('@/pages/PageComposerAlbums.vue'),
+      component: PageComposerAlbums,
       meta: { has_index: true, show_progress: true },
       name: 'music-composer-albums',
       path: '/music/composers/:name/albums'
     },
     {
-      component: () => import('@/pages/PageComposerTracks.vue'),
+      component: PageComposerTracks,
       meta: { has_index: true, show_progress: true },
       name: 'music-composer-tracks',
       path: '/music/composers/:name/tracks'
     },
     {
-      component: () => import('@/pages/PageComposers.vue'),
+      component: PageComposers,
       meta: { has_index: true, has_tabs: true, show_progress: true },
       name: 'music-composers',
       path: '/music/composers'
     },
     {
-      component: () => import('@/pages/PageFiles.vue'),
+      component: PageFiles,
       meta: { show_progress: true },
       name: 'files',
       path: '/files'
     },
     {
-      component: () => import('@/pages/PageGenreAlbums.vue'),
+      component: PageGenreAlbums,
       meta: { has_index: true, show_progress: true },
       name: 'genre-albums',
       path: '/genres/:name/albums'
     },
     {
-      component: () => import('@/pages/PageGenreTracks.vue'),
+      component: PageGenreTracks,
       meta: { has_index: true, show_progress: true },
       name: 'genre-tracks',
       path: '/genres/:name/tracks'
     },
     {
-      component: () => import('@/pages/PageGenres.vue'),
+      component: PageGenres,
       meta: { has_index: true, has_tabs: true, show_progress: true },
       name: 'music-genres',
       path: '/music/genres'
     },
     {
-      component: () => import('@/pages/PageNowPlaying.vue'),
+      component: PageNowPlaying,
       name: 'now-playing',
       path: '/now-playing'
     },
@@ -184,73 +224,73 @@ export const router = createRouter({
       redirect: { name: 'playlist-folder', params: { id: 0 } }
     },
     {
-      component: () => import('@/pages/PagePlaylistFolder.vue'),
+      component: PagePlaylistFolder,
       meta: { show_progress: true },
       name: 'playlist-folder',
       path: '/playlists/:id'
     },
     {
-      component: () => import('@/pages/PagePlaylistTracks.vue'),
+      component: PagePlaylistTracks,
       meta: { show_progress: true },
       name: 'playlist',
       path: '/playlists/:id/tracks'
     },
     {
-      component: () => import('@/pages/PagePlaylistTracksSpotify.vue'),
+      component: PagePlaylistTracksSpotify,
       meta: { show_progress: true },
       name: 'playlist-spotify',
       path: '/playlists/spotify/:id/tracks'
     },
     {
-      component: () => import('@/pages/PagePodcast.vue'),
+      component: PagePodcast,
       meta: { show_progress: true },
       name: 'podcast',
       path: '/podcasts/:id'
     },
     {
-      component: () => import('@/pages/PagePodcasts.vue'),
+      component: PagePodcasts,
       meta: { show_progress: true },
       name: 'podcasts',
       path: '/podcasts'
     },
     {
-      component: () => import('@/pages/PageRadioStreams.vue'),
+      component: PageRadioStreams,
       meta: { show_progress: true },
       name: 'radio',
       path: '/radio'
     },
     {
-      component: () => import('@/pages/PageQueue.vue'),
+      component: PageQueue,
       name: 'queue',
       path: '/'
     },
     {
-      component: () => import('@/pages/PageSearchLibrary.vue'),
+      component: PageSearchLibrary,
       name: 'search-library',
       path: '/search/library'
     },
     {
-      component: () => import('@/pages/PageSearchSpotify.vue'),
+      component: PageSearchSpotify,
       name: 'search-spotify',
       path: '/search/spotify'
     },
     {
-      component: () => import('@/pages/PageSettingsWebinterface.vue'),
+      component: PageSettingsWebinterface,
       name: 'settings-webinterface',
       path: '/settings/webinterface'
     },
     {
-      component: () => import('@/pages/PageSettingsArtwork.vue'),
+      component: PageSettingsArtwork,
       name: 'settings-artwork',
       path: '/settings/artwork'
     },
     {
-      component: () => import('@/pages/PageSettingsOnlineServices.vue'),
+      component: PageSettingsOnlineServices,
       name: 'settings-online-services',
       path: '/settings/online-services'
     },
     {
-      component: () => import('@/pages/PageSettingsRemotesOutputs.vue'),
+      component: PageSettingsRemotesOutputs,
       name: 'settings-remotes-outputs',
       path: '/settings/remotes-outputs'
     }
