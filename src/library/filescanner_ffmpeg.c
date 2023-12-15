@@ -49,6 +49,7 @@ struct metadata_map {
   int as_int;
   size_t offset;
   int (*handler_function)(struct media_file_info *, const char *);
+  int flags;
 };
 
 // Used for passing errors to DPRINTF (can't count on av_err2str being present)
@@ -196,7 +197,7 @@ static const struct metadata_map md_map_generic[] =
     { "artist-sort",  0, mfi_offsetof(artist_sort),        NULL },
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
     { "compilation",  1, mfi_offsetof(compilation),        NULL },
-    { "lyrics",       0, mfi_offsetof(lyrics),             NULL },
+    { "lyrics",       0, mfi_offsetof(lyrics),             NULL,       AV_DICT_IGNORE_SUFFIX },
 
     // ALAC sort tags
     { "sort_name",           0, mfi_offsetof(title_sort),         NULL },
@@ -288,65 +289,56 @@ static const struct metadata_map md_map_id3[] =
     { NULL,                  0, 0,                                   NULL }
   };
 
-
-static int
-extract_metadata_from_kv(struct media_file_info *mfi, const char *key, const char *value, const struct metadata_map *md_map)
-{
-  char **strval;
-  uint32_t *intval;
-  int i;
-
-  if ((value == NULL) || (strlen(value) == 0))
-    return 0;
-
-  if (strncasecmp(key, "lyrics-", sizeof("lyrics-") - 1) == 0)
-    key = "lyrics";
-
-  for (i = 0; md_map[i].key != NULL; i++)
-    {
-      if (strcasecmp(key, md_map[i].key) == 0)
-	break;
-    }
-
-  if (md_map[i].key == NULL)
-    return 0; // Not found in map
-
-  if (md_map[i].handler_function)
-    return md_map[i].handler_function(mfi, value);
-
-  if (!md_map[i].as_int)
-    {
-      strval = (char **) ((char *) mfi + md_map[i].offset);
-
-      if (*strval != NULL)
-	return 0;
-
-      *strval = strdup(value);
-    }
-  else
-    {
-      intval = (uint32_t *) ((char *) mfi + md_map[i].offset);
-
-      if (*intval != 0)
-	return 0;
-
-      if (safe_atou32(value, intval) < 0)
-	return 0;
-    }
-
-  return 1;
-}
-
 static int
 extract_metadata_from_dict(struct media_file_info *mfi, AVDictionary *md, const struct metadata_map *md_map)
 {
-  const AVDictionaryEntry *mdt = NULL;
+  AVDictionaryEntry *mdt;
+  char **strval;
+  uint32_t *intval;
   int mdcount = 0;
+  int i;
 
+#if 0
+  /* Dump all the metadata reported by ffmpeg */
   while ((mdt = av_dict_iterate(md, mdt)))
     {
-//      DPRINTF(E_DBG, L_SCAN, " -> %s = %s\n", mdt->key, mdt->value);
-      mdcount += extract_metadata_from_kv(mfi, mdt->key, mdt->value, md_map);
+      DPRINTF(E_DBG, L_SCAN, " -> %s = %s\n", mdt->key, mdt->value);
+    }
+#endif
+
+  for (i = 0; md_map[i].key != NULL; i++)
+    {
+      mdt = av_dict_get(md, md_map[i].key, NULL, md_map[i].flags);
+      if (!mdt || !mdt->value || strlen(mdt->value) == 0)
+	continue;
+
+      if (md_map[i].handler_function)
+	{
+	  mdcount += md_map[i].handler_function(mfi, mdt->value);
+	  continue;
+	}
+
+      if (!md_map[i].as_int)
+	{
+	  strval = (char **) ((char *) mfi + md_map[i].offset);
+
+	  if (*strval != NULL)
+	    continue;
+
+	  *strval = strdup(mdt->value);
+	}
+      else
+	{
+	  intval = (uint32_t *) ((char *) mfi + md_map[i].offset);
+
+	  if (*intval != 0)
+	    continue;
+
+	  if (safe_atou32(mdt->value, intval) < 0)
+	    continue;
+	}
+
+      mdcount++;
     }
 
   return mdcount;
@@ -355,10 +347,8 @@ extract_metadata_from_dict(struct media_file_info *mfi, AVDictionary *md, const 
 static int
 extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *audio_stream, AVStream *video_stream, const struct metadata_map *md_map)
 {
-  int mdcount;
+  int mdcount = 0;
   int ret;
-
-  mdcount = 0;
 
   if (ctx->metadata)
     {
