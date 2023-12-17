@@ -695,7 +695,10 @@ int
 db_file_id_byurl(const char *url);
 
 int
-db_file_id_by_virtualpath_match(const char *path);
+db_file_id_byvirtualpath(const char *virtual_path);
+
+int
+db_file_id_byvirtualpath_match(const char *virtual_path);
 
 struct media_file_info *
 db_file_fetch_byid(int id);
@@ -717,9 +720,6 @@ db_file_rating_update_byid(uint32_t id, uint32_t rating);
 
 int
 db_file_usermark_update_byid(uint32_t id, uint32_t usermark);
-
-int
-db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating);
 
 void
 db_file_delete_bypath(const char *path);

@@ -163,8 +163,6 @@ filescanner_rescan();
 static int
 filescanner_fullrescan();
 
-int
-filescanner_ffmpeg_write_rating(const struct media_file_info *mfi);
 
 /* ----------------------- Internal utility functions --------------------- */
 
@@ -1725,42 +1723,22 @@ filescanner_fullrescan()
 }
 
 static int
-filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_t rating)
+filescanner_write_metadata(const char *virtual_path, uint32_t rating)
 {
   int ret;
-  char inotify_path[PATH_MAX] = { 0 };
+  char inotify_path[PATH_MAX];
   struct watch_info wi = { 0 };
-  struct media_file_info*  mfi = NULL;
+  struct media_file_info *mfi = NULL;
 
-  if (virtual_path)
+  mfi = db_file_fetch_byvirtualpath(virtual_path);
+  if (!mfi || mfi->data_kind != DATA_KIND_FILE)
     {
-      mfi = db_file_fetch_byvirtualpath(virtual_path);
-      if (!mfi)
-	{
-	  DPRINTF(E_INFO, L_SCAN, "No known DB entry for media, '%s' to update metadata\n", virtual_path);
-	  return -1;
-	}
-    }
-  else
-    {
-      // Determine if this is local media
-      mfi = db_file_fetch_byid(*id);
-      if (!mfi)
-        {
-	  DPRINTF(E_INFO, L_SCAN, "No known DB entry for media, '%d' to update metadata\n", *id);
-	  return -1;
-	}
-    }
-
-  if (mfi->data_kind != DATA_KIND_FILE)
-    {
-      DPRINTF(E_INFO, L_SCAN, "Unsupported media (%s) to update metadata on '%s' (id=%d)\n", db_data_kind_label(mfi->data_kind), mfi->path, mfi->id);
-      ret = -1;
-      goto cleanup;
+      free_mfi(mfi, 0);
+      return -1;
     }
 
   // Inotify watches dir paths
-  strcpy(inotify_path, mfi->path);
+  snprintf(inotify_path, sizeof(inotify_path), "%s", mfi->path);
   dirname(inotify_path);
 
   if (access(mfi->path, W_OK) < 0 || access(inotify_path, W_OK) < 0)
@@ -1779,9 +1757,7 @@ filescanner_write_metadata(const char *virtual_path, const uint32_t *id, uint32_
       free_wi(&wi, 1);
     }
 
-
-  filescanner_ffmpeg_write_rating(mfi);
-
+  write_metadata_ffmpeg(mfi);
 
   // and re-enable
   wi.wd = inotify_add_watch(inofd, inotify_path, INOTIFY_FLAGS);

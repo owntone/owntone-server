@@ -77,4 +77,10 @@ playlist_fill(struct playlist_info *pli, const char *path);
 int
 playlist_add(const char *path);
 
+
+/* --------------------------------- Other -------------------------------- */
+
+int
+write_metadata_ffmpeg(const struct media_file_info *mfi);
+
 #endif /* !__FILESCANNER_H__ */

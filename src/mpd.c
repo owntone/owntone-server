@@ -3269,7 +3269,8 @@ static int
 mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *virtual_path)
 {
   uint32_t rating;
-  int ret = 0;
+  int id;
+  int ret;
 
   if (strcmp(argv[4], "rating") != 0)
     {
@@ -3291,12 +3292,14 @@ mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, co
       return ACK_ERROR_ARG;
     }
 
-  ret = db_file_rating_update_byvirtualpath(virtual_path, rating);
-  if (ret <= 0)
+  id = db_file_id_byvirtualpath(virtual_path);
+  if (id <= 0)
     {
       *errmsg = safe_asprintf("Invalid path '%s'", virtual_path);
       return ACK_ERROR_ARG;
     }
+
+  db_file_rating_update_byid(id, rating);
 
   return 0;
 }
@@ -3304,7 +3307,7 @@ mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, co
 static int
 mpd_sticker_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, const char *virtual_path)
 {
-  int ret = 0;
+  int id;
 
   if (strcmp(argv[4], "rating") != 0)
     {
@@ -3312,12 +3315,15 @@ mpd_sticker_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
       return ACK_ERROR_NO_EXIST;
     }
 
-  ret = db_file_rating_update_byvirtualpath(virtual_path, 0);
-  if (ret <= 0)
+  id = db_file_id_byvirtualpath(virtual_path);
+  if (id <= 0)
     {
       *errmsg = safe_asprintf("Invalid path '%s'", virtual_path);
       return ACK_ERROR_ARG;
     }
+
+  db_file_rating_update_byid(id, 0);
+
   return 0;
 }
 
@@ -4714,7 +4720,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
 
   DPRINTF(E_DBG, L_MPD, "Artwork request for path: %s\n", decoded_path);
 
-  itemid = db_file_id_by_virtualpath_match(decoded_path);
+  itemid = db_file_id_byvirtualpath_match(decoded_path);
   if (!itemid)
     {
       DPRINTF(E_WARN, L_MPD, "No item found for path '%s' from request uri '%s'\n", decoded_path, uri);
