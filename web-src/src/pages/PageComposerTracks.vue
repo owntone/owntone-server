@@ -5,7 +5,7 @@
         <index-button-list :index="tracks.indexList" />
         <div class="columns">
           <div class="column">
-            <p class="heading mb-5" v-text="$t('page.artist.sort-by.title')" />
+            <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />
             <control-dropdown
               v-model:value="selected_groupby_option_id"
               :options="groupby_options"
@@ -112,12 +112,12 @@ export default {
       groupby_options: [
         {
           id: 1,
-          name: this.$t('page.composer.sort-by.name'),
+          name: this.$t('page.composer.sort.name'),
           options: byName('title_sort')
         },
         {
           id: 2,
-          name: this.$t('page.composer.sort-by.rating'),
+          name: this.$t('page.composer.sort.rating'),
           options: byRating('rating', {
             direction: 'desc'
           })

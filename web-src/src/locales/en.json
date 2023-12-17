@@ -262,8 +262,8 @@
       "hide-spotify-help": "If active, hides albums that only appear in your Spotify library.",
       "hide-spotify": "Hide albums from Spotify",
       "title": "Albums",
-      "sort-by": {
-        "title": "Sort by",
+      "sort": {
+        "title": "Sort",
         "name": "Name",
         "recently-added": "Recently added",
         "recently-released": "Recently released"
@@ -271,10 +271,13 @@
     },
     "artist": {
       "album-count": "{count} album|{count} album|{count} albums",
+      "filter": "Filter",
+      "hide-spotify-help": "If active, hides the content only appearing in your Spotify library.",
+      "hide-spotify": "Hide the content from Spotify",
       "shuffle": "Shuffle",
       "track-count": "{count} track|{count} track|{count} tracks",
-      "sort-by": {
-        "title": "Sort by",
+      "sort": {
+        "title": "Sort",
         "name": "Name",
         "rating": "Rating",
         "release-date": "Release date"
@@ -283,8 +286,8 @@
     "artists": {
       "count": "{count} artist|{count} artist|{count} artists",
       "filter": "Filter",
-      "sort-by": {
-        "title": "Sort by",
+      "sort": {
+        "title": "Sort",
         "name": "Name",
         "recently-added": "Recently added"
       },
@@ -321,8 +324,8 @@
       "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Shuffle",
       "track-count": "{count} track|{count} track|{count} tracks",
-      "sort-by": {
-        "title": "Sort by",
+      "sort": {
+        "title": "Sort",
         "name": "Name",
         "rating": "Rating"
       }
@@ -339,8 +342,8 @@
       "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Shuffle",
       "track-count": "{count} track|{count} track|{count} tracks",
-      "sort-by": {
-        "title": "Sort by",
+      "sort": {
+        "title": "Sort",
         "name": "Name",
         "rating": "Rating"
       }

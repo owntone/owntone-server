@@ -256,14 +256,14 @@
     },
     "albums": {
       "count": "{count} album|{count} album|{count} albums",
-      "filter": "Filtre",
+      "filter": "Filtrer",
       "hide-singles-help": "Si actif, masque les singles et les albums dont les pistes n’apparaissent que dans les listes de lecture.",
       "hide-singles": "Masquer les singles",
       "hide-spotify-help": "Si actif, masque les albums qui n’apparaissent que dans votre bibliothèque Spotify.",
       "hide-spotify": "Masquer les albums de Spotify",
       "title": "Albums",
-      "sort-by": {
-        "title": "Trier par",
+      "sort": {
+        "title": "Trier",
         "name": "Nom",
         "recently-added": "Ajouts récents",
         "recently-released": "Sorties récentes"
@@ -271,10 +271,13 @@
     },
     "artist": {
       "album-count": "{count} album|{count} album|{count} albums",
+      "filter": "Filtrer",
+      "hide-spotify-help": "Si actif, masque le contenu qui n’apparaît que dans votre bibliothèque Spotify.",
+      "hide-spotify": "Masquer le contenu de Spotify",
       "shuffle": "Lecture aléatoire",
       "track-count": "{count} piste|{count} piste|{count} pistes",
-      "sort-by": {
-        "title": "Trier par",
+      "sort": {
+        "title": "Trier",
         "name": "Nom",
         "rating": "Classement",
         "release-date": "Date de sortie"
@@ -282,9 +285,9 @@
     },
     "artists": {
       "count": "{count} artiste|{count} artiste|{count} artistes",
-      "filter": "Filtre",
-      "sort-by": {
-        "title": "Trier par",
+      "filter": "Filtrer",
+      "sort": {
+        "title": "Trier",
         "name": "Nom",
         "recently-added": "Ajouts récents"
       },
@@ -321,8 +324,8 @@
       "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
       "track-count": "{count} piste|{count} piste|{count} pistes",
-      "sort-by": {
-        "title": "Trier par",
+      "sort": {
+        "title": "Trier",
         "name": "Nom",
         "rating": "Classement"
       }
@@ -339,8 +342,8 @@
       "album-count": "{count} album|{count} album|{count} albums",
       "shuffle": "Lecture aléatoire",
       "track-count": "{count} piste|{count} piste|{count} pistes",
-      "sort-by": {
-        "title": "Trier par",
+      "sort": {
+        "title": "Trier",
         "name": "Nom",
         "rating": "Classement"
       }

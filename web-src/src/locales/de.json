@@ -262,8 +262,8 @@
       "hide-spotify-help": "Nach Aktivierung werden keine Alben angezeigt, die nur in der Spotify-Bibliothek enthalten sind.",
       "hide-spotify": "Verbirgt Spotify-Alben",
       "title": "Alben",
-      "sort-by": {
-        "title": "Sortieren nach",
+      "sort": {
+        "title": "Sortieren",
         "name": "Name",
         "recently-added": "Kürzlich hinzugefügt",
         "recently-released": "Kürzlich erschienen"
@@ -271,10 +271,13 @@
     },
     "artist": {
       "album-count": "{count} Album|{count} Album|{count} Alben",
+      "filter": "Filter",
+      "hide-spotify-help": "Nach Aktivierung wird kein Inhalt angezeigt, der nur in der Spotify-Bibliothek enthalten ist.",
+      "hide-spotify": "Verbirgt Spotify-Inhalt",
       "shuffle": "Zufallswiedergabe",
       "track-count": "{count} Track|{count} Track|{count} Tracks",
-      "sort-by": {
-        "title": "Sortieren nach",
+      "sort": {
+        "title": "Sortieren",
         "name": "Name",
         "rating": "Bewertung",
         "release-date": "Erscheinungsdatum"
@@ -283,8 +286,8 @@
     "artists": {
       "count": "{count} Künstler",
       "filter": "Filter",
-      "sort-by": {
-        "title": "Sortieren nach",
+      "sort": {
+        "title": "Sortieren",
         "name": "Namen",
         "recently-added": "Kürzlich hinzugefügt"
       },
@@ -321,8 +324,8 @@
       "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
       "track-count": "{count} Track|{count} Track|{count} Tracks",
-      "sort-by": {
-        "title": "Sortieren nach",
+      "sort": {
+        "title": "Sortieren",
         "name": "Name",
         "rating": "Bewertung"
       }
@@ -339,8 +342,8 @@
       "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
       "track-count": "{count} Track|{count} Track|{count} Tracks",
-      "sort-by": {
-        "title": "Sortieren nach",
+      "sort": {
+        "title": "Sortieren",
         "name": "Name",
         "rating": "Bewertung"
       }

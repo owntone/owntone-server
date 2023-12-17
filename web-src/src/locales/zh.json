@@ -262,8 +262,8 @@
       "hide-spotify-help": "如果激活，将隐藏仅在Spotify资料库出现的专辑",
       "hide-spotify": "隐藏来自Spotify的专辑",
       "title": "专辑",
-      "sort-by": {
-        "title": "排序方式",
+      "sort": {
+        "title": "分类",
         "name": "名称",
         "recently-added": "最近添加",
         "recently-released": "最近发行"
@@ -271,10 +271,13 @@
     },
     "artist": {
       "album-count": "{count} 张专辑|{count} 张专辑",
+      "filter": "筛选",
+      "hide-spotify-help": "如果激活，将隐藏只出现在Spotify库中的内容",
+      "hide-spotify": "隐藏来自Spotify的内容",
       "shuffle": "随机播放",
       "track-count": "{count} 只曲目|{count} 只曲目",
-      "sort-by": {
-        "title": "排序方式",
+      "sort": {
+        "title": "分类",
         "name": "名称",
         "rating": "评级",
         "release-date": "发行日期"
@@ -283,8 +286,8 @@
     "artists": {
       "count": "{count} 位艺人|{count} 位艺人",
       "filter": "筛选",
-      "sort-by": {
-        "title": "排序方式",
+      "sort": {
+        "title": "分类",
         "name": "名称",
         "recently-added": "最近添加"
       },
@@ -321,8 +324,8 @@
       "album-count": "{count} 张专辑|{count} 张专辑",
       "shuffle": "随机播放",
       "track-count": "{count} 只曲目|{count} 只曲目",
-      "sort-by": {
-        "title": "排序方式",
+      "sort": {
+        "title": "分类",
         "name": "名称",
         "rating": "评级"
       }
@@ -339,8 +342,8 @@
       "album-count": "{count} 张专辑|{count} 张专辑",
       "shuffle": "随机播放",
       "track-count": "{count} 只曲目|{count} 只曲目",
-      "sort-by": {
-        "title": "排序方式",
+      "sort": {
+        "title": "分类",
         "name": "名称",
         "rating": "评级"
       }

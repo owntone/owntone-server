@@ -4,7 +4,25 @@
       <template #options>
         <div class="columns">
           <div class="column">
-            <p class="heading mb-5" v-text="$t('page.artist.sort-by.title')" />
+            <p class="heading mb-5" v-text="$t('page.artist.filter')" />
+            <div v-if="spotify_enabled" class="field">
+              <div class="control">
+                <input
+                  id="switchHideSpotify"
+                  v-model="hide_spotify"
+                  type="checkbox"
+                  class="switch is-rounded"
+                />
+                <label
+                  for="switchHideSpotify"
+                  v-text="$t('page.artist.hide-spotify')"
+                />
+              </div>
+              <p class="help" v-text="$t('page.artist.hide-spotify-help')" />
+            </div>
+          </div>
+          <div class="column">
+            <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />
             <control-dropdown
               v-model:value="selected_groupby_option_id"
               :options="groupby_options"
@@ -32,17 +50,13 @@
       <template #content>
         <p class="heading has-text-centered-mobile">
           <span
-            v-text="
-              $t('page.artist.album-count', { count: artist.album_count })
-            "
+            v-text="$t('page.artist.album-count', { count: albums.count })"
           />
           <span>&nbsp;|&nbsp;</span>
           <a
             class="has-text-link"
             @click="open_tracks"
-            v-text="
-              $t('page.artist.track-count', { count: artist.track_count })
-            "
+            v-text="$t('page.artist.track-count', { count: track_count })"
           />
         </p>
         <list-albums :albums="albums" :hide_group_title="true" />
@@ -108,12 +122,12 @@ export default {
       groupby_options: [
         {
           id: 1,
-          name: this.$t('page.artist.sort-by.name'),
+          name: this.$t('page.artist.sort.name'),
           options: byName('name_sort', true)
         },
         {
           id: 2,
-          name: this.$t('page.artist.sort-by.release-date'),
+          name: this.$t('page.artist.sort.release-date'),
           options: byYear('date_released', {
             direction: 'asc'
           })
@@ -128,11 +142,19 @@ export default {
       const groupBy = this.groupby_options.find(
         (o) => o.id === this.selected_groupby_option_id
       )
-      this.albums_list.group(groupBy.options)
-
+      this.albums_list.group(groupBy.options, [
+        (album) => !this.hide_spotify || album.data_kind !== 'spotify'
+      ])
       return this.albums_list
     },
-
+    hide_spotify: {
+      get() {
+        return this.$store.state.hide_spotify
+      },
+      set(value) {
+        this.$store.commit(types.HIDE_SPOTIFY, value)
+      }
+    },
     selected_groupby_option_id: {
       get() {
         return this.$store.state.artist_albums_sort
@@ -140,6 +162,16 @@ export default {
       set(value) {
         this.$store.commit(types.ARTIST_ALBUMS_SORT, value)
       }
+    },
+    spotify_enabled() {
+      return this.$store.state.spotify.webapi_token_valid
+    },
+    track_count() {
+      // The count of tracks is incorrect when albums have Spotify tracks.
+      return [...this.albums].reduce(
+        (total, album) => total + (album.isItem ? album.item.track_count : 0),
+        0
+      )
     }
   },
 

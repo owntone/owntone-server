@@ -39,7 +39,7 @@
             </div>
           </div>
           <div class="column">
-            <p class="heading mb-5" v-text="$t('page.artists.sort-by.title')" />
+            <p class="heading mb-5" v-text="$t('page.artists.sort.title')" />
             <control-dropdown
               v-model:value="selected_groupby_option_id"
               :options="groupby_options"
@@ -116,12 +116,12 @@ export default {
       groupby_options: [
         {
           id: 1,
-          name: this.$t('page.artists.sort-by.name'),
+          name: this.$t('page.artists.sort.name'),
           options: byName('name_sort', true)
         },
         {
           id: 2,
-          name: this.$t('page.artists.sort-by.recently-added'),
+          name: this.$t('page.artists.sort.recently-added'),
           options: byYear('time_added', {
             direction: 'desc'
           })

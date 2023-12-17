@@ -5,7 +5,25 @@
         <index-button-list :index="tracks.indexList" />
         <div class="columns">
           <div class="column">
-            <p class="heading mb-5" v-text="$t('page.artist.sort-by.title')" />
+            <p class="heading mb-5" v-text="$t('page.artist.filter')" />
+            <div v-if="spotify_enabled" class="field">
+              <div class="control">
+                <input
+                  id="switchHideSpotify"
+                  v-model="hide_spotify"
+                  type="checkbox"
+                  class="switch is-rounded"
+                />
+                <label
+                  for="switchHideSpotify"
+                  v-text="$t('page.artist.hide-spotify')"
+                />
+              </div>
+              <p class="help" v-text="$t('page.artist.hide-spotify-help')" />
+            </div>
+          </div>
+          <div class="column">
+            <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />
             <control-dropdown
               v-model:value="selected_groupby_option_id"
               :options="groupby_options"
@@ -35,15 +53,11 @@
           <a
             class="has-text-link"
             @click="open_artist"
-            v-text="
-              $t('page.artist.album-count', { count: artist.album_count })
-            "
+            v-text="$t('page.artist.album-count', { count: album_count })"
           />
           <span>&nbsp;|&nbsp;</span>
           <span
-            v-text="
-              $t('page.artist.track-count', { count: artist.track_count })
-            "
+            v-text="$t('page.artist.track-count', { count: tracks.count })"
           />
         </p>
         <list-tracks :tracks="tracks" :uris="track_uris" />
@@ -110,12 +124,12 @@ export default {
       groupby_options: [
         {
           id: 1,
-          name: this.$t('page.artist.sort-by.name'),
+          name: this.$t('page.artist.sort.name'),
           options: byName('title_sort')
         },
         {
           id: 2,
-          name: this.$t('page.artist.sort-by.rating'),
+          name: this.$t('page.artist.sort.rating'),
           options: byRating('rating', {
             direction: 'desc'
           })
@@ -127,6 +141,21 @@ export default {
   },
 
   computed: {
+    album_count() {
+      return new Set(
+        [...this.tracks]
+          .filter((track) => track.isItem)
+          .map((track) => track.item.album_id)
+      ).size
+    },
+    hide_spotify: {
+      get() {
+        return this.$store.state.hide_spotify
+      },
+      set(value) {
+        this.$store.commit(types.HIDE_SPOTIFY, value)
+      }
+    },
     selected_groupby_option_id: {
       get() {
         return this.$store.state.artist_tracks_sort
@@ -135,11 +164,16 @@ export default {
         this.$store.commit(types.ARTIST_TRACKS_SORT, value)
       }
     },
+    spotify_enabled() {
+      return this.$store.state.spotify.webapi_token_valid
+    },
     tracks() {
       const groupBy = this.groupby_options.find(
         (o) => o.id === this.selected_groupby_option_id
       )
-      this.tracks_list.group(groupBy.options)
+      this.tracks_list.group(groupBy.options, [
+        (track) => !this.hide_spotify || track.data_kind !== 'spotify'
+      ])
       return this.tracks_list
     },
     track_uris() {
