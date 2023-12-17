@@ -3266,7 +3266,7 @@ jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
 	  goto error;
 	}
 
-      ret = library_media_save(mfi);
+      ret = db_file_update(mfi);
       if (ret < 0)
 	{
 	  err = HTTP_INTERNAL;
