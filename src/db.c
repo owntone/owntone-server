@@ -1138,7 +1138,7 @@ fixup_defaults(char **tag, enum fixup_type fixup, struct fixup_ctx *ctx)
 
       case DB_FIXUP_SONGALBUMID:
 	if (ctx->mfi && ctx->mfi->songalbumid == 0)
-	  ctx->mfi->songalbumid = two_str_hash(ctx->mfi->album_artist, ctx->mfi->album);
+	  ctx->mfi->songalbumid = two_str_hash(ctx->mfi->album_artist, ctx->mfi->album) + ctx->mfi->data_kind;
 	break;
 
       case DB_FIXUP_TITLE:
