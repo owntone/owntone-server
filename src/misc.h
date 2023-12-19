@@ -59,6 +59,18 @@ net_is_http_or_https(const char *url);
 
 /* ----------------------- Conversion/hashing/sanitizers -------------------- */
 
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif defined(HAVE_SYS_ENDIAN_H)
+# include <sys/endian.h>
+#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
+#include <libkern/OSByteOrder.h>
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#endif
+
 // Samples to bytes, bytes to samples
 #define STOB(s, bits, c) ((s) * (c) * (bits) / 8)
 #define BTOS(b, bits, c) ((b) / ((c) * (bits) / 8))

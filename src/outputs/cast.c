@@ -32,15 +32,7 @@
 #include <ifaddrs.h>
 #include <unistd.h>
 #include <fcntl.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#elif defined(HAVE_SYS_ENDIAN_H)
-# include <sys/endian.h>
-#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
-#include <libkern/OSByteOrder.h>
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#define be32toh(x) OSSwapBigToHostInt32(x)
-#endif
+
 #include <gnutls/gnutls.h>
 #include <event2/event.h>
 #include <json.h>
@@ -54,6 +46,7 @@
 #include "outputs.h"
 #include "db.h"
 #include "artwork.h"
+#include "misc.h"
 
 #ifdef HAVE_PROTOBUF_OLD
 #include "cast_channel.v0.pb-c.h"
