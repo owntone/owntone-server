@@ -1723,17 +1723,14 @@ filescanner_fullrescan()
 }
 
 static int
-filescanner_write_metadata(const char *virtual_path, uint32_t rating)
+filescanner_write_metadata(struct media_file_info *mfi)
 {
   int ret;
   char inotify_path[PATH_MAX];
   struct watch_info wi = { 0 };
-  struct media_file_info *mfi = NULL;
 
-  mfi = db_file_fetch_byvirtualpath(virtual_path);
   if (!mfi || mfi->data_kind != DATA_KIND_FILE)
     {
-      free_mfi(mfi, 0);
       return -1;
     }
 
@@ -1774,8 +1771,6 @@ filescanner_write_metadata(const char *virtual_path, uint32_t rating)
   db_watch_add(&wi);
 
 cleanup:
-  free_mfi(mfi, 0);
-
   return ret;
 }
 

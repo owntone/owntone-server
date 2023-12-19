@@ -40,6 +40,7 @@
 #include "conffile.h"
 #include "artwork.h"
 #include "dmap_common.h"
+#include "library.h"
 #include "db.h"
 #include "player.h"
 #include "listener.h"
@@ -1106,31 +1107,7 @@ dacp_propset_userrating(const char *value, struct httpd_request *hreq)
       return;
     }
 
-  ret = db_file_rating_update_byid(itemid, rating);
-
-  /* If no mfi, it may be because we sent an invalid nowplaying itemid. In this
-   * case request the real one from the player and default to that.
-   */
-  if (ret == 0)
-    {
-      DPRINTF(E_WARN, L_DACP, "Invalid id %d for rating, defaulting to player id\n", itemid);
-
-      ret = player_playing_now(&itemid);
-      if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_DACP, "Could not find an id for rating\n");
-
-	  return;
-	}
-
-      ret = db_file_rating_update_byid(itemid, rating);
-      if (ret <= 0)
-      	{
-      	  DPRINTF(E_WARN, L_DACP, "Could not find an id for rating\n");
-
-      	  return;
-      	}
-    }
+  library_item_attrib_save(itemid, LIBRARY_ATTRIB_RATING, rating);
 }
 
 

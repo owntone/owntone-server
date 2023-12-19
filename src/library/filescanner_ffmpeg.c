@@ -947,13 +947,14 @@ file_write_rating(AVFormatContext* in_fmt_ctx, const char* new_rating_file)
 }
 
 int
-write_metadata_ffmpeg(const struct media_file_info *mfi)
+write_metadata_ffmpeg(struct media_file_info *mfi)
 {
   AVFormatContext *in_fmt_ctx = NULL;
-  char rating_str[5];
+  char rating_str[32];
   char new_rating_file[PATH_MAX];
   AVDictionaryEntry *entry;
   int max_rating;
+  int file_rating;
   int fd = -1;
   int ret;
 
@@ -976,7 +977,8 @@ write_metadata_ffmpeg(const struct media_file_info *mfi)
   max_rating = cfg_getint(cfg_getsec(cfg, "library"), "max_rating");
   if (max_rating < 5) // Invalid config
     max_rating = DB_FILES_RATING_MAX;
-  snprintf(rating_str, sizeof(rating_str), "%d", mfi->rating * max_rating / DB_FILES_RATING_MAX);
+  file_rating = mfi->rating * max_rating / DB_FILES_RATING_MAX;
+  snprintf(rating_str, sizeof(rating_str), "%d", file_rating);
 
   // Save a write if metadata of the underlying file matches requested rating
   entry = av_dict_get(in_fmt_ctx->metadata, "rating", NULL, 0);
@@ -1020,6 +1022,8 @@ write_metadata_ffmpeg(const struct media_file_info *mfi)
       unlink(new_rating_file);
       goto end;
     }
+
+  DPRINTF(E_DBG, L_SCAN, "Wrote rating metadata to library file '%s'\n", in_fmt_ctx->url);
 
  end:
   avformat_close_input(&in_fmt_ctx);

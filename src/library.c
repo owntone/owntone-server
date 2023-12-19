@@ -67,6 +67,14 @@ struct queue_item_add_param
   int *new_item_id;
 };
 
+struct item_param
+{
+  const char *path;
+  uint32_t id;
+  enum library_attrib attrib;
+  uint32_t value;
+};
+
 static struct commands_base *cmdbase;
 static pthread_t tid_library;
 
@@ -583,11 +591,11 @@ queue_save(void *arg, int *retval)
 static enum command_state
 item_add(void *arg, int *retval)
 {
-  const char *path = arg;
+  struct item_param *param = arg;
   int i;
   int ret = LIBRARY_ERROR;
 
-  DPRINTF(E_DBG, L_LIB, "Adding item to library '%s'\n", path);
+  DPRINTF(E_DBG, L_LIB, "Adding item to library '%s'\n", param->path);
 
   for (i = 0; sources[i]; i++)
     {
@@ -597,11 +605,11 @@ item_add(void *arg, int *retval)
 	  continue;
 	}
 
-      ret = sources[i]->item_add(path);
+      ret = sources[i]->item_add(param->path);
 
       if (ret == LIBRARY_OK)
 	{
-	  DPRINTF(E_DBG, L_LIB, "Add item to path '%s' with library source '%s'\n", path, db_scan_kind_label(sources[i]->scan_kind));
+	  DPRINTF(E_DBG, L_LIB, "Add item to path '%s' with library source '%s'\n", param->path, db_scan_kind_label(sources[i]->scan_kind));
 	  listener_notify(LISTENER_DATABASE);
 	  break;
 	}
@@ -618,6 +626,87 @@ item_add(void *arg, int *retval)
     }
 
   *retval = ret;
+  return COMMAND_END;
+}
+
+static int
+write_metadata(struct media_file_info *mfi)
+{
+  int ret;
+  int i;
+
+  for (i = 0; sources[i]; i++)
+    {
+      if (sources[i]->disabled || !sources[i]->write_metadata)
+	continue;
+
+      ret = sources[i]->write_metadata(mfi);
+      if (ret == LIBRARY_OK)
+	return ret;
+    }
+
+  return LIBRARY_PATH_INVALID;
+}
+
+static enum command_state
+item_attrib_save(void *arg, int *retval)
+{
+  struct item_param *param = arg;
+  struct media_file_info *mfi = NULL;
+  int ret;
+
+  if (scanning)
+    goto error;
+
+  mfi = db_file_fetch_byid(param->id);
+  if (!mfi)
+    goto error;
+
+  *retval = LIBRARY_OK;
+
+  switch (param->attrib)
+    {
+      case LIBRARY_ATTRIB_RATING:
+	if (param->value < 0 || param->value > DB_FILES_RATING_MAX)
+	  goto error;
+
+	mfi->rating = param->value;
+
+	if (cfg_getbool(cfg_getsec(cfg, "library"), "write_rating"))
+	  *retval = write_metadata(mfi);
+
+        listener_notify(LISTENER_RATING);
+	break;
+
+      case LIBRARY_ATTRIB_USERMARK:
+	if (param->value < 0)
+	  goto error;
+
+	mfi->usermark = param->value;
+	break;
+
+      case LIBRARY_ATTRIB_PLAY_COUNT:
+	if (param->value < 0)
+	  goto error;
+
+	mfi->play_count = param->value;
+	break;
+
+       default:
+	goto error;
+    }
+
+  ret = db_file_update(mfi);
+  if (ret < 0)
+    goto error;
+
+  free_mfi(mfi, 0);
+  return COMMAND_END;
+
+ error:
+  DPRINTF(E_LOG, L_LIB, "Error updating attribute %d to %d for file with id %d\n", param->attrib, param->value, param->id);
+  *retval = LIBRARY_ERROR;
+  free_mfi(mfi, 0);
   return COMMAND_END;
 }
 
@@ -865,6 +954,8 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
 int
 library_item_add(const char *path)
 {
+  struct item_param param;
+
   if (scanning)
     {
       DPRINTF(E_INFO, L_LIB, "Scan already running, ignoring request to add item '%s'\n", path);
@@ -873,7 +964,22 @@ library_item_add(const char *path)
 
   scanning = true;
 
-  return commands_exec_sync(cmdbase, item_add, NULL, (char *)path);
+  param.path = path;
+
+  return commands_exec_sync(cmdbase, item_add, NULL, &param);
+}
+
+void
+library_item_attrib_save(uint32_t id, enum library_attrib attrib, uint32_t value)
+{
+  struct item_param *param;
+
+  param = malloc(sizeof(struct item_param));
+  param->id = id;
+  param->attrib = attrib;
+  param->value = value;
+
+  commands_exec_async(cmdbase, item_attrib_save, param);
 }
 
 struct library_source **

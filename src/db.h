@@ -685,6 +685,9 @@ db_file_ping_bymatch(const char *path, int isdir);
 char *
 db_file_path_byid(int id);
 
+bool
+db_file_id_exists(int id);
+
 int
 db_file_id_bypath(const char *path);
 
@@ -714,12 +717,6 @@ db_file_update(struct media_file_info *mfi);
 
 void
 db_file_seek_update(int id, uint32_t seek);
-
-int
-db_file_rating_update_byid(uint32_t id, uint32_t rating);
-
-int
-db_file_usermark_update_byid(uint32_t id, uint32_t usermark);
 
 void
 db_file_delete_bypath(const char *path);

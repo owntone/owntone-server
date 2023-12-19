@@ -3157,6 +3157,30 @@ db_file_id_byquery(const char *query)
   return ret;
 }
 
+bool
+db_file_id_exists(int id)
+{
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.id = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  ret = db_file_id_byquery(query);
+
+  sqlite3_free(query);
+
+  return (id == ret);
+
+#undef Q_TMPL
+}
+
 int
 db_file_id_bypath(const char *path)
 {
@@ -3477,40 +3501,6 @@ db_file_seek_update(int id, uint32_t seek)
   ret = db_query_run(query, 1, 0);
   if (ret == 0)
     db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
-#undef Q_TMPL
-}
-
-int
-db_file_rating_update_byid(uint32_t id, uint32_t rating)
-{
-#define Q_TMPL "UPDATE files SET rating = %d WHERE id = %d;"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, rating, id);
-
-  ret = db_query_run(query, 1, LISTENER_RATING);
-  if (ret == 0)
-    db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
-
-  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
-#undef Q_TMPL
-}
-
-int
-db_file_usermark_update_byid(uint32_t id, uint32_t usermark)
-{
-#define Q_TMPL "UPDATE files SET usermark = %d WHERE id = %d;"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, usermark, id);
-
-  ret = db_query_run(query, 1, LISTENER_DATABASE);
-  if (ret == 0)
-    db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
-
-  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
 }
 
@@ -6349,8 +6339,6 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
   ret = db_blocking_step(stmt);
   if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_DBG, L_DB, "Watch not found: '%s'\n", query);
-
       sqlite3_finalize(stmt);
       sqlite3_free(query);
       return -1;

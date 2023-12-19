@@ -3299,7 +3299,7 @@ mpd_sticker_set(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, co
       return ACK_ERROR_ARG;
     }
 
-  db_file_rating_update_byid(id, rating);
+  library_item_attrib_save(id, LIBRARY_ATTRIB_RATING, rating);
 
   return 0;
 }
@@ -3322,7 +3322,7 @@ mpd_sticker_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
       return ACK_ERROR_ARG;
     }
 
-  db_file_rating_update_byid(id, 0);
+  library_item_attrib_save(id, LIBRARY_ATTRIB_RATING, 0);
 
   return 0;
 }
