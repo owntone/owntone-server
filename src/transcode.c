@@ -20,8 +20,6 @@
 # include <config.h>
 #endif
 
-#define _GNU_SOURCE // For memmem()
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
