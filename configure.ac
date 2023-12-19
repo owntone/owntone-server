@@ -50,15 +50,9 @@ AC_CHECK_HEADERS([sys/wait.h sys/param.h dirent.h getopt.h stdint.h], [],
 	[AC_MSG_ERROR([[Missing header required to build OwnTone]])])
 AC_CHECK_HEADERS([time.h], [],
 	[AC_MSG_ERROR([[Missing header required to build OwnTone]])])
-AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2 syscall])
+AC_CHECK_FUNCS_ONCE([posix_fadvise pipe2 gettid])
 AC_CHECK_FUNCS([strptime strtok_r], [],
 	[AC_MSG_ERROR([[Missing function required to build OwnTone]])])
-
-dnl FreeBSD doesn't have SYS_gettid
-AC_CHECK_DECL([SYS_gettid],
-	[AC_DEFINE([HAVE_SYS_GETTID], 1,
-		[Define to 1 if SYS_gettid exists])],
-	[], [#include <sys/syscall.h>])
 
 dnl check for clock_gettime or replace it
 AC_SEARCH_LIBS([clock_gettime], [rt],

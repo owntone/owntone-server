@@ -34,10 +34,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#ifdef HAVE_SYS_GETTID
-#include <sys/syscall.h> // get thread ID
-#endif
-
 #include <event2/event.h>
 
 #include <regex.h>
@@ -884,8 +880,8 @@ request_async_cb(void *arg)
 {
   struct httpd_request *hreq = *(struct httpd_request **)arg;
 
-#if defined(HAVE_SYSCALL) && defined(HAVE_SYS_GETTID)
-  DPRINTF(E_DBG, hreq->module->logdomain, "%s request '%s' in worker thread %ld\n", hreq->module->name, hreq->uri, syscall(SYS_gettid));
+#ifdef HAVE_GETTID
+  DPRINTF(E_DBG, hreq->module->logdomain, "%s request '%s' in worker thread %d\n", hreq->module->name, hreq->uri, (int)gettid());
 #endif
 
   // Some handlers require an evbase to schedule events
