@@ -488,15 +488,13 @@ token_refresh(struct spotify_credentials *credentials)
 
   if (credentials->token_time_requested && difftime(time(NULL), credentials->token_time_requested) < credentials->token_expires_in)
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Spotify token still valid\n");
-      return 0;
+      return 0; // Spotify token still valid
     }
 
   ret = db_admin_get(&refresh_token, DB_ADMIN_SPOTIFY_REFRESH_TOKEN);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "No spotify refresh token found\n");
-      goto error;
+      return -1; // No refresh token (user not logged in)
     }
 
   DPRINTF(E_DBG, L_SPOTIFY, "Spotify refresh-token: '%s'\n", refresh_token);
@@ -512,14 +510,18 @@ token_refresh(struct spotify_credentials *credentials)
     }
 
   ret = request_access_tokens(credentials, &kv, &err);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error requesting access token: %s", err);
+      goto error;
+    }
 
-  if (ret == 0)
-    request_user_info(credentials);
+  request_user_info(credentials);
 
   free(refresh_token);
   keyval_clear(&kv);
 
-  return ret;
+  return 0;
 
  error:
   free(refresh_token);
@@ -1891,12 +1893,8 @@ spotifywebapi_library_initscan(void)
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Spotify webapi token refresh failed. "
-	"In order to use Spotify, authorize the server to access your saved "
-	"tracks by visiting http://owntone.local:3689\n");
-
+      // User not logged in or error refreshing token
       db_spotify_purge();
-
       return 0;
     }
 
@@ -1911,7 +1909,6 @@ spotifywebapi_library_initscan(void)
 	"provide valid credentials by visiting http://owntone.local:3689\n");
 
       db_spotify_purge();
-
       return 0;
     }
 
