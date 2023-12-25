@@ -38,7 +38,6 @@
 
 #include "logger.h"
 #include "conffile.h"
-#include "db.h"
 #include "misc.h"
 #include "transcode.h"
 
@@ -151,8 +150,8 @@ struct decode_ctx
   // Source duration in ms as provided by caller
   uint32_t len_ms;
 
-  // Data kind (used to determine if ICY metadata is relevant to look for)
-  enum data_kind data_kind;
+  // Used to determine if ICY metadata is relevant to look for
+  bool is_http;
 
   // Set to true if we just seeked
   bool resume;
@@ -1202,6 +1201,8 @@ mp4_header_trailer_from_evbuf(uint8_t **header, size_t *header_len, uint8_t **tr
 static int
 make_mp4_header(struct evbuffer **mp4_header, const char *url)
 {
+  struct transcode_decode_setup_args decode_args = { .profile = XCODE_MP4_ALAC_HEADER };
+  struct transcode_encode_setup_args encode_args = { .profile = XCODE_MP4_ALAC_HEADER };
   struct transcode_ctx ctx = { 0 };
   struct transcode_evbuf_io evbuf_io = { 0 };
   uint8_t free_tag[4] = { 'f', 'r', 'e', 'e' };
@@ -1220,11 +1221,14 @@ make_mp4_header(struct evbuffer **mp4_header, const char *url)
   evbuf_io.seekfn = dummy_seek;
   evbuf_io.seekfn_arg = &ctx;
 
-  ctx.decode_ctx = transcode_decode_setup(XCODE_MP4_ALAC_HEADER, NULL, DATA_KIND_FILE, url, NULL, -1);
+  decode_args.path = url;
+  ctx.decode_ctx = transcode_decode_setup(decode_args);
   if (!ctx.decode_ctx)
     goto error;
 
-  ctx.encode_ctx = transcode_encode_setup_with_io(XCODE_MP4_ALAC_HEADER, NULL, &evbuf_io, ctx.decode_ctx, 0, 0);
+  encode_args.evbuf_io = &evbuf_io;
+  encode_args.src_ctx = ctx.decode_ctx;
+  ctx.encode_ctx = transcode_encode_setup(encode_args);
   if (!ctx.encode_ctx)
     goto error;
 
@@ -1394,7 +1398,7 @@ open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *
       ctx->ifmt_ctx->format_probesize = 65536;
     }
 
-  if (ctx->data_kind == DATA_KIND_HTTP)
+  if (ctx->is_http)
     {
       av_dict_set(&options, "icy", "1", 0);
 
@@ -1501,7 +1505,7 @@ close_output(struct encode_ctx *ctx)
 }
 
 static int
-open_output(struct encode_ctx *ctx, struct transcode_evbuf_io *evbuf_io, struct decode_ctx *src_ctx)
+open_output(struct encode_ctx *ctx, struct transcode_evbuf_io *evbuf_io, struct evbuffer *prepared_header, struct decode_ctx *src_ctx)
 {
 #if USE_CONST_AVFORMAT
   const AVOutputFormat *oformat;
@@ -1584,7 +1588,12 @@ open_output(struct encode_ctx *ctx, struct transcode_evbuf_io *evbuf_io, struct 
       evbuffer_add_buffer(ctx->obuf, header);
       evbuffer_free(header);
     }
-  if (ctx->settings.with_mp4_header)
+
+  if (ctx->settings.with_mp4_header && prepared_header)
+    {
+      evbuffer_add_buffer(ctx->obuf, prepared_header);
+    }
+  else if (ctx->settings.with_mp4_header)
     {
       ret = make_mp4_header(&header, src_ctx->ifmt_ctx->url);
       if (ret < 0)
@@ -1915,7 +1924,7 @@ open_filters(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
 /*                                  Setup                                    */
 
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t len_ms)
+transcode_decode_setup(struct transcode_decode_setup_args args)
 {
   struct decode_ctx *ctx;
   int ret;
@@ -1924,23 +1933,24 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
   CHECK_NULL(L_XCODE, ctx->decoded_frame = av_frame_alloc());
   CHECK_NULL(L_XCODE, ctx->packet = av_packet_alloc());
 
-  ctx->len_ms = len_ms;
-  ctx->data_kind = data_kind;
+  ctx->len_ms = args.len_ms;
 
-  ret = init_settings(&ctx->settings, profile, quality);
+  ret = init_settings(&ctx->settings, args.profile, args.quality);
   if (ret < 0)
     goto fail_free;
 
-  if (data_kind == DATA_KIND_HTTP)
+  if (args.is_http)
     {
-      ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_QUICK);
+      ctx->is_http = true;
+
+      ret = open_input(ctx, args.path, args.evbuf_io, PROBE_TYPE_QUICK);
 
       // Retry with a default, slower probe size
       if (ret == AVERROR_STREAM_NOT_FOUND)
-	ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_DEFAULT);
+	ret = open_input(ctx, args.path, args.evbuf_io, PROBE_TYPE_DEFAULT);
     }
   else
-    ret = open_input(ctx, path, evbuf_io, PROBE_TYPE_DEFAULT);
+    ret = open_input(ctx, args.path, args.evbuf_io, PROBE_TYPE_DEFAULT);
 
   if (ret < 0)
     goto fail_free;
@@ -1955,7 +1965,7 @@ transcode_decode_setup(enum transcode_profile profile, struct media_quality *qua
 }
 
 struct encode_ctx *
-transcode_encode_setup_with_io(enum transcode_profile profile, struct media_quality *quality, struct transcode_evbuf_io *evbuf_io, struct decode_ctx *src_ctx, int width, int height)
+transcode_encode_setup(struct transcode_encode_setup_args args)
 {
   struct encode_ctx *ctx;
   int dst_bytes_per_sample;
@@ -1966,29 +1976,29 @@ transcode_encode_setup_with_io(enum transcode_profile profile, struct media_qual
   CHECK_NULL(L_XCODE, ctx->evbuf_io.evbuf = evbuffer_new());
 
   // Caller didn't specify one, so use our own
-  if (!evbuf_io)
-    evbuf_io = &ctx->evbuf_io;
+  if (!args.evbuf_io)
+    args.evbuf_io = &ctx->evbuf_io;
 
   // Initialize general settings
-  if (init_settings(&ctx->settings, profile, quality) < 0)
+  if (init_settings(&ctx->settings, args.profile, args.quality) < 0)
     goto error;
 
-  if (ctx->settings.encode_audio && init_settings_from_audio(&ctx->settings, profile, src_ctx, quality) < 0)
+  if (ctx->settings.encode_audio && init_settings_from_audio(&ctx->settings, args.profile, args.src_ctx, args.quality) < 0)
     goto error;
 
-  if (ctx->settings.encode_video && init_settings_from_video(&ctx->settings, profile, src_ctx, width, height) < 0)
+  if (ctx->settings.encode_video && init_settings_from_video(&ctx->settings, args.profile, args.src_ctx, args.width, args.height) < 0)
     goto error;
 
   dst_bytes_per_sample = av_get_bytes_per_sample(ctx->settings.sample_format);
-  ctx->bytes_total = size_estimate(profile, ctx->settings.bit_rate, ctx->settings.sample_rate, dst_bytes_per_sample, ctx->settings.nb_channels, src_ctx->len_ms);
+  ctx->bytes_total = size_estimate(args.profile, ctx->settings.bit_rate, ctx->settings.sample_rate, dst_bytes_per_sample, ctx->settings.nb_channels, args.src_ctx->len_ms);
 
-  if (ctx->settings.with_icy && src_ctx->data_kind == DATA_KIND_HTTP)
+  if (ctx->settings.with_icy && args.src_ctx->is_http)
     ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->settings.nb_channels * dst_bytes_per_sample * ctx->settings.sample_rate;
 
-  if (open_output(ctx, evbuf_io, src_ctx) < 0)
+  if (open_output(ctx, args.evbuf_io, args.prepared_header, args.src_ctx) < 0)
     goto error;
 
-  if (open_filters(ctx, src_ctx) < 0)
+  if (open_filters(ctx, args.src_ctx) < 0)
     goto error;
 
   return ctx;
@@ -1998,27 +2008,22 @@ transcode_encode_setup_with_io(enum transcode_profile profile, struct media_qual
   return NULL;
 }
 
-struct encode_ctx *
-transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, int width, int height)
-{
-  return transcode_encode_setup_with_io(profile, quality, NULL, src_ctx, width, height);
-}
-
 struct transcode_ctx *
-transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t len_ms)
+transcode_setup(struct transcode_decode_setup_args decode_args, struct transcode_encode_setup_args encode_args)
 {
   struct transcode_ctx *ctx;
 
   CHECK_NULL(L_XCODE, ctx = calloc(1, sizeof(struct transcode_ctx)));
 
-  ctx->decode_ctx = transcode_decode_setup(profile, quality, data_kind, path, NULL, len_ms);
+  ctx->decode_ctx = transcode_decode_setup(decode_args);
   if (!ctx->decode_ctx)
     {
       free(ctx);
       return NULL;
     }
 
-  ctx->encode_ctx = transcode_encode_setup(profile, quality, ctx->decode_ctx, 0, 0);
+  encode_args.src_ctx = ctx->decode_ctx;
+  ctx->encode_ctx = transcode_encode_setup(encode_args);
   if (!ctx->encode_ctx)
     {
       transcode_decode_cleanup(&ctx->decode_ctx);
@@ -2617,4 +2622,21 @@ transcode_metadata_strings_set(struct transcode_metadata_string *s, enum transco
       default:
 	DPRINTF(E_WARN, L_XCODE, "transcode_metadata_strings_set() called with unknown profile %d\n", profile);
     }
+}
+
+int
+transcode_create_header(struct evbuffer **header, enum transcode_profile profile, const char *path)
+{
+  int ret;
+
+  switch (profile)
+    {
+      case XCODE_MP4_ALAC:
+	ret = make_mp4_header(header, path);
+	break;
+      default:
+	ret = -1;
+    }
+
+  return ret;
 }

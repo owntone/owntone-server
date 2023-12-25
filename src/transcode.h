@@ -3,7 +3,6 @@
 #define __TRANSCODE_H__
 
 #include <event2/buffer.h>
-#include "db.h"
 #include "http.h"
 #include "misc.h"
 
@@ -66,6 +65,29 @@ struct transcode_evbuf_io
   void *seekfn_arg;
 };
 
+struct transcode_decode_setup_args
+{
+  enum transcode_profile profile;
+  struct media_quality *quality;
+  bool is_http;
+  uint32_t len_ms;
+
+  // Source must be either of these
+  const char *path;
+  struct transcode_evbuf_io *evbuf_io;
+};
+
+struct transcode_encode_setup_args
+{
+  enum transcode_profile profile;
+  struct media_quality *quality;
+  struct decode_ctx *src_ctx;
+  struct transcode_evbuf_io *evbuf_io;
+  struct evbuffer *prepared_header;
+  int width;
+  int height;
+};
+
 struct transcode_metadata_string
 {
   char *type;
@@ -78,16 +100,13 @@ struct transcode_metadata_string
 
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t len_ms);
+transcode_decode_setup(struct transcode_decode_setup_args args);
 
 struct encode_ctx *
-transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, int width, int height);
-
-struct encode_ctx *
-transcode_encode_setup_with_io(enum transcode_profile profile, struct media_quality *quality, struct transcode_evbuf_io *evbuf_io, struct decode_ctx *src_ctx, int width, int height);
+transcode_encode_setup(struct transcode_encode_setup_args args);
 
 struct transcode_ctx *
-transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t len_ms);
+transcode_setup(struct transcode_decode_setup_args decode_args, struct transcode_encode_setup_args encode_args);
 
 struct decode_ctx *
 transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality *quality);
@@ -200,5 +219,16 @@ transcode_metadata(struct transcode_ctx *ctx, int *changed);
  */
 void
 transcode_metadata_strings_set(struct transcode_metadata_string *s, enum transcode_profile profile, struct media_quality *q, uint32_t len_ms);
+
+/* Creates a header for later transcoding of a source file. This header can be
+ * given to transcode_encode_setup which in some cases will make it faster (MP4)
+ *
+ * @out header     An evbuffer with the header
+ * @in  profile    Transcoding profile
+ * @in  path       Path to the source file
+ * @return         Negative if error, otherwise zero
+ */
+int
+transcode_prepare_header(struct evbuffer **header, enum transcode_profile profile, const char *path);
 
 #endif /* !__TRANSCODE_H__ */

@@ -36,9 +36,11 @@
 static int
 setup(struct input_source *source)
 {
+  struct transcode_decode_setup_args decode_args = { .profile = XCODE_PCM_NATIVE, .path = source->path, .len_ms = source->len_ms };
+  struct transcode_encode_setup_args encode_args = { .profile = XCODE_PCM_NATIVE, };
   struct transcode_ctx *ctx;
 
-  ctx = transcode_setup(XCODE_PCM_NATIVE, NULL, source->data_kind, source->path, source->len_ms);
+  ctx = transcode_setup(decode_args, encode_args);
   if (!ctx)
     return -1;
 

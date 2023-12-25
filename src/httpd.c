@@ -673,8 +673,13 @@ static struct stream_ctx *
 stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile, struct httpd_request *hreq,
                      int64_t offset, int64_t end_offset, event_callback_fn stream_cb)
 {
+  struct transcode_decode_setup_args decode_args = { 0 };
+  struct transcode_encode_setup_args encode_args = { 0 };
   struct media_quality quality = { 0 };
   struct stream_ctx *st;
+
+  // We use source sample rate etc, but for MP3 we must set a bit rate
+  quality.bit_rate = 1000 * cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
 
   st = stream_new(mfi, hreq, stream_cb);
   if (!st)
@@ -682,9 +687,14 @@ stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile
       goto error;
     }
 
-  // We use source sample rate etc, but for MP3 we must set a bit rate
-  quality.bit_rate = cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
-  st->xcode = transcode_setup(profile, &quality, mfi->data_kind, mfi->path, mfi->song_length);
+  decode_args.profile = profile;
+  decode_args.is_http = (mfi->data_kind == DATA_KIND_HTTP);
+  decode_args.path    = mfi->path;
+  decode_args.len_ms  = mfi->song_length;
+  encode_args.profile = profile;
+  encode_args.quality = &quality;
+
+  st->xcode = transcode_setup(decode_args, encode_args);
   if (!st->xcode)
     {
       DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");

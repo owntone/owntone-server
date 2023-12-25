@@ -115,17 +115,17 @@ extern struct event_base *evbase_player;
 static struct encode_ctx *
 encoder_setup(enum player_format format, struct media_quality *quality)
 {
-  struct decode_ctx *decode_ctx = NULL;
+  struct transcode_encode_setup_args encode_args = { .profile = XCODE_MP3, .quality = quality };
   struct encode_ctx *encode_ctx = NULL;
 
   if (quality->bits_per_sample == 16)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
+    encode_args.src_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
   else if (quality->bits_per_sample == 24)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24, quality);
+    encode_args.src_ctx = transcode_decode_setup_raw(XCODE_PCM24, quality);
   else if (quality->bits_per_sample == 32)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM32, quality);
+    encode_args.src_ctx = transcode_decode_setup_raw(XCODE_PCM32, quality);
 
-  if (!decode_ctx)
+  if (!encode_args.src_ctx)
     {
       DPRINTF(E_LOG, L_STREAMING, "Error setting up decoder for quality sr %d, bps %d, ch %d, cannot encode\n",
 	quality->sample_rate, quality->bits_per_sample, quality->channels);
@@ -133,7 +133,7 @@ encoder_setup(enum player_format format, struct media_quality *quality)
     }
 
   if (format == PLAYER_FORMAT_MP3)
-    encode_ctx = transcode_encode_setup(XCODE_MP3, quality, decode_ctx, 0, 0);
+    encode_ctx = transcode_encode_setup(encode_args);
 
   if (!encode_ctx)
     {
@@ -143,7 +143,7 @@ encoder_setup(enum player_format format, struct media_quality *quality)
     }
 
  out:
-  transcode_decode_cleanup(&decode_ctx);
+  transcode_decode_cleanup(&encode_args.src_ctx);
   return encode_ctx;
 }
 

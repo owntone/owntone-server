@@ -1120,7 +1120,7 @@ static struct airplay_master_session *
 master_session_make(struct media_quality *quality)
 {
   struct airplay_master_session *rms;
-  struct decode_ctx *decode_ctx;
+  struct transcode_encode_setup_args encode_args = { .profile = XCODE_ALAC, .quality = quality };
   int ret;
 
   // First check if we already have a suitable session
@@ -1146,15 +1146,15 @@ master_session_make(struct media_quality *quality)
       goto error;
     }
 
-  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
-  if (!decode_ctx)
+  encode_args.src_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
+  if (!encode_args.src_ctx)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not create decoding context\n");
       goto error;
     }
 
-  rms->encode_ctx = transcode_encode_setup(XCODE_ALAC, quality, decode_ctx, 0, 0);
-  transcode_decode_cleanup(&decode_ctx);
+  rms->encode_ctx = transcode_encode_setup(encode_args);
+  transcode_decode_cleanup(&encode_args.src_ctx);
   if (!rms->encode_ctx)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Will not be able to stream AirPlay 2, ffmpeg has no ALAC encoder\n");

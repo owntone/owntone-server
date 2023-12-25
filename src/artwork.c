@@ -604,6 +604,8 @@ size_calculate(int *dst_w, int *dst_h, int src_w, int src_h, int max_w, int max_
 static int
 artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *in_buf, bool is_embedded, enum data_kind data_kind, struct artwork_req_params req_params)
 {
+  struct transcode_decode_setup_args xcode_decode_args = { .profile = XCODE_JPEG }; // Covers XCODE_PNG too
+  struct transcode_encode_setup_args xcode_encode_args = { 0 };
   struct decode_ctx *xcode_decode = NULL;
   struct encode_ctx *xcode_encode = NULL;
   struct transcode_evbuf_io xcode_evbuf_io = { 0 };
@@ -637,13 +639,16 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *in_buf, bool is
 	}
 
       xcode_evbuf_io.evbuf = xcode_buf;
-      xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, data_kind, NULL, &xcode_evbuf_io, 0); // Covers XCODE_PNG too
+      xcode_decode_args.evbuf_io = &xcode_evbuf_io;
+      xcode_decode_args.is_http = (data_kind == DATA_KIND_HTTP);
     }
   else
     {
-      xcode_decode = transcode_decode_setup(XCODE_JPEG, NULL, data_kind, path, NULL, 0); // Covers XCODE_PNG too
+      xcode_decode_args.path = path;
+      xcode_decode_args.is_http = (data_kind == DATA_KIND_HTTP);
     }
 
+  xcode_decode = transcode_decode_setup(xcode_decode_args);
   if (!xcode_decode)
     {
       if (path)
@@ -702,15 +707,19 @@ artwork_get(struct evbuffer *evbuf, char *path, struct evbuffer *in_buf, bool is
       goto out;
     }
 
+  xcode_encode_args.src_ctx = xcode_decode;
+  xcode_encode_args.width = dst_width;
+  xcode_encode_args.height = dst_height;
   if (dst_format == ART_FMT_JPEG)
-    xcode_encode = transcode_encode_setup(XCODE_JPEG, NULL, xcode_decode, dst_width, dst_height);
+    xcode_encode_args.profile = XCODE_JPEG;
   else if (dst_format == ART_FMT_PNG)
-    xcode_encode = transcode_encode_setup(XCODE_PNG, NULL, xcode_decode, dst_width, dst_height);
+    xcode_encode_args.profile = XCODE_PNG;
   else if (dst_format == ART_FMT_VP8)
-    xcode_encode = transcode_encode_setup(XCODE_VP8, NULL, xcode_decode, dst_width, dst_height);
+    xcode_encode_args.profile = XCODE_VP8;
   else
-    xcode_encode = transcode_encode_setup(XCODE_JPEG, NULL, xcode_decode, dst_width, dst_height);
+    xcode_encode_args.profile = XCODE_JPEG;
 
+  xcode_encode = transcode_encode_setup(xcode_encode_args);
   if (!xcode_encode)
     {
       if (path)
