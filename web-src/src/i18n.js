@@ -10,7 +10,6 @@ export default createI18n({
   availableLocales: ('de', 'en', 'fr', 'zh'),
   fallbackLocale: 'en',
   fallbackWarn: false,
-  globalInjection: true,
   legacy: false,
   locale: navigator.language,
   messages,

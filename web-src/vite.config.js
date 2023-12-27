@@ -1,7 +1,7 @@
 import path from 'path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueI18n from '@intlify/unplugin-vue-i18n/vite'
+import i18n from '@intlify/unplugin-vue-i18n/vite'
 
 /*
  * In development mode, use the VITE_OWNTONE_URL environment variable to set
@@ -15,21 +15,10 @@ export default defineConfig({
   resolve: { alias: { '@': '/src' } },
   plugins: [
     vue(),
-    vueI18n({
+    i18n({
       include: path.resolve(__dirname, './src/locales/**')
     })
   ],
-  pluginOptions: {
-    i18n: {
-      locale: 'en',
-      fallbackLocale: 'en',
-      localeDir: 'locales',
-      enableLegacy: false,
-      runtimeOnly: false,
-      compositionOnly: false,
-      fullInstall: true
-    }
-  },
   build: {
     outDir: '../htdocs',
     rollupOptions: {
