@@ -3966,7 +3966,15 @@ raop_pair_verify(struct raop_session *rs)
   if (!device)
     goto error;
 
-  CHECK_NULL(L_RAOP, rs->pair_verify_ctx = pair_verify_new(PAIR_CLIENT_FRUIT, device->auth_key, NULL, NULL, NULL));
+  rs->pair_verify_ctx = pair_verify_new(PAIR_CLIENT_FRUIT, device->auth_key, NULL, NULL, NULL);
+  if (!rs->pair_verify_ctx)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Verification authorization key invalid, resetting\n");
+
+      free(device->auth_key);
+      device->auth_key = NULL;
+      goto error;
+    }
 
   ret = raop_pair_request_send(4, rs, raop_cb_pair_verify_step1);
   if (ret < 0)
@@ -4450,11 +4458,17 @@ raop_device_start_generic(struct output_device *device, int callback_id, bool on
     return -1;
 
   if (device->auth_key)
-    ret = raop_pair_verify(rs);
-  else if (device->requires_auth)
-    ret = raop_send_req_pin_start(rs, raop_cb_pin_start, "device_start");
-  else
-    ret = raop_send_req_options(rs, raop_cb_startup_options, "device_start");
+    {
+      ret = raop_pair_verify(rs);
+    }
+
+  if (!device->auth_key) // If no auth keys or if raop_pair_verify() cleared the key
+    {
+      if (device->requires_auth)
+	ret = raop_send_req_pin_start(rs, raop_cb_pin_start, "device_start");
+      else
+	ret = raop_send_req_options(rs, raop_cb_startup_options, "device_start");
+    }
 
   if (ret < 0)
     {

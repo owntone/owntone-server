@@ -2748,7 +2748,7 @@ payload_make_pair_verify1(struct evrtsp_request *req, struct airplay_session *rs
   rs->pair_verify_ctx = pair_verify_new(rs->pair_type, device->auth_key, NULL, NULL, device_id_hex);
   if (!rs->pair_verify_ctx)
     {
-      DPRINTF(E_LOG, L_AIRPLAY, "Out of memory for verification verify context\n");
+      DPRINTF(E_LOG, L_AIRPLAY, "Couldn't create verification verify context (invalid auth key?)\n");
       return -1;
     }
 
