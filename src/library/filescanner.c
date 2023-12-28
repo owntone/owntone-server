@@ -1738,13 +1738,6 @@ filescanner_write_metadata(struct media_file_info *mfi)
   snprintf(inotify_path, sizeof(inotify_path), "%s", mfi->path);
   dirname(inotify_path);
 
-  if (access(mfi->path, W_OK) < 0 || access(inotify_path, W_OK) < 0)
-    {
-      DPRINTF(E_WARN, L_SCAN, "No permissions to update metadata on '%s' - skipping\n", mfi->path);
-      ret = 0;
-      goto cleanup;
-    }
-
   // Temporarily disable inotify
   ret = db_watch_get_bypath(&wi, inotify_path);
   if (ret == 0)
