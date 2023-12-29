@@ -48,6 +48,7 @@
 #include "httpd.h"
 #include "httpd_internal.h"
 #include "transcode.h"
+#include "cache.h"
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
@@ -676,7 +677,10 @@ stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile
   struct transcode_decode_setup_args decode_args = { 0 };
   struct transcode_encode_setup_args encode_args = { 0 };
   struct media_quality quality = { 0 };
+  struct evbuffer *prepared_header = NULL;
   struct stream_ctx *st;
+  int cached;
+  int ret;
 
   // We use source sample rate etc, but for MP3 we must set a bit rate
   quality.bit_rate = 1000 * cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
@@ -687,12 +691,25 @@ stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile
       goto error;
     }
 
+  if (profile == XCODE_MP4_ALAC)
+    {
+      CHECK_NULL(L_HTTPD, prepared_header = evbuffer_new());
+
+      ret = cache_xcode_header_get(prepared_header, &cached, mfi->id, "mp4");
+      if (ret < 0 || !cached) // Error or not found
+	{
+	  evbuffer_free(prepared_header);
+	  prepared_header = NULL;
+	}
+    }
+
   decode_args.profile = profile;
   decode_args.is_http = (mfi->data_kind == DATA_KIND_HTTP);
   decode_args.path    = mfi->path;
   decode_args.len_ms  = mfi->song_length;
   encode_args.profile = profile;
   encode_args.quality = &quality;
+  encode_args.prepared_header = prepared_header;
 
   st->xcode = transcode_setup(decode_args, encode_args);
   if (!st->xcode)
@@ -718,9 +735,13 @@ stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile
 
   st->start_offset = offset;
 
+  if (prepared_header)
+    evbuffer_free(prepared_header);
   return st;
 
  error:
+  if (prepared_header)
+    evbuffer_free(prepared_header);
   stream_free(st);
   return NULL;
 }
@@ -1199,6 +1220,14 @@ httpd_gzip_deflate(struct evbuffer *in)
   return NULL;
 }
 
+int
+httpd_prepare_header(struct evbuffer **header, const char *format, const char *path)
+{
+  if (strcmp(format, "mp4") == 0)
+    return transcode_prepare_header(header, XCODE_MP4_ALAC, path);
+  else
+    return -1;
+}
 
 // The httpd_send functions below can be called from a worker thread (with
 // hreq->is_async) or directly from the httpd thread. In the former case, they

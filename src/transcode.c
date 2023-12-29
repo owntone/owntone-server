@@ -2625,7 +2625,7 @@ transcode_metadata_strings_set(struct transcode_metadata_string *s, enum transco
 }
 
 int
-transcode_create_header(struct evbuffer **header, enum transcode_profile profile, const char *path)
+transcode_prepare_header(struct evbuffer **header, enum transcode_profile profile, const char *path)
 {
   int ret;
 

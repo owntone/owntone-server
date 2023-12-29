@@ -44,7 +44,7 @@
 #include "commands.h"
 
 
-#define CACHE_VERSION 3
+#define CACHE_VERSION 4
 
 
 struct cache_arg
@@ -53,6 +53,9 @@ struct cache_arg
   char *ua;    // user agent
   int is_remote;
   int msec;
+
+  uint32_t id; // file id
+  const char *header_format;
 
   const char *path;  // artwork path
   char *pathcopy;  // copy of artwork path (for async operations)
@@ -68,6 +71,13 @@ struct cache_arg
   struct evbuffer *evbuf;
 };
 
+struct cachelist
+{
+  uint32_t id;
+  uint32_t ts;
+};
+
+
 /* --- Globals --- */
 // cache thread
 static pthread_t tid_cache;
@@ -76,6 +86,7 @@ static pthread_t tid_cache;
 struct event_base *evbase_cache;
 static struct commands_base *cmdbase;
 static struct event *cache_daap_updateev;
+static struct event *cache_xcode_updateev;
 
 static int g_initialized;
 
@@ -97,6 +108,96 @@ static int g_suspended;
 // The user may configure a threshold (in msec), and queries slower than
 // that will have their reply cached
 static int g_cfg_threshold;
+
+struct cache_db_def
+{
+  const char *name;
+  const char *create_query;
+  const char *drop_query;
+};
+
+struct cache_db_def cache_db_def[] = {
+  {
+    "xcode_files",
+    "CREATE TABLE IF NOT EXISTS xcode_files ("
+    "   id                 INTEGER PRIMARY KEY NOT NULL,"
+    "   time_modified      INTEGER DEFAULT 0,"
+    "   filepath           VARCHAR(4096) NOT NULL"
+    ");",
+    "DROP TABLE IF EXISTS xcode_files;",
+  },
+  {
+    "xcode_data",
+    "CREATE TABLE IF NOT EXISTS xcode_data ("
+    "   id                 INTEGER PRIMARY KEY NOT NULL,"
+    "   timestamp          INTEGER DEFAULT 0,"
+    "   file_id            INTEGER DEFAULT 0,"
+    "   format             VARCHAR(255) NOT NULL,"
+    "   header             BLOB"
+    ");",
+    "DROP TABLE IF EXISTS xcode_data;",
+  },
+  {
+    "replies",
+    "CREATE TABLE IF NOT EXISTS replies ("
+    "   id                 INTEGER PRIMARY KEY NOT NULL,"
+    "   query              VARCHAR(4096) NOT NULL,"
+    "   reply              BLOB"
+    ");",
+    "DROP TABLE IF EXISTS replies;",
+  },
+  {
+    "queries",
+    "CREATE TABLE IF NOT EXISTS queries ("
+    "   id                 INTEGER PRIMARY KEY NOT NULL,"
+    "   query              VARCHAR(4096) UNIQUE NOT NULL,"
+    "   user_agent         VARCHAR(1024),"
+    "   is_remote          INTEGER DEFAULT 0,"
+    "   msec               INTEGER DEFAULT 0,"
+    "   timestamp          INTEGER DEFAULT 0"
+    ");",
+    "DROP TABLE IF EXISTS queries;",
+  },
+  {
+    "idx_query",
+    "CREATE INDEX IF NOT EXISTS idx_query ON replies (query);",
+    "DROP INDEX IF EXISTS idx_query;",
+  },
+  {
+    "artwork",
+    "CREATE TABLE IF NOT EXISTS artwork ("
+    "   id                  INTEGER PRIMARY KEY NOT NULL,"
+    "   type                INTEGER NOT NULL DEFAULT 0,"
+    "   persistentid        INTEGER NOT NULL,"
+    "   max_w               INTEGER NOT NULL,"
+    "   max_h               INTEGER NOT NULL,"
+    "   format              INTEGER NOT NULL,"
+    "   filepath            VARCHAR(4096) NOT NULL,"
+    "   db_timestamp        INTEGER DEFAULT 0,"
+    "   data                BLOB"
+    ");",
+    "DROP TABLE IF EXISTS artwork;",
+  },
+  {
+    "idx_persistentidwh",
+    "CREATE INDEX IF NOT EXISTS idx_persistentidwh ON artwork(type, persistentid, max_w, max_h);",
+    "DROP INDEX IF EXISTS idx_persistentidwh;",
+  },
+  {
+    "idx_pathtime",
+    "CREATE INDEX IF NOT EXISTS idx_pathtime ON artwork(filepath, db_timestamp);",
+    "DROP INDEX IF EXISTS idx_pathtime;",
+  },
+  {
+    "admin_cache",
+    "CREATE TABLE IF NOT EXISTS admin_cache("
+    " key VARCHAR(32) PRIMARY KEY NOT NULL,"
+    " value VARCHAR(32) NOT NULL"
+    ");",
+    "DROP TABLE IF EXISTS admin_cache;",
+  },
+};
+
 
 /* --------------------------------- HELPERS ------------------------------- */
 
@@ -124,128 +225,27 @@ remove_tag(char *in, const char *tag)
 /* --------------------------------- MAIN --------------------------------- */
 /*                              Thread: cache                              */
 
+
 static int
 cache_create_tables(void)
 {
-#define T_REPLIES						\
-  "CREATE TABLE IF NOT EXISTS replies ("			\
-  "   id                 INTEGER PRIMARY KEY NOT NULL,"		\
-  "   query              VARCHAR(4096) NOT NULL,"		\
-  "   reply              BLOB"					\
-  ");"
-#define T_QUERIES						\
-  "CREATE TABLE IF NOT EXISTS queries ("			\
-  "   id                 INTEGER PRIMARY KEY NOT NULL,"		\
-  "   query              VARCHAR(4096) UNIQUE NOT NULL,"	\
-  "   user_agent         VARCHAR(1024),"			\
-  "   is_remote          INTEGER DEFAULT 0,"			\
-  "   msec               INTEGER DEFAULT 0,"			\
-  "   timestamp          INTEGER DEFAULT 0"			\
-  ");"
-#define I_QUERY							\
-  "CREATE INDEX IF NOT EXISTS idx_query ON replies (query);"
-#define T_ARTWORK					\
-  "CREATE TABLE IF NOT EXISTS artwork ("		\
-  "   id                  INTEGER PRIMARY KEY NOT NULL,"\
-  "   type                INTEGER NOT NULL DEFAULT 0,"  \
-  "   persistentid        INTEGER NOT NULL,"		\
-  "   max_w               INTEGER NOT NULL,"		\
-  "   max_h               INTEGER NOT NULL,"		\
-  "   format              INTEGER NOT NULL,"		\
-  "   filepath            VARCHAR(4096) NOT NULL,"	\
-  "   db_timestamp        INTEGER DEFAULT 0,"		\
-  "   data                BLOB"				\
-  ");"
-#define I_ARTWORK_ID				\
-  "CREATE INDEX IF NOT EXISTS idx_persistentidwh ON artwork(type, persistentid, max_w, max_h);"
-#define I_ARTWORK_PATH				\
-  "CREATE INDEX IF NOT EXISTS idx_pathtime ON artwork(filepath, db_timestamp);"
-#define T_ADMIN_CACHE	\
-  "CREATE TABLE IF NOT EXISTS admin_cache("	\
-  " key VARCHAR(32) PRIMARY KEY NOT NULL,"	\
-  " value VARCHAR(32) NOT NULL"	\
-  ");"
-#define Q_CACHE_VERSION	\
-  "INSERT INTO admin_cache (key, value) VALUES ('cache_version', '%d');"
-
+#define Q_CACHE_VERSION "INSERT INTO admin_cache (key, value) VALUES ('cache_version', '%d');"
   char *query;
   char *errmsg;
   int ret;
+  int i;
 
-
-  // Create reply cache table
-  ret = sqlite3_exec(g_db_hdl, T_REPLIES, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
+  for (i = 0; i < ARRAY_SIZE(cache_db_def); i++)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating cache table 'replies': %s\n", errmsg);
+      ret = sqlite3_exec(g_db_hdl, cache_db_def[i].create_query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_CACHE, "Error creating cache db entity '%s': %s\n", cache_db_def[i].name, errmsg);
 
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Create query table (the queries for which we will generate and cache replies)
-  ret = sqlite3_exec(g_db_hdl, T_QUERIES, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating cache table 'queries': %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Create index
-  ret = sqlite3_exec(g_db_hdl, I_QUERY, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating index on replies(query): %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Create artwork table
-  ret = sqlite3_exec(g_db_hdl, T_ARTWORK, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating cache table 'artwork': %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Create index
-  ret = sqlite3_exec(g_db_hdl, I_ARTWORK_ID, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating index on artwork(type, persistentid, max_w, max_h): %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-  ret = sqlite3_exec(g_db_hdl, I_ARTWORK_PATH, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating index on artwork(filepath, db_timestamp): %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Create admin cache table
-  ret = sqlite3_exec(g_db_hdl, T_ADMIN_CACHE, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating cache table 'admin_cache': %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
+	  sqlite3_free(errmsg);
+	  sqlite3_close(g_db_hdl);
+	  return -1;
+	}
     }
 
   query = sqlite3_mprintf(Q_CACHE_VERSION, CACHE_VERSION);
@@ -263,108 +263,30 @@ cache_create_tables(void)
   DPRINTF(E_DBG, L_CACHE, "Cache tables created\n");
 
   return 0;
-#undef T_REPLIES
-#undef T_QUERIES
-#undef I_QUERY
-#undef T_ARTWORK
-#undef I_ARTWORK_ID
-#undef I_ARTWORK_PATH
-#undef T_ADMIN_CACHE
 #undef Q_CACHE_VERSION
 }
 
 static int
 cache_drop_tables(void)
 {
-#define D_REPLIES	"DROP TABLE IF EXISTS replies;"
-#define D_QUERIES	"DROP TABLE IF EXISTS queries;"
-#define D_QUERY		"DROP INDEX IF EXISTS idx_query;"
-#define D_ARTWORK	"DROP TABLE IF EXISTS artwork;"
-#define D_ARTWORK_ID	"DROP INDEX IF EXISTS idx_persistentidwh;"
-#define D_ARTWORK_PATH	"DROP INDEX IF EXISTS idx_pathtime;"
-#define D_ADMIN_CACHE	"DROP TABLE IF EXISTS admin_cache;"
 #define Q_VACUUM	"VACUUM;"
-
   char *errmsg;
   int ret;
+  int i;
 
-
-  // Drop reply cache table
-  ret = sqlite3_exec(g_db_hdl, D_REPLIES, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
+  for (i = 0; i < ARRAY_SIZE(cache_db_def); i++)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping reply cache table: %s\n", errmsg);
+      ret = sqlite3_exec(g_db_hdl, cache_db_def[i].drop_query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_CACHE, "Error dropping cache db entity '%s': %s\n", cache_db_def[i].name, errmsg);
 
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
+	  sqlite3_free(errmsg);
+	  sqlite3_close(g_db_hdl);
+	  return -1;
+	}
     }
 
-  // Drop query table
-  ret = sqlite3_exec(g_db_hdl, D_QUERIES, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping query table: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Drop index
-  ret = sqlite3_exec(g_db_hdl, D_QUERY, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping query index: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Drop artwork table
-  ret = sqlite3_exec(g_db_hdl, D_ARTWORK, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork table: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Drop index
-  ret = sqlite3_exec(g_db_hdl, D_ARTWORK_ID, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork id index: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-  ret = sqlite3_exec(g_db_hdl, D_ARTWORK_PATH, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork path index: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Drop admin cache table
-  ret = sqlite3_exec(g_db_hdl, D_ADMIN_CACHE, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping admin cache table: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
-
-  // Vacuum
   ret = sqlite3_exec(g_db_hdl, Q_VACUUM, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
@@ -378,13 +300,6 @@ cache_drop_tables(void)
   DPRINTF(E_DBG, L_CACHE, "Cache tables dropped\n");
 
   return 0;
-#undef D_REPLIES
-#undef D_QUERIES
-#undef D_QUERY
-#undef D_ARTWORK
-#undef D_ARTWORK_ID
-#undef D_ARTWORK_PATH
-#undef D_ADMIN_CACHE
 #undef Q_VACUUM
 }
 
@@ -876,15 +791,329 @@ cache_daap_update_cb(int fd, short what, void *arg)
   DPRINTF(E_LOG, L_CACHE, "DAAP cache updated\n");
 }
 
+static enum command_state
+xcode_header_get(void *arg, int *retval)
+{
+#define Q_TMPL "SELECT header FROM xcode_data WHERE length(header) > 0 AND id = ? AND format = ?;"
+  struct cache_arg *cmdarg = arg;
+  sqlite3_stmt *stmt = NULL;
+  int ret;
+
+  cmdarg->cached = 0;
+
+  ret = sqlite3_prepare_v2(g_db_hdl, Q_TMPL, -1, &stmt, 0);
+  if (ret != SQLITE_OK)
+    goto error;
+
+  sqlite3_bind_int(stmt, 1, cmdarg->id);
+  sqlite3_bind_text(stmt, 2, cmdarg->header_format, -1, SQLITE_STATIC);
+
+  ret = sqlite3_step(stmt);
+  if (ret == SQLITE_DONE)
+    goto end;
+  else if (ret != SQLITE_ROW)
+    goto error;
+
+  ret = evbuffer_add(cmdarg->evbuf, sqlite3_column_blob(stmt, 0), sqlite3_column_bytes(stmt, 0));
+  if (ret < 0)
+    goto error;
+
+  cmdarg->cached = 1;
+
+  DPRINTF(E_DBG, L_CACHE, "Cache header hit (%zu bytes)\n", evbuffer_get_length(cmdarg->evbuf));
+
+ end:
+  sqlite3_finalize(stmt);
+  *retval = 0;
+  return COMMAND_END;
+
+ error:
+  DPRINTF(E_LOG, L_CACHE, "Database error getting prepared header from cache: %s\n", sqlite3_errmsg(g_db_hdl));
+  if (stmt)
+    sqlite3_finalize(stmt);
+  *retval = -1;
+  return COMMAND_END;
+#undef Q_TMPL
+}
+
+static int
+xcode_add_entry(uint32_t id, uint32_t ts, const char *path)
+{
+#define Q_TMPL "INSERT OR REPLACE INTO xcode_files (id, time_modified, filepath) VALUES (%d, %d, '%q');"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_LOG, L_CACHE, "Adding xcode file id %d, path '%s'\n", id, path);
+
+  query = sqlite3_mprintf(Q_TMPL, id, ts, path);
+
+  ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Error adding row to cache: %s\n", errmsg);
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  return 0;
+#undef Q_TMPL
+}
+
+static int
+xcode_del_entry(uint32_t id)
+{
+#define Q_TMPL_FILES "DELETE FROM xcode_files WHERE id = %d;"
+#define Q_TMPL_DATA "DELETE FROM xcode_data WHERE file_id = %d;"
+  char query[256];
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_LOG, L_CACHE, "Deleting xcode file id %d\n", id);
+
+  sqlite3_snprintf(sizeof(query), query, Q_TMPL_FILES, (int)id);
+  ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Error deleting row from xcode_files: %s\n", errmsg);
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  sqlite3_snprintf(sizeof(query), query, Q_TMPL_DATA, (int)id);
+  ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Error deleting rows from xcode_data: %s\n", errmsg);
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  return 0;
+#undef Q_TMPL_DATA
+#undef Q_TMPL_FILES
+}
+
+/* In the xcode table we keep a prepared header for files that could be subject
+ * to transcoding. Whenever the library changes, this callback runs, and the
+ * list of files in the xcode table is synced with the main files table.
+ *
+ * In practice we compare two tables, both sorted by id:
+ *
+ * From files:                         From the cache
+ *  | id      |  time_modified  |       | id       | time_modified | data    |
+ *
+ * We do it one item at the time from files, and then going through cache table
+ * rows until: table end OR id is larger OR id is equal and time equal or newer
+ */
+static int
+xcode_sync_with_files(void)
+{
+  sqlite3_stmt *stmt;
+  struct cachelist *cachelist = NULL;
+  size_t cachelist_size = 0;
+  size_t cachelist_len = 0;
+  struct query_params qp = { .type = Q_ITEMS, .filter = "f.data_kind = 0", .order = "f.id" };
+  struct db_media_file_info dbmfi;
+  uint32_t id;
+  uint32_t ts;
+  int i;
+  int ret;
+
+  DPRINTF(E_LOG, L_CACHE, "SYNC START\n");
+
+  // Both lists must be sorted by id, otherwise the compare below won't work
+  ret = sqlite3_prepare_v2(g_db_hdl, "SELECT id, time_modified FROM xcode_files ORDER BY id;", -1, &stmt, 0);
+  if (ret != SQLITE_OK)
+    goto error;
+
+  while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+      if (cachelist_len + 1 > cachelist_size)
+	{
+	  cachelist_size += 1024;
+	  CHECK_NULL(L_CACHE, cachelist = realloc(cachelist, cachelist_size * sizeof(struct cachelist)));
+	}
+      cachelist[cachelist_len].id = sqlite3_column_int(stmt, 0);
+      cachelist[cachelist_len].ts = sqlite3_column_int(stmt, 1);
+      cachelist_len++;
+    }
+  sqlite3_finalize(stmt);
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    goto error;
+
+  // Loop while either list has remaining items
+  i = 0;
+  while (1)
+    {
+      ret = db_query_fetch_file(&dbmfi, &qp);
+      if (ret != 0) // At end of files table (or error occured)
+	{
+	  for (; i < cachelist_len; i++)
+	    xcode_del_entry(cachelist[i].id);
+
+	  break;
+	}
+
+      safe_atou32(dbmfi.id, &id);
+      safe_atou32(dbmfi.time_modified, &ts);
+
+      if (i == cachelist_len || cachelist[i].id > id) // At end of cache table or new file
+	{
+	  xcode_add_entry(id, ts, dbmfi.path);
+	}
+      else if (cachelist[i].id < id) // Removed file
+	{
+	  xcode_del_entry(cachelist[i].id);
+	  i++;
+	}
+      else if (cachelist[i].id == id && cachelist[i].ts < ts) // Modified file
+	{
+	  xcode_del_entry(cachelist[i].id);
+	  xcode_add_entry(id, ts, dbmfi.path);
+	  i++;
+	}
+      else // Found in both tables and timestamp in cache table is adequate
+	{
+	  i++;
+	}
+    }
+  db_query_end(&qp);
+
+  free(cachelist);
+  return 0;
+
+ error:
+  DPRINTF(E_LOG, L_CACHE, "Database error while processing xcode_files table\n");
+  free(cachelist);
+  return -1;
+}
+
+static int
+xcode_prepare_header(const char *format, int id, const char *path)
+{
+#define Q_TMPL "INSERT INTO xcode_data (timestamp, file_id, format, header) VALUES (?, ?, ?, ?);"
+  struct evbuffer *header = NULL;
+  sqlite3_stmt *stmt = NULL;
+  unsigned char *data = NULL;
+  size_t datalen = 0;
+  int ret;
+
+  DPRINTF(E_DBG, L_CACHE, "Preparing %s header for '%s' (file id %d)\n", format, path, id);
+
+#if 1
+  ret = httpd_prepare_header(&header, format, path); // Proceed even if error, we also cache that
+  if (ret == 0)
+    {
+      datalen = evbuffer_get_length(header);
+      data = evbuffer_pullup(header, -1);
+    }
+#elif
+  data = (unsigned char*)"dummy";
+  datalen = 6;
+#endif
+
+  ret = sqlite3_prepare_v2(g_db_hdl, Q_TMPL, -1, &stmt, 0);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Error preparing xcode_data for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      goto error;
+    }
+
+  sqlite3_bind_int(stmt, 1, (uint64_t)time(NULL));
+  sqlite3_bind_int(stmt, 2, id);
+  sqlite3_bind_text(stmt, 3, format, -1, SQLITE_STATIC);
+  sqlite3_bind_blob(stmt, 4, data, datalen, SQLITE_STATIC);
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_DONE)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Error stepping xcode_data for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      goto error;
+    }
+
+  sqlite3_finalize(stmt);
+  if (header)
+    evbuffer_free(header);
+  return 0;
+
+ error:
+  if (stmt)
+    sqlite3_finalize(stmt);
+  if (header)
+    evbuffer_free(header);
+  return -1;
+#undef Q_TMPL
+}
+
+static int
+xcode_prepare_headers(const char *format)
+{
+#define Q_TMPL "SELECT xf.id, xf.filepath, xd.id FROM xcode_files xf LEFT JOIN xcode_data xd ON xf.id = xd.file_id AND xd.format = '%q';"
+  sqlite3_stmt *stmt;
+  char *query;
+  const char *file_path;
+  int file_id;
+  int data_id;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, format);
+
+  ret = sqlite3_prepare_v2(g_db_hdl, query, -1, &stmt, 0);
+  if (ret != SQLITE_OK)
+    goto error;
+
+  while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+      data_id = sqlite3_column_int(stmt, 2);
+      if (data_id > 0)
+	continue; // Already have a prepared header
+
+      file_id = sqlite3_column_int(stmt, 0);
+      file_path = (const char *)sqlite3_column_text(stmt, 1);
+
+      xcode_prepare_header(format, file_id, file_path);
+
+    }
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+  return 0;
+
+ error:
+  DPRINTF(E_LOG, L_CACHE, "Error occured while preparing headers\n");
+  sqlite3_free(query);
+  return -1;
+#undef Q_TMPL
+}
+
+static void
+cache_xcode_update_cb(int fd, short what, void *arg)
+{
+  if (xcode_sync_with_files() < 0)
+    return;
+
+  xcode_prepare_headers("mp4");
+}
+
 /* Sets off an update by activating the event. The delay is because we are low
  * priority compared to other listeners of database updates.
  */
 static enum command_state
-cache_daap_update(void *arg, int *retval)
+cache_database_update(void *arg, int *retval)
 {
-  struct timeval delay = { 10, 0 };
+  struct timeval delay_daap = { 10, 0 };
+  struct timeval delay_xcode = { 5, 0 };
+//  const char *prefer_format = cfg_getstr(cfg_getsec(cfg, "library"), "prefer_format");
 
-  *retval = event_add(cache_daap_updateev, &delay);
+  event_add(cache_daap_updateev, &delay_daap);
+
+//  if (prefer_format && strcmp(prefer_format, "alac")) // TODO Ugly
+    event_add(cache_xcode_updateev, &delay_xcode);
+
+  *retval = 0;
   return COMMAND_END;
 }
 
@@ -892,7 +1121,7 @@ cache_daap_update(void *arg, int *retval)
 static void
 cache_daap_listener_cb(short event_mask)
 {
-  commands_exec_async(cmdbase, cache_daap_update, NULL);
+  commands_exec_async(cmdbase, cache_database_update, NULL);
 }
 
 
@@ -1290,7 +1519,7 @@ cache(void *arg)
     }
 
   /* The thread needs a connection with the main db, so it can generate DAAP
-   * replies through httpd_daap.c
+   * replies through httpd_daap.c and read changes from the files table
    */
   ret = db_perthread_init();
   if (ret < 0)
@@ -1319,7 +1548,7 @@ cache(void *arg)
 }
 
 
-/* ---------------------------- DAAP cache API  --------------------------- */
+/* ----------------------------- DAAP cache API  ---------------------------- */
 
 /* The DAAP cache will cache raw daap replies for queries added with
  * cache_daap_add(). Only some query types are supported.
@@ -1384,7 +1613,30 @@ cache_daap_threshold(void)
 }
 
 
-/* --------------------------- Artwork cache API -------------------------- */
+/* --------------------------- Transcode cache API  ------------------------- */
+
+int
+cache_xcode_header_get(struct evbuffer *evbuf, int *cached, uint32_t id, const char *format)
+{
+  struct cache_arg cmdarg;
+  int ret;
+
+  if (!g_initialized)
+    return -1;
+
+  cmdarg.evbuf = evbuf;
+  cmdarg.id = id;
+  cmdarg.header_format = format;
+
+  ret = commands_exec_sync(cmdbase, xcode_header_get, NULL, &cmdarg);
+
+  *cached = cmdarg.cached;
+
+  return ret;
+}
+
+
+/* ---------------------------- Artwork cache API  -------------------------- */
 
 /*
  * Updates cached timestamps to current time for all cache entries for the given path, if the file was not modfied
@@ -1581,15 +1833,11 @@ cache_artwork_read(struct evbuffer *evbuf, const char *path, int *format)
 }
 
 
-/* -------------------------- Cache general API --------------------------- */
+/* --------------------------- Cache general API ---------------------------- */
 
 int
 cache_init(void)
 {
-  int ret;
-
-  g_initialized = 0;
-
   g_db_path = cfg_getstr(cfg_getsec(cfg, "general"), "cache_path");
   if (!g_db_path || (strlen(g_db_path) == 0))
     {
@@ -1604,53 +1852,17 @@ cache_init(void)
       return 0;
     }
 
-  evbase_cache = event_base_new();
-  if (!evbase_cache)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not create an event base\n");
-      goto evbase_fail;
-    }
-
-  cache_daap_updateev = evtimer_new(evbase_cache, cache_daap_update_cb, NULL);
-  if (!cache_daap_updateev)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not create cache event\n");
-      goto evnew_fail;
-    }
-
-  cmdbase = commands_base_new(evbase_cache, NULL);
-
-  ret = listener_add(cache_daap_listener_cb, LISTENER_DATABASE);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not create listener event\n");
-      goto listener_fail;
-    }
+  CHECK_NULL(L_CACHE, evbase_cache = event_base_new());
+  CHECK_NULL(L_CACHE, cache_daap_updateev = evtimer_new(evbase_cache, cache_daap_update_cb, NULL));
+  CHECK_NULL(L_CACHE, cache_xcode_updateev = evtimer_new(evbase_cache, cache_xcode_update_cb, NULL));
+  CHECK_NULL(L_CACHE, cmdbase = commands_base_new(evbase_cache, NULL));
+  CHECK_ERR(L_CACHE, listener_add(cache_daap_listener_cb, LISTENER_DATABASE));
+  CHECK_ERR(L_CACHE, pthread_create(&tid_cache, NULL, cache, NULL));
+  thread_setname(tid_cache, "cache");
 
   DPRINTF(E_INFO, L_CACHE, "cache thread init\n");
 
-  ret = pthread_create(&tid_cache, NULL, cache, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not spawn cache thread: %s\n", strerror(errno));
-
-      goto thread_fail;
-    }
-
-  thread_setname(tid_cache, "cache");
-
   return 0;
-  
- thread_fail:
-  listener_remove(cache_daap_listener_cb);
- listener_fail:
-  commands_base_free(cmdbase);
- evnew_fail:
-  event_base_free(evbase_cache);
-  evbase_cache = NULL;
-
- evbase_fail:
-  return -1;
 }
 
 void
