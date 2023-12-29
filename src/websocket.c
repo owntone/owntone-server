@@ -429,6 +429,8 @@ websocket(void *arg)
 #endif
   }
 
+  listener_remove(listener_cb);
+
   pthread_exit(NULL);
 }
 
