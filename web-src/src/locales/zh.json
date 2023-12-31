@@ -202,7 +202,7 @@
     },
     "spotify": {
       "not-playable-track": "曲目无法播放",
-      "restriction-reason": ", 被限制原因: {reason}"
+      "restriction-reason": "，被限制原因：{reason}"
     }
   },
   "media": {
@@ -238,8 +238,8 @@
     "about": {
       "albums": "专辑",
       "artists": "艺人",
-      "built-with": "界面贡献者包括 {bulma}, {mdi}, {vuejs}, {axios} 和 {others}.",
-      "compiled-with": "编译支持来自于 {options}.",
+      "built-with": "界面贡献者包括 {bulma}，{mdi}，{vuejs}，{axios} 和 {others}",
+      "compiled-with": "编译支持来自于 {options}",
       "library": "资料库",
       "more": "更多",
       "total-playtime": "总播放时长",
@@ -499,7 +499,7 @@
           "no-support": "OwnTone的构建没有来自 Spotify 官方的支持，也未安装 libspotify",
           "logged-as": "登录为 ",
           "requirements": "您必须拥有 Spotify付费帐户",
-          "scopes": "访问 Spotify Web API 可以扫描您的 Spotify库。 所需范围是： ",
+          "scopes": "访问 Spotify Web API 可以扫描您的 Spotify库。所需范围是：",
           "user": "授予访问权限",
           "authorize": "授权 Web API 访问",
           "grant-access": "授予对 Spotify Web API 的访问权限",
@@ -584,7 +584,7 @@
   "server": {
     "connection-failed": "无法连接到 OwnTone 服务器",
     "missing-port": "缺少 websocket 端口",
-    "request-failed": "请求失败 (状态: {status} {cause} {url})",
+    "request-failed": "请求失败 (状态：{status} {cause} {url})",
     "queue-saved": "清单以添加到播放列表 {name}",
     "appended-tracks": "已附加到队列的 {count} 只曲目|已附加到队列的 {count} 只曲目",
     "empty-queue": "清单是空的"
