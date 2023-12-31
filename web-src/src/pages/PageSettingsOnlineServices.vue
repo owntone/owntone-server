@@ -78,9 +78,9 @@
           />
           <div v-if="lastfm.scrobbling_enabled">
             <a
-              class="button"
+              class="button is-danger"
               @click="logoutLastfm"
-              v-text="$t('page.settings.services.lastfm.stop-scrobbling')"
+              v-text="$t('page.settings.services.logout')"
             />
           </div>
           <div v-if="!lastfm.scrobbling_enabled">

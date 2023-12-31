@@ -493,8 +493,7 @@
           "grant-access": "Connectez-vous avec votre nom d’utilisateur et votre mot de passe Last.fm pour activer le scrobbling.",
           "info": "Le nom d’utilisateur et le mot de passe Last.fm ne sont pas enregistrés, uniquement la clé de session. La clé de session n’expire pas.",
           "title": "Last.fm",
-          "no-support": "L’option Last.fm n’est pas présente.",
-          "stop-scrobbling": "Arrêter le scrobbling"
+          "no-support": "L’option Last.fm n’est pas présente."
         },
         "spotify": {
           "no-support": "L’option Spotify n’est pas présente.",

@@ -493,8 +493,7 @@
           "grant-access": "使用您的 Last.fm 用户名和密码登录以启用记录功能",
           "info": "OwnTone不会存储您的 Last.fm 用户名/密码，仅存储会话密钥。会话密钥不会过期",
           "title": "Last.fm",
-          "no-support": "OwnTone的构建没有来自Last.fm的官方支持",
-          "stop-scrobbling": "停止记录"
+          "no-support": "OwnTone的构建没有来自Last.fm的官方支持"
         },
         "spotify": {
           "no-support": "OwnTone的构建没有来自 Spotify 官方的支持，也未安装 libspotify",

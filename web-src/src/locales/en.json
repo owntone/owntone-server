@@ -493,8 +493,7 @@
           "grant-access": "Login with your Last.fm username and password to enable scrobbling",
           "info": "OwnTone will not store your Last.fm username/password, only the session key. The session key does not expire.",
           "title": "Last.fm",
-          "no-support": "OwnTone was built without support for Last.fm.",
-          "stop-scrobbling": "Stop scrobbling"
+          "no-support": "OwnTone was built without support for Last.fm."
         },
         "spotify": {
           "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",

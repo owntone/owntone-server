@@ -493,8 +493,7 @@
           "grant-access": "Melde Dich mit Deinem Last.fm-Benutzernamen und Passwort an, um Scrobbeln zu aktivieren",
           "info": "OwnTone wird den Benutzernamen und das Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
           "title": "Last.fm",
-          "no-support": "OwnTone wurde ohne Unterstützung für Last.fm erstellt.",
-          "stop-scrobbling": "Stop Scrobbling"
+          "no-support": "OwnTone wurde ohne Unterstützung für Last.fm erstellt."
         },
         "spotify": {
           "no-support": "OwnTone wurde entweder ohne Unterstützung für Spotify erstellt oder libspotify ist nicht installiert.",
