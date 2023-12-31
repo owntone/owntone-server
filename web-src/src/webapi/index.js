@@ -447,10 +447,6 @@ export default {
     return axios.get('./api/spotify')
   },
 
-  spotify_login(credentials) {
-    return axios.post('./api/spotify-login', credentials)
-  },
-
   spotify_logout() {
     return axios.get('./api/spotify-logout')
   }
