@@ -503,10 +503,7 @@
           "scopes": "L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
           "user": "Accès autorisé pour ",
           "authorize": "Autoriser l’accès à l’API",
-          "credentials": " - Connectez-vous avec votre nom d’utilisateur et mot de passe Spotify",
           "grant-access": "Accordez l’accès à l’API de Spotify",
-          "help-1": "La bibliothèque libspotify permet de lire les pistes de Spotify.",
-          "help-2": "Votre nom d’utilisateur et votre mot de passe Spotify ne sont pas enregistrés, uniquement le jeton de connexion.",
           "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants :",
           "title": "Spotify"
         },

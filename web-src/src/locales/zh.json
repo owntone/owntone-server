@@ -503,10 +503,7 @@
           "scopes": "访问 Spotify Web API 可以扫描您的 Spotify库。 所需范围是： ",
           "user": "授予访问权限",
           "authorize": "授权 Web API 访问",
-          "credentials": " - 使用您的 Spotify 用户名和密码登录",
           "grant-access": "授予对 Spotify Web API 的访问权限",
-          "help-1": "libspotify 使 OwnTone 能够播放 Spotify 曲目",
-          "help-2": "OwnTone 不会存储您的密码，但之后仍然能够自动登录，因为 libspotify 会保存登录令牌",
           "reauthorize": "请重新授权 Web API 访问权限，以授予 OwnTone 以下附加访问权限：",
           "title": "Spotify"
         },

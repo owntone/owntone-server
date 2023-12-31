@@ -503,10 +503,7 @@
           "scopes": "Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
           "user": "Access granted for ",
           "authorize": "Authorize Web API access",
-          "credentials": " - Login with your Spotify username and password",
           "grant-access": "Grant access to the Spotify Web API",
-          "help-1": "libspotify enables OwnTone to play Spotify tracks.",
-          "help-2": "OwnTone will not store your password, but will still be able to log you in automatically afterwards, because libspotify saves a login token.",
           "reauthorize": "Please reauthorize Web API access to grant OwnTone the following additional access rights: ",
           "title": "Spotify"
         },
