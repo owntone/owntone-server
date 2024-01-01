@@ -213,8 +213,7 @@ credentials_clear(struct spotify_credentials *credentials)
   free(credentials->user_country);
   free(credentials->user);
 
-  credentials->token_expires_in = 0;
-  credentials->token_time_requested = 0;
+  memset(credentials, 0, sizeof(struct spotify_credentials));
 }
 
 static void
