@@ -72,17 +72,6 @@ spotify_deinit(void)
 }
 
 int
-spotify_login(const char *username, const char *password, const char **errmsg)
-{
-  struct spotify_backend *backend = backend_set();
-
-  if (!backend || !backend->login)
-    return -1;
-
-  return backend->login(username, password, errmsg);
-}
-
-int
 spotify_login_token(const char *username, const char *token, const char **errmsg)
 {
   struct spotify_backend *backend = backend_set();

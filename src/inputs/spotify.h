@@ -31,9 +31,6 @@ void
 spotify_deinit(void);
 
 int
-spotify_login(const char *username, const char *password, const char **errmsg);
-
-int
 spotify_login_token(const char *username, const char *token, const char **errmsg);
 
 void

@@ -54,15 +54,16 @@ timespec_to_ntp(struct timespec *ts, struct ntp_timestamp *ns)
   ns->frac = (uint32_t)((double)ts->tv_nsec * 1e-9 * FRAC);
 }
 
+/*
 static inline void
 ntp_to_timespec(struct ntp_timestamp *ns, struct timespec *ts)
 {
-  /* Seconds since Unix Epoch (1970-01-01) */
+  // Seconds since Unix Epoch (1970-01-01)
   ts->tv_sec = ns->sec - NTP_EPOCH_DELTA;
 
   ts->tv_nsec = (long)((double)ns->frac / (1e-9 * FRAC));
 }
-
+*/
 struct rtp_session *
 rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples)
 {
