@@ -120,7 +120,6 @@ struct spotify_playlist
 // Credentials for the web api
 struct spotify_credentials
 {
-  pthread_mutex_t lock;
   char *access_token;
   char *refresh_token;
   char *granted_scope;
@@ -138,8 +137,9 @@ struct spotify_http_session
 };
 
 static struct spotify_http_session spotify_http_session = { .lock = PTHREAD_MUTEX_INITIALIZER };
-static struct spotify_credentials spotify_credentials = { .lock = PTHREAD_MUTEX_INITIALIZER };
 
+static struct spotify_credentials spotify_credentials;
+static pthread_mutex_t spotify_credentials_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // The base playlist id for all Spotify playlists in the db
 static int spotify_base_plid;
@@ -1849,7 +1849,7 @@ spotifywebapi_library_queue_item_add(const char *uri, int position, char reshuff
 {
   enum spotify_item_type type;
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
 
   type = parse_type_from_uri(uri);
   if (type == SPOTIFY_ITEM_TYPE_TRACK)
@@ -1873,11 +1873,11 @@ spotifywebapi_library_queue_item_add(const char *uri, int position, char reshuff
       goto out;
     }
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   return LIBRARY_PATH_INVALID;
 
  out:
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   return LIBRARY_OK;
 }
 
@@ -1887,9 +1887,9 @@ spotifywebapi_library_initscan(void)
   int ret;
 
   /* Refresh access token for the spotify webapi */
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
   ret = token_refresh(&spotify_credentials);
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   if (ret < 0)
     {
       // User not logged in or error refreshing token
@@ -1914,27 +1914,27 @@ spotifywebapi_library_initscan(void)
   /*
    * Scan saved tracks from the web api
    */
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
   scan(SPOTIFY_REQUEST_TYPE_RESCAN, &spotify_credentials);
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   return 0;
 }
 
 static int
 spotifywebapi_library_rescan(void)
 {
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
   scan(SPOTIFY_REQUEST_TYPE_RESCAN, &spotify_credentials);
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   return 0;
 }
 
 static int
 spotifywebapi_library_metarescan(void)
 {
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
   scan(SPOTIFY_REQUEST_TYPE_METARESCAN, &spotify_credentials);
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   return 0;
 }
 
@@ -1943,9 +1943,9 @@ spotifywebapi_library_fullrescan(void)
 {
   db_spotify_purge();
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
   scan(SPOTIFY_REQUEST_TYPE_RESCAN, &spotify_credentials);
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   return 0;
 }
 
@@ -1973,9 +1973,9 @@ spotifywebapi_library_deinit()
   http_client_session_deinit(&spotify_http_session.session);
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_http_session.lock));
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
   credentials_clear(&spotify_credentials);
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
 }
 
 struct library_source spotifyscanner =
@@ -2012,9 +2012,9 @@ webapi_rescan(void *arg, int *ret)
 static enum command_state
 webapi_purge(void *arg, int *ret)
 {
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
   credentials_clear(&spotify_credentials);
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
 
   db_spotify_purge();
   db_admin_delete(DB_ADMIN_SPOTIFY_REFRESH_TOKEN);
@@ -2082,7 +2082,7 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
 
   DPRINTF(E_DBG, L_SPOTIFY, "Received OAuth code: %s\n", code);
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
 
   ret = token_get(&spotify_credentials, code, redirect_uri, errmsg);
   if (ret < 0)
@@ -2092,7 +2092,7 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
   if (ret < 0)
     goto error;
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
 
   // Trigger scan after successful access to spotifywebapi
   spotifywebapi_fullrescan();
@@ -2102,7 +2102,7 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
   return 0;
 
  error:
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   return -1;
 }
 
@@ -2135,17 +2135,17 @@ spotifywebapi_artwork_url_get(const char *uri, int max_w, int max_h)
   type = parse_type_from_uri(uri);
   if (type == SPOTIFY_ITEM_TYPE_TRACK)
     {
-      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
       response = request_track(uri, &spotify_credentials);
-      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
       if (response)
 	parse_metadata_track(response, &track, max_w);
     }
   else if (type == SPOTIFY_ITEM_TYPE_EPISODE)
     {
-      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
       response = request_episode(uri, &spotify_credentials);
-      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+      CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
       if (response)
 	parse_metadata_episode(response, &track, max_w);
     }
@@ -2173,7 +2173,7 @@ spotifywebapi_status_info_get(struct spotifywebapi_status_info *info)
 {
   memset(info, 0, sizeof(struct spotifywebapi_status_info));
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
 
   info->token_valid = token_valid(&spotify_credentials);
   if (spotify_credentials.user)
@@ -2193,7 +2193,7 @@ spotifywebapi_status_info_get(struct spotifywebapi_status_info *info)
       strncpy(info->required_scope, spotify_scope, (sizeof(info->required_scope) - 1));
     }
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
 }
 
 void
@@ -2201,7 +2201,7 @@ spotifywebapi_access_token_get(struct spotifywebapi_access_token *info)
 {
   memset(info, 0, sizeof(struct spotifywebapi_access_token));
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
   token_refresh(&spotify_credentials);
 
   if (spotify_credentials.token_time_requested > 0)
@@ -2211,5 +2211,5 @@ spotifywebapi_access_token_get(struct spotifywebapi_access_token *info)
 
   info->token = safe_strdup(spotify_credentials.access_token);
 
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials.lock));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
 }
