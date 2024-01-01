@@ -1804,9 +1804,12 @@ transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality 
 enum transcode_profile
 transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype)
 {
-  char *codectype;
+  const char *codectype;
+  const char *prefer_format;
   cfg_t *lib;
   bool force_xcode;
+  bool supports_mpeg;
+  bool supports_wav;
   int count;
   int i;
 
@@ -1862,10 +1865,25 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
 
   if (!force_xcode && strstr(client_codecs, file_codectype))
     return XCODE_NONE;
-  else if (strstr(client_codecs, "mpeg"))
-    return XCODE_MP3;
-  else if (strstr(client_codecs, "wav"))
+
+  supports_mpeg = strstr(client_codecs, "mpeg") && avcodec_find_encoder(AV_CODEC_ID_MP3);
+  supports_wav = strstr(client_codecs, "wav");
+
+  prefer_format = cfg_getstr(lib, "prefer_format");
+  if (prefer_format)
+    {
+      if (strcmp(prefer_format, "wav") == 0 && supports_wav)
+	return XCODE_WAV;
+      else if (strcmp(prefer_format, "mpeg") == 0 && supports_mpeg)
+	return XCODE_MP3;
+    }
+
+  // This order determines the default if user didn't configure a preference.
+  // The lossless formats are given highest preference.
+  if (supports_wav)
     return XCODE_WAV;
+  else if (supports_mpeg)
+    return XCODE_MP3;
   else
     return XCODE_UNKNOWN;
 }
