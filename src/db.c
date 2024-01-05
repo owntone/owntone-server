@@ -6892,9 +6892,6 @@ db_open(void)
   int synchronous;
   int mmap_size;
 
-  if (!db_path)
-    return -1;
-
   ret = sqlite3_open(db_path, &hdl);
   if (ret != SQLITE_OK)
     {
@@ -7343,35 +7340,35 @@ db_init(void)
   db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
   db_rating_updates = cfg_getbool(cfg_getsec(cfg, "library"), "rating_updates");
 
-  DPRINTF(E_LOG, L_DB, "Configured to use database file '%s'\n", db_path);
+  DPRINTF(E_INFO, L_DB, "Configured to use database file '%s'\n", db_path);
 
   ret = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "Could not switch SQLite3 to multithread mode\n");
       DPRINTF(E_FATAL, L_DB, "Check that SQLite3 has been configured for thread-safe operations\n");
-      return -1;
+      goto error;
     }
 
   ret = sqlite3_enable_shared_cache(1);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "Could not enable SQLite3 shared-cache mode\n");
-      return -1;
+      goto error;
     }
 
   ret = sqlite3_initialize();
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "SQLite3 failed to initialize\n");
-      return -1;
+      goto error;
     }
 
   ret = db_open();
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_DB, "Could not open database\n");
-      return -1;
+      goto error;
     }
 
   ret = db_check_version();
@@ -7380,7 +7377,7 @@ db_init(void)
       DPRINTF(E_FATAL, L_DB, "Database version check errored out, incompatible database\n");
 
       db_perthread_deinit();
-      return -1;
+      goto error;
     }
   else if (ret > 0)
     {
@@ -7391,7 +7388,7 @@ db_init(void)
 	{
 	  DPRINTF(E_FATAL, L_DB, "Could not create tables\n");
 	  db_perthread_deinit();
-	  return -1;
+	  goto error;
 	}
     }
 
@@ -7409,6 +7406,9 @@ db_init(void)
   rng_init(&shuffle_rng);
 
   return 0;
+
+ error:
+  return -1;
 }
 
 void

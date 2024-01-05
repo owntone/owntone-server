@@ -52,8 +52,8 @@ general {
 	# IP addresses.
 #	bind_address = "::"
 
-	# Location of cache database
-#	cache_path = "@localstatedir@/cache/@PACKAGE@/cache.db"
+	# Directory where the server keeps cached data
+#	cache_dir = "@localstatedir@/cache/@PACKAGE@"
 
 	# DAAP requests that take longer than this threshold (in msec) get their
 	# replies cached for next time. Set to 0 to disable caching.
@@ -203,7 +203,8 @@ library {
 	# Formats that should always be transcoded
 #	force_decode = { "format", "format" }
 	# Prefer transcode to wav (default), alac or mpeg (mp3 with the bit rate
-	# configured below in the streaming section)
+	# configured below in the streaming section). Note that alac requires
+	# precomputing and caching mp4 headers, which takes both cpu and disk. 
 #	prefer_format = "format"
 
 	# Set ffmpeg filters (similar to 'ffmpeg -af xxx') that you want the

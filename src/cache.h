@@ -19,7 +19,7 @@ void
 cache_daap_add(const char *query, const char *ua, int is_remote, int msec);
 
 int
-cache_daap_threshold(void);
+cache_daap_threshold_get(void);
 
 
 /* --------------------------- Transcode cache API  ------------------------- */

@@ -2276,7 +2276,7 @@ daap_request(struct httpd_request *hreq)
 
   DPRINTF(E_DBG, L_DAAP, "DAAP request handled in %d milliseconds\n", msec);
 
-  if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold() && hreq->user_agent)
+  if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold_get() && hreq->user_agent)
     cache_daap_add(hreq->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
 
   daap_reply_send(hreq, ret); // hreq is deallocted
