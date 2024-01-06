@@ -29,7 +29,12 @@ enum player_seek_mode {
 };
 
 enum player_format {
-  PLAYER_FORMAT_MP3,
+  PLAYER_FORMAT_UNKNOWN = -1,
+  PLAYER_FORMAT_PCM = 0,
+  PLAYER_FORMAT_WAV = 1,
+  PLAYER_FORMAT_MP3 = 2,
+  PLAYER_FORMAT_ALAC = 3,
+  PLAYER_FORMAT_OPUS = 4,
 };
 
 struct player_speaker_info {
@@ -39,6 +44,8 @@ struct player_speaker_info {
   char output_type[50];
   int relvol;
   int absvol;
+
+  enum player_format format;
 
   bool selected;
   bool has_password;
@@ -121,6 +128,9 @@ player_speaker_resurrect(void *arg);
 
 int
 player_speaker_authorize(uint64_t id, const char *pin);
+
+int
+player_speaker_format_set(uint64_t id, enum player_format format);
 
 int
 player_streaming_register(int *audio_fd, int *metadata_fd, enum player_format format, struct media_quality quality);

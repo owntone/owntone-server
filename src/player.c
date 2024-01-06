@@ -2526,6 +2526,7 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->output_type[sizeof(spk->output_type) - 1] = '\0';
   spk->relvol = device->relvol;
   spk->absvol = device->volume;
+  spk->format = device->format;
 
   spk->selected = OUTPUTS_DEVICE_DISPLAY_SELECTED(device);
 
@@ -2730,6 +2731,8 @@ speaker_prevent_playback_set(void *arg, int *retval)
   struct speaker_attr_param *param = arg;
   struct output_device *device;
 
+  *retval = -1;
+
   device = outputs_device_get(param->spk_id);
   if (!device)
     return COMMAND_END;
@@ -2778,6 +2781,8 @@ speaker_busy_set(void *arg, int *retval)
   struct speaker_attr_param *param = arg;
   struct output_device *device;
 
+  *retval = -1;
+
   device = outputs_device_get(param->spk_id);
   if (!device)
     return COMMAND_END;
@@ -2800,6 +2805,27 @@ speaker_busy_set(void *arg, int *retval)
   if (*retval > 0)
     return COMMAND_PENDING; // async
 
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_format_set(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  *retval = -1;
+
+  if (param->format == PLAYER_FORMAT_UNKNOWN)
+    return COMMAND_END;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    return COMMAND_END;
+
+  device->format = param->format;
+
+  *retval = 0;
   return COMMAND_END;
 }
 
@@ -3466,14 +3492,22 @@ int
 player_speaker_authorize(uint64_t id, const char *pin)
 {
   struct speaker_attr_param param;
-  int ret;
 
   param.spk_id = id;
   param.pin = pin;
 
-  ret = commands_exec_sync(cmdbase, speaker_authorize, speaker_generic_bh, &param);
+  return commands_exec_sync(cmdbase, speaker_authorize, speaker_generic_bh, &param);
+}
 
-  return ret;
+int
+player_speaker_format_set(uint64_t id, enum player_format format)
+{
+  struct speaker_attr_param param;
+
+  param.spk_id = id;
+  param.format = format;
+
+  return commands_exec_sync(cmdbase, speaker_format_set, NULL, &param);
 }
 
 int
