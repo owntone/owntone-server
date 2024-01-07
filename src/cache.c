@@ -37,8 +37,9 @@
 
 #include "conffile.h"
 #include "logger.h"
-#include "httpd.h"
+#include "httpd.h" // TODO get rid of this, only used for httpd_gzip_deflate
 #include "httpd_daap.h"
+#include "transcode.h"
 #include "db.h"
 #include "cache.h"
 #include "listener.h"
@@ -189,6 +190,7 @@ static struct cache_db_def cache_artwork_db_def[] = {
 static sqlite3 *cache_xcode_hdl;
 static struct event *cache_xcode_updateev;
 static struct event *cache_xcode_prepareev;
+static bool cache_xcode_is_enabled;
 static int cache_xcode_last_file;
 static struct cache_db_def cache_xcode_db_def[] = {
   DB_DEF_ADMIN,
@@ -897,6 +899,20 @@ xcode_header_get(void *arg, int *retval)
 #undef Q_TMPL
 }
 
+static enum command_state
+xcode_toggle(void *arg, int *retval)
+{
+  bool *enable = arg;
+
+  cache_xcode_is_enabled = *enable;
+
+  if (cache_xcode_is_enabled)
+    event_active(cache_xcode_updateev, 0, 0);
+
+  *retval = 0;
+  return COMMAND_END;
+}
+
 static int
 xcode_add_entry(sqlite3 *hdl, uint32_t id, uint32_t ts, const char *path)
 {
@@ -982,8 +998,6 @@ xcode_sync_with_files(sqlite3 *hdl)
   int i;
   int ret;
 
-  DPRINTF(E_INFO, L_CACHE, "Beginning transcode sync\n");
-
   // Both lists must be sorted by id, otherwise the compare below won't work
   ret = sqlite3_prepare_v2(hdl, "SELECT id, time_modified FROM files ORDER BY id;", -1, &stmt, 0);
   if (ret != SQLITE_OK)
@@ -1044,8 +1058,6 @@ xcode_sync_with_files(sqlite3 *hdl)
     }
   db_query_end(&qp);
 
-  DPRINTF(E_INFO, L_CACHE, "Transcode sync completed\n");
-
   free(cachelist);
   return 0;
 
@@ -1068,7 +1080,12 @@ xcode_prepare_header(sqlite3 *hdl, const char *format, int id, const char *path)
   DPRINTF(E_DBG, L_CACHE, "Preparing %s header for '%s' (file id %d)\n", format, path, id);
 
 #if 1
-  ret = httpd_prepare_header(&header, format, path); // Proceed even if error, we also cache that
+  if (strcmp(format, "mp4") == 0)
+    ret = transcode_prepare_header(&header, XCODE_MP4_ALAC, path);
+  else
+    ret = -1;
+
+  // Proceed even if error, we also cache that
   if (ret == 0)
     {
       datalen = evbuffer_get_length(header);
@@ -1202,7 +1219,7 @@ cache_database_update(void *arg, int *retval)
 
 // TODO unlink or rename cache.db
 
-//  if (prefer_format && strcmp(prefer_format, "alac")) // TODO Ugly
+  if (cache_xcode_is_enabled)
     event_add(cache_xcode_updateev, &delay_xcode);
 
   *retval = 0;
@@ -1729,6 +1746,15 @@ cache_xcode_header_get(struct evbuffer *evbuf, int *cached, uint32_t id, const c
   *cached = cmdarg.cached;
 
   return ret;
+}
+
+int
+cache_xcode_toggle(bool enable)
+{
+  if (!cache_is_initialized)
+    return -1;
+
+  return commands_exec_sync(cmdbase, xcode_toggle, NULL, &enable);
 }
 
 

@@ -1374,6 +1374,7 @@ alsa_device_add(cfg_t* cfg_audio, int id)
   device->type = OUTPUT_TYPE_ALSA;
   device->type_name = outputs_name(device->type);
   device->extra_device_info = ae;
+  device->supported_formats = MEDIA_FORMAT_PCM;
 
   // The audio section will have no title, so there we get the value from the
   // "card" option

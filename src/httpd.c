@@ -49,6 +49,8 @@
 #include "httpd_internal.h"
 #include "transcode.h"
 #include "cache.h"
+#include "listener.h"
+#include "player.h"
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
@@ -905,6 +907,39 @@ stream_fail_cb(void *arg)
 }
 
 
+/* -------------------------- SPEAKER/CACHE HANDLING ------------------------ */
+
+// Thread: player (must not block)
+static void
+speaker_enum_cb(struct player_speaker_info *spk, void *arg)
+{
+  bool *want_mp4 = arg;
+
+  *want_mp4 = *want_mp4 || (spk->format == MEDIA_FORMAT_ALAC && strcmp(spk->output_type, "RCP/SoundBridge") == 0);
+}
+
+// Thread: worker
+static void
+speaker_update_handler_cb(void *arg)
+{
+  const char *prefer_format = cfg_getstr(cfg_getsec(cfg, "library"), "prefer_format");
+  bool want_mp4;
+
+  want_mp4 = (prefer_format && strcmp(prefer_format, "alac"));
+  if (!want_mp4)
+    player_speaker_enumerate(speaker_enum_cb, &want_mp4);
+
+  cache_xcode_toggle(want_mp4);
+}
+
+// Thread: player (must not block)
+static void
+httpd_speaker_update_handler(short event_mask)
+{
+  worker_execute(speaker_update_handler_cb, NULL, 0, 0);
+}
+
+
 /* ---------------------------- REQUEST CALLBACKS --------------------------- */
 
 // Worker thread, invoked by request_cb() below
@@ -1218,15 +1253,6 @@ httpd_gzip_deflate(struct evbuffer *in)
   deflateEnd(&strm);
 
   return NULL;
-}
-
-int
-httpd_prepare_header(struct evbuffer **header, const char *format, const char *path)
-{
-  if (strcmp(format, "mp4") == 0)
-    return transcode_prepare_header(header, XCODE_MP4_ALAC, path);
-  else
-    return -1;
 }
 
 // The httpd_send functions below can be called from a worker thread (with
@@ -1543,6 +1569,10 @@ httpd_init(const char *webroot)
       goto error;
     }
 
+  // We need to know about speaker format changes so we can ask the cache to
+  // start preparing headers for mp4/alac if selected
+  listener_add(httpd_speaker_update_handler, LISTENER_SPEAKER);
+
   return 0;
 
  error:
@@ -1554,6 +1584,8 @@ httpd_init(const char *webroot)
 void
 httpd_deinit(void)
 {
+  listener_remove(httpd_speaker_update_handler);
+
   // Give modules a chance to hang up connections nicely
   modules_deinit();
 

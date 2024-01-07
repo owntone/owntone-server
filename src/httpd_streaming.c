@@ -228,7 +228,7 @@ session_free(struct streaming_session *session)
 }
 
 static struct streaming_session *
-session_new(struct httpd_request *hreq, bool icy_is_requested, enum player_format format, struct media_quality quality)
+session_new(struct httpd_request *hreq, bool icy_is_requested, enum media_format format, struct media_quality quality)
 {
   struct streaming_session *session;
   int audio_fd;
@@ -279,7 +279,7 @@ streaming_mp3_handler(struct httpd_request *hreq)
       httpd_header_add(hreq->out_headers, "icy-metaint", buf);
     }
 
-  session = session_new(hreq, icy_is_requested, PLAYER_FORMAT_MP3, streaming_default_quality);
+  session = session_new(hreq, icy_is_requested, MEDIA_FORMAT_MP3, streaming_default_quality);
   if (!session)
     return -1; // Error sent by caller
 

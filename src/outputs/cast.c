@@ -1778,6 +1778,7 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
   device->name = strdup(name);
   device->type = OUTPUT_TYPE_CAST;
   device->type_name = outputs_name(device->type);
+  device->supported_formats = MEDIA_FORMAT_OPUS;
 
   if (port < 0)
     {

@@ -152,7 +152,7 @@ struct speaker_attr_param
   bool busy;
 
   struct media_quality quality;
-  enum player_format format;
+  enum media_format format;
 
   int audio_fd;
   int metadata_fd;
@@ -2526,7 +2526,15 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->output_type[sizeof(spk->output_type) - 1] = '\0';
   spk->relvol = device->relvol;
   spk->absvol = device->volume;
-  spk->format = device->format;
+
+  spk->supported_formats = device->supported_formats;
+  // Devices supporting more than one format should at least have default_format set
+  if (device->selected_format != MEDIA_FORMAT_UNKNOWN)
+    spk->format = device->selected_format;
+  else if (device->default_format != MEDIA_FORMAT_UNKNOWN)
+    spk->format = device->default_format;
+  else
+    spk->format = device->supported_formats;
 
   spk->selected = OUTPUTS_DEVICE_DISPLAY_SELECTED(device);
 
@@ -2814,18 +2822,24 @@ speaker_format_set(void *arg, int *retval)
   struct speaker_attr_param *param = arg;
   struct output_device *device;
 
-  *retval = -1;
-
-  if (param->format == PLAYER_FORMAT_UNKNOWN)
-    return COMMAND_END;
+  if (param->format == MEDIA_FORMAT_UNKNOWN)
+    goto error;
 
   device = outputs_device_get(param->spk_id);
   if (!device)
-    return COMMAND_END;
+    goto error;
 
-  device->format = param->format;
+  if (!(param->format & device->supported_formats))
+    goto error;
+
+  device->selected_format = param->format;
 
   *retval = 0;
+  return COMMAND_END;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Error setting format '%s', device unknown or format unsupported\n", media_format_to_string(param->format));
+  *retval = -1;
   return COMMAND_END;
 }
 
@@ -2933,7 +2947,7 @@ streaming_register(void *arg, int *retval)
     .type_name = "streaming",
     .name = "streaming",
     .quality = param->quality,
-    .format = param->format,
+    .selected_format = param->format,
   };
 
   *retval = outputs_device_start(&device, NULL, false);
@@ -3500,18 +3514,18 @@ player_speaker_authorize(uint64_t id, const char *pin)
 }
 
 int
-player_speaker_format_set(uint64_t id, enum player_format format)
+player_speaker_format_set(uint64_t id, enum media_format format)
 {
   struct speaker_attr_param param;
 
   param.spk_id = id;
   param.format = format;
 
-  return commands_exec_sync(cmdbase, speaker_format_set, NULL, &param);
+  return commands_exec_sync(cmdbase, speaker_format_set, speaker_generic_bh, &param);
 }
 
 int
-player_streaming_register(int *audio_fd, int *metadata_fd, enum player_format format, struct media_quality quality)
+player_streaming_register(int *audio_fd, int *metadata_fd, enum media_format format, struct media_quality quality)
 {
   struct speaker_attr_param param;
   int ret;

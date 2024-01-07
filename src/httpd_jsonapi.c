@@ -1522,47 +1522,22 @@ struct outputs_param
   int output_volume;
 };
 
-static enum player_format
-plformat_from_string(const char *format)
-{
-  if (strcmp(format, "pcm") == 0)
-    return PLAYER_FORMAT_PCM;
-  if (strcmp(format, "wav") == 0)
-    return PLAYER_FORMAT_WAV;
-  if (strcmp(format, "mp3") == 0)
-    return PLAYER_FORMAT_MP3;
-  if (strcmp(format, "alac") == 0)
-    return PLAYER_FORMAT_ALAC;
-  if (strcmp(format, "opus") == 0)
-    return PLAYER_FORMAT_OPUS;
-
-  return PLAYER_FORMAT_UNKNOWN;
-}
-
-static const char *
-plformat_to_string(enum player_format format)
-{
-  if (format == PLAYER_FORMAT_PCM)
-    return "pcm";
-  if (format == PLAYER_FORMAT_WAV)
-    return "wav";
-  if (format == PLAYER_FORMAT_MP3)
-    return "mp3";
-  if (format == PLAYER_FORMAT_ALAC)
-    return "alac";
-  if (format == PLAYER_FORMAT_OPUS)
-    return "opus";
-
-  return "unknown";
-}
-
 static json_object *
 speaker_to_json(struct player_speaker_info *spk)
 {
   json_object *output;
+  json_object *supported_formats;
   char output_id[21];
+  enum media_format format;
 
   output = json_object_new_object();
+
+  supported_formats = json_object_new_array();
+  for (format = MEDIA_FORMAT_FIRST; format <= MEDIA_FORMAT_LAST; format = MEDIA_FORMAT_NEXT(format))
+    {
+      if (format & spk->supported_formats)
+	json_object_array_add(supported_formats, json_object_new_string(media_format_to_string(format)));
+    }
 
   snprintf(output_id, sizeof(output_id), "%" PRIu64, spk->id);
   json_object_object_add(output, "id", json_object_new_string(output_id));
@@ -1573,7 +1548,8 @@ speaker_to_json(struct player_speaker_info *spk)
   json_object_object_add(output, "requires_auth", json_object_new_boolean(spk->requires_auth));
   json_object_object_add(output, "needs_auth_key", json_object_new_boolean(spk->needs_auth_key));
   json_object_object_add(output, "volume", json_object_new_int(spk->absvol));
-  json_object_object_add(output, "format", json_object_new_string(plformat_to_string(spk->format)));
+  json_object_object_add(output, "format", json_object_new_string(media_format_to_string(spk->format)));
+  json_object_object_add(output, "supported_formats", supported_formats);
 
   return output;
 }
@@ -1684,13 +1660,13 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
     {
       format = jparse_str_from_obj(request, "format");
       if (format)
-	ret = player_speaker_format_set(output_id, plformat_from_string(format));
+	ret = player_speaker_format_set(output_id, media_format_from_string(format));
     }
 
   jparse_free(request);
 
   if (ret < 0)
-    return HTTP_INTERNAL;
+    return HTTP_BADREQUEST;
 
   return HTTP_NOCONTENT;
 }

@@ -3737,6 +3737,7 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
   rd->type = OUTPUT_TYPE_AIRPLAY;
   rd->type_name = outputs_name(rd->type);
   rd->extra_device_info = re;
+  rd->supported_formats = MEDIA_FORMAT_ALAC;
 
   if (port < 0)
     {

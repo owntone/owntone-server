@@ -65,7 +65,7 @@ struct streaming_wanted
   struct pipepair audio[WANTED_PIPES_MAX];
   struct pipepair metadata[WANTED_PIPES_MAX];
 
-  enum player_format format;
+  enum media_format format;
   struct media_quality quality;
 
   struct evbuffer *audio_in;
@@ -113,7 +113,7 @@ extern struct event_base *evbase_player;
 /* ------------------------------- Helpers ---------------------------------- */
 
 static struct encode_ctx *
-encoder_setup(enum player_format format, struct media_quality *quality)
+encoder_setup(enum media_format format, struct media_quality *quality)
 {
   struct transcode_encode_setup_args encode_args = { .profile = XCODE_MP3, .quality = quality };
   struct encode_ctx *encode_ctx = NULL;
@@ -132,7 +132,7 @@ encoder_setup(enum player_format format, struct media_quality *quality)
       goto out;
     }
 
-  if (format == PLAYER_FORMAT_MP3)
+  if (format == MEDIA_FORMAT_MP3)
     encode_ctx = transcode_encode_setup(encode_args);
 
   if (!encode_ctx)
@@ -217,7 +217,7 @@ pipe_index_find_byreadfd(struct pipepair *p, int readfd)
 }
 
 static struct streaming_wanted *
-wanted_new(enum player_format format, struct media_quality quality)
+wanted_new(enum media_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
@@ -277,7 +277,7 @@ wanted_remove(struct streaming_wanted **wanted, struct streaming_wanted *remove)
 }
 
 static struct streaming_wanted *
-wanted_add(struct streaming_wanted **wanted, enum player_format format, struct media_quality quality)
+wanted_add(struct streaming_wanted **wanted, enum media_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
@@ -289,7 +289,7 @@ wanted_add(struct streaming_wanted **wanted, enum player_format format, struct m
 }
 
 static struct streaming_wanted *
-wanted_find_byformat(struct streaming_wanted *wanted, enum player_format format, struct media_quality quality)
+wanted_find_byformat(struct streaming_wanted *wanted, enum media_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
@@ -623,9 +623,9 @@ streaming_start(struct output_device *device, int callback_id)
   int ret;
 
   pthread_mutex_lock(&streaming_wanted_lck);
-  w = wanted_find_byformat(streaming.wanted, device->format, device->quality);
+  w = wanted_find_byformat(streaming.wanted, device->selected_format, device->quality);
   if (!w)
-    w = wanted_add(&streaming.wanted, device->format, device->quality);
+    w = wanted_add(&streaming.wanted, device->selected_format, device->quality);
   ret = wanted_session_add(&device->audio_fd, &device->metadata_fd, w);
   if (ret < 0)
     goto error;

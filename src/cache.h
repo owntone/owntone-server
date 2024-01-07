@@ -27,6 +27,10 @@ cache_daap_threshold_get(void);
 int
 cache_xcode_header_get(struct evbuffer *evbuf, int *cached, uint32_t id, const char *format);
 
+int
+cache_xcode_toggle(bool enable);
+
+
 /* ---------------------------- Artwork cache API  -------------------------- */
 
 #define CACHE_ARTWORK_GROUP 0
