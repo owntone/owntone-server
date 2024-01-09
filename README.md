@@ -1,15 +1,18 @@
-# OwnTone (previously forked-daapd)
+# OwnTone
 
-OwnTone is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
-RSP (Roku) media server.
+OwnTone is a media server that lets you play audio sources such as local files,
+Spotify, pipe input or internet radio to AirPlay 1 and 2 receivers, Chromecast
+receivers, Roku Soundbridge, a browser or the server’s own sound system. Or you
+can listen to your music via any client that supports mp3 streaming.
 
-It supports AirPlay devices/speakers, Apple Remote (and compatibles),
-MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
+You control the server via a web interface, Apple Remote, an Android remote
+(e.g. Retune), an MPD client, json API or DACP.
 
-It does not support streaming video by AirPlay nor Chromecast.
+OwnTone also serves local files via the Digital Audio Access Protocol (DAAP) to
+iTunes (Windows), Apple Music (MacOS) and Rhythmbox (Linux), and via the Roku
+Server Protocol (RSP) to Roku devices.
 
-DAAP stands for Digital Audio Access Protocol which is the protocol used
-by iTunes and friends to share/stream media libraries over the network.
+Runs on Linux, BSD and MacOS.
 
 OwnTone was previously called forked-daapd, which again was a rewrite of
 mt-daapd (Firefly Media Server).
