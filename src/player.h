@@ -104,6 +104,9 @@ int
 player_speaker_get_byactiveremote(struct player_speaker_info *spk, uint32_t active_remote);
 
 int
+player_speaker_get_byaddress(struct player_speaker_info *spk, const char *address);
+
+int
 player_speaker_enable(uint64_t id);
 
 int

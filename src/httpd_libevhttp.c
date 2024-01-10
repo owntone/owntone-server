@@ -525,6 +525,7 @@ httpd_backend_output_buffer_get(httpd_backend *backend)
 int
 httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend, httpd_backend_data *backend_data)
 {
+#define IPV4_MAPPED_IPV6_PREFIX "::ffff:"
   httpd_connection *conn = evhttp_request_get_connection(backend);
   if (!conn)
     return -1;
@@ -534,6 +535,11 @@ httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend
 #else
   evhttp_connection_get_peer(conn, (char **)addr, port);
 #endif
+
+  // Just use the pure ipv4 address if it's mapped
+  if (strncmp(*addr, IPV4_MAPPED_IPV6_PREFIX, strlen(IPV4_MAPPED_IPV6_PREFIX)) == 0)
+    *addr += strlen(IPV4_MAPPED_IPV6_PREFIX);
+
   return 0;
 }
 

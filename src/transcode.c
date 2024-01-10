@@ -2097,7 +2097,7 @@ transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality 
 }
 
 enum transcode_profile
-transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype)
+transcode_needed(const char *user_agent, const char *client_codecs, const char *file_codectype)
 {
   const char *codectype;
   const char *prefer_format;

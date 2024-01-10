@@ -206,6 +206,9 @@ struct httpd_request {
 void
 httpd_stream_file(struct httpd_request *hreq, int id);
 
+int
+httpd_xcode_profile_get(const char *user_agent, const char *address, const char *accept_codecs, const char *codec);
+
 void
 httpd_request_handler_set(struct httpd_request *hreq);
 

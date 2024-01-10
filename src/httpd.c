@@ -1069,7 +1069,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
     }
 
   param = httpd_header_find(hreq->in_headers, "Accept-Codecs");
-  profile = transcode_needed(hreq->user_agent, param, mfi->codectype);
+  profile = httpd_xcode_profile_get(hreq->user_agent, hreq->peer_address, param, mfi->codectype);
   if (profile == XCODE_UNKNOWN)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not serve '%s' to client, unable to determine output format\n", mfi->path);
@@ -1186,6 +1186,35 @@ httpd_stream_file(struct httpd_request *hreq, int id)
  error:
   stream_free(st);
   free_mfi(mfi, 0);
+}
+
+// Returns enum transcode_profile, but is just declared with int so we don't
+// need to include transcode.h in httpd_internal.h
+int
+httpd_xcode_profile_get(const char *user_agent, const char *address, const char *accept_codecs, const char *codec)
+{
+  enum transcode_profile profile;
+  struct player_speaker_info spk;
+  int ret;
+
+  profile = transcode_needed(user_agent, accept_codecs, codec);
+  if (profile == XCODE_NONE)
+    return profile;
+
+  // A Roku Soundbridge may also be RCP device/speaker for which the user may
+  // have set a prefered streaming format
+  ret = player_speaker_get_byaddress(&spk, address);
+  if (ret < 0)
+    return profile;
+
+  if (spk.format == MEDIA_FORMAT_WAV)
+    return XCODE_WAV;
+  if (spk.format == MEDIA_FORMAT_MP3)
+    return XCODE_MP3;
+  if (spk.format == MEDIA_FORMAT_ALAC)
+    return XCODE_MP4_ALAC;
+
+  return profile;
 }
 
 struct evbuffer *

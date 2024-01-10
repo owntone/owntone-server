@@ -164,6 +164,7 @@ struct speaker_get_param
 {
   uint64_t spk_id;
   uint32_t active_remote;
+  const char *address;
   struct player_speaker_info *spk_info;
 };
 
@@ -2607,6 +2608,31 @@ speaker_get_byactiveremote(void *arg, int *retval)
 }
 
 static enum command_state
+speaker_get_byaddress(void *arg, int *retval)
+{
+  struct speaker_get_param *spk_param = arg;
+  struct output_device *device;
+  bool match_v4;
+  bool match_v6;
+
+  for (device = outputs_list(); device; device = device->next)
+    {
+      match_v4 = device->v4_address && (strcmp(spk_param->address, device->v4_address) == 0);
+      match_v6 = device->v6_address && (strcmp(spk_param->address, device->v6_address) == 0);
+      if (match_v4 || match_v6)
+	{
+	  device_to_speaker_info(spk_param->spk_info, device);
+	  *retval = 0;
+	  return COMMAND_END;
+	}
+    }
+
+  // No output device found with matching id
+  *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
 speaker_set(void *arg, int *retval)
 {
   struct speaker_set_param *speaker_set_param = arg;
@@ -3441,6 +3467,19 @@ player_speaker_get_byactiveremote(struct player_speaker_info *spk, uint32_t acti
   param.spk_info = spk;
 
   ret = commands_exec_sync(cmdbase, speaker_get_byactiveremote, NULL, &param);
+  return ret;
+}
+
+int
+player_speaker_get_byaddress(struct player_speaker_info *spk, const char *address)
+{
+  struct speaker_get_param param;
+  int ret;
+
+  param.address = address;
+  param.spk_info = spk;
+
+  ret = commands_exec_sync(cmdbase, speaker_get_byaddress, NULL, &param);
   return ret;
 }
 
