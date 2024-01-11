@@ -1201,6 +1201,8 @@ httpd_xcode_profile_get(const char *user_agent, const char *address, const char 
   if (profile == XCODE_NONE)
     return profile;
 
+  DPRINTF(E_DBG, L_HTTPD, "Checking if client '%s' is a speaker\n", address);
+
   // A Roku Soundbridge may also be RCP device/speaker for which the user may
   // have set a prefered streaming format
   ret = player_speaker_get_byaddress(&spk, address);

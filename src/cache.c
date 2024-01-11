@@ -41,6 +41,7 @@
 #include "httpd_daap.h"
 #include "transcode.h"
 #include "db.h"
+#include "worker.h"
 #include "cache.h"
 #include "listener.h"
 #include "commands.h"
@@ -191,6 +192,7 @@ static sqlite3 *cache_xcode_hdl;
 static struct event *cache_xcode_updateev;
 static struct event *cache_xcode_prepareev;
 static bool cache_xcode_is_enabled;
+static bool cache_xcode_prepare_is_running;
 static int cache_xcode_last_file;
 static struct cache_db_def cache_xcode_db_def[] = {
   DB_DEF_ADMIN,
@@ -899,6 +901,15 @@ xcode_header_get(void *arg, int *retval)
 #undef Q_TMPL
 }
 
+static void
+xcode_trigger(void)
+{
+  struct timeval delay_xcode = { 5, 0 };
+
+  if (cache_xcode_is_enabled)
+    event_add(cache_xcode_updateev, &delay_xcode);
+}
+
 static enum command_state
 xcode_toggle(void *arg, int *retval)
 {
@@ -906,8 +917,7 @@ xcode_toggle(void *arg, int *retval)
 
   cache_xcode_is_enabled = *enable;
 
-  if (cache_xcode_is_enabled)
-    event_active(cache_xcode_updateev, 0, 0);
+  xcode_trigger();
 
   *retval = 0;
   return COMMAND_END;
@@ -1130,7 +1140,7 @@ xcode_prepare_header(sqlite3 *hdl, const char *format, int id, const char *path)
 }
 
 static int
-xcode_prepare_next_header(sqlite3 *hdl, const char *format)
+xcode_prepare_next_header_impl(sqlite3 *hdl, const char *format)
 {
 #define Q_TMPL "SELECT f.id, f.filepath, d.id FROM files f LEFT JOIN data d ON f.id = d.file_id AND d.format = '%q' WHERE d.id IS NULL LIMIT 1;"
   sqlite3_stmt *stmt;
@@ -1170,16 +1180,17 @@ xcode_prepare_next_header(sqlite3 *hdl, const char *format)
 }
 
 static void
-cache_xcode_prepare_cb(int fd, short what, void *arg)
+xcode_prepare_next_header(void *arg)
 {
   int ret;
 
   // Preparing headers can take very long, so we take one at a time, letting the
   // event loop run in between
-  ret = xcode_prepare_next_header(cache_xcode_hdl, "mp4");
+  ret = xcode_prepare_next_header_impl(cache_xcode_hdl, "mp4");
   if (ret < 0 || ret == cache_xcode_last_file)
     {
       DPRINTF(E_LOG, L_CACHE, "Header generation completed\n");
+      cache_xcode_prepare_is_running = false;
       return;
     }
 
@@ -1193,16 +1204,23 @@ cache_xcode_prepare_cb(int fd, short what, void *arg)
 }
 
 static void
+cache_xcode_prepare_cb(int fd, short what, void *arg)
+{
+  worker_execute(xcode_prepare_next_header, NULL, 0, 0);
+}
+
+static void
 cache_xcode_update_cb(int fd, short what, void *arg)
 {
   if (xcode_sync_with_files(cache_xcode_hdl) < 0)
     return;
 
-  if (!cache_is_initialized)
+  if (!cache_is_initialized || cache_xcode_prepare_is_running)
     return;
 
   DPRINTF(E_LOG, L_CACHE, "Kicking off header generation\n");
 
+  cache_xcode_prepare_is_running = true;
   event_active(cache_xcode_prepareev, 0, 0);
 }
 
@@ -1213,14 +1231,12 @@ static enum command_state
 cache_database_update(void *arg, int *retval)
 {
   struct timeval delay_daap = { 10, 0 };
-  struct timeval delay_xcode = { 5, 0 };
 
   event_add(cache_daap_updateev, &delay_daap);
 
 // TODO unlink or rename cache.db
 
-  if (cache_xcode_is_enabled)
-    event_add(cache_xcode_updateev, &delay_xcode);
+  xcode_trigger();
 
   *retval = 0;
   return COMMAND_END;
@@ -1631,6 +1647,7 @@ cache(void *arg)
   CHECK_NULL(L_CACHE, cache_daap_updateev = evtimer_new(evbase_cache, cache_daap_update_cb, NULL));
   CHECK_NULL(L_CACHE, cache_xcode_updateev = evtimer_new(evbase_cache, cache_xcode_update_cb, NULL));
   CHECK_NULL(L_CACHE, cache_xcode_prepareev = evtimer_new(evbase_cache, cache_xcode_prepare_cb, NULL));
+  CHECK_ERR(L_CACHE, event_priority_set(cache_xcode_prepareev, 0));
 
   CHECK_ERR(L_CACHE, listener_add(cache_daap_listener_cb, LISTENER_DATABASE));
 
@@ -1973,7 +1990,9 @@ cache_init(void)
     }
 
   CHECK_NULL(L_CACHE, evbase_cache = event_base_new());
+  CHECK_ERR(L_CACHE, event_base_priority_init(evbase_cache, 8));
   CHECK_NULL(L_CACHE, cmdbase = commands_base_new(evbase_cache, NULL));
+
   CHECK_ERR(L_CACHE, pthread_create(&tid_cache, NULL, cache, NULL));
   thread_setname(tid_cache, "cache");
 
