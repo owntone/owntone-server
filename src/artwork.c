@@ -918,7 +918,7 @@ artwork_get_bydir(struct evbuffer *evbuf, char *out_path, size_t len, char *dir,
  * before making a request. Stashes result in cache, also if negative.
  *
  * @out artwork   Image data
- * @in  url       URL of the artwork
+ * @in  url       HTTP(S) URL of the artwork
  * @in  req_params Requested max size/format
  * @return        ART_FMT_* on success, ART_E_NONE or ART_E_ERROR
  */
@@ -1584,16 +1584,22 @@ static int
 source_item_artwork_url_get(struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
+  const char *proto_http = "http:";
+  const char *proto_https = "https:";
+  bool is_http;
+  bool is_https;
   int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying artwork url for %s\n", ctx->dbmfi->path);
 
   queue_item = db_queue_fetch_byfileid(ctx->id);
   if (!queue_item || !queue_item->artwork_url)
-    {
-      free_queue_item(queue_item, 0);
-      return ART_E_NONE;
-    }
+    goto notfound;
+
+  is_http = (strncmp(queue_item->artwork_url, proto_http, strlen(proto_http)) == 0);
+  is_https = (strncmp(queue_item->artwork_url, proto_https, strlen(proto_https)) == 0);
+  if (!is_http && !is_https)
+    goto notfound;
 
   ret = artwork_get_byurl(ctx->evbuf, queue_item->artwork_url, ctx->req_params);
 
@@ -1602,6 +1608,10 @@ source_item_artwork_url_get(struct artwork_ctx *ctx)
   free_queue_item(queue_item, 0);
 
   return ret;
+
+ notfound:
+  free_queue_item(queue_item, 0);
+  return ART_E_NONE;
 }
 
 /*
@@ -1613,17 +1623,22 @@ static int
 source_item_pipe_get(struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
-  const char *proto = "file:";
+  const char *proto_file = "file:";
+  bool is_file;
   char *path;
   int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying pipe metadata from %s.metadata\n", ctx->dbmfi->path);
 
   queue_item = db_queue_fetch_byfileid(ctx->id);
-  if (!queue_item || !queue_item->artwork_url || strncmp(queue_item->artwork_url, proto, strlen(proto)) != 0)
+  if (!queue_item || !queue_item->artwork_url)
     goto notfound;
 
-  path = queue_item->artwork_url + strlen(proto);
+  is_file = (strncmp(queue_item->artwork_url, proto_file, strlen(proto_file)) == 0);
+  if (!is_file)
+    goto notfound;
+
+  path = queue_item->artwork_url + strlen(proto_file);
 
   // Sometimes the file has been replaced, but queue_item->artwork_url hasn't
   // been updated yet. In that case just stop now.
