@@ -1149,6 +1149,7 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   const char *accept_codecs;
   const char *tag;
   size_t len;
+  enum transcode_profile spk_profile;
   enum transcode_profile profile;
   struct transcode_metadata_string xcode_metadata;
   struct media_quality quality = { 0 };
@@ -1222,6 +1223,8 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
       accept_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
     }
 
+  spk_profile = httpd_xcode_profile_get(hreq);
+
   nsongs = 0;
   while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
@@ -1229,13 +1232,16 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 
       // Not sure if the is_remote path is really needed. Note that if you
       // change the below you might need to do the same in rsp_reply_playlist()
-      profile = s->is_remote ? XCODE_WAV : httpd_xcode_profile_get(hreq->user_agent, hreq->peer_address, accept_codecs, dbmfi.codectype);
+      profile = s->is_remote ? XCODE_WAV : transcode_needed(hreq->user_agent, accept_codecs, dbmfi.codectype);
       if (profile == XCODE_UNKNOWN)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Cannot transcode '%s', codec type is unknown\n", dbmfi.fname);
 	}
       else if (profile != XCODE_NONE)
 	{
+	  if (spk_profile != XCODE_NONE)
+	    profile = spk_profile;
+
 	  if (safe_atou32(dbmfi.song_length, &len_ms) < 0)
 	    len_ms = 3 * 60 * 1000; // just a fallback default
 

@@ -859,7 +859,7 @@ cache_daap_update_cb(int fd, short what, void *arg)
 static enum command_state
 xcode_header_get(void *arg, int *retval)
 {
-#define Q_TMPL "SELECT header FROM data WHERE length(header) > 0 AND id = ? AND format = ?;"
+#define Q_TMPL "SELECT header FROM data WHERE length(header) > 0 AND file_id = ? AND format = ?;"
   struct cache_arg *cmdarg = arg;
   sqlite3_stmt *stmt = NULL;
   int ret;
@@ -915,10 +915,13 @@ xcode_toggle(void *arg, int *retval)
 {
   bool *enable = arg;
 
-  cache_xcode_is_enabled = *enable;
+  if (*enable == cache_xcode_is_enabled)
+    goto end;
 
+  cache_xcode_is_enabled = *enable;
   xcode_trigger();
 
+ end:
   *retval = 0;
   return COMMAND_END;
 }

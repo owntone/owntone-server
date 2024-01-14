@@ -415,7 +415,7 @@ rsp_reply_db(struct httpd_request *hreq)
 }
 
 static int
-item_add(xml_node *parent, struct query_params *qp, const char *user_agent, const char *address, const char *accept_codecs, int mode)
+item_add(xml_node *parent, struct query_params *qp, enum transcode_profile spk_profile, const char *user_agent, const char *accept_codecs, int mode)
 {
   struct media_quality quality = { 0 };
   struct db_media_file_info dbmfi;
@@ -432,13 +432,16 @@ item_add(xml_node *parent, struct query_params *qp, const char *user_agent, cons
   if (ret != 0)
     return ret;
 
-  profile = httpd_xcode_profile_get(user_agent, address, accept_codecs, dbmfi.codectype);
+  profile = transcode_needed(user_agent, accept_codecs, dbmfi.codectype);
   if (profile == XCODE_UNKNOWN)
     {
       DPRINTF(E_LOG, L_DAAP, "Cannot transcode '%s', codec type is unknown\n", dbmfi.fname);
     }
   else if (profile != XCODE_NONE)
     {
+      if (spk_profile != XCODE_NONE)
+	profile = spk_profile; // User has configured a specific transcode format for this speaker
+
       orgcodec = dbmfi.codectype;
 
       if (safe_atou32(dbmfi.song_length, &len_ms) < 0)
@@ -485,6 +488,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
   struct query_params qp;
   const char *param;
   const char *accept_codecs;
+  enum transcode_profile spk_profile;
   xml_node *response;
   xml_node *items;
   int mode;
@@ -494,6 +498,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
   memset(&qp, 0, sizeof(struct query_params));
 
   accept_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
+  spk_profile = httpd_xcode_profile_get(hreq);
 
   ret = safe_atoi32(hreq->path_parts[2], &qp.id);
   if (ret < 0)
@@ -555,7 +560,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
   items = xml_new_node(response, "items", NULL);
   do
     {
-      ret = item_add(items, &qp, hreq->user_agent, hreq->peer_address, accept_codecs, mode);
+      ret = item_add(items, &qp, spk_profile, hreq->user_agent, accept_codecs, mode);
     }
   while (ret == 0);
 

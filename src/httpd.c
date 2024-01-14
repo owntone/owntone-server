@@ -925,7 +925,7 @@ speaker_update_handler_cb(void *arg)
   const char *prefer_format = cfg_getstr(cfg_getsec(cfg, "library"), "prefer_format");
   bool want_mp4;
 
-  want_mp4 = (prefer_format && strcmp(prefer_format, "alac"));
+  want_mp4 = (prefer_format && (strcmp(prefer_format, "alac") == 0));
   if (!want_mp4)
     player_speaker_enumerate(speaker_enum_cb, &want_mp4);
 
@@ -1009,6 +1009,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   struct media_file_info *mfi = NULL;
   struct stream_ctx *st = NULL;
   enum transcode_profile profile;
+  enum transcode_profile spk_profile;
   const char *param;
   const char *param_end;
   const char *ctype;
@@ -1069,7 +1070,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
     }
 
   param = httpd_header_find(hreq->in_headers, "Accept-Codecs");
-  profile = httpd_xcode_profile_get(hreq->user_agent, hreq->peer_address, param, mfi->codectype);
+  profile = transcode_needed(hreq->user_agent, param, mfi->codectype);
   if (profile == XCODE_UNKNOWN)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not serve '%s' to client, unable to determine output format\n", mfi->path);
@@ -1081,6 +1082,10 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   if (profile != XCODE_NONE)
     {
       DPRINTF(E_INFO, L_HTTPD, "Preparing to transcode %s\n", mfi->path);
+
+      spk_profile = httpd_xcode_profile_get(hreq);
+      if (spk_profile != XCODE_NONE)
+	profile = spk_profile;
 
       st = stream_new_transcode(mfi, profile, hreq, offset, end_offset, stream_chunk_xcode_cb);
       if (!st)
@@ -1191,23 +1196,18 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 // Returns enum transcode_profile, but is just declared with int so we don't
 // need to include transcode.h in httpd_internal.h
 int
-httpd_xcode_profile_get(const char *user_agent, const char *address, const char *accept_codecs, const char *codec)
+httpd_xcode_profile_get(struct httpd_request *hreq)
 {
-  enum transcode_profile profile;
   struct player_speaker_info spk;
   int ret;
 
-  profile = transcode_needed(user_agent, accept_codecs, codec);
-  if (profile == XCODE_NONE)
-    return profile;
-
-  DPRINTF(E_DBG, L_HTTPD, "Checking if client '%s' is a speaker\n", address);
+  DPRINTF(E_DBG, L_HTTPD, "Checking if client '%s' is a speaker\n", hreq->peer_address);
 
   // A Roku Soundbridge may also be RCP device/speaker for which the user may
   // have set a prefered streaming format
-  ret = player_speaker_get_byaddress(&spk, address);
+  ret = player_speaker_get_byaddress(&spk, hreq->peer_address);
   if (ret < 0)
-    return profile;
+    return XCODE_NONE;
 
   if (spk.format == MEDIA_FORMAT_WAV)
     return XCODE_WAV;
@@ -1216,7 +1216,7 @@ httpd_xcode_profile_get(const char *user_agent, const char *address, const char 
   if (spk.format == MEDIA_FORMAT_ALAC)
     return XCODE_MP4_ALAC;
 
-  return profile;
+  return XCODE_NONE;
 }
 
 struct evbuffer *
