@@ -482,24 +482,26 @@ alac_encode(struct evbuffer *evbuf, struct encode_ctx *encode_ctx, uint8_t *rawb
     return alac_encode_xcode(evbuf, encode_ctx, rawbuf, rawbuf_size, nsamples, quality);
 }
 
-/* AirTunes v2 time synchronization helpers */
+// AirTunes v2 time synchronization helpers
 static inline void
 timespec_to_ntp(struct timespec *ts, struct ntp_stamp *ns)
 {
-  /* Seconds since NTP Epoch (1900-01-01) */
+  // Seconds since NTP Epoch (1900-01-01)
   ns->sec = ts->tv_sec + NTP_EPOCH_DELTA;
 
   ns->frac = (uint32_t)((double)ts->tv_nsec * 1e-9 * FRAC);
 }
 
+/*
 static inline void
 ntp_to_timespec(struct ntp_stamp *ns, struct timespec *ts)
 {
-  /* Seconds since Unix Epoch (1970-01-01) */
+  // Seconds since Unix Epoch (1970-01-01)
   ts->tv_sec = ns->sec - NTP_EPOCH_DELTA;
 
   ts->tv_nsec = (long)((double)ns->frac / (1e-9 * FRAC));
 }
+*/
 
 static inline int
 timing_get_clock_ntp(struct ntp_stamp *ns)
