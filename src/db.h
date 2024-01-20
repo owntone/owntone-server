@@ -682,6 +682,9 @@ db_file_ping_bypath(const char *path, time_t mtime_max);
 void
 db_file_ping_bymatch(const char *path, int isdir);
 
+void
+db_file_ping_excl_bymatch(const char *path);
+
 char *
 db_file_path_byid(int id);
 
@@ -748,6 +751,9 @@ db_pl_ping(int id);
 
 void
 db_pl_ping_bymatch(const char *path, int isdir);
+
+void
+db_pl_ping_excl_bymatch(const char *path);
 
 void
 db_pl_ping_items_bymatch(const char *path, int id);
@@ -829,6 +835,9 @@ db_directory_update(struct directory_info *di);
 
 void
 db_directory_ping_bymatch(char *virtual_path);
+
+void
+db_directory_ping_excl_bymatch(const char *virtual_path);
 
 void
 db_directory_disable_bymatch(const char *path, enum strip_type strip, uint32_t cookie);
@@ -1018,6 +1027,9 @@ db_watch_enum_end(struct watch_enum *we);
 
 int
 db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd);
+
+int
+db_watch_enum_fetch(struct watch_enum *we, struct watch_info *wi);
 
 int
 db_backup();

@@ -144,7 +144,7 @@ static uint32_t incomingfiles_buffer[INCOMINGFILES_BUFFER_SIZE];
 
 /* Forward */
 static void
-bulk_scan(int flags);
+bulk_scan(const char *req_path, int flags);
 static int
 inofd_event_set(void);
 static void
@@ -993,7 +993,7 @@ process_directories(char *root, int parent_id, int flags)
 
 /* Thread: scan */
 static void
-bulk_scan(int flags)
+bulk_scan(const char *req_path, int flags)
 {
   cfg_t *lib;
   int ndirs;
@@ -1018,6 +1018,18 @@ bulk_scan(int flags)
   for (i = 0; i < ndirs; i++)
     {
       path = cfg_getnstr(lib, "directories", i);
+
+      // make sure path is in library if we've been asked to scan a specific path
+      if (req_path)
+        {
+          if (strncmp(path, req_path, strlen(path)) == 0)
+            path = (char*)req_path;
+          else
+            {
+              DPRINTF(E_LOG, L_SCAN, "Skipping request path: '%s', not in library directories\n", req_path);
+              continue;
+            }
+        }
 
       parent_id = process_parent_directories(path);
 
@@ -1101,6 +1113,59 @@ watches_clear(uint32_t wd, char *path)
 
   db_watch_delete_bymatch(path);
 
+  return 0;
+}
+
+static int
+watches_clear_bypath(char *path)
+{
+  struct watch_info wi;
+  struct watch_enum we;
+  int ret;
+
+  memset(&wi, 0, sizeof(struct watch_info));
+
+  wi.path = path;
+  db_watch_get_bypath(&wi, path);
+  watches_clear(wi.wd, path);
+  free(wi.path);
+
+  memset(&we, 0, sizeof(struct watch_enum));
+  we.match = "";  // get everything
+
+  ret = db_watch_enum_start(&we);
+  if (ret < 0)
+    return -1;
+
+  memset(&wi, 0, sizeof(struct watch_info));
+  wi.path = malloc(PATH_MAX);
+  while (db_watch_enum_fetch(&we, &wi) == 0 && wi.wd)
+    {
+      inotify_rm_watch(inofd, wi.wd);
+      db_watch_delete_bypath(wi.path);
+
+#ifdef __linux__
+      wi.wd = inotify_add_watch(inofd, wi.path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
+#else
+      wi.wd = inotify_add_watch(inofd, wi.path, IN_CREATE | IN_DELETE | IN_MOVE);
+#endif
+      if (wi.wd < 0)
+        {
+          DPRINTF(E_LOG, L_SCAN, "Failed to obtain watch: '%s' - %s\n", wi.path, strerror(errno));
+        }
+      else
+        {
+          wi.cookie = 0;
+          db_watch_add(&wi);
+        }
+
+      wi.wd = 0;
+      wi.path[0] = '\0';
+    }
+
+  db_watch_enum_end(&we);
+
+  free(wi.path);
   return 0;
 }
 
@@ -1654,9 +1719,9 @@ filescanner_initscan()
     }
 
   if (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable"))
-    bulk_scan(F_SCAN_BULK | F_SCAN_FAST);
+    bulk_scan(NULL, F_SCAN_BULK | F_SCAN_FAST);
   else
-    bulk_scan(F_SCAN_BULK);
+    bulk_scan(NULL, F_SCAN_BULK);
 
   if (!library_is_exiting())
     {
@@ -1674,7 +1739,27 @@ filescanner_rescan()
   inofd_event_unset(); // Clears all inotify watches
   db_watch_clear();
   inofd_event_set();
-  bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
+  bulk_scan(NULL, F_SCAN_BULK | F_SCAN_RESCAN);
+
+  if (!library_is_exiting())
+    {
+      /* Enable inotify */
+      event_add(inoev, NULL);
+    }
+  return 0;
+}
+
+static int
+filescanner_rescan_path(const char *path)
+{
+  DPRINTF(E_LOG, L_SCAN, "rescan triggered for '%s'\n", path);
+
+  inofd_event_unset(); // Clears all inotify watches, closing hdl
+  inofd_event_set();   // and get a new inotify hdl
+
+  // readd watchers but exclude path and let the bulk_scan to readd
+  watches_clear_bypath((char*)path);
+  bulk_scan(path, F_SCAN_BULK | F_SCAN_RESCAN);
 
   if (!library_is_exiting())
     {
@@ -1692,7 +1777,7 @@ filescanner_metarescan()
   inofd_event_unset(); // Clears all inotify watches
   db_watch_clear();
   inofd_event_set();
-  bulk_scan(F_SCAN_BULK | F_SCAN_METARESCAN);
+  bulk_scan(NULL, F_SCAN_BULK | F_SCAN_METARESCAN);
 
   if (!library_is_exiting())
     {
@@ -1709,7 +1794,7 @@ filescanner_fullrescan()
 
   inofd_event_unset(); // Clears all inotify watches
   inofd_event_set();
-  bulk_scan(F_SCAN_BULK);
+  bulk_scan(NULL, F_SCAN_BULK);
 
   if (!library_is_exiting())
     {
@@ -2215,6 +2300,7 @@ struct library_source filescanner =
   .deinit = filescanner_deinit,
   .initscan = filescanner_initscan,
   .rescan = filescanner_rescan,
+  .rescan_path = filescanner_rescan_path,
   .metarescan = filescanner_metarescan,
   .fullrescan = filescanner_fullrescan,
   .playlist_item_add = playlist_item_add,
