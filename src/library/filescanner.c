@@ -1725,46 +1725,7 @@ filescanner_fullrescan()
 static int
 filescanner_write_metadata(struct media_file_info *mfi)
 {
-  int ret;
-  char inotify_path[PATH_MAX];
-  struct watch_info wi = { 0 };
-
-  if (!mfi || mfi->data_kind != DATA_KIND_FILE)
-    {
-      return -1;
-    }
-
-  // Inotify watches dir paths
-  snprintf(inotify_path, sizeof(inotify_path), "%s", mfi->path);
-  dirname(inotify_path);
-
-  // Temporarily disable inotify
-  ret = db_watch_get_bypath(&wi, inotify_path);
-  if (ret == 0)
-    {
-      inotify_rm_watch(inofd, wi.wd);
-      db_watch_delete_bywd(wi.wd);
-      free_wi(&wi, 1);
-    }
-
-  write_metadata_ffmpeg(mfi);
-
-  // and re-enable
-  wi.wd = inotify_add_watch(inofd, inotify_path, INOTIFY_FLAGS);
-  if (wi.wd < 0)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", inotify_path, strerror(errno));
-      ret = -1;
-      goto cleanup;
-    }
-
-  wi.cookie = 0;
-  wi.path = inotify_path;
-
-  db_watch_add(&wi);
-
-cleanup:
-  return ret;
+  return write_metadata_ffmpeg(mfi);
 }
 
 static int
