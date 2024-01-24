@@ -47,6 +47,13 @@ enum library_cb_action
   LIBRARY_CB_DELETE,
 };
 
+enum library_attrib
+{
+  LIBRARY_ATTRIB_RATING,
+  LIBRARY_ATTRIB_USERMARK,
+  LIBRARY_ATTRIB_PLAY_COUNT,
+};
+
 /*
  * Definition of a library source
  *
@@ -87,6 +94,11 @@ struct library_source
    * Run a full rescan (purge library entries and rescan) (called from the library thread)
    */
   int (*fullrescan)(void);
+
+  /*
+   * Write metadata to an item in the library
+   */
+  int (*write_metadata)(struct media_file_info *mfi);
 
   /*
    * Add an item to the library
@@ -218,6 +230,14 @@ library_queue_item_add(const char *path, int position, char reshuffle, uint32_t 
 
 int
 library_item_add(const char *path);
+
+/*
+ * Async function to set selected attributes for an item in the library. In case
+ * of ratrings also writes the rating to the source if the "write_rating" config
+ * option is enabled.
+ */
+void
+library_item_attrib_save(uint32_t id, enum library_attrib attrib, uint32_t value);
 
 struct library_source **
 library_sources(void);

@@ -22,10 +22,22 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
-#include <stdint.h>
+// For fstat()
+#include <sys/types.h>
+#include <sys/stat.h>
+
+// For file copy
+#include <fcntl.h>
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#include <copyfile.h>
+#else
+#include <sys/sendfile.h>
+#endif
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -174,6 +186,28 @@ parse_albumid(struct media_file_info *mfi, const char *id_string)
   return 1;
 }
 
+static int
+parse_rating(struct media_file_info *mfi, const char *rating_string)
+{
+  cfg_t *library = cfg_getsec(cfg, "library");
+  int max_rating;
+
+  if (!cfg_getbool(library, "read_rating"))
+    return 0;
+
+  if (safe_atou32(rating_string, &mfi->rating) < 0)
+    return 0;
+
+  // Make sure mfi->rating is in proper range
+  max_rating = cfg_getint(library, "max_rating");
+  if (max_rating < 5) // Invalid config
+    max_rating = DB_FILES_RATING_MAX;
+
+  mfi->rating = MIN(DB_FILES_RATING_MAX * mfi->rating / max_rating, DB_FILES_RATING_MAX);
+  return 1;
+}
+
+
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static const struct metadata_map md_map_generic[] =
   {
@@ -198,6 +232,7 @@ static const struct metadata_map md_map_generic[] =
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
     { "compilation",  1, mfi_offsetof(compilation),        NULL },
     { "lyrics",       0, mfi_offsetof(lyrics),             NULL,       AV_DICT_IGNORE_SUFFIX },
+    { "rating",       1, mfi_offsetof(rating),             parse_rating },
 
     // ALAC sort tags
     { "sort_name",           0, mfi_offsetof(title_sort),         NULL },
@@ -765,6 +800,355 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
     mfi->title = strdup(mfi->fname);
 
   /* All done */
+
+  return 0;
+}
+
+
+/* ----------------------- Writing metadata to files ------------------------ */
+
+// Adapted from https://stackoverflow.com/questions/2180079/how-can-i-copy-a-file-on-unix-using-c
+static int
+fast_copy(int fd_dst, int fd_src)
+{
+  // Here we use kernel-space copying for performance reasons
+#if defined(__APPLE__) || defined(__FreeBSD__)
+  // fcopyfile works on FreeBSD and OS X 10.5+
+  return fcopyfile(fd_src, fd_dst, 0, COPYFILE_ALL);
+#else
+  // sendfile will work with non-socket output (i.e. regular file) on Linux 2.6.33+
+  struct stat fileinfo = { 0 };
+  fstat(fd_src, &fileinfo);
+  return sendfile(fd_dst, fd_src, NULL, fileinfo.st_size);
+#endif
+}
+
+static int
+file_copy(const char *dst, const char *src)
+{
+  int fd_src = -1;
+  int fd_dst = -1;
+  int ret;
+
+  fd_src = open(src, O_RDONLY);
+  if (fd_src < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error opening source '%s' for copy: %s\n", src, strerror(errno));
+      goto error;
+    }
+
+  fd_dst = open(dst, O_WRONLY);
+  if (fd_src < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error opening destination '%s' for copy: %s\n", dst, strerror(errno));
+      goto error;
+    }
+
+  ret = fast_copy(fd_dst, fd_src);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error copying '%s' to file '%s': %s\n", src, dst, strerror(errno));
+      goto error;
+    }
+
+  close(fd_src);
+  close(fd_dst);
+  return 0;
+
+ error:
+  if (fd_src != -1)
+    close(fd_src);
+  if (fd_dst != -1)
+    close(fd_dst);
+  return -1;
+}
+
+static int
+file_copy_to_tmp(char *dst, size_t dst_size, const char *src)
+{
+  int fd_src = -1;
+  int fd_dst = -1;
+  const char *ext;
+  int ret;
+
+  ext = strrchr(src, '.');
+  if (!ext || strlen(ext) < 2)
+    return -1;
+
+  // Obviously, copying only requires read access, but we will need write access
+  // later, so let's fail early if it isn't going to work.
+  fd_src = open(src, O_RDWR);
+  if (fd_src < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error opening '%s' for metadata update: %s\n", src, strerror(errno));
+      goto error;
+    }
+
+  ret = snprintf(dst, dst_size, "/tmp/owntone.tmpXXXXXX%s", ext);
+  if (ret < 0 || ret >= dst_size)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error creating tmp file name\n");
+      goto error;
+    }
+
+  fd_dst = mkstemps(dst, strlen(ext));
+  if (fd_dst < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error creating tmp file '%s' for metadata update: %s\n", dst, strerror(errno));
+      goto error;
+    }
+
+  ret = fast_copy(fd_dst, fd_src);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error copying '%s' to tmp file '%s': %s\n", src, dst, strerror(errno));
+      goto error;
+    }
+
+  close(fd_src);
+  close(fd_dst);
+  return 0;
+
+ error:
+  if (fd_src != -1)
+    close(fd_src);
+  if (fd_dst != -1)
+    close(fd_dst);
+  return -1;
+}
+
+// based on FFmpeg's doc/examples and in particular mux.c
+static int
+file_write_rating(const char *dst, const char *src, const char *rating)
+{
+  AVFormatContext *in_fmt_ctx = NULL;
+  AVFormatContext *out_fmt_ctx = NULL;
+  AVPacket pkt;
+  const AVDictionaryEntry *tag;
+  AVStream *out_stream;
+  AVStream *in_stream;
+#if (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR >= 0) && (LIBAVCODEC_VERSION_MICRO >= 100))
+  const AVOutputFormat *out_fmt;
+#else
+  AVOutputFormat *out_fmt;
+#endif
+  bool restore_src = false;
+  int ret;
+  int i;
+  int stream_idx;
+  int *stream_mapping = NULL;
+
+  ret = avformat_open_input(&in_fmt_ctx, src, NULL, NULL);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error opening tmpfile '%s' for rating metadata update: %s\n", src, av_err2str(ret));
+      goto error;
+    }
+
+  av_dict_set(&in_fmt_ctx->metadata, "rating", rating, 0);
+
+  ret = avformat_find_stream_info(in_fmt_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error reading input stream information from '%s': %s\n", in_fmt_ctx->url, av_err2str(ret));
+      goto error;
+    }
+
+  out_fmt = av_guess_format(in_fmt_ctx->iformat->name, in_fmt_ctx->url, in_fmt_ctx->iformat->mime_type);
+  if (out_fmt == NULL)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not determine output format from '%s'\n", in_fmt_ctx->url);
+      goto error;
+    }
+
+  ret = avformat_alloc_output_context2(&out_fmt_ctx, out_fmt, NULL, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not create output context '%s' - %s\n", in_fmt_ctx->url, av_err2str(ret));
+      goto error;
+    }
+
+  CHECK_NULL(L_SCAN, stream_mapping = av_calloc(in_fmt_ctx->nb_streams, sizeof(*stream_mapping)));
+
+  tag = NULL;
+  while ((tag = av_dict_iterate(in_fmt_ctx->metadata, tag)))
+    {
+      av_dict_set(&(out_fmt_ctx->metadata), tag->key, tag->value, 0);
+    }
+
+  stream_idx = 0;
+  for (i = 0; i < in_fmt_ctx->nb_streams; i++)
+    {
+      in_stream = in_fmt_ctx->streams[i];
+      stream_mapping[i] = stream_idx++;
+
+      out_stream = avformat_new_stream(out_fmt_ctx, NULL);
+      if (!out_stream)
+        {
+	  DPRINTF(E_LOG, L_SCAN, "Error allocating output stream for '%s'\n", in_fmt_ctx->url);
+	  goto error;
+        }
+
+      ret = avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Error copying codec parameters from '%s': %s\n", in_fmt_ctx->url, av_err2str(ret));
+	  goto error;
+	}
+
+      if (in_stream->metadata)
+	{
+	  tag = NULL;
+	  while ((tag = av_dict_iterate(in_stream->metadata, tag)))
+	    {
+	      av_dict_set(&(out_stream->metadata), tag->key, tag->value, 0);
+	    }
+	}
+    }
+
+  ret = avio_open(&out_fmt_ctx->pb, dst, AVIO_FLAG_WRITE);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not open output rating file '%s': %s\n", dst, av_err2str(ret));
+      goto error;
+    }
+
+  ret = avformat_write_header(out_fmt_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error occurred when writing output header to '%s': %s\n", dst, av_err2str(ret));
+      goto error;
+    }
+
+  while (1)
+    {
+      ret = av_read_frame(in_fmt_ctx, &pkt);
+      if (ret < 0)
+	{
+	  if (ret == AVERROR_EOF)
+	    break;
+
+	  DPRINTF(E_LOG, L_SCAN, "Error reading '%s': %s\n", in_fmt_ctx->url, av_err2str(ret));
+	  restore_src = true;
+	  goto error;
+	}
+
+      in_stream = in_fmt_ctx->streams[pkt.stream_index];
+      if (pkt.stream_index >= in_fmt_ctx->nb_streams || stream_mapping[pkt.stream_index] < 0)
+	{
+	  av_packet_unref(&pkt);
+	  continue;
+	}
+
+      pkt.stream_index = stream_mapping[pkt.stream_index];
+      out_stream = out_fmt_ctx->streams[pkt.stream_index];
+
+      /* copy packet */
+      pkt.pts = av_rescale_q_rnd(pkt.pts, in_stream->time_base, out_stream->time_base, AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX);
+      pkt.dts = av_rescale_q_rnd(pkt.dts, in_stream->time_base, out_stream->time_base, AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX);
+      pkt.duration = av_rescale_q(pkt.duration, in_stream->time_base, out_stream->time_base);
+      pkt.pos = -1;
+
+      ret = av_interleaved_write_frame(out_fmt_ctx, &pkt);
+      av_packet_unref(&pkt);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Error muxing pkt for rating '%s': %s\n", in_fmt_ctx->url, av_err2str(ret));
+	  restore_src = true;
+	  goto error;
+	}
+    }
+
+  av_write_trailer(out_fmt_ctx);
+
+  if (out_fmt_ctx && !(out_fmt_ctx->oformat->flags & AVFMT_NOFILE))
+    avio_closep(&out_fmt_ctx->pb);
+  avformat_free_context(out_fmt_ctx);
+  av_freep(&stream_mapping);
+  return 0;
+
+ error:
+  if (out_fmt_ctx && !(out_fmt_ctx->oformat->flags & AVFMT_NOFILE))
+    avio_closep(&out_fmt_ctx->pb);
+  avformat_free_context(out_fmt_ctx);
+  av_freep(&stream_mapping);
+  if (restore_src)
+    file_copy(dst, src);
+  return -1;
+}
+
+static bool
+file_rating_matches(const char *path, const char *rating)
+{
+  AVFormatContext *in_fmt_ctx = NULL;
+  AVDictionaryEntry *entry;
+  bool has_rating;
+  int ret;
+
+  ret = avformat_open_input(&in_fmt_ctx, path, NULL, NULL);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Failed to open library file for rating metadata update '%s' - %s\n", path, av_err2str(ret));
+      return true; // Return true so called aborts
+    }
+
+  entry = av_dict_get(in_fmt_ctx->metadata, "rating", NULL, 0);
+  has_rating = (entry && entry->value && strcmp(entry->value, rating) == 0);
+
+  avformat_close_input(&in_fmt_ctx);
+
+  return has_rating;
+}
+
+// ffmpeg's metadata update is limited - some formats do not support rating
+// update even though the write completes; keep this in sync with supported
+// formats
+static bool
+format_is_supported(const char *format)
+{
+  if (strcmp(format, "mp3") == 0)
+    return true;
+  if (strcmp(format, "flac") == 0)
+    return true;
+
+  return false;
+}
+
+int
+write_metadata_ffmpeg(struct media_file_info *mfi)
+{
+  char rating_str[32];
+  char tmpfile[PATH_MAX];
+  int max_rating;
+  int file_rating;
+  int ret;
+
+  if (mfi->data_kind != DATA_KIND_FILE || !format_is_supported(mfi->type))
+    {
+      DPRINTF(E_WARN, L_SCAN, "Update of rating metadata requires file in MP3 or FLAC format: '%s'\n", mfi->path);
+      return -1;
+    }
+
+  max_rating = cfg_getint(cfg_getsec(cfg, "library"), "max_rating");
+  if (max_rating < 5) // Invalid config
+    max_rating = DB_FILES_RATING_MAX;
+  file_rating = mfi->rating * max_rating / DB_FILES_RATING_MAX;
+  snprintf(rating_str, sizeof(rating_str), "%d", file_rating);
+
+  // Save a write if metadata of the underlying file matches requested rating
+  if (file_rating_matches(mfi->path, rating_str))
+    return 0;
+
+  ret = file_copy_to_tmp(tmpfile, sizeof(tmpfile), mfi->path);
+  if (ret < 0)
+    return -1;
+
+  ret = file_write_rating(mfi->path, tmpfile, rating_str);
+  unlink(tmpfile);
+  if (ret < 0)
+    return -1;
+
+  DPRINTF(E_DBG, L_SCAN, "Wrote rating metadata to '%s'\n", mfi->path);
 
   return 0;
 }

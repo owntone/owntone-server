@@ -334,25 +334,6 @@ track_to_json(struct db_media_file_info *dbmfi)
   return item;
 }
 
-// TODO Only partially implemented. A full implementation should use a mapping
-// table, which should also be used above in track_to_json(). It should also
-// return errors if there are incorrect/mispelled fields, but not sure how to
-// walk a json object with json-c.
-static int
-json_to_track(struct media_file_info *mfi, json_object *json)
-{
-  if (jparse_contains_key(json, "id", json_type_int))
-    mfi->id = jparse_int_from_obj(json, "id");
-  if (jparse_contains_key(json, "usermark", json_type_int))
-    mfi->usermark = jparse_int_from_obj(json, "usermark");
-  if (jparse_contains_key(json, "rating", json_type_int))
-    mfi->rating = jparse_int_from_obj(json, "rating");
-  if (jparse_contains_key(json, "play_count", json_type_int))
-    mfi->play_count = jparse_int_from_obj(json, "play_count");
-
-  return HTTP_OK;
-}
-
 static json_object *
 playlist_to_json(struct db_playlist_info *dbpli)
 {
@@ -3217,7 +3198,6 @@ jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
   json_object *request = NULL;
   json_object *tracks;
   json_object *track = NULL;
-  struct media_file_info *mfi = NULL;
   int ret;
   int err;
   int32_t track_id;
@@ -3251,30 +3231,21 @@ jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
 	  goto error;
 	}
 
-      mfi = db_file_fetch_byid(track_id);
-      if (!mfi)
+      if (!db_file_id_exists(track_id))
 	{
 	  DPRINTF(E_LOG, L_WEB, "Unknown track_id %d in json tracks request\n", track_id);
 	  err = HTTP_NOTFOUND;
 	  goto error;
 	}
 
-      ret = json_to_track(mfi, track);
-      if (ret != HTTP_OK)
-	{
-	  err = ret;
-	  goto error;
-	}
+      // These are async, so no error check
+      if (jparse_contains_key(track, "rating", json_type_int))
+	library_item_attrib_save(track_id, LIBRARY_ATTRIB_RATING, jparse_int_from_obj(track, "rating"));
+      if (jparse_contains_key(track, "usermark", json_type_int))
+	library_item_attrib_save(track_id, LIBRARY_ATTRIB_USERMARK, jparse_int_from_obj(track, "usermark"));
+      if (jparse_contains_key(track, "play_count", json_type_int))
+	library_item_attrib_save(track_id, LIBRARY_ATTRIB_PLAY_COUNT, jparse_int_from_obj(track, "play_count"));
 
-      ret = db_file_update(mfi);
-      if (ret < 0)
-	{
-	  err = HTTP_INTERNAL;
-	  goto error;
-	}
-
-      free_mfi(mfi, 0);
-      mfi = NULL;
       i++;
     }
 
@@ -3286,7 +3257,6 @@ jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
   jparse_free(request);
   if (track)
     db_transaction_rollback();
-  free_mfi(mfi, 0);
   return err;
 }
 
@@ -3299,8 +3269,11 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   int ret;
 
   ret = safe_atoi32(hreq->path_parts[3], &track_id);
-  if (ret < 0)
-    return HTTP_INTERNAL;
+  if (ret < 0 || !db_file_id_exists(track_id))
+    {
+      DPRINTF(E_WARN, L_WEB, "Invalid or unknown track id in request '%s'\n", hreq->path);
+      return HTTP_NOTFOUND;
+    }
 
   param = httpd_query_value_find(hreq->query, "play_count");
   if (param)
@@ -3330,9 +3303,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 	  return HTTP_BADREQUEST;
 	}
 
-      ret = db_file_rating_update_byid(track_id, val);
-      if (ret < 0)
-        return HTTP_INTERNAL;
+      library_item_attrib_save(track_id, LIBRARY_ATTRIB_RATING, val);
     }
 
   // Retreive marked tracks via "/api/search?type=tracks&expression=usermark+=+1"
@@ -3346,9 +3317,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 	  return HTTP_BADREQUEST;
 	}
 
-      ret = db_file_usermark_update_byid(track_id, val);
-      if (ret < 0)
-        return HTTP_INTERNAL;
+      library_item_attrib_save(track_id, LIBRARY_ATTRIB_USERMARK, val);
     }
 
   return HTTP_OK;

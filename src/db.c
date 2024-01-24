@@ -2921,7 +2921,9 @@ db_file_inc_playcount_byfilter(const char *filter)
       return;
     }
 
-  ret = db_query_run(query, 1, 0);
+  // Perhaps this should in principle emit LISTENER_DATABASE, but that would
+  // cause a lot of useless cache updates
+  ret = db_query_run(query, 1, db_rating_updates ? LISTENER_RATING : 0);
   if (ret == 0)
     db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
 #undef Q_TMPL
@@ -2987,7 +2989,7 @@ db_file_inc_skipcount(int id)
       return;
     }
 
-  ret = db_query_run(query, 1, 0);
+  ret = db_query_run(query, 1, db_rating_updates ? LISTENER_RATING : 0);
   if (ret == 0)
     db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
 #undef Q_TMPL
@@ -3155,6 +3157,30 @@ db_file_id_byquery(const char *query)
   return ret;
 }
 
+bool
+db_file_id_exists(int id)
+{
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.id = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  ret = db_file_id_byquery(query);
+
+  sqlite3_free(query);
+
+  return (id == ret);
+
+#undef Q_TMPL
+}
+
 int
 db_file_id_bypath(const char *path)
 {
@@ -3228,13 +3254,37 @@ db_file_id_byurl(const char *url)
 }
 
 int
-db_file_id_by_virtualpath_match(const char *path)
+db_file_id_byvirtualpath(const char *virtual_path)
+{
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.virtual_path = %Q;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, virtual_path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  ret = db_file_id_byquery(query);
+
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_file_id_byvirtualpath_match(const char *virtual_path)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.virtual_path LIKE '%%%q%%';"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, path);
+  query = sqlite3_mprintf(Q_TMPL, virtual_path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3451,67 +3501,6 @@ db_file_seek_update(int id, uint32_t seek)
   ret = db_query_run(query, 1, 0);
   if (ret == 0)
     db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
-#undef Q_TMPL
-}
-
-static int
-db_file_rating_update(char *query)
-{
-  int ret;
-
-  ret = db_query_run(query, 1, 0);
-
-  if (ret == 0)
-    {
-      db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
-      listener_notify(LISTENER_RATING);
-    }
-
-  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
-}
-
-int
-db_file_rating_update_byid(uint32_t id, uint32_t rating)
-{
-#define Q_TMPL "UPDATE files SET rating = %d WHERE id = %d;"
-  char *query;
-
-  query = sqlite3_mprintf(Q_TMPL, rating, id);
-
-  return db_file_rating_update(query);
-#undef Q_TMPL
-}
-
-int
-db_file_rating_update_byvirtualpath(const char *virtual_path, uint32_t rating)
-{
-#define Q_TMPL "UPDATE files SET rating = %d WHERE virtual_path = %Q;"
-  char *query;
-
-  query = sqlite3_mprintf(Q_TMPL, rating, virtual_path);
-
-  return db_file_rating_update(query);
-#undef Q_TMPL
-}
-
-int
-db_file_usermark_update_byid(uint32_t id, uint32_t usermark)
-{
-#define Q_TMPL "UPDATE files SET usermark = %d WHERE id = %d;"
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, usermark, id);
-
-  ret = db_query_run(query, 1, 0);
-
-  if (ret == 0)
-    {
-      db_admin_setint64(DB_ADMIN_DB_MODIFIED, (int64_t) time(NULL));
-      listener_notify(LISTENER_UPDATE);
-    }
-
-  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
 }
 
@@ -6350,8 +6339,6 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
   ret = db_blocking_step(stmt);
   if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_WARN, L_DB, "Watch not found: '%s'\n", query);
-
       sqlite3_finalize(stmt);
       sqlite3_free(query);
       return -1;
@@ -6577,7 +6564,7 @@ db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
   ret = db_blocking_step(we->stmt);
   if (ret == SQLITE_DONE)
     {
-      DPRINTF(E_INFO, L_DB, "End of watch enum results\n");
+      DPRINTF(E_DBG, L_DB, "End of watch enum results\n");
       return 0;
     }
   else if (ret != SQLITE_ROW)

@@ -76,6 +76,13 @@
 #define F_SCAN_TYPE_AUDIOBOOK    (1 << 2)
 #define F_SCAN_TYPE_COMPILATION  (1 << 3)
 
+#ifdef __linux__
+#define INOTIFY_FLAGS  (IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF)
+#else
+#define INOTIFY_FLAGS  (IN_CREATE | IN_DELETE | IN_MOVE)
+#endif
+
+
 
 enum file_type {
   FILE_UNKNOWN = 0,
@@ -906,11 +913,7 @@ process_directory(char *path, int parent_id, int flags)
 
   // Add inotify watch (for FreeBSD we limit the flags so only dirs will be
   // opened, otherwise we will be opening way too many files)
-#ifdef __linux__
-  wi.wd = inotify_add_watch(inofd, path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
-#else
-  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MOVE);
-#endif
+  wi.wd = inotify_add_watch(inofd, path, INOTIFY_FLAGS);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
@@ -1720,6 +1723,12 @@ filescanner_fullrescan()
 }
 
 static int
+filescanner_write_metadata(struct media_file_info *mfi)
+{
+  return write_metadata_ffmpeg(mfi);
+}
+
+static int
 queue_item_file_add(const char *sub_uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
 {
   struct query_params query_params = { 0 };
@@ -2217,6 +2226,7 @@ struct library_source filescanner =
   .rescan = filescanner_rescan,
   .metarescan = filescanner_metarescan,
   .fullrescan = filescanner_fullrescan,
+  .write_metadata = filescanner_write_metadata,
   .playlist_item_add = playlist_item_add,
   .playlist_remove = playlist_remove,
   .queue_save = queue_save,
