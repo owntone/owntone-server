@@ -30,8 +30,9 @@
           v-text="track.item.artist"
         />
         <h2 class="subtitle is-7 has-text-grey" v-text="track.item.album" />
-        <progress-bar
-          v-if="show_progress"
+        <progress
+          v-if="show_progress && track.item.seek_ms > 0"
+          class="progress is-info"
           :max="track.item.length_ms"
           :value="track.item.seek_ms"
         />
@@ -55,12 +56,11 @@
 
 <script>
 import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
-import ProgressBar from '@/components/ProgressBar.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ListTracks',
-  components: { ModalDialogTrack, ProgressBar },
+  components: { ModalDialogTrack },
 
   props: ['tracks', 'uris', 'expression', 'show_progress', 'show_icon'],
   emits: ['play-count-changed'],
@@ -99,4 +99,8 @@ export default {
 }
 </script>
 
-<style></style>
+<style scoped>
+.progress {
+  height: 0.25rem;
+}
+</style>
