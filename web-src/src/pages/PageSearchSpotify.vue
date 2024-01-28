@@ -61,7 +61,14 @@
           v-if="query.type === 'track'"
           :load="search_tracks_next"
         >
-          <template #no-more> . </template>
+          <template #loading>
+            <div class="columns is-centered">
+              <div class="column has-text-centered">
+                <mdicon class="icon mdi-spin" name="loading" />
+              </div>
+            </div>
+          </template>
+          <template #no-more>&nbsp;</template>
         </VueEternalLoading>
         <modal-dialog-track-spotify
           :show="show_track_details_modal"
@@ -116,7 +123,14 @@
           v-if="query.type === 'artist'"
           :load="search_artists_next"
         >
-          <template #no-more> . </template>
+          <template #loading>
+            <div class="columns is-centered">
+              <div class="column has-text-centered">
+                <mdicon class="icon mdi-spin" name="loading" />
+              </div>
+            </div>
+          </template>
+          <template #no-more>&nbsp;</template>
         </VueEternalLoading>
         <modal-dialog-artist-spotify
           :show="show_artist_details_modal"
@@ -181,7 +195,14 @@
           v-if="query.type === 'album'"
           :load="search_albums_next"
         >
-          <template #no-more> . </template>
+          <template #loading>
+            <div class="columns is-centered">
+              <div class="column has-text-centered">
+                <mdicon class="icon mdi-spin" name="loading" />
+              </div>
+            </div>
+          </template>
+          <template #no-more>&nbsp;</template>
         </VueEternalLoading>
         <modal-dialog-album-spotify
           :show="show_album_details_modal"
@@ -235,7 +256,14 @@
           v-if="query.type === 'playlist'"
           :load="search_playlists_next"
         >
-          <template #no-more> . </template>
+          <template #loading>
+            <div class="columns is-centered">
+              <div class="column has-text-centered">
+                <mdicon class="icon mdi-spin" name="loading" />
+              </div>
+            </div>
+          </template>
+          <template #no-more>&nbsp;</template>
         </VueEternalLoading>
         <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
