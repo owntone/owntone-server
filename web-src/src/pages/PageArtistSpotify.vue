@@ -50,7 +50,14 @@
           </template>
         </list-item-album-spotify>
         <VueEternalLoading v-if="offset < total" :load="load_next">
-          <template #no-more> . </template>
+          <template #loading>
+            <div class="columns is-centered">
+              <div class="column has-text-centered">
+                <mdicon class="icon mdi-spin" name="loading" />
+              </div>
+            </div>
+          </template>
+          <template #no-more>&nbsp;</template>
         </VueEternalLoading>
         <modal-dialog-artist-spotify
           :show="show_details_modal"
