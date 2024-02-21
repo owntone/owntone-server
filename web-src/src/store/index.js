@@ -70,10 +70,6 @@ export default createStore({
   },
 
   getters: {
-    lyrics: (state) => state.lyrics.content,
-
-    lyrics_pane: (state) => state.lyrics.pane,
-
     now_playing: (state) => {
       const item = state.queue.items.find((e) => e.id === state.player.item_id)
       return item === undefined ? {} : item

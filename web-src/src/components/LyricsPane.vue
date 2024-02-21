@@ -100,7 +100,7 @@ export default {
       }
     },
     lyrics() {
-      const raw = this.$store.getters.lyrics
+      const raw = this.$store.state.lyrics.content
       const parsed = []
       if (raw) {
         // Parse the lyrics

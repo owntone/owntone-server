@@ -91,7 +91,7 @@ export default {
     },
 
     lyrics_visible() {
-      return this.$store.getters.lyrics_pane
+      return this.$store.state.lyrics.pane
     },
 
     player() {
