@@ -22,7 +22,6 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import webapi from '@/webapi'
 
 export default {
@@ -82,7 +81,7 @@ export default {
       webapi
         .settings_update(this.category_name, option)
         .then(() => {
-          this.$store.commit(types.UPDATE_SETTINGS_OPTION, option)
+          this.$store.dispatch('update_settings_option', option)
           this.statusUpdate = 'success'
         })
         .catch(() => {

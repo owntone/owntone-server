@@ -17,7 +17,6 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 
 export default {
   name: 'NotificationList',
@@ -30,7 +29,7 @@ export default {
 
   methods: {
     remove(notification) {
-      this.$store.commit(types.DELETE_NOTIFICATION, notification)
+      this.$store.dispatch('delete_notification', notification)
     }
   }
 }

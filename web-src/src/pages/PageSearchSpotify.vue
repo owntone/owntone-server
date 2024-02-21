@@ -296,7 +296,6 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentText from '@/templates/ContentText.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
@@ -511,7 +510,7 @@ export default {
       this.search_query = this.query.query
       this.search_param.limit = this.query.limit ? this.query.limit : PAGE_SIZE
       this.search_param.offset = this.query.offset ? this.query.offset : 0
-      this.$store.commit(types.ADD_RECENT_SEARCH, this.query.query)
+      this.$store.dispatch('add_recent_search', this.query.query)
       this.search_all()
     },
     search_albums_next({ loaded }) {

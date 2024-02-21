@@ -256,7 +256,6 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentText from '@/templates/ContentText.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupByList } from '@/lib/GroupByList'
@@ -372,7 +371,7 @@ export default {
       this.searchMusic(route.query)
       this.searchAudiobooks(route.query)
       this.searchPodcasts(route.query)
-      this.$store.commit(types.ADD_RECENT_SEARCH, route.query.query)
+      this.$store.dispatch('add_recent_search', route.query.query)
     },
 
     searchMusic(query) {

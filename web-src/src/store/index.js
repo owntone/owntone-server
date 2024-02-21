@@ -153,15 +153,6 @@ export default createStore({
     [types.UPDATE_SETTINGS](state, settings) {
       state.settings = settings
     },
-    [types.UPDATE_SETTINGS_OPTION](state, option) {
-      const settingCategory = state.settings.categories.find(
-          (e) => e.name === option.category
-        ),
-        settingOption = settingCategory.options.find(
-          (e) => e.name === option.name
-        )
-      settingOption.value = option.value
-    },
     [types.UPDATE_LIBRARY_STATS](state, libraryStats) {
       state.library = libraryStats
     },
@@ -195,39 +186,8 @@ export default createStore({
     [types.SPOTIFY_FEATURED_PLAYLISTS](state, featuredPlaylists) {
       state.spotify_featured_playlists = featuredPlaylists
     },
-    [types.ADD_NOTIFICATION](state, notification) {
-      if (notification.topic) {
-        const index = state.notifications.list.findIndex(
-          (elem) => elem.topic === notification.topic
-        )
-        if (index >= 0) {
-          state.notifications.list.splice(index, 1, notification)
-          return
-        }
-      }
-      state.notifications.list.push(notification)
-    },
-    [types.DELETE_NOTIFICATION](state, notification) {
-      const index = state.notifications.list.indexOf(notification)
-
-      if (index !== -1) {
-        state.notifications.list.splice(index, 1)
-      }
-    },
     [types.SEARCH_SOURCE](state, searchSource) {
       state.search_source = searchSource
-    },
-    [types.ADD_RECENT_SEARCH](state, query) {
-      const index = state.recent_searches.findIndex((elem) => elem === query)
-      if (index >= 0) {
-        state.recent_searches.splice(index, 1)
-      }
-
-      state.recent_searches.splice(0, 0, query)
-
-      if (state.recent_searches.length > 5) {
-        state.recent_searches.pop()
-      }
     },
     [types.COMPOSER_TRACKS_SORT](state, sort) {
       state.composer_tracks_sort = sort
@@ -279,14 +239,46 @@ export default createStore({
         topic: notification.topic,
         type: notification.type
       }
-
-      commit(types.ADD_NOTIFICATION, newNotification)
-
+      if (newNotification.topic) {
+        const index = state.notifications.list.findIndex(
+          (elem) => elem.topic === newNotification.topic
+        )
+        if (index >= 0) {
+          state.notifications.list.splice(index, 1, newNotification)
+          return
+        }
+      }
+      state.notifications.list.push(newNotification)
       if (notification.timeout > 0) {
         setTimeout(() => {
-          commit(types.DELETE_NOTIFICATION, newNotification)
+          this.dispatch('delete_notification', newNotification)
         }, notification.timeout)
       }
+    },
+    add_recent_search({ commit, state }, query) {
+      const index = state.recent_searches.findIndex((elem) => elem === query)
+      if (index >= 0) {
+        state.recent_searches.splice(index, 1)
+      }
+      state.recent_searches.splice(0, 0, query)
+      if (state.recent_searches.length > 5) {
+        state.recent_searches.pop()
+      }
+    },
+    delete_notification({ commit, state }, notification) {
+      const index = state.notifications.list.indexOf(notification)
+      if (index !== -1) {
+        state.notifications.list.splice(index, 1)
+      }
+    },
+    update_settings_option({commit, state}, option) {
+      const settingCategory = state.settings.categories.find(
+        (e) => e.name === option.category
+      ),
+      settingOption = settingCategory.options.find(
+        (e) => e.name === option.name
+      )
+      settingOption.value = option.value
     }
   }
 })
