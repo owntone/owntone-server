@@ -22,7 +22,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList, byName } from '@/lib/GroupByList'
+import { GroupedList, byName } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
@@ -34,7 +34,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.artists_list = new GroupByList(response.data)
+    vm.artists_list = new GroupedList(response.data)
   }
 }
 
@@ -67,7 +67,7 @@ export default {
 
   data() {
     return {
-      artists_list: new GroupByList()
+      artists_list: new GroupedList()
     }
   },
 

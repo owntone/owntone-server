@@ -17,7 +17,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList } from '@/lib/GroupByList'
+import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
 
@@ -27,7 +27,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.tracks = new GroupByList(response.data.tracks)
+    vm.tracks = new GroupedList(response.data.tracks)
   }
 }
 
@@ -50,7 +50,7 @@ export default {
 
   data() {
     return {
-      tracks: new GroupByList()
+      tracks: new GroupedList()
     }
   }
 }

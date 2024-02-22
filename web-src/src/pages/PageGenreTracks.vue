@@ -7,8 +7,8 @@
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.genre.sort.title')" />
             <control-dropdown
-              v-model:value="selected_groupby_option_id"
-              :options="groupby_options"
+              v-model:value="selected_grouping_option_id"
+              :options="grouping_options"
             />
           </div>
         </div>
@@ -56,7 +56,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupByList, byName, byRating } from '@/lib/GroupByList'
+import { GroupedList, byName, byRating } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
@@ -74,7 +74,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.genre = response[0].data
-    vm.tracks_list = new GroupByList(response[1].data.tracks)
+    vm.tracks_list = new GroupedList(response[1].data.tracks)
   }
 }
 
@@ -108,7 +108,7 @@ export default {
   data() {
     return {
       genre: {},
-      groupby_options: [
+      grouping_options: [
         {
           id: 1,
           name: this.$t('page.genre.sort.name'),
@@ -124,7 +124,7 @@ export default {
       ],
       media_kind: this.$route.query.media_kind,
       show_details_modal: false,
-      tracks_list: new GroupByList()
+      tracks_list: new GroupedList()
     }
   },
 
@@ -132,7 +132,7 @@ export default {
     expression() {
       return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
     },
-    selected_groupby_option_id: {
+    selected_grouping_option_id: {
       get() {
         return this.$store.state.genre_tracks_sort
       },
@@ -141,10 +141,10 @@ export default {
       }
     },
     tracks() {
-      const groupBy = this.groupby_options.find(
-        (o) => o.id === this.selected_groupby_option_id
+      const grouping = this.grouping_options.find(
+        (o) => o.id === this.selected_grouping_option_id
       )
-      this.tracks_list.group(groupBy.options)
+      this.tracks_list.group(grouping.options)
       return this.tracks_list
     }
   },

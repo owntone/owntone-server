@@ -46,7 +46,7 @@
 </template>
 
 <script>
-import { GroupByList, byName } from '@/lib/GroupByList'
+import { GroupedList, byName } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
@@ -63,7 +63,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.genre = response[0].data
-    vm.albums_list = new GroupByList(response[1].data.albums)
+    vm.albums_list = new GroupedList(response[1].data.albums)
     vm.albums_list.group(byName('name_sort', true))
   }
 }
@@ -94,7 +94,7 @@ export default {
   },
   data() {
     return {
-      albums_list: new GroupByList(),
+      albums_list: new GroupedList(),
       genre: {},
       media_kind: this.$route.query.media_kind,
       show_details_modal: false

@@ -41,8 +41,8 @@
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.artists.sort.title')" />
             <control-dropdown
-              v-model:value="selected_groupby_option_id"
-              :options="groupby_options"
+              v-model:value="selected_grouping_option_id"
+              :options="grouping_options"
             />
           </div>
         </div>
@@ -64,7 +64,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupByList, byName, byYear } from '@/lib/GroupByList'
+import { GroupedList, byName, byYear } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
@@ -78,7 +78,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.artists_list = new GroupByList(response.data)
+    vm.artists_list = new GroupedList(response.data)
   }
 }
 
@@ -112,8 +112,8 @@ export default {
 
   data() {
     return {
-      artists_list: new GroupByList(),
-      groupby_options: [
+      artists_list: new GroupedList(),
+      grouping_options: [
         {
           id: 1,
           name: this.$t('page.artists.sort.name'),
@@ -131,16 +131,16 @@ export default {
   },
 
   computed: {
-    // Wraps GroupByList and updates it if filter or sort changes
+    // Wraps GroupedList and updates it if filter or sort changes
     artists() {
       if (!this.artists_list) {
         return []
       }
 
-      const groupBy = this.groupby_options.find(
-        (o) => o.id === this.selected_groupby_option_id
+      const grouping = this.grouping_options.find(
+        (o) => o.id === this.selected_grouping_option_id
       )
-      this.artists_list.group(groupBy.options, [
+      this.artists_list.group(grouping.options, [
         (artist) =>
           !this.hide_singles || artist.track_count > artist.album_count * 2,
         (artist) => !this.hide_spotify || artist.data_kind !== 'spotify'
@@ -149,7 +149,7 @@ export default {
       return this.artists_list
     },
 
-    selected_groupby_option_id: {
+    selected_grouping_option_id: {
       get() {
         return this.$store.state.artists_sort
       },

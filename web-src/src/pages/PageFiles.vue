@@ -39,7 +39,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList } from '@/lib/GroupByList'
+import { GroupedList } from '@/lib/GroupedList'
 import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
@@ -57,12 +57,12 @@ const dataObject = {
   set(vm, response) {
     if (response) {
       vm.dirs = response.data.directories
-      vm.playlists = new GroupByList(response.data.playlists)
-      vm.tracks = new GroupByList(response.data.tracks)
+      vm.playlists = new GroupedList(response.data.playlists)
+      vm.tracks = new GroupedList(response.data.tracks)
     } else {
       vm.dirs = vm.$store.state.config.directories.map((dir) => ({ path: dir }))
-      vm.playlists = new GroupByList()
-      vm.tracks = new GroupByList()
+      vm.playlists = new GroupedList()
+      vm.tracks = new GroupedList()
     }
   }
 }
@@ -93,8 +93,8 @@ export default {
   data() {
     return {
       dirs: [],
-      playlists: new GroupByList(),
-      tracks: new GroupByList(),
+      playlists: new GroupedList(),
+      tracks: new GroupedList(),
       show_details_modal: false
     }
   },

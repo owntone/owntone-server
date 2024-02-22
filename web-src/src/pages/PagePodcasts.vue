@@ -59,7 +59,7 @@
 <script>
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList } from '@/lib/GroupByList'
+import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
@@ -74,8 +74,8 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.albums = new GroupByList(response[0].data)
-    vm.new_episodes = new GroupByList(response[1].data.tracks)
+    vm.albums = new GroupedList(response[0].data)
+    vm.new_episodes = new GroupedList(response[1].data.tracks)
   }
 }
 
@@ -131,13 +131,13 @@ export default {
 
     reload_new_episodes() {
       webapi.library_podcasts_new_episodes().then(({ data }) => {
-        this.new_episodes = new GroupByList(data.tracks)
+        this.new_episodes = new GroupedList(data.tracks)
       })
     },
 
     reload_podcasts() {
       webapi.library_albums('podcast').then(({ data }) => {
-        this.albums = new GroupByList(data)
+        this.albums = new GroupedList(data)
         this.reload_new_episodes()
       })
     },

@@ -24,8 +24,8 @@
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />
             <control-dropdown
-              v-model:value="selected_groupby_option_id"
-              :options="groupby_options"
+              v-model:value="selected_grouping_option_id"
+              :options="grouping_options"
             />
           </div>
         </div>
@@ -74,7 +74,7 @@
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
-import { GroupByList, byName, byYear } from '@/lib/GroupByList'
+import { GroupedList, byName, byYear } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'
@@ -89,7 +89,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.artist = response[0].data
-    vm.albums_list = new GroupByList(response[1].data)
+    vm.albums_list = new GroupedList(response[1].data)
   }
 }
 
@@ -118,8 +118,8 @@ export default {
   data() {
     return {
       artist: {},
-      albums_list: new GroupByList(),
-      groupby_options: [
+      albums_list: new GroupedList(),
+      grouping_options: [
         {
           id: 1,
           name: this.$t('page.artist.sort.name'),
@@ -139,10 +139,10 @@ export default {
 
   computed: {
     albums() {
-      const groupBy = this.groupby_options.find(
-        (o) => o.id === this.selected_groupby_option_id
+      const grouping = this.grouping_options.find(
+        (o) => o.id === this.selected_grouping_option_id
       )
-      this.albums_list.group(groupBy.options, [
+      this.albums_list.group(grouping.options, [
         (album) => !this.hide_spotify || album.data_kind !== 'spotify'
       ])
       return this.albums_list
@@ -155,7 +155,7 @@ export default {
         this.$store.commit(types.HIDE_SPOTIFY, value)
       }
     },
-    selected_groupby_option_id: {
+    selected_grouping_option_id: {
       get() {
         return this.$store.state.artist_albums_sort
       },

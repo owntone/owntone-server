@@ -47,7 +47,7 @@
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import { GroupByList, byMedium, noop } from '@/lib/GroupByList'
+import { GroupedList, byMedium, noop } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'
@@ -62,7 +62,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.album = response[0].data
-    vm.tracks = new GroupByList(response[1].data)
+    vm.tracks = new GroupedList(response[1].data)
     vm.tracks.group(byMedium('disc_number'))
     if (vm.tracks.indexList <= 1) {
       vm.tracks.group(noop())
@@ -91,7 +91,7 @@ export default {
     return {
       album: {},
       show_details_modal: false,
-      tracks: new GroupByList()
+      tracks: new GroupedList()
     }
   },
 

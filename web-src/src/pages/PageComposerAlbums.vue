@@ -47,7 +47,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList } from '@/lib/GroupByList'
+import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
@@ -62,7 +62,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.composer = response[0].data
-    vm.albums_list = new GroupByList(response[1].data.albums)
+    vm.albums_list = new GroupedList(response[1].data.albums)
   }
 }
 
@@ -89,7 +89,7 @@ export default {
 
   data() {
     return {
-      albums_list: new GroupByList(),
+      albums_list: new GroupedList(),
       composer: {},
       show_details_modal: false
     }

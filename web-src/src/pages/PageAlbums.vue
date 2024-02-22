@@ -41,8 +41,8 @@
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.albums.sort.title')" />
             <control-dropdown
-              v-model:value="selected_groupby_option_id"
-              :options="groupby_options"
+              v-model:value="selected_grouping_option_id"
+              :options="grouping_options"
             />
           </div>
         </div>
@@ -64,7 +64,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupByList, byName, byYear } from '@/lib/GroupByList'
+import { GroupedList, byName, byYear } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
@@ -78,7 +78,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.albums_list = new GroupByList(response.data)
+    vm.albums_list = new GroupedList(response.data)
   }
 }
 
@@ -112,8 +112,8 @@ export default {
 
   data() {
     return {
-      albums_list: new GroupByList(),
-      groupby_options: [
+      albums_list: new GroupedList(),
+      grouping_options: [
         {
           id: 1,
           name: this.$t('page.albums.sort.name'),
@@ -139,10 +139,10 @@ export default {
 
   computed: {
     albums() {
-      const groupBy = this.groupby_options.find(
-        (o) => o.id === this.selected_groupby_option_id
+      const grouping = this.grouping_options.find(
+        (o) => o.id === this.selected_grouping_option_id
       )
-      this.albums_list.group(groupBy.options, [
+      this.albums_list.group(grouping.options, [
         (album) => !this.hide_singles || album.track_count > 2,
         (album) => !this.hide_spotify || album.data_kind !== 'spotify'
       ])
@@ -150,7 +150,7 @@ export default {
       return this.albums_list
     },
 
-    selected_groupby_option_id: {
+    selected_grouping_option_id: {
       get() {
         return this.$store.state.albums_sort
       },

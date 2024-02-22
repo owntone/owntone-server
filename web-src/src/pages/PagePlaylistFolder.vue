@@ -22,7 +22,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList, noop } from '@/lib/GroupByList'
+import { GroupedList, noop } from '@/lib/GroupedList'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import webapi from '@/webapi'
 
@@ -36,7 +36,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.playlist = response[0].data
-    vm.playlists_list = new GroupByList(response[1].data)
+    vm.playlists_list = new GroupedList(response[1].data)
   }
 }
 
@@ -60,7 +60,7 @@ export default {
   data() {
     return {
       playlist: {},
-      playlists_list: new GroupByList()
+      playlists_list: new GroupedList()
     }
   },
 

@@ -14,7 +14,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList } from '@/lib/GroupByList'
+import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
@@ -30,7 +30,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.recently_played = new GroupByList(response.data.tracks)
+    vm.recently_played = new GroupedList(response.data.tracks)
   }
 }
 

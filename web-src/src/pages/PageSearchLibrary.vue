@@ -258,7 +258,7 @@
 <script>
 import ContentText from '@/templates/ContentText.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList } from '@/lib/GroupByList'
+import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import ListComposers from '@/components/ListComposers.vue'
@@ -282,14 +282,14 @@ export default {
 
   data() {
     return {
-      albums: new GroupByList(),
-      artists: new GroupByList(),
-      audiobooks: new GroupByList(),
-      composers: new GroupByList(),
-      playlists: new GroupByList(),
-      podcasts: new GroupByList(),
+      albums: new GroupedList(),
+      artists: new GroupedList(),
+      audiobooks: new GroupedList(),
+      composers: new GroupedList(),
+      playlists: new GroupedList(),
+      podcasts: new GroupedList(),
       search_query: '',
-      tracks: new GroupByList()
+      tracks: new GroupedList()
     }
   },
 
@@ -401,11 +401,11 @@ export default {
       }
 
       webapi.search(searchParams).then(({ data }) => {
-        this.tracks = new GroupByList(data.tracks)
-        this.artists = new GroupByList(data.artists)
-        this.albums = new GroupByList(data.albums)
-        this.composers = new GroupByList(data.composers)
-        this.playlists = new GroupByList(data.playlists)
+        this.tracks = new GroupedList(data.tracks)
+        this.artists = new GroupedList(data.artists)
+        this.albums = new GroupedList(data.albums)
+        this.composers = new GroupedList(data.composers)
+        this.playlists = new GroupedList(data.playlists)
       })
     },
 
@@ -431,7 +431,7 @@ export default {
       }
 
       webapi.search(searchParams).then(({ data }) => {
-        this.audiobooks = new GroupByList(data.albums)
+        this.audiobooks = new GroupedList(data.albums)
       })
     },
 
@@ -457,7 +457,7 @@ export default {
       }
 
       webapi.search(searchParams).then(({ data }) => {
-        this.podcasts = new GroupByList(data.albums)
+        this.podcasts = new GroupedList(data.albums)
       })
     },
 

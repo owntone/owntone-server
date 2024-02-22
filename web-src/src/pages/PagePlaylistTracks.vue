@@ -37,7 +37,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import { GroupByList } from '@/lib/GroupByList'
+import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 import webapi from '@/webapi'
@@ -52,7 +52,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.playlist = response[0].data
-    vm.tracks = new GroupByList(response[1].data)
+    vm.tracks = new GroupedList(response[1].data)
   }
 }
 
@@ -77,7 +77,7 @@ export default {
     return {
       playlist: {},
       show_details_modal: false,
-      tracks: new GroupByList()
+      tracks: new GroupedList()
     }
   },
 

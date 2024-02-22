@@ -68,7 +68,7 @@
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import { GroupByList } from '@/lib/GroupByList'
+import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
@@ -84,7 +84,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.album = response[0].data
-    vm.tracks = new GroupByList(response[1].data.tracks)
+    vm.tracks = new GroupedList(response[1].data.tracks)
   }
 }
 
@@ -117,7 +117,7 @@ export default {
       rss_playlist_to_remove: {},
       show_details_modal: false,
       show_remove_podcast_modal: false,
-      tracks: new GroupByList()
+      tracks: new GroupedList()
     }
   },
 
@@ -144,7 +144,7 @@ export default {
     },
     reload_tracks() {
       webapi.library_podcast_episodes(this.album.id).then(({ data }) => {
-        this.tracks = new GroupByList(data.tracks)
+        this.tracks = new GroupedList(data.tracks)
       })
     },
     remove_podcast() {

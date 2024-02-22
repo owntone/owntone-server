@@ -108,13 +108,12 @@ export function byDateSinceToday(field, defaultValue = '0000') {
   }
 }
 
-export class GroupByList {
+export class GroupedList {
   constructor({ items = [], total = 0, offset = 0, limit = -1 } = {}) {
     this.items = items
     this.total = total
     this.offset = offset
     this.limit = limit
-
     this.count = items.length
     this.indexList = []
     this.group(noop())
