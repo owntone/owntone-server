@@ -8,7 +8,7 @@
     "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
     "dev": "vite",
     "format": "prettier . --write",
-    "i18n:report": "vue-cli-service i18n:report --src \"./src/**/*.?(js|vue)\" --locales \"./src/locales/**/*.json\"",
+    "i18n:report": "vue-cli-service i18n:report --src \"./src/**/*.?(js|vue)\" --locales \"./src/i18n/**/*.json\"",
     "preview": "vite preview"
   },
   "dependencies": {
