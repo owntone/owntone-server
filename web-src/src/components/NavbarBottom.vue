@@ -263,7 +263,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import _audio from '@/audio'
+import _audio from '@/lib/Audio'
 import ControlSlider from '@/components/ControlSlider.vue'
 import { mdiCancel } from '@mdi/js'
 import NavbarItemLink from './NavbarItemLink.vue'
