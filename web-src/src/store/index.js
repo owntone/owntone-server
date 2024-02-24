@@ -71,75 +71,49 @@ export default createStore({
 
   getters: {
     now_playing: (state) => {
-      const item = state.queue.items.find((e) => e.id === state.player.item_id)
-      return item === undefined ? {} : item
+      return state.queue.items.find((e) => e.id === state.player.item_id) ?? {}
     },
-
     settings_option_recently_added_limit: (state, getters) => {
-      if (getters.settings_webinterface) {
-        const option = getters.settings_webinterface.options.find(
-          (elem) => elem.name === 'recently_added_limit'
-        )
-        if (option) {
-          return option.value
-        }
-      }
-      return 100
-    },
-
-    settings_option: (state) => (categoryName, optionName) => {
-      const category = state.settings.categories.find(
-        (elem) => elem.name === categoryName
+      return (
+        getters.settings_webinterface?.options.find(
+          (option) => option.name === 'recently_added_limit'
+        )?.value ?? 100
       )
-      if (!category) {
-        return {}
-      }
-      return category.options.find((elem) => elem.name === optionName)
     },
-
+    settings_option: (state) => (categoryName, optionName) => {
+      return (
+        state.settings.categories
+          .find((category) => category.name === categoryName)
+          ?.options.find((option) => option.name === optionName) ?? {}
+      )
+    },
     settings_option_show_composer_for_genre: (state, getters) => {
-      if (getters.settings_webinterface) {
-        const option = getters.settings_webinterface.options.find(
-          (elem) => elem.name === 'show_composer_for_genre'
-        )
-        if (option) {
-          return option.value
-        }
-      }
-      return null
+      return (
+        getters.settings_webinterface?.options.find(
+          (option) => option.name === 'show_composer_for_genre'
+        )?.value ?? null
+      )
     },
-
     settings_option_show_composer_now_playing: (state, getters) => {
-      if (getters.settings_webinterface) {
-        const option = getters.settings_webinterface.options.find(
-          (elem) => elem.name === 'show_composer_now_playing'
-        )
-        if (option) {
-          return option.value
-        }
-      }
-      return false
+      return (
+        getters.settings_webinterface?.options.find(
+          (option) => option.name === 'show_composer_now_playing'
+        )?.value ?? false
+      )
     },
-
     settings_option_show_filepath_now_playing: (state, getters) => {
-      if (getters.settings_webinterface) {
-        const option = getters.settings_webinterface.options.find(
-          (elem) => elem.name === 'show_filepath_now_playing'
-        )
-        if (option) {
-          return option.value
-        }
-      }
-      return false
+      return (
+        getters.settings_webinterface?.options.find(
+          (option) => option.name === 'show_filepath_now_playing'
+        )?.value ?? false
+      )
     },
-
     settings_webinterface: (state) => {
-      if (state.settings) {
-        return state.settings.categories.find(
-          (elem) => elem.name === 'webinterface'
-        )
-      }
-      return null
+      return (
+        state.settings?.categories.find(
+          (category) => category.name === 'webinterface'
+        ) ?? null
+      )
     }
   },
 
