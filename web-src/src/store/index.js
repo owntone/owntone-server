@@ -268,13 +268,13 @@ export default createStore({
         state.notifications.list.splice(index, 1)
       }
     },
-    update_settings_option({commit, state}, option) {
+    update_settings_option({ commit, state }, option) {
       const settingCategory = state.settings.categories.find(
-        (e) => e.name === option.category
-      ),
-      settingOption = settingCategory.options.find(
-        (e) => e.name === option.name
-      )
+          (e) => e.name === option.category
+        ),
+        settingOption = settingCategory.options.find(
+          (e) => e.name === option.name
+        )
       settingOption.value = option.value
     }
   }
