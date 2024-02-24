@@ -75,9 +75,6 @@ export default createStore({
       return item === undefined ? {} : item
     },
 
-    settings_category: (state) => (categoryName) =>
-      state.settings.categories.find((e) => e.name === categoryName),
-
     settings_option_recently_added_limit: (state, getters) => {
       if (getters.settings_webinterface) {
         const option = getters.settings_webinterface.options.find(
