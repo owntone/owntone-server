@@ -17,7 +17,6 @@
 </template>
 
 <script>
-
 export default {
   name: 'NotificationList',
 
