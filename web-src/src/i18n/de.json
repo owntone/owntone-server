@@ -13,7 +13,7 @@
       "rss": {
         "add": "Hinzufügen",
         "cancel": "Abbrechen",
-        "help": "Hinzufügen eines Podcasts führt zur Anlage einer RSS-Playlist, so kann Owntone das Podcast-Abo verwalten.",
+        "help": "Hinzufügen eines Podcasts führt zur Anlage einer RSS-Playlist, so kann OwnTone das Podcast-Abo verwalten.",
         "placeholder": "https://url-to-rss",
         "processing": "Verarbeite…",
         "title": "Podcast hinzufügen"
@@ -231,7 +231,6 @@
     "search": "Suche",
     "settings": "Einstellungen",
     "spotify": "Spotify",
-    "title": "OwnTone",
     "update-library": "Bibliothek neu einlesen"
   },
   "page": {
@@ -503,7 +502,7 @@
           "user": "Zugriff gestattet für ",
           "authorize": "Authorisiere Web-API-Zugriff",
           "grant-access": "Zugriff auf die Spotify Web-API gestatten",
-          "reauthorize": "Bitte den Zugriff der Web-API durch setzen folgender Zugriffsrechte für Owntone: ",
+          "reauthorize": "Bitte den Zugriff der Web-API durch setzen folgender Zugriffsrechte für OwnTone: ",
           "title": "Spotify"
         },
         "login": "Einloggen",

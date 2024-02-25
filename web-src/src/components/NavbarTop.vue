@@ -49,12 +49,8 @@
           :class="{ 'is-active': show_settings_menu }"
           @click="on_click_outside_settings"
         >
-          <a class="navbar-link is-arrowless">
-            <mdicon class="icon is-hidden-touch" name="menu" size="24" />
-            <span
-              class="is-hidden-desktop has-text-weight-bold"
-              v-text="$t('navigation.title')"
-            />
+          <a class="navbar-link is-arrowless is-hidden-touch">
+            <mdicon class="icon" name="menu" size="24" />
           </a>
           <div class="navbar-dropdown is-right">
             <navbar-item-link :to="{ name: 'playlists' }">
