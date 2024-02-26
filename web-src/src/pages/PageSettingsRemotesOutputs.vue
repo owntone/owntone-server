@@ -3,7 +3,7 @@
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.devices.pairing')" />
+        <p class="title is-4" v-text="$t('page.settings.devices.pairing')" />
       </template>
       <template #content>
         <!-- Paring request active -->
@@ -41,7 +41,7 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
+        <p
           class="title is-4"
           v-text="$t('page.settings.devices.speaker-pairing')"
         />

@@ -18,7 +18,7 @@
                 <!-- Left side -->
                 <div class="level-left">
                   <div class="level-item">
-                    <h2 class="title is-5" v-text="$t('page.about.library')" />
+                    <p class="title is-5" v-text="$t('page.about.library')" />
                   </div>
                 </div>
                 <!-- Right side -->
