@@ -20,11 +20,11 @@
             <div class="level-left is-flex-grow-1">
               <div class="level-item is-flex-grow-0">
                 <a class="button is-white is-small" @click="toggle_mute_volume">
-                  <span class="icon"
-                    ><mdicon
-                      :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
-                      size="18"
-                  /></span>
+                  <mdicon
+                    class="icon"
+                    :name="player.volume > 0 ? 'volume-high' : 'volume-off'"
+                    size="18"
+                  />
                 </a>
               </div>
               <div class="level-item">
@@ -54,7 +54,7 @@
             <div class="level-left is-flex-grow-1">
               <div class="level-item is-flex-grow-0">
                 <a
-                  class="button is-clickable is-white is-small"
+                  class="button is-white is-small"
                   :class="{
                     'has-text-grey-light': !playing && !loading,
                     'is-loading': loading
@@ -220,7 +220,7 @@
             <div class="level-left is-flex-grow-1">
               <div class="level-item is-flex-grow-0">
                 <a
-                  class="button is-clickable is-white is-small"
+                  class="button is-white is-small"
                   :class="{
                     'has-text-grey-light': !playing && !loading,
                     'is-loading': loading

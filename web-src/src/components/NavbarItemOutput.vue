@@ -4,7 +4,7 @@
       <div class="level-left is-flex-grow-1">
         <div class="level-item is-flex-grow-0">
           <a
-            class="button is-clickable is-white is-small"
+            class="button is-white is-small"
             :class="{ 'has-text-grey-light': !output.selected }"
             @click="set_enabled"
           >
