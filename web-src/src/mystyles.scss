@@ -3,6 +3,150 @@
 @import 'bulma/bulma.sass';
 @import 'bulma-switch';
 
+@media (prefers-color-scheme: dark) {
+  body,
+  html,
+  .content table th,
+  td,
+  .fd-tabs-section {
+    background-color: $black-ter !important;
+    color: $grey-light;
+  }
+  .tabs ul {
+    border-bottom-color: $grey-dark;
+  }
+  .tabs a:hover {
+    border-bottom-color: $grey-lighter;
+    color: $grey-lighter !important;
+  }
+  a.has-text-dark:hover,
+  a.has-text-dark:focus {
+    color: $grey-lighter !important;
+  }
+  .media + .media {
+    border-top-color: $grey-dark !important;
+  }
+  .tabs a {
+    border-bottom-color: $grey-dark;
+  }
+  .tabs a,
+  .hero.is-light .title,
+  .title,
+  .subtitle,
+  .navbar.is-light .navbar-brand > .navbar-item,
+  .navbar-item,
+  .navbar.is-white .navbar-brand a.navbar-item,
+  .navbar.is-dark .navbar-brand .navbar-item,
+  .navbar.is-light .navbar-burger {
+    color: $grey-light;
+  }
+  .navbar-item.has-dropdown-up .navbar-dropdown {
+    border-bottom-color: $grey-dark;
+  }
+  .navbar-dropdown {
+    background-color: $grey-darker;
+    border-top-color: $grey-dark;
+  }
+  a.tag:hover,
+  a.dropdown-item:hover,
+  a.dropdown-item:focus,
+  a.navbar-item:hover,
+  a.navbar-item:focus,
+  a.navbar-item:active,
+  .button:hover,
+  .button.is-white:focus,
+  .button.is-white:hover,
+  .button.is-dark:hover,
+  .button.is-light:hover,
+  hr,
+  .navbar-burger:hover,
+  .navbar.is-white .navbar-brand > a.navbar-item:hover,
+  .navbar.is-light .navbar-brand > a.navbar-item:focus,
+  .navbar.is-light .navbar-brand > a.navbar-item:hover,
+  .navbar.is-dark .navbar-brand > a.navbar-item:focus,
+  .navbar.is-dark .navbar-brand > a.navbar-item:hover,
+  .navbar-dropdown a.navbar-item:hover,
+  .navbar-dropdown a.navbar-item:focus,
+  .modal-content .input,
+  .modal-content select,
+  .tabs.is-toggle a:hover {
+    background-color: $grey-dark;
+    color: $grey-lighter;
+  }
+  .card-footer .has-text-dark,
+  .media .has-text-dark {
+    color: $grey-light !important;
+  }
+  .navbar-menu,
+  .navbar-brand,
+  .notification,
+  .card {
+    background-color: $grey-darker;
+    color: $grey-light;
+  }
+  a.tag,
+  .button,
+  .button:active,
+  .button:focus,
+  .dropdown-content,
+  .dropdown-item,
+  .input,
+  .input .switch {
+    background-color: $grey-darker;
+    border-width: 0;
+    color: $grey-lighter;
+  }
+  .input::placeholder,
+  .control.has-icons-left .icon {
+    color: $grey;
+  }
+  .label,
+  .tabs a:hover,
+  .control.has-icons-left .input:focus ~ .icon {
+    color: $grey-lighter;
+  }
+  .tabs.is-toggle a:hover,
+  .navbar-item .buttons .button,
+  .modal-content select,
+  .modal-content select:hover {
+    border-color: $grey-dark;
+  }
+  .tabs.is-toggle a {
+    background-color: $grey-darker;
+    border-color: $grey-darker;
+  }
+  .button.is-light,
+  .button.is-dark,
+  .button.is-white,
+  .button[disabled],
+  .button[disabled]:hover {
+    background-color: $grey-darker;
+    color: $grey-light;
+  }
+  .has-text-grey-light,
+  a.has-text-grey-light:hover {
+    color: $grey !important;
+  }
+  .table,
+  code {
+    background: transparent;
+  }
+  .card-footer {
+    border-top-color: $grey-dark;
+  }
+  .card-footer-item:not(:last-child) {
+    border-right-color: $grey-dark;
+  }
+  .hero.is-light {
+    background-image: linear-gradient(
+      141deg,
+      $black-ter 0%,
+      $grey-darker 71%,
+      $grey-dark
+    );
+  }
+}
+
 /* Lyrics animation */
 @keyframes pop-color {
   0% {
@@ -225,17 +369,49 @@ a.navbar-item {
   border-radius: 50%;
   background: $light;
   border: 1px solid $grey-light;
+  @media (prefers-color-scheme: dark) {
+    background: $grey-light;
+    border: 1px solid $grey-dark;
+  }
+}
+
+@mixin thumb-inactive {
+  box-sizing: border-box;
+  background-color: $light;
+  @media (prefers-color-scheme: dark) {
+    background-color: $grey-dark;
+    border: 1px solid $grey-darker;
+  }
 }
 
 @mixin track {
   height: calc(var(--sh));
   border-radius: calc(var(--sh) / 2);
   background: linear-gradient(90deg, $dark var(--sx), $grey-light var(--sx));
+  @media (prefers-color-scheme: dark) {
+    background: linear-gradient(
+      90deg,
+      $grey-light var(--sx),
+      $grey-dark var(--sx)
+    );
+  }
+}
+
+@mixin track-inactive {
+  background: linear-gradient(90deg, $grey-light var(--sx), $light var(--sx));
+  @media (prefers-color-scheme: dark) {
+    background: linear-gradient(
+      90deg,
+      $grey-dark var(--sx),
+      $black-ter var(--sx)
+    );
+  }
 }
 
 input[type='range'].slider {
   --sh: 0.25rem;
   --th: calc(var(--sh) * 4);
+  background-color: transparent;
   @include mobile {
     --th: calc(var(--sh) * 5);
   }
@@ -264,26 +440,16 @@ input[type='range'].slider {
   &.is-inactive {
     cursor: var(--cursor, not-allowed);
     &::-webkit-slider-thumb {
-      box-sizing: border-box;
-      background-color: $light;
+      @include thumb-inactive;
     }
     &::-webkit-slider-runnable-track {
-      background: linear-gradient(
-        90deg,
-        $grey-light var(--sx),
-        $light var(--sx)
-      );
+      @include track-inactive;
     }
     &::-moz-range-thumb {
-      box-sizing: border-box;
-      background-color: $light;
+      @include thumb-inactive;
     }
     &::-moz-range-track {
-      background: linear-gradient(
-        90deg,
-        $grey-light var(--sx),
-        $light var(--sx)
-      );
+      @include track-inactive;
     }
   }
 }
