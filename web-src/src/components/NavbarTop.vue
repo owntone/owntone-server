@@ -49,7 +49,7 @@
           :class="{ 'is-active': show_settings_menu }"
           @click="on_click_outside_settings"
         >
-          <a class="navbar-link is-arrowless is-hidden-touch">
+          <a class="navbar-item is-arrowless is-hidden-touch">
             <mdicon class="icon" name="menu" size="24" />
           </a>
           <div class="navbar-dropdown is-right">
