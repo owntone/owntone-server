@@ -7,7 +7,7 @@
           <div class="column is-four-fifths">
             <form @submit.prevent="new_search">
               <div class="field">
-                <p class="control is-expanded has-icons-left">
+                <p class="control has-icons-left">
                   <input
                     ref="search_field"
                     v-model="search_query"

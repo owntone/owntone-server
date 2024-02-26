@@ -86,7 +86,7 @@
           <div v-if="!lastfm.scrobbling_enabled">
             <form @submit.prevent="login_lastfm">
               <div class="field is-grouped">
-                <div class="control is-expanded">
+                <div class="control">
                   <input
                     v-model="lastfm_login.user"
                     class="input"
@@ -95,7 +95,7 @@
                   />
                   <p class="help is-danger" v-text="lastfm_login.errors.user" />
                 </div>
-                <div class="control is-expanded">
+                <div class="control">
                   <input
                     v-model="lastfm_login.password"
                     class="input"

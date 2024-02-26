@@ -8,7 +8,7 @@
             <div class="card-content">
               <p class="title is-4" v-text="$t('dialog.add.stream.title')" />
               <div class="field">
-                <p class="control is-expanded has-icons-left">
+                <p class="control has-icons-left">
                   <input
                     ref="url_field"
                     v-model="url"
