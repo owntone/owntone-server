@@ -40,7 +40,7 @@ import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 export default {
   name: 'ListComposers',
   components: { ModalDialogComposer },
-  props: ['composers', 'media_kind', 'hide_group_title'],
+  props: { composers: Object, media_kind: String, hide_group_title: Boolean },
 
   data() {
     return {

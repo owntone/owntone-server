@@ -39,8 +39,7 @@ import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 export default {
   name: 'ListArtists',
   components: { ModalDialogArtist },
-
-  props: ['artists', 'hide_group_title'],
+  props: { artists: Object, hide_group_title: Boolean },
 
   data() {
     return {

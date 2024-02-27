@@ -55,7 +55,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogUpdate',
   components: { ModalDialog },
-  props: ['show'],
+  props: { show: Boolean },
   emits: ['close'],
 
   data() {

@@ -62,7 +62,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogGenre',
-  props: ['genre', 'media_kind', 'show'],
+  props: { genre: Object, media_kind: String, show: Boolean },
   emits: ['close'],
 
   computed: {

@@ -68,7 +68,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogPlaylist',
-  props: ['show', 'playlist', 'uris'],
+  props: { show: Boolean, playlist: Object, uris: String },
   emits: ['close'],
 
   methods: {

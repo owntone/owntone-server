@@ -13,7 +13,7 @@
 <script>
 export default {
   name: 'ListItemPlaylistSpotify',
-  props: ['playlist'],
+  props: { playlist: Object },
 
   methods: {
     open_playlist() {

@@ -71,7 +71,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogComposer',
-  props: ['show', 'composer'],
+  props: { show: Boolean, composer: Object },
   emits: ['close'],
 
   methods: {

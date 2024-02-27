@@ -26,7 +26,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'SettingsCheckbox',
-  props: ['category_name', 'option_name'],
+  props: { category_name: String, option_name: String },
 
   data() {
     return {

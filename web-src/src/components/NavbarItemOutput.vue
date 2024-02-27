@@ -47,7 +47,7 @@ export default {
   components: {
     ControlSlider
   },
-  props: ['output'],
+  props: { output: Object },
 
   data() {
     return {

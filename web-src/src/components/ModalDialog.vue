@@ -49,7 +49,13 @@
 <script>
 export default {
   name: 'ModalDialog',
-  props: ['show', 'title', 'ok_action', 'delete_action', 'close_action'],
+  props: {
+    show: Boolean,
+    title: String,
+    ok_action: String,
+    delete_action: String,
+    close_action: String
+  },
   emits: ['delete', 'close', 'ok']
 }
 </script>

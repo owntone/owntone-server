@@ -44,7 +44,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ListItemTrackSpotify',
-  props: ['track', 'position', 'context_uri'],
+  props: { track: Object, position: Number, context_uri: String },
   methods: {
     play() {
       if (this.track.is_playable) {

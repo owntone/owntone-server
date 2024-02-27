@@ -154,7 +154,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogQueueItem',
-  props: ['show', 'item'],
+  props: { show: Boolean, item: Object },
   emits: ['close'],
 
   data() {

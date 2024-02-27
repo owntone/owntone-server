@@ -120,7 +120,12 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogAlbum',
   components: { CoverArtwork },
-  props: ['show', 'album', 'media_kind', 'new_tracks'],
+  props: {
+    show: Boolean,
+    album: Object,
+    media_kind: String,
+    new_tracks: Array
+  },
   emits: ['close', 'remove-podcast', 'play-count-changed'],
 
   data() {

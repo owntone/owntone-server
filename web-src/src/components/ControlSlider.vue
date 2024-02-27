@@ -17,7 +17,7 @@
 <script>
 export default {
   name: 'ControlSlider',
-  props: ['value', 'max', 'disabled', 'cursor'],
+  props: { value: Number, max: Number, disabled: Boolean, cursor: String },
   emits: ['update:value'],
 
   computed: {

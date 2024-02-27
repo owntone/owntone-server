@@ -77,7 +77,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ListAlbums',
   components: { CoverArtwork, ModalDialog, ModalDialogAlbum },
-  props: ['albums', 'media_kind', 'hide_group_title'],
+  props: { albums: Object, media_kind: String, hide_group_title: Boolean },
   emits: ['play-count-changed', 'podcast-deleted'],
 
   data() {

@@ -32,7 +32,12 @@ import webapi from '@/webapi'
 
 export default {
   name: 'SettingsIntfield',
-  props: ['category_name', 'option_name', 'placeholder', 'disabled'],
+  props: {
+    category_name: String,
+    option_name: String,
+    placeholder: String,
+    disabled: Boolean
+  },
 
   data() {
     return {

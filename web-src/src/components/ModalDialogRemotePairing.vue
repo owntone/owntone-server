@@ -65,7 +65,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogRemotePairing',
-  props: ['show'],
+  props: { show: Boolean },
   emits: ['close'],
 
   data() {

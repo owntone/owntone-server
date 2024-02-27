@@ -75,7 +75,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogArtistSpotify',
-  props: ['show', 'artist'],
+  props: { show: Boolean, artist: Object },
   emits: ['close'],
 
   methods: {

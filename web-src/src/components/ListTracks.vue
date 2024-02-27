@@ -61,8 +61,13 @@ import webapi from '@/webapi'
 export default {
   name: 'ListTracks',
   components: { ModalDialogTrack },
-
-  props: ['tracks', 'uris', 'expression', 'show_progress', 'show_icon'],
+  props: {
+    tracks: Object,
+    uris: String,
+    expression: String,
+    show_progress: Boolean,
+    show_icon: Boolean
+  },
   emits: ['play-count-changed'],
 
   data() {

@@ -94,7 +94,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogAlbumSpotify',
   components: { CoverArtwork },
-  props: ['show', 'album'],
+  props: { show: Boolean, album: Object },
   emits: ['close'],
 
   data() {
