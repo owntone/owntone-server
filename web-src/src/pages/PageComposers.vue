@@ -3,7 +3,7 @@
     <tabs-music />
     <content-with-heading>
       <template #options>
-        <index-button-list :index="composers.indexList" />
+        <index-button-list :indices="composers.indices" />
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.composers.title')" />

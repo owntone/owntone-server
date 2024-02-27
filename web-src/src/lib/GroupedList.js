@@ -115,7 +115,7 @@ export class GroupedList {
     this.offset = offset
     this.limit = limit
     this.count = items.length
-    this.indexList = []
+    this.indices = []
     this.group(noop())
   }
 
@@ -135,7 +135,7 @@ export class GroupedList {
       : itemsFiltered
 
     // Create index list
-    this.indexList = [...new Set(itemsSorted.map(options.groupKeyFn))]
+    this.indices = [...new Set(itemsSorted.map(options.groupKeyFn))]
 
     // Group item list
     this.itemsGrouped = itemsSorted.reduce((r, item) => {

@@ -2,7 +2,7 @@
   <div>
     <content-with-heading>
       <template #options>
-        <index-button-list :index="tracks.indexList" />
+        <index-button-list :indices="tracks.indices" />
         <div class="columns">
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />

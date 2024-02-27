@@ -64,7 +64,7 @@ const dataObject = {
     vm.album = response[0].data
     vm.tracks = new GroupedList(response[1].data)
     vm.tracks.group(byMedium('disc_number'))
-    if (vm.tracks.indexList <= 1) {
+    if (vm.tracks.indices <= 1) {
       vm.tracks.group(noop())
     }
   }

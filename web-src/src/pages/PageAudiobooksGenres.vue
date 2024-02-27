@@ -3,7 +3,7 @@
     <tabs-audiobooks />
     <content-with-heading>
       <template #options>
-        <index-button-list :index="genres.indexList" />
+        <index-button-list :indices="genres.indices" />
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.genres.title')" />

@@ -3,7 +3,7 @@
     <tabs-music />
     <content-with-heading>
       <template #options>
-        <index-button-list :index="albums.indexList" />
+        <index-button-list :indices="albums.indices" />
         <div class="columns">
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.albums.filter')" />

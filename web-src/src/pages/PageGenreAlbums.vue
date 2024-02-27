@@ -2,7 +2,7 @@
   <div>
     <content-with-heading>
       <template #options>
-        <index-button-list :index="albums_list.indexList" />
+        <index-button-list :indices="albums.indices" />
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="genre.name" />
@@ -33,7 +33,7 @@
             v-text="$t('page.genre.track-count', { count: genre.track_count })"
           />
         </p>
-        <list-albums :albums="albums_list" />
+        <list-albums :albums="albums" />
         <modal-dialog-genre
           :genre="genre"
           :media_kind="media_kind"
@@ -63,8 +63,8 @@ const dataObject = {
 
   set(vm, response) {
     vm.genre = response[0].data
-    vm.albums_list = new GroupedList(response[1].data.albums)
-    vm.albums_list.group(byName('name_sort', true))
+    vm.albums = new GroupedList(response[1].data.albums)
+    vm.albums.group(byName('name_sort', true))
   }
 }
 
@@ -82,7 +82,7 @@ export default {
     })
   },
   beforeRouteUpdate(to, from, next) {
-    if (!this.albums_list.isEmpty()) {
+    if (!this.albums.isEmpty()) {
       next()
       return
     }
@@ -94,7 +94,7 @@ export default {
   },
   data() {
     return {
-      albums_list: new GroupedList(),
+      albums: new GroupedList(),
       genre: {},
       media_kind: this.$route.query.media_kind,
       show_details_modal: false
