@@ -24,7 +24,7 @@
           class="title is-6"
           v-text="directory.path.substring(directory.path.lastIndexOf('/') + 1)"
         />
-        <h2 class="subtitle is-7 has-text-grey-light" v-text="directory.path" />
+        <h2 class="subtitle is-7 has-text-grey" v-text="directory.path" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(directory)">
