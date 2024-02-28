@@ -33,10 +33,10 @@ import webapi from '@/webapi'
 export default {
   name: 'SettingsIntfield',
   props: {
-    category_name: String,
-    option_name: String,
-    placeholder: String,
-    disabled: Boolean
+    category_name: { required: true, type: String },
+    disabled: Boolean,
+    option_name: { required: true, type: String },
+    placeholder: { default: '', type: String }
   },
 
   data() {

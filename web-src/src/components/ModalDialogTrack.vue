@@ -185,7 +185,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrack',
-  props: { show: Boolean, track: Object },
+  props: { show: Boolean, track: { required: true, type: Object } },
   emits: ['close', 'play-count-changed'],
 
   data() {

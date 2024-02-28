@@ -12,10 +12,7 @@
             <footer class="card-footer is-clipped">
               <a class="card-footer-item has-text-dark" @click="$emit('close')">
                 <mdicon class="icon" name="cancel" size="16" />
-                <span
-                  class="is-size-7"
-                  v-text="close_action ? close_action : $t('dialog.cancel')"
-                />
+                <span class="is-size-7" v-text="close_action" />
               </a>
               <a
                 v-if="delete_action"
@@ -50,11 +47,11 @@
 export default {
   name: 'ModalDialog',
   props: {
+    close_action: { default: 'dialog.cancel', type: String },
+    delete_action: { default: '', type: String },
+    ok_action: { default: '', type: String },
     show: Boolean,
-    title: String,
-    ok_action: String,
-    delete_action: String,
-    close_action: String
+    title: { required: true, type: String }
   },
   emits: ['delete', 'close', 'ok']
 }

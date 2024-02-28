@@ -16,7 +16,7 @@ export default {
   name: 'NavbarItemLink',
   props: {
     exact: Boolean,
-    to: Object
+    to: { required: true, type: Object }
   },
 
   computed: {

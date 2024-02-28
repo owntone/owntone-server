@@ -50,11 +50,11 @@ import webapi from '@/webapi'
 export default {
   name: 'ListItemQueueItem',
   props: {
-    item: Object,
-    position: Number,
-    current_position: Number,
-    show_only_next_items: Boolean,
-    edit_mode: Boolean
+    current_position: { required: true, type: Number },
+    edit_mode: Boolean,
+    item: { required: true, type: Object },
+    position: { required: true, type: Number },
+    show_only_next_items: Boolean
   },
 
   computed: {

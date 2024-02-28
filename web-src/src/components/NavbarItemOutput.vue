@@ -47,12 +47,12 @@ export default {
   components: {
     ControlSlider
   },
-  props: { output: Object },
+  props: { output: { required: true, type: Object } },
 
   data() {
     return {
-      volume: this.output.selected ? this.output.volume : 0,
-      cursor: mdiCancel
+      cursor: mdiCancel,
+      volume: this.output.selected ? this.output.volume : 0
     }
   },
 

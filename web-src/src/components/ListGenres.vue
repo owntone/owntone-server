@@ -40,7 +40,11 @@ import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 export default {
   name: 'ListGenres',
   components: { ModalDialogGenre },
-  props: { genres: Object, hide_group_title: Boolean, media_kind: String },
+  props: {
+    genres: { required: true, type: Object },
+    hide_group_title: Boolean,
+    media_kind: { required: true, type: String }
+  },
 
   data() {
     return {

@@ -14,11 +14,11 @@ import webapi from '@/webapi'
 export default {
   name: 'CoverArtwork',
   props: {
-    artist: String,
-    album: String,
-    artwork_url: String,
-    maxwidth: Number,
-    maxheight: Number
+    album: { default: '', type: String },
+    artist: { default: '', type: String },
+    artwork_url: { default: '', type: String },
+    maxheight: { default: 600, type: Number },
+    maxwidth: { default: 600, type: Number }
   },
   emits: ['click'],
 

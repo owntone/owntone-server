@@ -42,7 +42,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogDirectory',
-  props: { show: Boolean, directory: String },
+  props: { directory: { required: true, type: String }, show: Boolean },
   emits: ['close'],
 
   methods: {

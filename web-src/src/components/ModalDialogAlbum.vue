@@ -121,10 +121,10 @@ export default {
   name: 'ModalDialogAlbum',
   components: { CoverArtwork },
   props: {
-    show: Boolean,
-    album: Object,
-    media_kind: String,
-    new_tracks: Array
+    album: { required: true, type: Object },
+    media_kind: { default: '', type: String },
+    new_tracks: { required: true, type: Array },
+    show: Boolean
   },
   emits: ['close', 'remove-podcast', 'play-count-changed'],
 

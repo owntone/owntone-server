@@ -14,11 +14,8 @@ import webapi from '@/webapi'
 export default {
   name: 'PlayerButtonSeekForward',
   props: {
-    seek_ms: Number,
-    icon_size: {
-      type: Number,
-      default: 16
-    }
+    icon_size: { default: 16, type: Number },
+    seek_ms: { required: true, type: Number }
   },
 
   computed: {

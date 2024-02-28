@@ -26,13 +26,16 @@ import webapi from '@/webapi'
 
 export default {
   name: 'SettingsCheckbox',
-  props: { category_name: String, option_name: String },
+  props: {
+    category_name: { required: true, type: String },
+    option_name: { required: true, type: String }
+  },
 
   data() {
     return {
+      statusUpdate: '',
       timerDelay: 2000,
-      timerId: -1,
-      statusUpdate: ''
+      timerId: -1
     }
   },
 

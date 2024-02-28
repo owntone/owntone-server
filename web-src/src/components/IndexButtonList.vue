@@ -15,7 +15,7 @@
 <script>
 export default {
   name: 'IndexButtonList',
-  props: { indices: Array }
+  props: { indices: { required: true, type: Array } }
 }
 </script>
 

@@ -12,7 +12,7 @@
 <script>
 export default {
   name: 'ListItemArtistSpotify',
-  props: { artist: Object },
+  props: { artist: { required: true, type: Object } },
 
   methods: {
     open_artist() {

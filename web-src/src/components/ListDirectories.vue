@@ -48,7 +48,7 @@ import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
 export default {
   name: 'ListDirectories',
   components: { ModalDialogDirectory },
-  props: { directories: Array },
+  props: { directories: { required: true, type: Array } },
 
   data() {
     return {

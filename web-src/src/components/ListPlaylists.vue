@@ -32,7 +32,7 @@ import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 export default {
   name: 'ListPlaylists',
   components: { ModalDialogPlaylist },
-  props: { playlists: Object },
+  props: { playlists: { required: true, type: Object } },
 
   data() {
     return {

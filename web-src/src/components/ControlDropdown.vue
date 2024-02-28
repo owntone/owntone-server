@@ -33,7 +33,10 @@
 <script>
 export default {
   name: 'ControlDropdown',
-  props: { value: [String, Number], options: Array },
+  props: {
+    options: { required: true, type: Array },
+    value: { required: true, type: [String, Number] }
+  },
   emits: ['update:value'],
 
   data() {

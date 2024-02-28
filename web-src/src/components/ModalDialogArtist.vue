@@ -69,7 +69,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogArtist',
-  props: { show: Boolean, artist: Object },
+  props: { artist: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
   methods: {

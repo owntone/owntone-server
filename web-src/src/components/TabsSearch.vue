@@ -38,7 +38,7 @@ import * as types from '@/store/mutation_types'
 
 export default {
   name: 'TabsSearch',
-  props: { query: String },
+  props: { query: { default: '', type: String } },
 
   computed: {
     spotify_enabled() {

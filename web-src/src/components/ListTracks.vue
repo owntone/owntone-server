@@ -62,11 +62,11 @@ export default {
   name: 'ListTracks',
   components: { ModalDialogTrack },
   props: {
-    tracks: Object,
-    uris: String,
-    expression: String,
+    expression: { default: '', type: String },
+    show_icon: Boolean,
     show_progress: Boolean,
-    show_icon: Boolean
+    tracks: { required: true, type: Object },
+    uris: { default: '', type: String }
   },
   emits: ['play-count-changed'],
 
