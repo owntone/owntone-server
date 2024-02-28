@@ -35,8 +35,6 @@
               :artist="album.artist"
               :album="album.name"
               class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
-              :maxwidth="64"
-              :maxheight="64"
             />
           </template>
           <template #actions>
