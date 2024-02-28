@@ -13,12 +13,8 @@ import webapi from '@/webapi'
 
 export default {
   name: 'PlayerButtonNext',
-
   props: {
-    icon_size: {
-      type: Number,
-      default: 16
-    }
+    icon_size: { default: 16, type: Number }
   },
 
   computed: {

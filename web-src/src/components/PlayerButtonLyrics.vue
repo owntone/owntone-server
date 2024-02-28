@@ -12,12 +12,8 @@
 <script>
 export default {
   name: 'PlayerButtonLyrics',
-
   props: {
-    icon_size: {
-      type: Number,
-      default: 16
-    }
+    icon_size: { default: 16, type: Number }
   },
 
   computed: {
