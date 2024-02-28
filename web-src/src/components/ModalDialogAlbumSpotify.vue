@@ -7,7 +7,7 @@
           <div class="card">
             <div class="card-content">
               <cover-artwork
-                :artwork_url="artwork_url"
+                :artwork_url="artwork_url(album)"
                 :artist="album.artist"
                 :album="album.name"
                 class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
@@ -104,11 +104,8 @@ export default {
   },
 
   computed: {
-    artwork_url() {
-      if (this.album.images && this.album.images.length > 0) {
-        return this.album.images[0].url
-      }
-      return ''
+    artwork_url(album) {
+      return album.images?.[0]?.url || ''
     }
   },
 

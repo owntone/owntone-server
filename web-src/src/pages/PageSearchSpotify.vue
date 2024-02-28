@@ -405,10 +405,7 @@ export default {
 
   methods: {
     artwork_url(album) {
-      if (album.images && album.images.length > 0) {
-        return album.images[0].url
-      }
-      return ''
+      return album.images?.[0]?.url || ''
     },
     new_search() {
       if (!this.search_query) {
