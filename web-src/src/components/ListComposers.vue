@@ -43,7 +43,7 @@ export default {
   props: {
     composers: { required: true, type: Object },
     hide_group_title: Boolean,
-    media_kind: { required: true, type: String }
+    media_kind: { default: '', type: String }
   },
 
   data() {
