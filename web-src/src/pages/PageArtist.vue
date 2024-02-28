@@ -72,9 +72,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
+import { GroupedList, byName, byYear } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
-import { GroupedList, byName, byYear } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'

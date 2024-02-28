@@ -43,7 +43,7 @@ const dataObject = {
 
 export default {
   name: 'PageMusicRecentlyAdded',
-  components: { ContentWithHeading, TabsMusic, ListAlbums },
+  components: { ContentWithHeading, ListAlbums, TabsMusic },
 
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {

@@ -21,8 +21,8 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList, byName } from '@/lib/GroupedList'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
