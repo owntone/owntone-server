@@ -134,10 +134,6 @@ export default {
   },
 
   computed: {
-    artwork_url() {
-      return webapi.artwork_url_append_size_params(this.album.artwork_url)
-    },
-
     media_kind_resolved() {
       return this.media_kind ? this.media_kind : this.album.media_kind
     }
