@@ -15,7 +15,7 @@ export default {
   props: {
     album: { default: '', type: String },
     artist: { default: '', type: String },
-    artwork_url: { default: '', type: String },
+    artwork_url: { default: '', type: String }
   },
   emits: ['click'],
 
