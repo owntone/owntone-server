@@ -548,45 +548,9 @@ export default {
       })
     },
 
-    open_composer(composer) {
-      this.$router.push({
-        name: 'music-composer-albums',
-        params: { name: composer.name }
-      })
-    },
-
-    open_playlist(playlist) {
-      this.$router.push({ name: 'playlist', params: { id: playlist.id } })
-    },
-
     open_recent_search(query) {
       this.search_query = query
       this.new_search()
-    },
-
-    open_track_dialog(track) {
-      this.selected_track = track
-      this.show_track_details_modal = true
-    },
-
-    open_album_dialog(album) {
-      this.selected_album = album
-      this.show_album_details_modal = true
-    },
-
-    open_artist_dialog(artist) {
-      this.selected_artist = artist
-      this.show_artist_details_modal = true
-    },
-
-    open_composer_dialog(composer) {
-      this.selected_composer = composer
-      this.show_composer_details_modal = true
-    },
-
-    open_playlist_dialog(playlist) {
-      this.selected_playlist = playlist
-      this.show_playlist_details_modal = true
     }
   }
 }
