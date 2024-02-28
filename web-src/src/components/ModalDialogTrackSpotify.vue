@@ -111,7 +111,12 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogTrackSpotify',
   props: {
-    album: { required: true, type: Object },
+    album: {
+      default() {
+        return {}
+      },
+      type: Object
+    },
     show: Boolean,
     track: { required: true, type: Object }
   },
