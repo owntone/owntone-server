@@ -59,8 +59,8 @@ import * as types from '@/store/mutation_types'
 import ControlSlider from '@/components/ControlSlider.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import LyricsPane from '@/components/LyricsPane.vue'
-import { mdiCancel } from '@mdi/js'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+import { mdiCancel } from '@mdi/js'
 import webapi from '@/webapi'
 
 const INTERVAL = 1000

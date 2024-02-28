@@ -13,11 +13,11 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList, byDateSinceToday } from '@/lib/GroupedList'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
-import store from '@/store'
 import TabsMusic from '@/components/TabsMusic.vue'
+import store from '@/store'
 import webapi from '@/webapi'
 
 const dataObject = {

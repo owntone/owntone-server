@@ -47,8 +47,8 @@ import CoverArtwork from '@/components/CoverArtwork.vue'
 import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
-import store from '@/store'
 import TabsMusic from '@/components/TabsMusic.vue'
+import store from '@/store'
 
 const dataObject = {
   load(to) {

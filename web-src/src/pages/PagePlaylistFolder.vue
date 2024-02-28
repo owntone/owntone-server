@@ -21,8 +21,8 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList, noop } from '@/lib/GroupedList'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import webapi from '@/webapi'
 

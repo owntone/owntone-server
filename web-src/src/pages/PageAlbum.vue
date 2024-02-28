@@ -45,9 +45,9 @@
 </template>
 
 <script>
+import { GroupedList, byMedium, noop } from '@/lib/GroupedList'
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import { GroupedList, byMedium, noop } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'

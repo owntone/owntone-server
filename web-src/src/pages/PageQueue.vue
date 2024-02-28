@@ -105,11 +105,11 @@
 <script>
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import draggable from 'vuedraggable'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
 import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+import draggable from 'vuedraggable'
 import webapi from '@/webapi'
 
 export default {

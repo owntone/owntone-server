@@ -61,9 +61,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
+import { GroupedList, byName, byRating } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
-import { GroupedList, byName, byRating } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'

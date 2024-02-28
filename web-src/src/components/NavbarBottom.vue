@@ -263,9 +263,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import _audio from '@/lib/Audio'
 import ControlSlider from '@/components/ControlSlider.vue'
-import { mdiCancel } from '@mdi/js'
 import NavbarItemLink from './NavbarItemLink.vue'
 import NavbarItemOutput from './NavbarItemOutput.vue'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume.vue'
@@ -277,6 +275,8 @@ import PlayerButtonRepeat from '@/components/PlayerButtonRepeat.vue'
 import PlayerButtonSeekBack from '@/components/PlayerButtonSeekBack.vue'
 import PlayerButtonSeekForward from '@/components/PlayerButtonSeekForward.vue'
 import PlayerButtonShuffle from '@/components/PlayerButtonShuffle.vue'
+import _audio from '@/lib/Audio'
+import { mdiCancel } from '@mdi/js'
 import webapi from '@/webapi'
 
 export default {

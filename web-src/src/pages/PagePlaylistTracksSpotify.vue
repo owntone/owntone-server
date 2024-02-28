@@ -74,8 +74,8 @@ import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
-import store from '@/store'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
+import store from '@/store'
 import webapi from '@/webapi'
 
 const PAGE_SIZE = 50

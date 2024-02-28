@@ -103,8 +103,8 @@ import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
-import store from '@/store'
 import TabsMusic from '@/components/TabsMusic.vue'
+import store from '@/store'
 
 const dataObject = {
   load(to) {

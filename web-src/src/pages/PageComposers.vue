@@ -20,8 +20,8 @@
 </template>
 
 <script>
-import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList, byName } from '@/lib/GroupedList'
+import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
