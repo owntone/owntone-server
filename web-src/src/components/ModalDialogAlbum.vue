@@ -123,7 +123,6 @@ export default {
   props: {
     album: { required: true, type: Object },
     media_kind: { default: '', type: String },
-    new_tracks: { required: true, type: Array },
     show: Boolean
   },
   emits: ['close', 'remove-podcast', 'play-count-changed'],

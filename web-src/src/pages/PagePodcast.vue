@@ -40,7 +40,6 @@
           :show="show_details_modal"
           :album="album"
           :media_kind="'podcast'"
-          :new_tracks="new_tracks"
           @close="show_details_modal = false"
           @play-count-changed="reload_tracks"
           @remove-podcast="open_remove_podcast_dialog"
@@ -118,12 +117,6 @@ export default {
       show_details_modal: false,
       show_remove_podcast_modal: false,
       tracks: new GroupedList()
-    }
-  },
-
-  computed: {
-    new_tracks() {
-      return this.tracks.items.filter((track) => track.play_count === 0).length
     }
   },
 
