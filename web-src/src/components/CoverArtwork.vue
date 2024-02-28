@@ -1,7 +1,7 @@
 <template>
   <figure>
     <img
-      v-lazy="{ src: artwork_url_with_size, lifecycle: lazy_lifecycle }"
+      v-lazy="{ src: artwork_url, lifecycle: lazy_lifecycle }"
       @click="$emit('click')"
     />
   </figure>
@@ -9,7 +9,6 @@
 
 <script>
 import { renderSVG } from '@/lib/SVGRenderer'
-import webapi from '@/webapi'
 
 export default {
   name: 'CoverArtwork',
@@ -17,8 +16,6 @@ export default {
     album: { default: '', type: String },
     artist: { default: '', type: String },
     artwork_url: { default: '', type: String },
-    maxheight: { default: 600, type: Number },
-    maxwidth: { default: 600, type: Number }
   },
   emits: ['click'],
 
@@ -38,17 +35,6 @@ export default {
   },
 
   computed: {
-    artwork_url_with_size() {
-      if (this.maxwidth > 0 && this.maxheight > 0) {
-        return webapi.artwork_url_append_size_params(
-          this.artwork_url,
-          this.maxwidth,
-          this.maxheight
-        )
-      }
-      return webapi.artwork_url_append_size_params(this.artwork_url)
-    },
-
     alt_text() {
       return `${this.artist} - ${this.album}`
     },

@@ -22,16 +22,6 @@ axios.interceptors.response.use(
 )
 
 export default {
-  artwork_url_append_size_params(artworkUrl, maxwidth = 600, maxheight = 600) {
-    if (artworkUrl && artworkUrl.startsWith('/')) {
-      if (artworkUrl.includes('?')) {
-        return `${artworkUrl}&maxwidth=${maxwidth}&maxheight=${maxheight}`
-      }
-      return `${artworkUrl}?maxwidth=${maxwidth}&maxheight=${maxheight}`
-    }
-    return artworkUrl
-  },
-
   config() {
     return axios.get('./api/config')
   },
