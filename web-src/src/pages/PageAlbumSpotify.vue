@@ -128,13 +128,11 @@ export default {
     }
   },
 
-  computed: {
+  methods: {
     artwork_url(album) {
       return album.images?.[0]?.url || ''
-    }
-  },
+    },
 
-  methods: {
     open_artist() {
       this.$router.push({
         name: 'music-spotify-artist',

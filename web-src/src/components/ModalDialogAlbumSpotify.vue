@@ -103,13 +103,11 @@ export default {
     }
   },
 
-  computed: {
+  methods: {
     artwork_url(album) {
       return album.images?.[0]?.url || ''
-    }
-  },
+    },
 
-  methods: {
     play() {
       this.$emit('close')
       webapi.player_play_uri(this.album.uri, false)
