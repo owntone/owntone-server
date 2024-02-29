@@ -116,21 +116,20 @@ export default {
   name: 'PageQueue',
   components: {
     ContentWithHeading,
-    draggable,
     ListItemQueueItem,
     ModalDialogAddUrlStream,
     ModalDialogPlaylistSave,
-    ModalDialogQueueItem
+    ModalDialogQueueItem,
+    draggable
   },
 
   data() {
     return {
       edit_mode: false,
-
+      selected_item: {},
       show_details_modal: false,
-      show_url_modal: false,
       show_pls_save_modal: false,
-      selected_item: {}
+      show_url_modal: false
     }
   },
 
@@ -168,9 +167,8 @@ export default {
 
   methods: {
     move_item(e) {
-      const oldPosition = !this.show_only_next_items
-        ? e.oldIndex
-        : e.oldIndex + this.current_position
+      const oldPosition =
+        e.oldIndex + (this.show_only_next_items && this.current_position)
       const item = this.queue_items[oldPosition]
       const newPosition = item.position + (e.newIndex - e.oldIndex)
       if (newPosition !== oldPosition) {
