@@ -119,10 +119,6 @@ export class GroupedList {
     this.group(noop())
   }
 
-  isEmpty() {
-    return !this.items || this.items.length <= 0
-  }
-
   group(options, filterFns = []) {
     const itemsFiltered = filterFns
       ? this.items.filter((item) => filterFns.every((fn) => fn(item)))
