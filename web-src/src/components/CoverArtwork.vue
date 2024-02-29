@@ -1,9 +1,6 @@
 <template>
   <figure>
-    <img
-      v-lazy="{ src: artwork_url, lifecycle: lazy_lifecycle }"
-      @click="$emit('click')"
-    />
+    <img v-lazy="{ src: artwork_url, lifecycle }" @click="$emit('click')" />
   </figure>
 </template>
 
@@ -21,16 +18,13 @@ export default {
 
   data() {
     return {
-      width: 600,
-      height: 600,
-      font_family: 'sans-serif',
-      font_size: 200,
-      font_weight: 600,
-      lazy_lifecycle: {
+      font: { family: 'sans-serif', weight: 'bold' },
+      lifecycle: {
         error: (el) => {
           el.src = this.dataURI()
         }
-      }
+      },
+      size: 600
     }
   },
 
@@ -52,12 +46,11 @@ export default {
 
   methods: {
     dataURI() {
-      return renderSVG(this.caption, this.alt_text, {
-        width: this.width,
-        height: this.height,
-        font_family: this.font_family,
-        font_size: this.font_size,
-        font_weight: this.font_weight
+      return renderSVG({
+        alternate: this.alt_text,
+        caption: this.caption,
+        font: this.font,
+        size: this.size
       })
     }
   }

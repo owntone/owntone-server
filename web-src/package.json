@@ -22,7 +22,6 @@
     "mdi-vue": "^3.0.13",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.5.2",
-    "string-to-color": "^2.2.2",
     "vue": "^3.4.15",
     "vue-i18n": "^9.9.0",
     "vue-router": "^4.2.5",
