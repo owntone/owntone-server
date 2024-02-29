@@ -10,7 +10,7 @@
       '--ratio': ratio,
       '--cursor': $filters.cursor(cursor)
     }"
-    @input="$emit('update:value', $event.target.value)"
+    @input="$emit('update:value', $event.target.valueAsNumber)"
   />
 </template>
 
