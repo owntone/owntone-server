@@ -70,10 +70,6 @@ export default {
   },
 
   beforeRouteUpdate(to, from, next) {
-    if (!this.albums.isEmpty()) {
-      next()
-      return
-    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
@@ -83,8 +79,8 @@ export default {
 
   data() {
     return {
-      artist: {},
       albums: new GroupedList(),
+      artist: {},
       show_details_modal: false
     }
   },

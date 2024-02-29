@@ -99,10 +99,6 @@ export default {
   },
 
   beforeRouteUpdate(to, from, next) {
-    if (!this.artists_list.isEmpty()) {
-      next()
-      return
-    }
     const vm = this
     dataObject.load(to).then((response) => {
       dataObject.set(vm, response)
