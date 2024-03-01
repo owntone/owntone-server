@@ -33,10 +33,8 @@
 
 // For file copy
 #include <fcntl.h>
-#if defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__APPLE__)
 #include <copyfile.h>
-#else
-#include <sys/sendfile.h>
 #endif
 
 #include <libavcodec/avcodec.h>
@@ -812,14 +810,20 @@ static int
 fast_copy(int fd_dst, int fd_src)
 {
   // Here we use kernel-space copying for performance reasons
-#if defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__APPLE__)
   // fcopyfile works on FreeBSD and OS X 10.5+
   return fcopyfile(fd_src, fd_dst, 0, COPYFILE_ALL);
 #else
   // sendfile will work with non-socket output (i.e. regular file) on Linux 2.6.33+
   struct stat fileinfo = { 0 };
+  ssize_t bytes_copied;
+
   fstat(fd_src, &fileinfo);
-  return sendfile(fd_dst, fd_src, NULL, fileinfo.st_size);
+  bytes_copied = copy_file_range(fd_src, NULL, fd_dst, NULL, fileinfo.st_size, 0);
+  if (bytes_copied < 0 || bytes_copied != fileinfo.st_size)
+    return -1;
+
+  return 0;
 #endif
 }
 
