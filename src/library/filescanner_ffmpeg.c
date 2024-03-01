@@ -805,16 +805,13 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
 
 /* ----------------------- Writing metadata to files ------------------------ */
 
-// Adapted from https://stackoverflow.com/questions/2180079/how-can-i-copy-a-file-on-unix-using-c
 static int
 fast_copy(int fd_dst, int fd_src)
 {
   // Here we use kernel-space copying for performance reasons
 #if defined(__APPLE__)
-  // fcopyfile works on FreeBSD and OS X 10.5+
   return fcopyfile(fd_src, fd_dst, 0, COPYFILE_ALL);
 #else
-  // sendfile will work with non-socket output (i.e. regular file) on Linux 2.6.33+
   struct stat fileinfo = { 0 };
   ssize_t bytes_copied;
 
