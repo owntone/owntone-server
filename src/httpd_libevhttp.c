@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/queue.h> // TAILQ_FOREACH
 #include <sys/socket.h> // listen()
 
 #include <event2/http.h>
@@ -105,7 +104,8 @@ httpd_query_iterate(httpd_query *query, httpd_query_iteratecb cb, void *arg)
 {
   struct evkeyval *param;
 
-  TAILQ_FOREACH(param, query, next)
+  // musl libc doesn't have sys/queue.h so don't use TAILQ_FOREACH
+  for (param = query->tqh_first; param; param = param->next.tqe_next)
     {
       cb(param->key, param->value, arg);
     }
