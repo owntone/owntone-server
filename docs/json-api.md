@@ -638,7 +638,7 @@ POST /api/queue/items/add
 
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
-| uris            | Comma seperated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`)           |
+| uris            | Comma separated list of resource identifiers (`track`, `playlist`, `artist` or `album` object `uri`)           |
 | expression      | A smart playlist query expression identifying the tracks that will be added to the queue.                          |
 | position        | *(Optional)* If a position is given, new items are inserted starting from this position into the queue.            |
 | playback        | *(Optional)* If the `playback` parameter is set to `start`, playback will be started after adding the new items. |

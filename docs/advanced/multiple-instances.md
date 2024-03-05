@@ -1,6 +1,6 @@
 # Running Multiple Instances
 
-To run multiple instances of owntone on a server, you should copy
+To run multiple instances of OwnTone on a server, you should copy
 `/etc/owntone.conf` to `/etc/owntone-zone.conf` (for each `zone`) and
 modify the following to be unique across all instances:
 
@@ -17,9 +17,8 @@ modify the following to be unique across all instances:
 Then run `owntone -c /etc/owntone-zone.conf` to run owntone with the new
 zone configuration.
 
-Owntone has a `systemd` template which lets you run this automatically
+OwnTone has a `systemd` template which lets you run this automatically
 on systems that use systemd.  You can start or enable the service for
 a `zone` by `sudo systemctl start owntone@zone` and check that it is
 running with `sudo systemctl status owntone@zone`.  Use `sudo
-systemctl enable ownton@zone` to get the service to start on reboot.
-
+systemctl enable owntone@zone` to get the service to start on reboot.

@@ -1,6 +1,6 @@
 # OwnTone and ALSA
 
-ALSA is one of the main output configuration options for local audio; when using ALSA you will typically let the system select the soundcard on your machine as the `default` device/sound card - a mixer associated with the ALSA device is used for volume control.  However if your machine has multiple sound cards and your system chooses the wrong playback device, you will need to manually select the card and mixer to complete the OwnTone configuration.
+ALSA is one of the main output configuration options for local audio; when using ALSA you will typically let the system select the sound card on your machine as the `default` device/sound card - a mixer associated with the ALSA device is used for volume control.  However if your machine has multiple sound cards and your system chooses the wrong playback device, you will need to manually select the card and mixer to complete the OwnTone configuration.
 
 ## Quick introduction to ALSA devices
 
@@ -13,13 +13,14 @@ Alternative ALSA names can be used to refer to physical ALSA devices and can be 
 * more descriptive rather than being a card number
 * consistent for USB numeration - USB ALSA devices may not have the same card number across reboots/reconnects
 
-The ALSA device information required for configuration the server can be deterined using `aplay`, as described in the rest of this document, but OwnTone can also assist; when configured to log at `INFO` level the following information is provided during startup:
+The ALSA device information required for configuration the server can be determined using `aplay`, as described in the rest of this document, but OwnTone can also assist; when configured to log at `INFO` level the following information is provided during startup:
 
 ```
 laudio: Available ALSA playback mixer(s) on hw:0 CARD=Intel (HDA Intel): 'Master' 'Headphone' 'Speaker' 'PCM' 'Mic' 'Beep'
 laudio: Available ALSA playback mixer(s) on hw:1 CARD=E30 (E30): 'E30 '
 laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwire 3210 Seri): 'Sidetone' 'Headset'
 ```
+
 The `CARD=` string is the alternate ALSA name for the device and can be used in place of the traditional `hw:x` name.
 
 On this machine the server reports that it can see the onboard HDA Intel sound card and two additional sound cards: a Topping E30 DAC and a Plantronics Headset which are both USB devices.  We can address the first ALSA device as `hw:0` or `hw:CARD=Intel` or `hw:Intel` or `plughw:Intel`, the second ALSA device as `hw:1` or `hw:E30` and so forth.  The latter 2 devices being on USB will mean that `hw:1` may not always refer to `hw:E30` and thus in such a case using the alternate name is useful.
@@ -29,7 +30,7 @@ On this machine the server reports that it can see the onboard HDA Intel sound c
 OwnTone can support a single ALSA device or multiple ALSA devices.
 
 ```
-# example audio section for server for a single soundcard
+# example audio section for server for a single sound card
 audio {
     nickname = "Computer"
     type = "alsa"
@@ -40,7 +41,7 @@ audio {
 }
 ```
 
-Multiple devices can be made available to OwnTone using seperate `alsa { .. }` sections.
+Multiple devices can be made available to OwnTone using separate `alsa { .. }` sections.
 
 ```
 audio {
@@ -81,7 +82,7 @@ laudio: Available ALSA playback mixer(s) on hw:1 CARD=E30 (E30): 'E30 '
 laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwire 3210 Seri): 'Sidetone' 'Headset'
 ```
 
-Using the information above, we can see 3 soundcards that we could use with OwnTone with the first soundcard having a number of seperate mixer devices (volume control) for headphone and the interal speakers - we'll configure the server to use both these and also the E30 device.  The server configuration for theese multiple outputs would be:
+Using the information above, we can see 3 sound cards that we could use with OwnTone with the first sound card having a number of separate mixer devices (volume control) for headphone and the internal speakers - we'll configure the server to use both these and also the E30 device.  The server configuration for these multiple outputs would be:
 
 ```
 # using ALSA device alias where possible
@@ -111,9 +112,9 @@ NB: it is troublesome to use `hw` or `plughw` ALSA addressing when running OwnTo
 ## Manually Determining the sound cards you have / ALSA can see
 The example below is how I determined the correct sound card and mixer values for a Raspberry Pi that has an additional DAC card (hat) mounted.  Of course using the log output from the server would have given the same results.
 
-Use `aplay -l` to list all the sound cards and their order as known to the system - you can have multiple `card X, device Y` entries; some cards can also have multiple playback devices such as the RPI's onboard soundcard which feeds both headphone (card 0, device 0) and HDMI (card 0, device 1).
+Use `aplay -l` to list all the sound cards and their order as known to the system - you can have multiple `card X, device Y` entries; some cards can also have multiple playback devices such as the RPI's onboard sound card which feeds both headphone (card 0, device 0) and HDMI (card 0, device 1).
 
-```
+```shell
 $ aplay -l
 **** List of PLAYBACK Hardware Devices ****
 card 0: ALSA [bcm2835 ALSA], device 0: bcm2835 ALSA [bcm2835 ALSA]
@@ -135,11 +136,11 @@ card 1: IQaudIODAC [IQaudIODAC], device 0: IQaudIO DAC HiFi pcm512x-hifi-0 []
 
 On this machine we see the second sound card installed, an IQaudIODAC dac hat, and identified as `card 1 device 0`.  This is the playback device we want to be used by the server.
 
-`hw:1,0` is the IQaudIODAC that we want to use - we verify audiable playback through that sound card using `aplay -Dhw:1 /tmp/sine441.wav`.  If the card has only one device, we can simply refer to the sound card using `hw:X` so in this case where the IQaudIODAC only has one device, we can refer to this card as `hw:1` or `hw:1,0`.
+`hw:1,0` is the IQaudIODAC that we want to use - we verify audible playback through that sound card using `aplay -Dhw:1 /tmp/sine441.wav`.  If the card has only one device, we can simply refer to the sound card using `hw:X` so in this case where the IQaudIODAC only has one device, we can refer to this card as `hw:1` or `hw:1,0`.
 
 Use `aplay -L` to get more information about the PCM devices defined on the system.
 
-```
+```shell
 $ aplay -L
 null
     Discard all samples (playback) or generate zero samples (capture)
@@ -209,7 +210,7 @@ audio {
 
 Once you have the card number (determined from `aplay -l`) we can inspect/confirm the name of the mixer that can be used for playback (it may NOT be `PCM` as expected by the server).  In this example, the card `1` is of interest and thus we use `-c 1` with the following command:
 
-```
+```shell
 $ amixer -c 1 
 Simple mixer control 'DSP Program',0
   Capabilities: enum
@@ -253,11 +254,11 @@ This is the name of the underlying physical device used for the mixer - it is ty
 
 ## Handling Devices that cannot concurrently play multiple audio streams 
 
-Some devices such as various RPI DAC boards (IQaudio DAC, Allo Boss DAC...) cannot have multiple streams openned at the same time/cannot play multiple sound files at the same time. This results in `Device or resource busy` errors.  You can confirm if your sound card has this problem by using the example below once have determined the names/cards information as above.
+Some devices such as various RPI DAC boards (IQaudio DAC, Allo Boss DAC...) cannot have multiple streams opened at the same time/cannot play multiple sound files at the same time. This results in `Device or resource busy` errors.  You can confirm if your sound card has this problem by using the example below once have determined the names/cards information as above.
 
 Using our `hw:1` device we try:
 
-```
+```shell
 # generate some audio
 $ sox -n -c 2 -r 44100 -b 16 -C 128 /tmp/sine441.wav synth 30 sin 500-100 fade h 0.2 30 0.2
 
@@ -295,11 +296,11 @@ aplay: main:788: audio open error: Device or resource busy
 
 In this instance this device cannot open multiple streams - OwnTone can handle this situation transparently with some audio being truncated from the end of the current file as the server prepares to play the following track. If this handling is causing you problems you may wish to use [ALSA's `dmix` functionally](https://www.alsa-project.org/main/index.php/Asoundrc#Software_mixing) which provides a software mixing module. We will need to define a `dmix` component and configure the server to use that as it's sound card.
 
-The downside to the `dmix` approach will be the need to fix a samplerate (48000 being the default) for this software mixing module meaning any files that have a mismatched samplerate will be resampled.
+The downside to the `dmix` approach will be the need to fix a sample rate (48000 being the default) for this software mixing module meaning any files that have a mismatched sample rate will be resampled.
 
 ## ALSA dmix configuration/setup
 
-A `dmix` device can be defined in `/etc/asound.conf` or `~/.asoundrc` for the same user running OwnTone.  We will need to know the underlying physical soundcard to be used: in our examples above, `hw:1,0` / `card 1, device 0` representing our IQaudIODAC as per output of `aplay -l`.  We also take the `buffer_size` and `period_size` from the output of playing a sound file via `aplay -v`.
+A `dmix` device can be defined in `/etc/asound.conf` or `~/.asoundrc` for the same user running OwnTone.  We will need to know the underlying physical sound card to be used: in our examples above, `hw:1,0` / `card 1, device 0` representing our IQaudIODAC as per output of `aplay -l`.  We also take the `buffer_size` and `period_size` from the output of playing a sound file via `aplay -v`.
 
 ```
 # use 'dac' as the name of the device: "aplay -Ddac ...."
@@ -335,7 +336,7 @@ ctl.dmixer {
 
 Running `aplay -L` we will see our newly defined devices `dac` and `dmixer`
 
-```
+```shell
 $ aplay -L
 null
     Discard all samples (playback) or generate zero samples (capture)

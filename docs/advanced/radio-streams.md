@@ -1,4 +1,4 @@
-# OwnTone and Radio Stream tweaking
+# Radio Stream Tweaking
 
 Radio streams have many different ways in how metadata is sent.  Many should
 just work as expected, but a few may require some tweaking. If you are not
@@ -6,7 +6,7 @@ seeing expected title, track, artist, artwork in clients or web UI, the
 following may help.
 
 First, understand what and how the particular stream is sending information.
-ffprobe is a command that can be used to interegrate most of the stream
+`ffprobe` is a command that can be used to integrate most of the stream
 information. `ffprobe <http://stream.url>` should give you some useful output,
 look at the Metadata section, below is an example.
 
@@ -25,7 +25,6 @@ look at the Metadata section, below is an example.
 In the example above, all tags are populated with correct information, no
 modifications to the server configuration should be needed. Note that
 StreamUrl points to the artwork image file.
-
 
 Below is another example that will require some tweaks to the server, Notice
 `icy-name` is blank and `StreamUrl` doesn't point to an image.
@@ -67,7 +66,7 @@ duration.
 Try to download the file, e.g. with `curl "https://radio.stream.domain/api9/eventdata/49790578"`.
 Let's assume you get something like this:
 
-```
+```json
 {
     "eventId": 49793707,
     "eventStart": "2020-05-08 16:23:03",
@@ -85,7 +84,7 @@ Let's assume you get something like this:
 In this case, you would need to tell the server to look for "eventDuration"
 and "eventImageUrl" (or just "duration" and "url"). You can do that like this:
 
-```
+```shell
 curl -X PUT "http://localhost:3689/api/settings/misc/streamurl_keywords_length" --data "{\"name\":\"streamurl_keywords_length\",\"value\":\"duration\"}"
 curl -X PUT "http://localhost:3689/api/settings/misc/streamurl_keywords_artwork_url" --data "{\"name\":\"streamurl_keywords_artwork_url\",\"value\":\"url\"}
 ```

@@ -4,10 +4,10 @@ It is possible to access a shared library over the internet from a DAAP client
 like iTunes. You must have remote access to the host machine.
 
 First log in to the host and forward port 3689 to your local machine. You now
-need to broadcast the daap service to iTunes on your local machine. On macOS the
+need to broadcast the DAAP service to iTunes on your local machine. On macOS the
 command is:
 
-```
+```shell
 dns-sd -P iTunesServer _daap._tcp local 3689 localhost.local 127.0.0.1 "ffid=12345"
 ```
 
@@ -21,7 +21,7 @@ for details.
 
 ## Accessing from Internet for authenticated users
 
-If you intend to access Owntone directly from Internet, it's a good idea to
+If you intend to access OwnTone directly from Internet, it is recommended to
 protect it against unauthenticated users.
 
 [This guide](https://blog.cyril.by/en/software/example-sso-with-authelia-and-owntone)

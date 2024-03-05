@@ -3,7 +3,7 @@
 Remote gets a list of output devices from the server; this list includes any
 and all devices on the network we know of that advertise AirPlay: AirPort
 Express, Apple TV, ... It also includes the local audio output, that is, the
-sound card on the server (even if there is no soundcard).
+sound card on the server (even if there is no sound card).
 
 OwnTone remembers your selection and the individual volume for each
 output device; selected devices will be automatically re-selected, except if
@@ -39,7 +39,7 @@ some common reasons:
     Remote device and the host OwnTone is running on.
 
     Solution 1: Sometimes it resolves the issue if you force Remote to quit, restart
-    it and do the pairing proces again. Another trick is to establish some other
+    it and do the pairing process again. Another trick is to establish some other
     connection (eg SSH) from the iPod/iPhone/iPad to the host.
 
     Solution 2: Check your router settings if you can whitelist multicast addresses

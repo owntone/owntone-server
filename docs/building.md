@@ -29,7 +29,7 @@ argument when you run ./configure:
  Feature              | Configure argument       | Packages
  ---------------------|--------------------------|-------------------------------------
  Chromecast           | `--enable-chromecast`    | libgnutls*-dev
- Pulseaudio           | `--with-pulseaudio`      | libpulse-dev
+ PulseAudio           | `--with-pulseaudio`      | libpulse-dev
 
 These features can be disabled saving you package dependencies:
 
@@ -158,7 +158,7 @@ Optional features require the following additional ports:
  Feature             | Configure argument       | Ports
  --------------------|--------------------------|-------------------
  Chromecast          | `--enable-chromecast`    | gnutls
- Pulseaudio          | `--with-pulseaudio`      | pulseaudio
+ PulseAudio          | `--with-pulseaudio`      | pulseaudio
 
 Clone the OwnTone repo:
 

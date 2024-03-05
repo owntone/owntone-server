@@ -40,4 +40,3 @@ probably obsolete when you read it :-)
 | Remote for Windows Phone | Komodex     | Remote | Windows Phone | Yes (2.2.1.0)   |
 | TunesRemote SE           |             | Remote | Java          | Yes (r108)      |
 | rtRemote for Windows     | bizmodeller | Remote | Windows       | Yes (1.2.0.67)  |
-

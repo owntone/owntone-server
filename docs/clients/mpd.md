@@ -5,16 +5,14 @@ You can - to some extent - use clients for MPD to control OwnTone.
 By default OwnTone listens on port 6600 for MPD clients. You can change
 this in the configuration file.
 
-Currently only a subset of the commands offered by MPD (see [MPD protocol documentation](http://www.musicpd.org/doc/protocol/)) 
-are supported.
+Currently only a subset of the commands offered by MPD (see [MPD protocol documentation](http://www.musicpd.org/doc/protocol/)) are supported.
 
 Due to some differences between OwnTone and MPD not all commands will act the
 same way they would running MPD:
 
 - crossfade, mixrampdb, mixrampdelay and replaygain will have no effect
-- single, repeat: unlike MPD, OwnTone does not support setting single and repeat separately 
-  on/off, instead repeat off, repeat all and repeat single are supported. Thus setting single on 
-  will result in repeat single, repeat on results in repeat all.
+- single, repeat: unlike MPD, OwnTone does not support setting single and repeat separately
+  on/off, instead repeat off, repeat all and repeat single are supported. Thus setting single on will result in repeat single, repeat on results in repeat all.
 
 The following table shows what is working for a selection of MPD clients:
 
