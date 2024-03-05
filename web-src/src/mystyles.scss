@@ -295,10 +295,7 @@ a.navbar-item {
 }
 
 /* Only scroll content if modal contains a card component */
-.fd-modal-card {
-  overflow: visible;
-}
-.fd-modal-card .card-content {
+.modal-content .card-content {
   max-height: calc(100vh - 200px);
   overflow: auto;
 }

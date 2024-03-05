@@ -3,7 +3,7 @@
     <transition name="fade">
       <div v-if="show" class="modal is-active">
         <div class="modal-background" @click="$emit('close')" />
-        <div class="modal-content fd-modal-card">
+        <div class="modal-content">
           <form class="card" @submit.prevent="add_stream">
             <div class="card-content">
               <p class="title is-4" v-text="$t('dialog.add.rss.title')" />
