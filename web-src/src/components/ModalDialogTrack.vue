@@ -1,182 +1,176 @@
 <template>
-  <div>
-    <transition name="fade">
-      <div v-if="show" class="modal is-active">
-        <div class="modal-background" @click="$emit('close')" />
-        <div class="modal-content">
-          <div class="card">
-            <div class="card-content">
-              <p class="title is-4" v-text="track.title" />
-              <p class="subtitle" v-text="track.artist" />
-              <div v-if="track.media_kind === 'podcast'" class="buttons">
+  <transition name="fade">
+    <div v-if="show" class="modal is-active">
+      <div class="modal-background" @click="$emit('close')" />
+      <div class="modal-content">
+        <div class="card">
+          <div class="card-content">
+            <p class="title is-4" v-text="track.title" />
+            <p class="subtitle" v-text="track.artist" />
+            <div v-if="track.media_kind === 'podcast'" class="buttons">
+              <a
+                v-if="track.play_count > 0"
+                class="button is-small"
+                @click="mark_new"
+                v-text="$t('dialog.track.mark-as-new')"
+              />
+              <a
+                v-if="track.play_count === 0"
+                class="button is-small"
+                @click="mark_played"
+                v-text="$t('dialog.track.mark-as-played')"
+              />
+            </div>
+            <div class="content is-small">
+              <p v-if="track.album">
+                <span class="heading" v-text="$t('dialog.track.album')" />
                 <a
-                  v-if="track.play_count > 0"
-                  class="button is-small"
-                  @click="mark_new"
-                  v-text="$t('dialog.track.mark-as-new')"
+                  class="title is-6 has-text-link"
+                  @click="open_album"
+                  v-text="track.album"
+                />
+              </p>
+              <p v-if="track.album_artist && track.media_kind !== 'audiobook'">
+                <span
+                  class="heading"
+                  v-text="$t('dialog.track.album-artist')"
                 />
                 <a
-                  v-if="track.play_count === 0"
-                  class="button is-small"
-                  @click="mark_played"
-                  v-text="$t('dialog.track.mark-as-played')"
+                  class="title is-6 has-text-link"
+                  @click="open_album_artist"
+                  v-text="track.album_artist"
                 />
-              </div>
-              <div class="content is-small">
-                <p v-if="track.album">
-                  <span class="heading" v-text="$t('dialog.track.album')" />
-                  <a
-                    class="title is-6 has-text-link"
-                    @click="open_album"
-                    v-text="track.album"
-                  />
-                </p>
-                <p
-                  v-if="track.album_artist && track.media_kind !== 'audiobook'"
-                >
+              </p>
+              <p v-if="track.composer">
+                <span class="heading" v-text="$t('dialog.track.composer')" />
+                <span class="title is-6" v-text="track.composer" />
+              </p>
+              <p v-if="track.date_released">
+                <span
+                  class="heading"
+                  v-text="$t('dialog.track.release-date')"
+                />
+                <span
+                  class="title is-6"
+                  v-text="$filters.date(track.date_released)"
+                />
+              </p>
+              <p v-else-if="track.year">
+                <span class="heading" v-text="$t('dialog.track.year')" />
+                <span class="title is-6" v-text="track.year" />
+              </p>
+              <p v-if="track.genre">
+                <span class="heading" v-text="$t('dialog.track.genre')" />
+                <a
+                  class="title is-6 has-text-link"
+                  @click="open_genre"
+                  v-text="track.genre"
+                />
+              </p>
+              <p v-if="track.disc_number">
+                <span class="heading" v-text="$t('dialog.track.position')" />
+                <span
+                  class="title is-6"
+                  v-text="[track.disc_number, track.track_number].join(' / ')"
+                />
+              </p>
+              <p v-if="track.length_ms">
+                <span class="heading" v-text="$t('dialog.track.duration')" />
+                <span
+                  class="title is-6"
+                  v-text="$filters.durationInHours(track.length_ms)"
+                />
+              </p>
+              <p>
+                <span class="heading" v-text="$t('dialog.track.path')" />
+                <span class="title is-6" v-text="track.path" />
+              </p>
+              <p>
+                <span class="heading" v-text="$t('dialog.track.type')" />
+                <span class="title is-6">
                   <span
-                    class="heading"
-                    v-text="$t('dialog.track.album-artist')"
-                  />
-                  <a
-                    class="title is-6 has-text-link"
-                    @click="open_album_artist"
-                    v-text="track.album_artist"
-                  />
-                </p>
-                <p v-if="track.composer">
-                  <span class="heading" v-text="$t('dialog.track.composer')" />
-                  <span class="title is-6" v-text="track.composer" />
-                </p>
-                <p v-if="track.date_released">
-                  <span
-                    class="heading"
-                    v-text="$t('dialog.track.release-date')"
-                  />
-                  <span
-                    class="title is-6"
-                    v-text="$filters.date(track.date_released)"
-                  />
-                </p>
-                <p v-else-if="track.year">
-                  <span class="heading" v-text="$t('dialog.track.year')" />
-                  <span class="title is-6" v-text="track.year" />
-                </p>
-                <p v-if="track.genre">
-                  <span class="heading" v-text="$t('dialog.track.genre')" />
-                  <a
-                    class="title is-6 has-text-link"
-                    @click="open_genre"
-                    v-text="track.genre"
-                  />
-                </p>
-                <p v-if="track.disc_number">
-                  <span class="heading" v-text="$t('dialog.track.position')" />
-                  <span
-                    class="title is-6"
-                    v-text="[track.disc_number, track.track_number].join(' / ')"
-                  />
-                </p>
-                <p v-if="track.length_ms">
-                  <span class="heading" v-text="$t('dialog.track.duration')" />
-                  <span
-                    class="title is-6"
-                    v-text="$filters.durationInHours(track.length_ms)"
-                  />
-                </p>
-                <p>
-                  <span class="heading" v-text="$t('dialog.track.path')" />
-                  <span class="title is-6" v-text="track.path" />
-                </p>
-                <p>
-                  <span class="heading" v-text="$t('dialog.track.type')" />
-                  <span class="title is-6">
-                    <span
-                      v-text="
-                        [
-                          $t('media.kind.' + track.media_kind),
-                          $t('data.kind.' + track.data_kind)
-                        ].join(' - ')
-                      "
-                    />
-                  </span>
-                </p>
-                <p v-if="track.samplerate">
-                  <span class="heading" v-text="$t('dialog.track.quality')" />
-                  <span class="title is-6">
-                    <span v-text="track.type" />
-                    <span
-                      v-if="track.samplerate"
-                      v-text="
-                        $t('dialog.track.samplerate', {
-                          rate: track.samplerate
-                        })
-                      "
-                    />
-                    <span
-                      v-if="track.channels"
-                      v-text="
-                        $t('dialog.track.channels', {
-                          channels: $filters.channels(track.channels)
-                        })
-                      "
-                    />
-                    <span
-                      v-if="track.bitrate"
-                      v-text="
-                        $t('dialog.track.bitrate', { rate: track.bitrate })
-                      "
-                    />
-                  </span>
-                </p>
-                <p>
-                  <span class="heading" v-text="$t('dialog.track.added-on')" />
-                  <span
-                    class="title is-6"
-                    v-text="$filters.datetime(track.time_added)"
-                  />
-                </p>
-                <p>
-                  <span class="heading" v-text="$t('dialog.track.rating')" />
-                  <span
-                    class="title is-6"
                     v-text="
-                      $t('dialog.track.rating-value', {
-                        rating: Math.floor(track.rating / 10)
+                      [
+                        $t('media.kind.' + track.media_kind),
+                        $t('data.kind.' + track.data_kind)
+                      ].join(' - ')
+                    "
+                  />
+                </span>
+              </p>
+              <p v-if="track.samplerate">
+                <span class="heading" v-text="$t('dialog.track.quality')" />
+                <span class="title is-6">
+                  <span v-text="track.type" />
+                  <span
+                    v-if="track.samplerate"
+                    v-text="
+                      $t('dialog.track.samplerate', {
+                        rate: track.samplerate
                       })
                     "
                   />
-                </p>
-                <p v-if="track.comment">
-                  <span class="heading" v-text="$t('dialog.track.comment')" />
-                  <span class="title is-6" v-text="track.comment" />
-                </p>
-              </div>
+                  <span
+                    v-if="track.channels"
+                    v-text="
+                      $t('dialog.track.channels', {
+                        channels: $filters.channels(track.channels)
+                      })
+                    "
+                  />
+                  <span
+                    v-if="track.bitrate"
+                    v-text="$t('dialog.track.bitrate', { rate: track.bitrate })"
+                  />
+                </span>
+              </p>
+              <p>
+                <span class="heading" v-text="$t('dialog.track.added-on')" />
+                <span
+                  class="title is-6"
+                  v-text="$filters.datetime(track.time_added)"
+                />
+              </p>
+              <p>
+                <span class="heading" v-text="$t('dialog.track.rating')" />
+                <span
+                  class="title is-6"
+                  v-text="
+                    $t('dialog.track.rating-value', {
+                      rating: Math.floor(track.rating / 10)
+                    })
+                  "
+                />
+              </p>
+              <p v-if="track.comment">
+                <span class="heading" v-text="$t('dialog.track.comment')" />
+                <span class="title is-6" v-text="track.comment" />
+              </p>
             </div>
-            <footer class="card-footer">
-              <a class="card-footer-item has-text-dark" @click="queue_add">
-                <mdicon class="icon" name="playlist-plus" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.track.add')" />
-              </a>
-              <a class="card-footer-item has-text-dark" @click="queue_add_next">
-                <mdicon class="icon" name="playlist-play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.track.add-next')" />
-              </a>
-              <a class="card-footer-item has-text-dark" @click="play">
-                <mdicon class="icon" name="play" size="16" />
-                <span class="is-size-7" v-text="$t('dialog.track.play')" />
-              </a>
-            </footer>
           </div>
+          <footer class="card-footer">
+            <a class="card-footer-item has-text-dark" @click="queue_add">
+              <mdicon class="icon" name="playlist-plus" size="16" />
+              <span class="is-size-7" v-text="$t('dialog.track.add')" />
+            </a>
+            <a class="card-footer-item has-text-dark" @click="queue_add_next">
+              <mdicon class="icon" name="playlist-play" size="16" />
+              <span class="is-size-7" v-text="$t('dialog.track.add-next')" />
+            </a>
+            <a class="card-footer-item has-text-dark" @click="play">
+              <mdicon class="icon" name="play" size="16" />
+              <span class="is-size-7" v-text="$t('dialog.track.play')" />
+            </a>
+          </footer>
         </div>
-        <button
-          class="modal-close is-large"
-          aria-label="close"
-          @click="$emit('close')"
-        />
       </div>
-    </transition>
-  </div>
+      <button
+        class="modal-close is-large"
+        aria-label="close"
+        @click="$emit('close')"
+      />
+    </div>
+  </transition>
 </template>
 
 <script>
