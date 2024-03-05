@@ -14,7 +14,7 @@ import store from './store'
 const app = createApp(App)
   .use(store)
   .use(router)
-  .use(VueProgressBar, { position: 'relative' })
+  .use(VueProgressBar)
   .use(VueClickAway)
   .use(VueLazyLoad, { log: false })
   .use(mdiVue, { icons })
