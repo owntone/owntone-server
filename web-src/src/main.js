@@ -14,15 +14,10 @@ import store from './store'
 const app = createApp(App)
   .use(store)
   .use(router)
-  .use(VueProgressBar)
+  .use(VueProgressBar, { position: 'relative' })
   .use(VueClickAway)
-  .use(VueLazyLoad, {
-    // Do not log errors, if image does not exist
-    log: false
-  })
-  .use(mdiVue, {
-    icons
-  })
+  .use(VueLazyLoad, { log: false })
+  .use(mdiVue, { icons })
   .use(i18n)
 
 app.config.globalProperties.$filters = filters
