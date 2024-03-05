@@ -109,7 +109,7 @@
         v-if="!is_now_playing_page"
         :to="{ name: 'now-playing' }"
         exact
-        class="fd-is-text-clipped is-expanded is-clipped is-size-7"
+        class="is-expanded is-clipped is-size-7"
       >
         <div class="fd-is-text-clipped">
           <strong v-text="now_playing.title" />
