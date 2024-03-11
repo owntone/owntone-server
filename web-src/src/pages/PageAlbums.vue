@@ -64,7 +64,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList, byName, byYear } from '@/lib/GroupedList'
+import { GroupedList, byName, byYear, byArtistWithSecondary } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
@@ -128,6 +128,16 @@ export default {
           options: byYear('date_released', {
             direction: 'desc'
           })
+        },
+        {
+          id: 4,
+          name: this.$t('page.albums.sort.artist-title'),
+          options: byArtistWithSecondary('artist', 'name-sort')
+        },
+        {
+          id: 5,
+          name: this.$t('page.albums.sort.artist-year'),
+          options: byArtistWithSecondary('artist', 'date_released')
         }
       ]
     }

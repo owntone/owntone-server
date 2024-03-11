@@ -108,6 +108,31 @@ export function byDateSinceToday(field, defaultValue = '0000') {
   }
 }
 
+export function byArtistWithSecondary(primary, secondary, defaultValue = '') {
+  return {
+    compareFn: (a, b) => {
+      const fieldA = a[primary] || defaultValue
+      const fieldB = b[primary] || defaultValue
+      if (fieldA === fieldB) {
+        const fieldAA = a[secondary] || defaultValue
+        const fieldBB = b[secondary] || defaultValue
+        return fieldAA.localeCompare(fieldBB, locale.value)
+      }
+      return fieldA.localeCompare(fieldB, locale.value)
+    },
+
+    groupKeyFn: (item) => {
+      const value = (item[primary] || defaultValue).charAt(0)
+      if (value.match(/\p{Letter}/gu)) {
+        return value.toUpperCase()
+      } else if (value.match(/\p{Number}/gu)) {
+        return '#'
+      }
+      return '⌘'
+    }
+  }
+}
+
 export class GroupedList {
   constructor({ items = [], total = 0, offset = 0, limit = -1 } = {}) {
     this.items = items

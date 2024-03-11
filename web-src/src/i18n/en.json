@@ -265,7 +265,9 @@
         "title": "Sort",
         "name": "Name",
         "recently-added": "Recently added",
-        "recently-released": "Recently released"
+        "recently-released": "Recently released",
+        "artist-title": "Artist then title",
+        "artist-year": "Artist then year"
       }
     },
     "artist": {
