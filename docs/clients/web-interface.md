@@ -1,15 +1,18 @@
 # Web Interface
 
-Mobile friendly player web interface for [OwnTone](http://owntone.github.io/owntone-server/) build
-with [Vue.js](https://vuejs.org), [Bulma](http://bulma.io).
+The web interface is a mobile-friendly music player and browser for OwnTone.
 
-You can find the web interface at [http://owntone.local:3689](http://owntone.local:3689)
-or alternatively at http://SERVER_ADDRESS:3689.
+You can reach it at [http://owntone.local:3689](http://owntone.local:3689)
+or depending on the OwnTone installation at `http://<server-address>:<port>`.
 
-Use the web interface to control playback, trigger manual library rescans, pair
-with remotes, select speakers, authenticate with Spotify, etc.
+This interface becomes useful when you need to control playback, trigger
+manual library rescans, pair with remotes, select speakers, grant access to
+Spotify, and for many other operations.
 
 ## Screenshots
+
+Below you have a selection of screenshots that shows different part of the
+interface.
 
 ![Now playing](../assets/images/screenshot-now-playing.png){: class="zoom" }
 ![Queue](../assets/images/screenshot-queue.png){: class="zoom" }
@@ -31,45 +34,90 @@ with remotes, select speakers, authenticate with Spotify, etc.
 
 ## Usage
 
-You can find OwnTone's web interface at [http://owntone.local:3689](http://owntone.local:3689)
-or alternatively at http://SERVER_ADDRESS:3689.
+The web interface is usually reachable at [http://owntone.local:3689](http://owntone.local:3689).
+But depending on the setup of OwnTone you might need to adjust the server name
+and port of the server accordingly `http://<server-name>:<port>`.
 
-## Build Setup
+## Building and Serving
 
-The source is located in the `web-src` folder.
+The web interface is built with [Vite](https://vitejs.dev/) and [Bulma](http://bulma.io).
 
-```bash
+Its source code is located in the `web-src` folder and therefore all `npm`
+commands must be run under this folder.
+
+To switch to this folder, run the command hereafter.
+
+```shell
 cd web-src
 ```
 
-The web interface is built with [Vite](https://vitejs.dev/), makes use of Prettier for code formatting
-and ESLint for code linting (the project was set up following the guide [ESLint and Prettier with Vite and Vue.js 3](https://vueschool.io/articles/vuejs-tutorials/eslint-and-prettier-with-vite-and-vue-js-3/)
+### Dependencies Installation
 
-```bash
-# install dependencies
+First of all, the dependencies to libraries must be installed with the command
+below.
+
+```shell
 npm install
+```
 
-# Serve with hot reload at localhost:3000
-# (assumes that OwnTone server is running on localhost:3689)
-npm run serve
+Once the libraries installed, you can either [build](#source-code-building),
+[format](#source-code-formatting), and [lint](#source-code-linting) the source
+code, or [serve](#serving) the web interface locally.
 
-# Serve with hot reload at localhost:3000
-# (with remote OwnTone server reachable under owntone.local:3689)
-export VITE_OWNTONE_URL=http://owntone.local:3689 npm run serve
+### Source Code Building
 
-# Build for production with minification (will update web interface
-# in "../htdocs")
+The following command builds the web interface for production with minification
+and stores it under the folder `../htdocs`.
+
+```shell
 npm run build
+```
 
-# Format code
+### Source Code Formatting
+
+The source code follows certain formatting conventions for maintainability and
+readability. To ensure that the source code follows these conventions,
+[Prettier](https://prettier.io/) is used.
+
+The command below applies formatting conventions to the source code based on a
+preset configuration. Note that a additional configuration is made in the file
+`.prettierrc.json`.
+
+```shell
 npm run format
+```
 
-# Lint code (and fix errors that can be automatically fixed)
+### Source Code Linting
+
+In order to flag programming errors, bugs, stylistic errors and suspicious
+constructs in the source code, [ESLint](https://eslint.org) is used.
+
+Note that ESLint has been configured following this [guide](https://vueschool.io/articles/vuejs-tutorials/eslint-and-prettier-with-vite-and-vue-js-3/).
+
+The following command lints the source code and fixes all automatically fixable
+errors.
+
+```shell
 npm run lint
 ```
 
-After running `npm run serve` the web interface is reachable at [localhost:3000](http://localhost:3000).
-By default it expects **OwnTone** to be running at [localhost:3689](http://localhost:3689) and proxies all
-JSON API calls to this location.
+### Serving
 
-If the server is running at a different location you have to set the env variable `VITE_OWNTONE_URL`.
+In order to serve locally the web interface, the following command can be run.
+
+```shell
+npm run serve
+```
+
+After running `npm run serve` the web interface is reachable at [localhost:3000](http://localhost:3000).
+
+By default the above command expects the OwnTone server to be running at
+[localhost:3689](http://localhost:3689) and proxies API calls to this location.
+
+If the server is running at a different location you have to set the
+environment variable `VITE_OWNTONE_URL`, like in the example below.
+
+```shell
+export VITE_OWNTONE_URL=http://owntone.local:3689
+npm run serve
+```
