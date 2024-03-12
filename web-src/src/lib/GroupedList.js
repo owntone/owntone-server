@@ -125,9 +125,9 @@ export class GroupedList {
     )
     this.count = itemsFiltered.length
     // Sort item list
-    const itemsSorted = options.compareFn
-      ? [...itemsFiltered].sort(options.compareFn)
-      : itemsFiltered
+    const itemsSorted = [...itemsFiltered].sort(
+      options.compareFn ?? (() => true)
+    )
     // Group item list
     this.itemsGrouped = itemsSorted.reduce((map, item) => {
       const groupKey = options.groupKeyFn(item)
