@@ -120,29 +120,26 @@ export class GroupedList {
   }
 
   group(options, filterFns = []) {
-    const itemsFiltered = filterFns
-      ? this.items.filter((item) => filterFns.every((fn) => fn(item)))
-      : this.items
+    const itemsFiltered = this.items.filter((item) =>
+      filterFns.every((fn) => fn(item))
+    )
     this.count = itemsFiltered.length
-
     // Sort item list
     const itemsSorted = options.compareFn
       ? [...itemsFiltered].sort(options.compareFn)
       : itemsFiltered
-
-    // Create index list
-    this.indices = [...new Set(itemsSorted.map(options.groupKeyFn))]
-
     // Group item list
-    this.itemsGrouped = itemsSorted.reduce((r, item) => {
+    this.itemsGrouped = itemsSorted.reduce((map, item) => {
       const groupKey = options.groupKeyFn(item)
-      r[groupKey] = [...(r[groupKey] || []), item]
-      return r
-    }, {})
+      map.set(groupKey, [...(map.get(groupKey) || []), item])
+      return map
+    }, new Map())
+    // Create index list
+    this.indices = Array.from(this.itemsGrouped.keys())
   }
 
   *generate() {
-    for (const key in this.itemsGrouped) {
+    for (const [key, items] of this.itemsGrouped.entries()) {
       if (key !== GROUP_KEY_NONE) {
         yield {
           groupKey: key,
@@ -151,7 +148,7 @@ export class GroupedList {
           item: {}
         }
       }
-      for (const item of this.itemsGrouped[key]) {
+      for (const item of items) {
         yield {
           groupKey: key,
           itemId: item.id,
