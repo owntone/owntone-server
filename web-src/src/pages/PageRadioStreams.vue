@@ -4,7 +4,7 @@
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.radio.title')" />
         <p
-          class="heading has-text-centered-mobile"
+          class="heading"
           v-text="$t('page.radio.count', { count: tracks.total })"
         />
       </template>

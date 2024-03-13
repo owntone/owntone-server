@@ -28,7 +28,7 @@
       </template>
       <template #content>
         <p
-          class="heading is-7 has-text-centered-mobile mt-5"
+          class="heading has-text-centered-mobile mt-5"
           v-text="$t('page.podcast.track-count', { count: album.track_count })"
         />
         <list-tracks

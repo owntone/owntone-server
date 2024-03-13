@@ -30,7 +30,7 @@
       </template>
       <template #content>
         <p
-          class="heading is-7 has-text-centered-mobile mt-5"
+          class="heading has-text-centered-mobile mt-5"
           v-text="$t('page.album.track-count', { count: album.track_count })"
         />
         <list-tracks :tracks="tracks" :uris="album.uri" />
