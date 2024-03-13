@@ -5,7 +5,7 @@
         v-for="index in indices"
         :key="index"
         class="button is-small"
-        :to="'#index_' + index"
+        :to="{ hash: `#index_${index}`, query: $route.query }"
         >{{ index }}</router-link
       >
     </nav>
