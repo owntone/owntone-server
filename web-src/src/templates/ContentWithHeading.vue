@@ -53,7 +53,10 @@ export default {
       return this.options_visible ? 'chevron-up' : 'chevron-down'
     },
     position() {
-      return { hash: this.options_visible ? '#top' : '#app', query: this.$route.query }
+      return {
+        hash: this.options_visible ? '#top' : '#app',
+        query: this.$route.query
+      }
     }
   },
   mounted() {
