@@ -73,7 +73,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList, byName, byRating } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
@@ -125,14 +125,15 @@ export default {
         {
           id: 1,
           name: this.$t('page.artist.sort.name'),
-          options: byName('title_sort')
+          options: { index: { field: 'title_sort', type: String } }
         },
         {
           id: 2,
           name: this.$t('page.artist.sort.rating'),
-          options: byRating('rating', {
-            direction: 'desc'
-          })
+          options: {
+            criteria: [{ field: 'rating', type: Number, order: -1 }],
+            index: { field: 'rating', type: 'Digits' }
+          }
         }
       ],
       show_details_modal: false,
@@ -171,9 +172,10 @@ export default {
       const grouping = this.grouping_options.find(
         (o) => o.id === this.selected_grouping_option_id
       )
-      this.tracks_list.group(grouping.options, [
+      grouping.options.filters = [
         (track) => !this.hide_spotify || track.data_kind !== 'spotify'
-      ])
+      ]
+      this.tracks_list.group(grouping.options)
       return this.tracks_list
     },
     track_uris() {

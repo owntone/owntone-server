@@ -35,7 +35,7 @@
       "duration": "Dauer",
       "mark-as-played": "Markiere als gespielt",
       "play": "Spielen",
-      "release-date": "Veröffentlichungsdatum",
+      "release-date": "Erscheinungsdatum",
       "remove-podcast": "Entferne podcast",
       "tracks": "Track Nummer",
       "type": "Art",
@@ -117,7 +117,7 @@
         "add": "Hinzufügen",
         "album-artist": "Album-Künstler",
         "play": "Spielen",
-        "release-date": "Veröffentlichungsdatum",
+        "release-date": "Erscheinungsdatum",
         "type": "Art"
       },
       "artist": {
@@ -144,7 +144,7 @@
         "path": "Pfad",
         "play": "Spielen",
         "position": "Disc / Track",
-        "release-date": "Veröffentlichungsdatum"
+        "release-date": "Erscheinungsdatum"
       }
     },
     "track": {
@@ -167,7 +167,7 @@
       "quality": "Qualität",
       "rating-value": "{rating} / 10",
       "rating": "Bewertung",
-      "release-date": "Veröffentlichungsdatum",
+      "release-date": "Erscheinungsdatum",
       "samplerate": " {'|'} {rate} Hz",
       "spotify-album": "Album",
       "spotify-artist": "Künstler",
@@ -262,6 +262,8 @@
       "hide-spotify": "Verbirgt Spotify-Alben",
       "title": "Alben",
       "sort": {
+        "artist-name": "Künstler › Name",
+        "artist-date": "Künstler › Erscheinungsdatum",
         "title": "Sortieren",
         "name": "Name",
         "recently-added": "Kürzlich hinzugefügt",
@@ -588,10 +590,11 @@
     "appended-tracks": "{count} Track an die Abspielliste angehängt|{count} Tracks an die Abspielliste angehängt",
     "empty-queue": "Warteschlange ist leer"
   },
-  "group-by-list": {
+  "grouped-list": {
     "today": "Heute",
     "last-week": "Letzte Woche",
-    "last-month": "Letzer Monat"
+    "last-month": "Letzer Monat",
+    "undefined": "Unbestimmt"
   },
   "filter": {
     "mono": "Mono",

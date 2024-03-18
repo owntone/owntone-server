@@ -262,6 +262,8 @@
       "hide-spotify": "隐藏来自Spotify的专辑",
       "title": "专辑",
       "sort": {
+        "artist-name": "艺人 › 名称",
+        "artist-date": "艺人 › 发行日期",
         "title": "分类",
         "name": "名称",
         "recently-added": "最近添加",
@@ -588,10 +590,11 @@
     "appended-tracks": "已附加到队列的 {count} 只曲目|已附加到队列的 {count} 只曲目",
     "empty-queue": "清单是空的"
   },
-  "group-by-list": {
+  "grouped-list": {
     "today": "今日",
     "last-week": "上周",
-    "last-month": "上月"
+    "last-month": "上月",
+    "undefined": "未定义"
   },
   "filter": {
     "mono": "单声道",

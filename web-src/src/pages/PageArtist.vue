@@ -72,7 +72,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList, byName, byYear } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
@@ -123,14 +123,15 @@ export default {
         {
           id: 1,
           name: this.$t('page.artist.sort.name'),
-          options: byName('name_sort', true)
+          options: { index: { field: 'name_sort', type: String } }
         },
         {
           id: 2,
           name: this.$t('page.artist.sort.release-date'),
-          options: byYear('date_released', {
-            direction: 'asc'
-          })
+          options: {
+            criteria: [{ field: 'date_released', type: Date }],
+            index: { field: 'date_released', type: Date }
+          }
         }
       ],
       show_details_modal: false
@@ -142,9 +143,10 @@ export default {
       const grouping = this.grouping_options.find(
         (o) => o.id === this.selected_grouping_option_id
       )
-      this.albums_list.group(grouping.options, [
+      grouping.options.filters = [
         (album) => !this.hide_spotify || album.data_kind !== 'spotify'
-      ])
+      ]
+      this.albums_list.group(grouping.options)
       return this.albums_list
     },
     hide_spotify: {

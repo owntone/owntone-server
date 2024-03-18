@@ -3,9 +3,9 @@
     <div v-if="!artist.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
         <span
-          :id="'index_' + artist.groupKey"
+          :id="'index_' + artist.index"
           class="tag is-info is-light is-small has-text-weight-bold"
-          v-text="artist.groupKey"
+          v-text="artist.index"
         />
       </div>
     </div>

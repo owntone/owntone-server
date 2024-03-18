@@ -3,9 +3,9 @@
     <div v-if="!genre.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
         <span
-          :id="'index_' + genre.groupKey"
+          :id="'index_' + genre.index"
           class="tag is-info is-light is-small has-text-weight-bold"
-          v-text="genre.groupKey"
+          v-text="genre.index"
         />
       </div>
     </div>

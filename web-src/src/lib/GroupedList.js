@@ -1,137 +1,98 @@
 import i18n from '@/i18n'
 
 const { t, locale } = i18n.global
-const GROUP_KEY_NONE = 'GROUP_KEY_NONE'
+const NO_INDEX = 'NO_INDEX'
 
-export function noop() {
-  return {
-    compareFn: null,
-    groupKeyFn: (item) => GROUP_KEY_NONE
-  }
+const numberComparator = (a, b) => a - b
+const stringComparator = (a, b) => a.localeCompare(b, locale.value)
+const dateComparator = (a, b) =>
+  new Date(a) - new Date(b) || (!a ? -1 : !b ? 1 : 0)
+
+function createComparators(criteria) {
+  return criteria.map(({ field, type, order = 1 }) => {
+    switch (type) {
+      case String:
+        return (a, b) => stringComparator(a[field], b[field]) * order
+      case Number:
+        return (a, b) => numberComparator(a[field], b[field]) * order
+      case Date:
+        return (a, b) => dateComparator(a[field], b[field]) * order
+    }
+  })
 }
 
-export function byName(field, keepSortOrder = false, defaultValue = '_') {
-  return {
-    compareFn: keepSortOrder
-      ? null
-      : (a, b) => {
-          const fieldA = a[field] || defaultValue
-          const fieldB = b[field] || defaultValue
-          return fieldA.localeCompare(fieldB, locale.value)
-        },
-
-    groupKeyFn: (item) => {
-      const value = (item[field] || defaultValue).charAt(0)
-      if (value.match(/\p{Letter}/gu)) {
-        return value.toUpperCase()
-      } else if (value.match(/\p{Number}/gu)) {
-        return '#'
-      }
-      return '⌘'
-    }
+const characterIndex = (string = '') => {
+  const value = string.charAt(0)
+  if (value.match(/\p{Letter}/gu)) {
+    return value.toUpperCase()
+  } else if (value.match(/\p{Number}/gu)) {
+    return '#'
   }
+  return '⌘'
 }
 
-export function byRating(field, { direction = 'asc', defaultValue = 0 }) {
-  return {
-    compareFn: (a, b) => {
-      const fieldA = a[field] || defaultValue
-      const fieldB = b[field] || defaultValue
-      const result = fieldA - fieldB
-      return direction === 'asc' ? result : result * -1
-    },
-
-    groupKeyFn: (item) => {
-      const fieldValue = item[field] || defaultValue
-      return Math.floor(fieldValue / 10)
-    }
-  }
+export const numberIndex = (number) => {
+  return Math.floor(number / 10)
 }
 
-export function byMedium(field, direction = 'asc', defaultValue = 1) {
-  return {
-    compareFn: (a, b) => {
-      const fieldA = a[field] || defaultValue
-      const fieldB = b[field] || defaultValue
-      const result = fieldA - fieldB
-      return direction === 'asc' ? result : result * -1
-    },
+const times = [
+  { difference: NaN, text: () => t('grouped-list.undefined') },
+  { difference: 86400000, text: () => t('grouped-list.today') },
+  { difference: 604800000, text: () => t('grouped-list.last-week') },
+  { difference: 2592000000, text: () => t('grouped-list.last-month') },
+  { difference: Infinity, text: (date) => date.getFullYear() }
+]
 
-    groupKeyFn: (item) => {
-      return item[field] || defaultValue
-    }
-  }
+const timeIndex = (string) => {
+  const date = new Date(string)
+  const diff = new Date() - date
+  return times.find((item) => isNaN(diff) || diff < item.difference)?.text(date)
 }
 
-export function byYear(field, { direction = 'asc', defaultValue = '0000' }) {
-  return {
-    compareFn: (a, b) => {
-      const fieldA = a[field] || defaultValue
-      const fieldB = b[field] || defaultValue
-      const result = fieldA.localeCompare(fieldB, locale.value)
-      return direction === 'asc' ? result : result * -1
-    },
-
-    groupKeyFn: (item) => {
-      const fieldValue = item[field] || defaultValue
-      return fieldValue.substring(0, 4)
-    }
-  }
-}
-
-export function byDateSinceToday(field, defaultValue = '0000') {
-  return {
-    compareFn: (a, b) => {
-      const fieldA = a[field] || defaultValue
-      const fieldB = b[field] || defaultValue
-      return fieldB.localeCompare(fieldA, locale.value)
-    },
-
-    groupKeyFn: (item) => {
-      const fieldValue = item[field]
-      if (!fieldValue) {
-        return defaultValue
-      }
-      const diff = new Date().getTime() - new Date(fieldValue).getTime()
-      if (diff < 86400000) {
-        // 24h
-        return t('group-by-list.today')
-      } else if (diff < 604800000) {
-        // 7 days
-        return t('group-by-list.last-week')
-      } else if (diff < 2592000000) {
-        // 30 days
-        return t('group-by-list.last-month')
-      }
-      return fieldValue.substring(0, 4)
-    }
+function createIndexer({ field, type = undefined } = {}) {
+  switch (type) {
+    case String:
+      return (item) => characterIndex(item[field])
+    case Number:
+      return (item) => item[field]
+    case Date:
+      return (item) => timeIndex(item[field])
+    case 'Digits':
+      return (item) => numberIndex(item[field])
+    default:
+      return (item) => NO_INDEX
   }
 }
 
 export class GroupedList {
-  constructor({ items = [], total = 0, offset = 0, limit = -1 } = {}) {
+  constructor({ items = [], total = 0, offset = 0, limit = -1 } = {}, options) {
     this.items = items
     this.total = total
     this.offset = offset
     this.limit = limit
     this.count = items.length
     this.indices = []
-    this.group(noop())
+    this.group(options)
   }
 
-  group(options, filterFns = []) {
+  group({ criteria = [], filters = [], index } = {}) {
+    const indexer = createIndexer(index)
     const itemsFiltered = this.items.filter((item) =>
-      filterFns.every((fn) => fn(item))
+      filters.every((filter) => filter(item))
     )
     this.count = itemsFiltered.length
     // Sort item list
-    const itemsSorted = [...itemsFiltered].sort(
-      options.compareFn ?? (() => true)
+    const comparators = createComparators(criteria)
+    const itemsSorted = itemsFiltered.sort((a, b) =>
+      comparators.reduce(
+        (comparison, comparator) => comparison || comparator(a, b),
+        0
+      )
     )
     // Group item list
     this.itemsGrouped = itemsSorted.reduce((map, item) => {
-      const groupKey = options.groupKeyFn(item)
-      map.set(groupKey, [...(map.get(groupKey) || []), item])
+      const index = indexer(item)
+      map.set(index, [...(map.get(index) || []), item])
       return map
     }, new Map())
     // Create index list
@@ -139,18 +100,18 @@ export class GroupedList {
   }
 
   *generate() {
-    for (const [key, items] of this.itemsGrouped.entries()) {
-      if (key !== GROUP_KEY_NONE) {
+    for (const [index, items] of this.itemsGrouped.entries()) {
+      if (index !== NO_INDEX) {
         yield {
-          groupKey: key,
-          itemId: key,
+          index: index,
+          itemId: index,
           isItem: false,
           item: {}
         }
       }
       for (const item of items) {
         yield {
-          groupKey: key,
+          index: index,
           itemId: item.id,
           isItem: true,
           item: item

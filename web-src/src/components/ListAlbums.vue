@@ -2,9 +2,9 @@
   <template v-for="album in albums" :key="album.itemId">
     <div v-if="!album.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
       <span
-        :id="'index_' + album.groupKey"
+        :id="'index_' + album.index"
         class="tag is-info is-light is-small has-text-weight-bold"
-        v-text="album.groupKey"
+        v-text="album.index"
       />
     </div>
     <div

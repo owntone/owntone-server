@@ -64,7 +64,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList, byName, byYear } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
@@ -113,21 +113,45 @@ export default {
         {
           id: 1,
           name: this.$t('page.albums.sort.name'),
-          options: byName('name_sort', true)
+          options: { index: { field: 'name_sort', type: String } }
         },
         {
           id: 2,
           name: this.$t('page.albums.sort.recently-added'),
-          options: byYear('time_added', {
-            direction: 'desc'
-          })
+          options: {
+            criteria: [{ field: 'time_added', type: Date, order: -1 }],
+            index: { field: 'time_added', type: Date }
+          }
         },
         {
           id: 3,
           name: this.$t('page.albums.sort.recently-released'),
-          options: byYear('date_released', {
-            direction: 'desc'
-          })
+          options: {
+            criteria: [{ field: 'date_released', type: Date, order: -1 }],
+            index: { field: 'date_released', type: Date }
+          }
+        },
+        {
+          id: 4,
+          name: this.$t('page.albums.sort.artist-name'),
+          options: {
+            criteria: [
+              { field: 'artist', type: String },
+              { field: 'name_sort', type: String }
+            ],
+            index: { field: 'artist', type: String }
+          }
+        },
+        {
+          id: 5,
+          name: this.$t('page.albums.sort.artist-date'),
+          options: {
+            criteria: [
+              { field: 'artist', type: String },
+              { field: 'date_released', type: Date }
+            ],
+            index: { field: 'artist', type: String }
+          }
         }
       ]
     }
@@ -138,10 +162,11 @@ export default {
       const grouping = this.grouping_options.find(
         (o) => o.id === this.selected_grouping_option_id
       )
-      this.albums_list.group(grouping.options, [
+      grouping.options.filters = [
         (album) => !this.hide_singles || album.track_count > 2,
         (album) => !this.hide_spotify || album.data_kind !== 'spotify'
-      ])
+      ]
+      this.albums_list.group(grouping.options)
 
       return this.albums_list
     },

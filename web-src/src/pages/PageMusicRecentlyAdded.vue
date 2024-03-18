@@ -13,7 +13,7 @@
 </template>
 
 <script>
-import { GroupedList, byDateSinceToday } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -32,12 +32,10 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.recently_added = new GroupedList(response.data.albums)
-    vm.recently_added.group(
-      byDateSinceToday('time_added', {
-        direction: 'desc'
-      })
-    )
+    vm.recently_added = new GroupedList(response.data.albums, {
+      criteria: [{ field: 'time_added', type: Date, order: -1 }],
+      index: { field: 'time_added', type: Date }
+    })
   }
 }
 

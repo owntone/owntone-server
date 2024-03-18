@@ -45,7 +45,7 @@
 </template>
 
 <script>
-import { GroupedList, byMedium, noop } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import ListTracks from '@/components/ListTracks.vue'
@@ -62,10 +62,12 @@ const dataObject = {
 
   set(vm, response) {
     vm.album = response[0].data
-    vm.tracks = new GroupedList(response[1].data)
-    vm.tracks.group(byMedium('disc_number'))
-    if (vm.tracks.indices <= 1) {
-      vm.tracks.group(noop())
+    vm.tracks = new GroupedList(response[1].data, {
+      criteria: [{ field: 'disc_number', type: Number }],
+      index: { field: 'disc_number', type: Number }
+    })
+    if (vm.tracks.indices.length < 2) {
+      vm.tracks.group({ index: { type: undefined } })
     }
   }
 }

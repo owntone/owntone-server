@@ -20,7 +20,7 @@
 </template>
 
 <script>
-import { GroupedList, byName } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListComposers from '@/components/ListComposers.vue'
@@ -33,8 +33,9 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.composers = new GroupedList(response.data)
-    vm.composers.group(byName('name_sort'))
+    vm.composers = new GroupedList(response.data, {
+      index: { field: 'name_sort', type: String }
+    })
   }
 }
 

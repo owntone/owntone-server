@@ -21,7 +21,7 @@
 </template>
 
 <script>
-import { GroupedList, noop } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import webapi from '@/webapi'
@@ -66,13 +66,15 @@ export default {
 
   computed: {
     playlists() {
-      this.playlists_list.group(noop(), [
-        (playlist) =>
-          playlist.folder ||
-          this.radio_playlists ||
-          playlist.stream_count === 0 ||
-          playlist.item_count > playlist.stream_count
-      ])
+      this.playlists_list.group({
+        filters: [
+          (playlist) =>
+            playlist.folder ||
+            this.radio_playlists ||
+            playlist.stream_count === 0 ||
+            playlist.item_count > playlist.stream_count
+        ]
+      })
       return this.playlists_list
     },
     radio_playlists() {

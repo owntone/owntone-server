@@ -21,7 +21,7 @@
 </template>
 
 <script>
-import { GroupedList, byName } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
@@ -34,7 +34,9 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.artists_list = new GroupedList(response.data)
+    vm.artists = new GroupedList(response.data, {
+      index: { field: 'name_sort', type: String }
+    })
   }
 }
 
@@ -63,17 +65,7 @@ export default {
 
   data() {
     return {
-      artists_list: new GroupedList()
-    }
-  },
-
-  computed: {
-    artists() {
-      if (!this.artists_list) {
-        return []
-      }
-      this.artists_list.group(byName('name_sort', true))
-      return this.artists_list
+      artists: new GroupedList()
     }
   }
 }

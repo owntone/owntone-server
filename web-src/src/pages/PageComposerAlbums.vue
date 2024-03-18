@@ -34,7 +34,7 @@
             "
           />
         </p>
-        <list-albums :albums="albums_list" :hide_group_title="true" />
+        <list-albums :albums="albums" :hide_group_title="true" />
         <modal-dialog-composer
           :show="show_details_modal"
           :composer="composer"
@@ -62,7 +62,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.composer = response[0].data
-    vm.albums_list = new GroupedList(response[1].data.albums)
+    vm.albums = new GroupedList(response[1].data.albums)
   }
 }
 
@@ -89,7 +89,7 @@ export default {
 
   data() {
     return {
-      albums_list: new GroupedList(),
+      albums: new GroupedList(),
       composer: {},
       show_details_modal: false
     }

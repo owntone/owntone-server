@@ -56,7 +56,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList, byName, byRating } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
@@ -108,14 +108,15 @@ export default {
         {
           id: 1,
           name: this.$t('page.genre.sort.name'),
-          options: byName('title_sort')
+          options: { index: { field: 'title_sort', type: String } }
         },
         {
           id: 2,
           name: this.$t('page.genre.sort.rating'),
-          options: byRating('rating', {
-            direction: 'desc'
-          })
+          options: {
+            criteria: [{ field: 'rating', type: Number, order: -1 }],
+            index: { field: 'rating', type: 'Digits' }
+          }
         }
       ],
       media_kind: this.$route.query.media_kind,

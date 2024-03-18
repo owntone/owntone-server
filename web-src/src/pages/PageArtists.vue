@@ -64,7 +64,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList, byName, byYear } from '@/lib/GroupedList'
+import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
@@ -113,14 +113,15 @@ export default {
         {
           id: 1,
           name: this.$t('page.artists.sort.name'),
-          options: byName('name_sort', true)
+          options: { index: { field: 'name_sort', type: String } }
         },
         {
           id: 2,
           name: this.$t('page.artists.sort.recently-added'),
-          options: byYear('time_added', {
-            direction: 'desc'
-          })
+          options: {
+            criteria: [{ field: 'time_added', type: Date, order: -1 }],
+            index: { field: 'time_added', type: Date }
+          }
         }
       ]
     }
@@ -136,11 +137,12 @@ export default {
       const grouping = this.grouping_options.find(
         (o) => o.id === this.selected_grouping_option_id
       )
-      this.artists_list.group(grouping.options, [
+      grouping.options.filters = [
         (artist) =>
           !this.hide_singles || artist.track_count > artist.album_count * 2,
         (artist) => !this.hide_spotify || artist.data_kind !== 'spotify'
-      ])
+      ]
+      this.artists_list.group(grouping.options)
 
       return this.artists_list
     },

@@ -2,9 +2,9 @@
   <template v-for="track in tracks" :key="track.itemId">
     <div v-if="!track.isItem" class="mt-6 mb-5 py-2">
       <span
-        :id="'index_' + track.groupKey"
+        :id="'index_' + track.index"
         class="tag is-info is-light is-small has-text-weight-bold"
-        v-text="track.groupKey"
+        v-text="track.index"
       />
     </div>
     <div

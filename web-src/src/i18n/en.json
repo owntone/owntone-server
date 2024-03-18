@@ -262,6 +262,8 @@
       "hide-spotify": "Hide albums from Spotify",
       "title": "Albums",
       "sort": {
+        "artist-name": "Artist › Name",
+        "artist-date": "Artist › Release date",
         "title": "Sort",
         "name": "Name",
         "recently-added": "Recently added",
@@ -588,10 +590,11 @@
     "appended-tracks": "{count} track appended to the queue|{count} tracks appended to the queue",
     "empty-queue": "Queue is empty"
   },
-  "group-by-list": {
+  "grouped-list": {
     "today": "Today",
     "last-week": "Last week",
-    "last-month": "Last month"
+    "last-month": "Last month",
+    "undefined": "Undefined"
   },
   "filter": {
     "mono": "mono",
