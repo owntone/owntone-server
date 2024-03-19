@@ -35,7 +35,7 @@
     </section>
     <tabs-search :query="search_query" />
     <!-- Tracks -->
-    <content-with-heading v-if="show_tracks && tracks.total" class="pt-0">
+    <content-with-heading v-if="show('track') && tracks.total" class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.spotify.search.tracks')" />
       </template>
@@ -78,11 +78,11 @@
         />
       </template>
       <template #footer>
-        <nav v-if="show_all_tracks_button" class="level">
+        <nav v-if="show_all_button(tracks)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_tracks"
+              @click="open_search('track')"
               v-text="
                 $t('page.spotify.search.show-all-tracks', tracks.total, {
                   count: $filters.number(tracks.total)
@@ -93,13 +93,13 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_tracks && !tracks.total" class="pt-0">
+    <content-text v-if="show('track') && !tracks.total" class="pt-0">
       <template #content>
         <p><i v-text="$t('page.spotify.search.no-tracks')" /></p>
       </template>
     </content-text>
     <!-- Artists -->
-    <content-with-heading v-if="show_artists && artists.total">
+    <content-with-heading v-if="show('artist') && artists.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.spotify.search.artists')" />
       </template>
@@ -139,11 +139,11 @@
         />
       </template>
       <template #footer>
-        <nav v-if="show_all_artists_button" class="level">
+        <nav v-if="show_all_button(artists)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_artists"
+              @click="open_search('artist')"
               v-text="
                 $t('page.spotify.search.show-all-artists', artists.total, {
                   count: $filters.number(artists.total)
@@ -154,13 +154,13 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_artists && !artists.total">
+    <content-text v-if="show('artist') && !artists.total">
       <template #content>
         <p><i v-text="$t('page.spotify.search.no-artists')" /></p>
       </template>
     </content-text>
     <!-- Albums -->
-    <content-with-heading v-if="show_albums && albums.total">
+    <content-with-heading v-if="show('album') && albums.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.spotify.search.albums')" />
       </template>
@@ -209,11 +209,11 @@
         />
       </template>
       <template #footer>
-        <nav v-if="show_all_albums_button" class="level">
+        <nav v-if="show_all_button(albums)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_albums"
+              @click="open_search('album')"
               v-text="
                 $t('page.spotify.search.show-all-albums', albums.total, {
                   count: $filters.number(albums.total)
@@ -224,13 +224,13 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_albums && !albums.total">
+    <content-text v-if="show('album') && !albums.total">
       <template #content>
         <p><i v-text="$t('page.spotify.search.no-albums')" /></p>
       </template>
     </content-text>
     <!-- Playlists -->
-    <content-with-heading v-if="show_playlists && playlists.total">
+    <content-with-heading v-if="show('playlist') && playlists.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.spotify.search.playlists')" />
       </template>
@@ -270,11 +270,11 @@
         />
       </template>
       <template #footer>
-        <nav v-if="show_all_playlists_button" class="level">
+        <nav v-if="show_all_button(playlists)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_playlists"
+              @click="open_search('playlist')"
               v-text="
                 $t('page.spotify.search.show-all-playlists', playlists.total, {
                   count: $filters.number(playlists.total)
@@ -285,7 +285,7 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_playlists && !playlists.total">
+    <content-text v-if="show('playlist') && !playlists.total">
       <template #content>
         <p><i v-text="$t('page.spotify.search.no-playlists')" /></p>
       </template>
@@ -362,32 +362,6 @@ export default {
       return this.$store.state.recent_searches.filter(
         (search) => !search.startsWith('query:')
       )
-    },
-    show_albums() {
-      return this.$route.query.type && this.$route.query.type.includes('album')
-    },
-    show_all_albums_button() {
-      return this.albums.total > this.albums.items.length
-    },
-    show_all_artists_button() {
-      return this.artists.total > this.artists.items.length
-    },
-    show_all_playlists_button() {
-      return this.playlists.total > this.playlists.items.length
-    },
-    show_all_tracks_button() {
-      return this.tracks.total > this.tracks.items.length
-    },
-    show_artists() {
-      return this.$route.query.type && this.$route.query.type.includes('artist')
-    },
-    show_playlists() {
-      return (
-        this.$route.query.type && this.$route.query.type.includes('playlist')
-      )
-    },
-    show_tracks() {
-      return this.$route.query.type && this.$route.query.type.includes('track')
     }
   },
 
@@ -444,39 +418,12 @@ export default {
       this.search_query = query
       this.new_search()
     },
-    open_search_albums() {
+    open_search(type) {
       this.$router.push({
         name: 'search-spotify',
         query: {
           query: this.$route.query.query,
-          type: 'album'
-        }
-      })
-    },
-    open_search_artists() {
-      this.$router.push({
-        name: 'search-spotify',
-        query: {
-          query: this.$route.query.query,
-          type: 'artist'
-        }
-      })
-    },
-    open_search_playlists() {
-      this.$router.push({
-        name: 'search-spotify',
-        query: {
-          query: this.$route.query.query,
-          type: 'playlist'
-        }
-      })
-    },
-    open_search_tracks() {
-      this.$router.push({
-        name: 'search-spotify',
-        query: {
-          query: this.$route.query.query,
-          type: 'track'
+          type: type
         }
       })
     },
@@ -549,6 +496,12 @@ export default {
         this.search_param.offset += data.tracks.limit
         loaded(data.tracks.items.length, PAGE_SIZE)
       })
+    },
+    show(type) {
+      return this.$route.query.type?.includes(type) ?? false
+    },
+    show_all_button(items) {
+      return items.total > items.items.length
     },
     spotify_search() {
       return webapi.spotify().then(({ data }) => {
