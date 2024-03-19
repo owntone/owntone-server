@@ -49,7 +49,7 @@
     </section>
     <tabs-search :query="search_query" />
     <!-- Tracks -->
-    <content-with-heading v-if="show_tracks && tracks.total" class="pt-0">
+    <content-with-heading v-if="show('track') && tracks.total" class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.search.tracks')" />
       </template>
@@ -57,11 +57,11 @@
         <list-tracks :tracks="tracks" />
       </template>
       <template #footer>
-        <nav v-if="show_all_tracks_button" class="level">
+        <nav v-if="show_all_button(tracks)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_tracks"
+              @click="open_search('track')"
               v-text="
                 $t('page.search.show-tracks', tracks.total, {
                   count: $filters.number(tracks.total)
@@ -72,13 +72,13 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_tracks && !tracks.total" class="pt-0">
+    <content-text v-if="show('track') && !tracks.total" class="pt-0">
       <template #content>
         <p><i v-text="$t('page.search.no-tracks')" /></p>
       </template>
     </content-text>
     <!-- Artists -->
-    <content-with-heading v-if="show_artists && artists.total">
+    <content-with-heading v-if="show('artist') && artists.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.search.artists')" />
       </template>
@@ -86,11 +86,11 @@
         <list-artists :artists="artists" :hide_group_title="true" />
       </template>
       <template #footer>
-        <nav v-if="show_all_artists_button" class="level">
+        <nav v-if="show_all_button(artists)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_artists"
+              @click="open_search('artist')"
               v-text="
                 $t('page.search.show-artists', artists.total, {
                   count: $filters.number(artists.total)
@@ -101,13 +101,13 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_artists && !artists.total">
+    <content-text v-if="show('artist') && !artists.total">
       <template #content>
         <p><i v-text="$t('page.search.no-artists')" /></p>
       </template>
     </content-text>
     <!-- Albums -->
-    <content-with-heading v-if="show_albums && albums.total">
+    <content-with-heading v-if="show('album') && albums.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.search.albums')" />
       </template>
@@ -115,11 +115,11 @@
         <list-albums :albums="albums" :hide_group_title="true" />
       </template>
       <template #footer>
-        <nav v-if="show_all_albums_button" class="level">
+        <nav v-if="show_all_button(albums)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_albums"
+              @click="open_search('album')"
               v-text="
                 $t('page.search.show-albums', albums.total, {
                   count: $filters.number(albums.total)
@@ -130,13 +130,13 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_albums && !albums.total">
+    <content-text v-if="show('album') && !albums.total">
       <template #content>
         <p><i v-text="$t('page.search.no-albums')" /></p>
       </template>
     </content-text>
     <!-- Composers -->
-    <content-with-heading v-if="show_composers && composers.total">
+    <content-with-heading v-if="show('composer') && composers.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.search.composers')" />
       </template>
@@ -144,11 +144,11 @@
         <list-composers :composers="composers" />
       </template>
       <template #footer>
-        <nav v-if="show_all_composers_button" class="level">
+        <nav v-if="show_all_button(composers)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_composers"
+              @click="open_search('composer')"
               v-text="
                 $t('page.search.show-composers', composers.total, {
                   count: $filters.number(composers.total)
@@ -159,13 +159,13 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_composers && !composers.total">
+    <content-text v-if="show('composer') && !composers.total">
       <template #content>
         <p><i v-text="$t('page.search.no-composers')" /></p>
       </template>
     </content-text>
     <!-- Playlists -->
-    <content-with-heading v-if="show_playlists && playlists.total">
+    <content-with-heading v-if="show('playlist') && playlists.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.search.playlists')" />
       </template>
@@ -173,11 +173,11 @@
         <list-playlists :playlists="playlists" />
       </template>
       <template #footer>
-        <nav v-if="show_all_playlists_button" class="level">
+        <nav v-if="show_all_button(playlists)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_playlists"
+              @click="open_search('playlist')"
               v-text="
                 $t('page.search.show-playlists', playlists.total, {
                   count: $filters.number(playlists.total)
@@ -188,13 +188,13 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_playlists && !playlists.total">
+    <content-text v-if="show('playlist') && !playlists.total">
       <template #content>
         <p><i v-text="$t('page.search.no-playlists')" /></p>
       </template>
     </content-text>
     <!-- Podcasts -->
-    <content-with-heading v-if="show_podcasts && podcasts.total">
+    <content-with-heading v-if="show('podcast') && podcasts.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.search.podcasts')" />
       </template>
@@ -202,11 +202,11 @@
         <list-albums :albums="podcasts" />
       </template>
       <template #footer>
-        <nav v-if="show_all_podcasts_button" class="level">
+        <nav v-if="show_all_button(podcasts)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_podcasts"
+              @click="open_search('podcast')"
               v-text="
                 $t('page.search.show-podcasts', podcasts.total, {
                   count: $filters.number(podcasts.total)
@@ -217,14 +217,14 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_podcasts && !podcasts.total">
+    <content-text v-if="show('podcast') && !podcasts.total">
       <template #content>
         <p><i v-text="$t('page.search.no-podcasts')" /></p>
       </template>
     </content-text>
 
     <!-- Audiobooks -->
-    <content-with-heading v-if="show_audiobooks && audiobooks.total">
+    <content-with-heading v-if="show('audiobook') && audiobooks.total">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.search.audiobooks')" />
       </template>
@@ -232,11 +232,11 @@
         <list-albums :albums="audiobooks" />
       </template>
       <template #footer>
-        <nav v-if="show_all_audiobooks_button" class="level">
+        <nav v-if="show_all_button(audiobooks)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search_audiobooks"
+              @click="open_search('audiobook')"
               v-text="
                 $t('page.search.show-audiobooks', audiobooks.total, {
                   count: $filters.number(audiobooks.total)
@@ -247,7 +247,7 @@
         </nav>
       </template>
     </content-with-heading>
-    <content-text v-if="show_audiobooks && !audiobooks.total">
+    <content-text v-if="show('audiobook') && !audiobooks.total">
       <template #content>
         <p><i v-text="$t('page.search.no-audiobooks')" /></p>
       </template>
@@ -296,56 +296,6 @@ export default {
   computed: {
     recent_searches() {
       return this.$store.state.recent_searches
-    },
-    show_albums() {
-      return this.$route.query.type && this.$route.query.type.includes('album')
-    },
-    show_all_albums_button() {
-      return this.albums.total > this.albums.items.length
-    },
-    show_all_artists_button() {
-      return this.artists.total > this.artists.items.length
-    },
-    show_all_audiobooks_button() {
-      return this.audiobooks.total > this.audiobooks.items.length
-    },
-    show_all_composers_button() {
-      return this.composers.total > this.composers.items.length
-    },
-    show_all_playlists_button() {
-      return this.playlists.total > this.playlists.items.length
-    },
-    show_all_podcasts_button() {
-      return this.podcasts.total > this.podcasts.items.length
-    },
-    show_all_tracks_button() {
-      return this.tracks.total > this.tracks.items.length
-    },
-    show_artists() {
-      return this.$route.query.type && this.$route.query.type.includes('artist')
-    },
-    show_audiobooks() {
-      return (
-        this.$route.query.type && this.$route.query.type.includes('audiobook')
-      )
-    },
-    show_composers() {
-      return (
-        this.$route.query.type && this.$route.query.type.includes('composer')
-      )
-    },
-    show_playlists() {
-      return (
-        this.$route.query.type && this.$route.query.type.includes('playlist')
-      )
-    },
-    show_podcasts() {
-      return (
-        this.$route.query.type && this.$route.query.type.includes('podcast')
-      )
-    },
-    show_tracks() {
-      return this.$route.query.type && this.$route.query.type.includes('track')
     }
   },
 
@@ -379,7 +329,8 @@ export default {
         query.type.indexOf('track') < 0 &&
         query.type.indexOf('artist') < 0 &&
         query.type.indexOf('album') < 0 &&
-        query.type.indexOf('playlist') < 0
+        query.type.indexOf('playlist') < 0 &&
+        query.type.indexOf('composer') < 0
       ) {
         return
       }
@@ -478,72 +429,20 @@ export default {
       this.$refs.search_field.blur()
     },
 
-    open_search_tracks() {
-      this.$router.push({
-        name: 'search-library',
-        query: {
-          query: this.$route.query.query,
-          type: 'track'
-        }
-      })
+    show(type) {
+      return this.$route.query.type?.includes(type) ?? false
     },
 
-    open_search_artists() {
-      this.$router.push({
-        name: 'search-library',
-        query: {
-          query: this.$route.query.query,
-          type: 'artist'
-        }
-      })
+    show_all_button(items) {
+      return items.total > items.items.length
     },
 
-    open_search_albums() {
+    open_search(type) {
       this.$router.push({
         name: 'search-library',
         query: {
           query: this.$route.query.query,
-          type: 'album'
-        }
-      })
-    },
-
-    open_search_composers() {
-      this.$router.push({
-        name: 'search-library',
-        query: {
-          query: this.$route.query.query,
-          type: 'tracks'
-        }
-      })
-    },
-
-    open_search_playlists() {
-      this.$router.push({
-        name: 'search-library',
-        query: {
-          query: this.$route.query.query,
-          type: 'playlist'
-        }
-      })
-    },
-
-    open_search_audiobooks() {
-      this.$router.push({
-        name: 'search-library',
-        query: {
-          query: this.$route.query.query,
-          type: 'audiobook'
-        }
-      })
-    },
-
-    open_search_podcasts() {
-      this.$router.push({
-        name: 'search-library',
-        query: {
-          query: this.$route.query.query,
-          type: 'podcast'
+          type: type
         }
       })
     },
