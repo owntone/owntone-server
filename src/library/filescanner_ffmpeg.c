@@ -333,7 +333,7 @@ extract_metadata_from_dict(struct media_file_info *mfi, AVDictionary *md, const 
 
 #if 0
   /* Dump all the metadata reported by ffmpeg */
-  while ((mdt = av_dict_iterate(md, mdt)))
+  for (mdt = av_dict_iterate(md, NULL); mdt; mdt = av_dict_iterate(md, mdt))
     {
       DPRINTF(E_DBG, L_SCAN, " -> %s = %s\n", mdt->key, mdt->value);
     }
