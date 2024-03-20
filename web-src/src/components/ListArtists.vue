@@ -1,6 +1,6 @@
 <template>
   <template v-for="artist in artists" :key="artist.itemId">
-    <div v-if="!artist.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
+    <div v-if="!artist.isItem" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
         <span
           :id="'index_' + artist.index"
@@ -40,8 +40,7 @@ export default {
   name: 'ListArtists',
   components: { ModalDialogArtist },
   props: {
-    artists: { required: true, type: Object },
-    hide_group_title: Boolean
+    artists: { required: true, type: Object }
   },
 
   data() {

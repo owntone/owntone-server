@@ -59,7 +59,7 @@
             v-text="$t('page.artist.track-count', { count: track_count })"
           />
         </p>
-        <list-albums :albums="albums" :hide_group_title="true" />
+        <list-albums :albums="albums" />
         <modal-dialog-artist
           :show="show_details_modal"
           :artist="artist"
@@ -123,15 +123,12 @@ export default {
         {
           id: 1,
           name: this.$t('page.artist.sort.name'),
-          options: { index: { field: 'name_sort', type: String } }
+          options: { criteria: [{ field: 'name_sort', type: String }] }
         },
         {
           id: 2,
           name: this.$t('page.artist.sort.release-date'),
-          options: {
-            criteria: [{ field: 'date_released', type: Date }],
-            index: { field: 'date_released', type: Date }
-          }
+          options: { criteria: [{ field: 'date_released', type: Date }] }
         }
       ],
       show_details_modal: false

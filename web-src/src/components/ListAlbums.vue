@@ -1,6 +1,6 @@
 <template>
   <template v-for="album in albums" :key="album.itemId">
-    <div v-if="!album.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
+    <div v-if="!album.isItem" class="mt-6 mb-5 py-2">
       <span
         :id="'index_' + album.index"
         class="tag is-info is-light is-small has-text-weight-bold"
@@ -79,7 +79,6 @@ export default {
   components: { CoverArtwork, ModalDialog, ModalDialogAlbum },
   props: {
     albums: { required: true, type: Object },
-    hide_group_title: Boolean,
     media_kind: { default: '', type: String }
   },
   emits: ['play-count-changed', 'podcast-deleted'],

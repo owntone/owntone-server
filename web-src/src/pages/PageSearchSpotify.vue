@@ -440,10 +440,7 @@ export default {
     search() {
       this.reset()
       this.search_query = this.query.query?.trim()
-      if (
-        !this.search_query ||
-        this.search_query.startsWith('query:')
-      ) {
+      if (!this.search_query || this.search_query.startsWith('query:')) {
         this.search_query = ''
         this.$refs.search_field.focus()
         return

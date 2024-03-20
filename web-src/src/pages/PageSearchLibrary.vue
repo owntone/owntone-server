@@ -83,7 +83,7 @@
         <p class="title is-4" v-text="$t('page.search.artists')" />
       </template>
       <template #content>
-        <list-artists :artists="artists" :hide_group_title="true" />
+        <list-artists :artists="artists" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(artists)" class="level">
@@ -112,7 +112,7 @@
         <p class="title is-4" v-text="$t('page.search.albums')" />
       </template>
       <template #content>
-        <list-albums :albums="albums" :hide_group_title="true" />
+        <list-albums :albums="albums" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(albums)" class="level">

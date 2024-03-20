@@ -1,6 +1,6 @@
 <template>
   <template v-for="composer in composers" :key="composer.itemId">
-    <div v-if="!composer.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
+    <div v-if="!composer.isItem" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
         <span
           :id="'index_' + composer.index"
@@ -42,7 +42,6 @@ export default {
   components: { ModalDialogComposer },
   props: {
     composers: { required: true, type: Object },
-    hide_group_title: Boolean,
     media_kind: { default: '', type: String }
   },
 

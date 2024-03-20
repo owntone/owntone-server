@@ -34,7 +34,7 @@
             "
           />
         </p>
-        <list-albums :albums="albums" :hide_group_title="true" />
+        <list-albums :albums="albums" />
         <modal-dialog-composer
           :show="show_details_modal"
           :composer="composer"

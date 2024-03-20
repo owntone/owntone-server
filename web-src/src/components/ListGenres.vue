@@ -1,6 +1,6 @@
 <template>
   <template v-for="genre in genres" :key="genre.itemId">
-    <div v-if="!genre.isItem && !hide_group_title" class="mt-6 mb-5 py-2">
+    <div v-if="!genre.isItem" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
         <span
           :id="'index_' + genre.index"
@@ -42,7 +42,6 @@ export default {
   components: { ModalDialogGenre },
   props: {
     genres: { required: true, type: Object },
-    hide_group_title: Boolean,
     media_kind: { required: true, type: String }
   },
 
