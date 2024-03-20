@@ -311,17 +311,16 @@ export default {
 
   methods: {
     search(route) {
-      if (!route.query.query || route.query.query === '') {
-        this.search_query = ''
+      this.search_query = route.query.query?.trim()
+      if (!this.search_query) {
         this.$refs.search_field.focus()
         return
       }
-
-      this.search_query = route.query.query
+      route.query.query = this.search_query
       this.searchMusic(route.query)
       this.searchAudiobooks(route.query)
       this.searchPodcasts(route.query)
-      this.$store.dispatch('add_recent_search', route.query.query)
+      this.$store.dispatch('add_recent_search', this.search_query)
     },
 
     searchMusic(query) {
@@ -334,23 +333,19 @@ export default {
       ) {
         return
       }
-
       const searchParams = {
-        type: query.type,
-        media_kind: 'music'
+        type: query.type
       }
-
       if (query.query.startsWith('query:')) {
-        searchParams.expression = query.query.replace(/^query:/u, '').trim()
+        searchParams.expression = `${query.query.replace(/^query:/u, '').trim()} and media_kind is music`
       } else {
         searchParams.query = query.query
+        searchParams.media_kind = 'music'
       }
-
       if (query.limit) {
         searchParams.limit = query.limit
         searchParams.offset = query.offset
       }
-
       webapi.search(searchParams).then(({ data }) => {
         this.tracks = new GroupedList(data.tracks)
         this.artists = new GroupedList(data.artists)
@@ -364,24 +359,20 @@ export default {
       if (query.type.indexOf('audiobook') < 0) {
         return
       }
-
-      const searchParams = {
-        type: 'album',
-        media_kind: 'audiobook'
+      const parameters = {
+        type: 'album'
       }
-
       if (query.query.startsWith('query:')) {
-        searchParams.expression = query.query.replace(/^query:/u, '').trim()
+        parameters.expression = query.query.replace(/^query:/u, '').trim()
       } else {
-        searchParams.expression = `((album includes "${query.query}" or artist includes "${query.query}") and media_kind is audiobook)`
+        parameters.expression = `album includes "${query.query}" or artist includes "${query.query}"`
       }
-
+      parameters.expression = `(${parameters.expression}) and media_kind is audiobook`
       if (query.limit) {
-        searchParams.limit = query.limit
-        searchParams.offset = query.offset
+        parameters.limit = query.limit
+        parameters.offset = query.offset
       }
-
-      webapi.search(searchParams).then(({ data }) => {
+      webapi.search(parameters).then(({ data }) => {
         this.audiobooks = new GroupedList(data.albums)
       })
     },
@@ -390,24 +381,20 @@ export default {
       if (query.type.indexOf('podcast') < 0) {
         return
       }
-
-      const searchParams = {
-        type: 'album',
-        media_kind: 'podcast'
+      const parameters = {
+        type: 'album'
       }
-
       if (query.query.startsWith('query:')) {
-        searchParams.expression = query.query.replace(/^query:/u, '').trim()
+        parameters.expression = query.query.replace(/^query:/u, '').trim()
       } else {
-        searchParams.expression = `((album includes "${query.query}" or artist includes "${query.query}") and media_kind is podcast)`
+        parameters.expression = `album includes "${query.query}" or artist includes "${query.query}"`
       }
-
+      parameters.expression = `(${parameters.expression}) and media_kind is podcast`
       if (query.limit) {
-        searchParams.limit = query.limit
-        searchParams.offset = query.offset
+        parameters.limit = query.limit
+        parameters.offset = query.offset
       }
-
-      webapi.search(searchParams).then(({ data }) => {
+      webapi.search(parameters).then(({ data }) => {
         this.podcasts = new GroupedList(data.albums)
       })
     },

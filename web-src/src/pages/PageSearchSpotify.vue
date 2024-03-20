@@ -439,17 +439,16 @@ export default {
     },
     search() {
       this.reset()
-      // If no search query present reset and focus search field
+      this.search_query = this.query.query?.trim()
       if (
-        !this.query.query ||
-        this.query.query === '' ||
-        this.query.query.startsWith('query:')
+        !this.search_query ||
+        this.search_query.startsWith('query:')
       ) {
         this.search_query = ''
         this.$refs.search_field.focus()
         return
       }
-      this.search_query = this.query.query
+      this.query.query = this.search_query
       this.search_param.limit = this.query.limit ? this.query.limit : PAGE_SIZE
       this.search_param.offset = this.query.offset ? this.query.offset : 0
       this.$store.dispatch('add_recent_search', this.query.query)
