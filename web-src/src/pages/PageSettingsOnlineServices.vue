@@ -162,9 +162,7 @@ export default {
       ) {
         return this.spotify.webapi_required_scope
           .split(' ')
-          .filter(
-            (scope) => this.spotify.webapi_granted_scope.indexOf(scope) < 0
-          )
+          .filter((scope) => !this.spotify.webapi_granted_scope.includes(scope))
       }
       return []
     },

@@ -423,7 +423,7 @@ export default {
         name: 'search-spotify',
         query: {
           query: this.$route.query.query,
-          type: type
+          type
         }
       })
     },
@@ -446,8 +446,8 @@ export default {
         return
       }
       this.query.query = this.search_query
-      this.search_param.limit = this.query.limit ? this.query.limit : PAGE_SIZE
-      this.search_param.offset = this.query.offset ? this.query.offset : 0
+      this.search_param.limit = this.query.limit ?? PAGE_SIZE
+      this.search_param.offset = this.query.offset ?? 0
       this.$store.dispatch('add_recent_search', this.query.query)
       this.search_all()
     },
@@ -461,12 +461,10 @@ export default {
     },
     search_all() {
       this.spotify_search().then((data) => {
-        this.tracks = data.tracks ? data.tracks : { items: [], total: 0 }
-        this.artists = data.artists ? data.artists : { items: [], total: 0 }
-        this.albums = data.albums ? data.albums : { items: [], total: 0 }
-        this.playlists = data.playlists
-          ? data.playlists
-          : { items: [], total: 0 }
+        this.tracks = data.tracks ?? { items: [], total: 0 }
+        this.artists = data.artists ?? { items: [], total: 0 }
+        this.albums = data.albums ?? { items: [], total: 0 }
+        this.playlists = data.playlists ?? { items: [], total: 0 }
       })
     },
     search_artists_next({ loaded }) {
