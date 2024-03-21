@@ -312,7 +312,7 @@ export default {
   methods: {
     search(route) {
       this.search_query = route.query.query?.trim()
-      if (!this.search_query) {
+      if (!this.search_query || !this.search_query.replace(/^query:/u, '')) {
         this.$refs.search_field.focus()
         return
       }
@@ -325,11 +325,11 @@ export default {
 
     searchMusic(query) {
       if (
-        query.type.indexOf('track') < 0 &&
-        query.type.indexOf('artist') < 0 &&
-        query.type.indexOf('album') < 0 &&
-        query.type.indexOf('playlist') < 0 &&
-        query.type.indexOf('composer') < 0
+        !query.type.includes('track') &&
+        !query.type.includes('artist') &&
+        !query.type.includes('album') &&
+        !query.type.includes('playlist') &&
+        !query.type.includes('composer')
       ) {
         return
       }
@@ -337,7 +337,7 @@ export default {
         type: query.type
       }
       if (query.query.startsWith('query:')) {
-        searchParams.expression = `${query.query.replace(/^query:/u, '').trim()} and media_kind is music`
+        searchParams.expression = `(${query.query.replace(/^query:/u, '').trim()}) and media_kind is music`
       } else {
         searchParams.query = query.query
         searchParams.media_kind = 'music'
@@ -356,7 +356,7 @@ export default {
     },
 
     searchAudiobooks(query) {
-      if (query.type.indexOf('audiobook') < 0) {
+      if (!query.type.includes('audiobook')) {
         return
       }
       const parameters = {
@@ -378,7 +378,7 @@ export default {
     },
 
     searchPodcasts(query) {
-      if (query.type.indexOf('podcast') < 0) {
+      if (!query.type.includes('podcast')) {
         return
       }
       const parameters = {
