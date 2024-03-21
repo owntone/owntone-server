@@ -149,10 +149,11 @@ parse_date(struct media_file_info *mfi, const char *date_string)
   if ((*year == 0) && (safe_atou32(date_string, year) == 0))
     ret++;
 
-  if ( strptime(date_string, "%FT%T%z", &tm) // ISO 8601, %F=%Y-%m-%d, %T=%H:%M:%S
-       || strptime(date_string, "%F %T", &tm)
-       || strptime(date_string, "%F %H:%M", &tm)
-       || strptime(date_string, "%F", &tm)
+  // musl doesn't support %F, so %Y-%m-%d is used instead
+  if ( strptime(date_string, "%Y-%m-%dT%T%z", &tm) // ISO 8601, %T=%H:%M:%S
+       || strptime(date_string, "%Y-%m-%d %T", &tm)
+       || strptime(date_string, "%Y-%m-%d %H:%M", &tm)
+       || strptime(date_string, "%Y-%m-%d", &tm)
      )
     {
       *date_released = mktime(&tm);
@@ -162,7 +163,7 @@ parse_date(struct media_file_info *mfi, const char *date_string)
   if ((*date_released == 0) && (*year != 0))
     {
       snprintf(year_string, sizeof(year_string), "%" PRIu32 "-01-01T12:00:00", *year);
-      if (strptime(year_string, "%FT%T", &tm))
+      if (strptime(year_string, "%Y-%m-%dT%T", &tm))
 	{
 	  *date_released = mktime(&tm);
 	  ret++;
