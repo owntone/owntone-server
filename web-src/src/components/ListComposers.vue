@@ -28,7 +28,6 @@
     <modal-dialog-composer
       :show="show_details_modal"
       :composer="selected_composer"
-      :media_kind="media_kind"
       @close="show_details_modal = false"
     />
   </teleport>
@@ -41,8 +40,7 @@ export default {
   name: 'ListComposers',
   components: { ModalDialogComposer },
   props: {
-    composers: { required: true, type: Object },
-    media_kind: { default: '', type: String }
+    composers: { required: true, type: Object }
   },
 
   data() {
