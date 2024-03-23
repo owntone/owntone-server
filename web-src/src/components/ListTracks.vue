@@ -78,6 +78,11 @@ export default {
   },
 
   methods: {
+    open_dialog(track) {
+      this.selected_track = track
+      this.show_details_modal = true
+    },
+
     play_track(track) {
       if (this.uris) {
         webapi.player_play_uri(
@@ -94,11 +99,6 @@ export default {
       } else {
         webapi.player_play_uri(track.uri, false)
       }
-    },
-
-    open_dialog(track) {
-      this.selected_track = track
-      this.show_details_modal = true
     }
   }
 }

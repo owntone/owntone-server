@@ -70,51 +70,32 @@ export default createStore({
   },
 
   getters: {
-    now_playing: (state) => {
-      return state.queue.items.find((e) => e.id === state.player.item_id) ?? {}
-    },
-    settings_option_recently_added_limit: (state, getters) => {
-      return (
-        getters.settings_webinterface?.options.find(
-          (option) => option.name === 'recently_added_limit'
-        )?.value ?? 100
-      )
-    },
-    settings_option: (state) => (categoryName, optionName) => {
-      return (
-        state.settings.categories
-          .find((category) => category.name === categoryName)
-          ?.options.find((option) => option.name === optionName) ?? {}
-      )
-    },
-    settings_option_show_composer_for_genre: (state, getters) => {
-      return (
-        getters.settings_webinterface?.options.find(
-          (option) => option.name === 'show_composer_for_genre'
-        )?.value ?? null
-      )
-    },
-    settings_option_show_composer_now_playing: (state, getters) => {
-      return (
-        getters.settings_webinterface?.options.find(
-          (option) => option.name === 'show_composer_now_playing'
-        )?.value ?? false
-      )
-    },
-    settings_option_show_filepath_now_playing: (state, getters) => {
-      return (
-        getters.settings_webinterface?.options.find(
-          (option) => option.name === 'show_filepath_now_playing'
-        )?.value ?? false
-      )
-    },
-    settings_webinterface: (state) => {
-      return (
-        state.settings?.categories.find(
-          (category) => category.name === 'webinterface'
-        ) ?? null
-      )
-    }
+    now_playing: (state) =>
+      state.queue.items.find((e) => e.id === state.player.item_id) ?? {},
+    settings_option_recently_added_limit: (state, getters) =>
+      getters.settings_webinterface?.options.find(
+        (option) => option.name === 'recently_added_limit'
+      )?.value ?? 100,
+    settings_option: (state) => (categoryName, optionName) =>
+      state.settings.categories
+        .find((category) => category.name === categoryName)
+        ?.options.find((option) => option.name === optionName) ?? {},
+    settings_option_show_composer_for_genre: (state, getters) =>
+      getters.settings_webinterface?.options.find(
+        (option) => option.name === 'show_composer_for_genre'
+      )?.value ?? null,
+    settings_option_show_composer_now_playing: (state, getters) =>
+      getters.settings_webinterface?.options.find(
+        (option) => option.name === 'show_composer_now_playing'
+      )?.value ?? false,
+    settings_option_show_filepath_now_playing: (state, getters) =>
+      getters.settings_webinterface?.options.find(
+        (option) => option.name === 'show_filepath_now_playing'
+      )?.value ?? false,
+    settings_webinterface: (state) =>
+      state.settings?.categories.find(
+        (category) => category.name === 'webinterface'
+      ) ?? null
   },
 
   mutations: {

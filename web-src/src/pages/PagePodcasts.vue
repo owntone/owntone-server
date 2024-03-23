@@ -83,8 +83,8 @@ export default {
   name: 'PagePodcasts',
   components: {
     ContentWithHeading,
-    ListTracks,
     ListAlbums,
+    ListTracks,
     ModalDialogAddRss
   },
 
