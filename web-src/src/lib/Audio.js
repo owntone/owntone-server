@@ -4,54 +4,54 @@
  * (released under MIT licence)
  */
 export default {
-  _audio: new Audio(),
-  _context: null,
+  audio: new Audio(),
+  context: null,
 
-  // Setup audio routing
-  setupAudio() {
-    this._context = new (window.AudioContext || window.webkitAudioContext)()
-    const source = this._context.createMediaElementSource(this._audio)
-    source.connect(this._context.destination)
-    this._audio.addEventListener('canplaythrough', (e) => {
-      this._audio.play()
+  // Play audio source url
+  play(source) {
+    this.stop()
+    this.context.resume().then(() => {
+      this.audio.src = `${String(source || '')}?x=${Date.now()}`
+      this.audio.crossOrigin = 'anonymous'
+      this.audio.load()
     })
-    this._audio.addEventListener('canplay', (e) => {
-      this._audio.play()
-    })
-    return this._audio
   },
 
   // Set audio volume
   setVolume(volume) {
-    if (this._audio) {
-      this._audio.volume = Math.min(1, Math.max(0, parseFloat(volume) || 0.0))
+    if (this.audio) {
+      this.audio.volume = Math.min(1, Math.max(0, parseFloat(volume) || 0.0))
     }
   },
 
-  // Play audio source url
-  playSource(source) {
-    this.stopAudio()
-    this._context.resume().then(() => {
-      this._audio.src = `${String(source || '')}?x=${Date.now()}`
-      this._audio.crossOrigin = 'anonymous'
-      this._audio.load()
+  // Setup audio routing
+  setup() {
+    this.context = new (window.AudioContext || window.webkitAudioContext)()
+    const source = this.context.createMediaElementSource(this.audio)
+    source.connect(this.context.destination)
+    this.audio.addEventListener('canplaythrough', (e) => {
+      this.audio.play()
     })
+    this.audio.addEventListener('canplay', (e) => {
+      this.audio.play()
+    })
+    return this.audio
   },
 
   // Stop playing audio
-  stopAudio() {
+  stop() {
     try {
-      this._audio.pause()
+      this.audio.pause()
     } catch (e) {
       // Continue regardless of error
     }
     try {
-      this._audio.stop()
+      this.audio.stop()
     } catch (e) {
       // Continue regardless of error
     }
     try {
-      this._audio.close()
+      this.audio.close()
     } catch (e) {
       // Continue regardless of error
     }

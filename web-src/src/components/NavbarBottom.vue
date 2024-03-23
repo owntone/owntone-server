@@ -266,7 +266,7 @@ import PlayerButtonRepeat from '@/components/PlayerButtonRepeat.vue'
 import PlayerButtonSeekBack from '@/components/PlayerButtonSeekBack.vue'
 import PlayerButtonSeekForward from '@/components/PlayerButtonSeekForward.vue'
 import PlayerButtonShuffle from '@/components/PlayerButtonShuffle.vue'
-import _audio from '@/lib/Audio'
+import audio from '@/lib/Audio'
 import { mdiCancel } from '@mdi/js'
 import webapi from '@/webapi'
 
@@ -290,16 +290,31 @@ export default {
   data() {
     return {
       cursor: mdiCancel,
+      loading: false,
       old_volume: 0,
       playing: false,
-      loading: false,
-      stream_volume: 10,
+      show_desktop_outputs_menu: false,
       show_outputs_menu: false,
-      show_desktop_outputs_menu: false
+      stream_volume: 10
     }
   },
 
   computed: {
+    config() {
+      return this.$store.state.config
+    },
+    is_now_playing_page() {
+      return this.$route.name === 'now-playing'
+    },
+    now_playing() {
+      return this.$store.getters.now_playing
+    },
+    outputs() {
+      return this.$store.state.outputs
+    },
+    player() {
+      return this.$store.state.player
+    },
     show_player_menu: {
       get() {
         return this.$store.state.show_player_menu
@@ -307,24 +322,6 @@ export default {
       set(value) {
         this.$store.commit(types.SHOW_PLAYER_MENU, value)
       }
-    },
-
-    now_playing() {
-      return this.$store.getters.now_playing
-    },
-    is_now_playing_page() {
-      return this.$route.name === 'now-playing'
-    },
-    outputs() {
-      return this.$store.state.outputs
-    },
-
-    player() {
-      return this.$store.state.player
-    },
-
-    config() {
-      return this.$store.state.config
     }
   },
 
@@ -347,21 +344,36 @@ export default {
   },
 
   methods: {
-    on_click_outside_outputs() {
-      this.show_outputs_menu = false
-    },
-
     change_volume() {
       webapi.player_volume(this.player.volume)
     },
-
+    change_stream_volume() {
+      audio.setVolume(this.stream_volume / 100)
+    },
     toggle_mute_volume() {
       this.player.volume = this.player.volume > 0 ? 0 : this.old_volume
       this.change_volume()
     },
 
+    closeAudio() {
+      audio.stop()
+      this.playing = false
+    },
+    on_click_outside_outputs() {
+      this.show_outputs_menu = false
+    },
+    playChannel() {
+      if (this.playing) {
+        return
+      }
+
+      const channel = '/stream.mp3'
+      this.loading = true
+      audio.play(channel)
+      audio.setVolume(this.stream_volume / 100)
+    },
     setupAudio() {
-      const a = _audio.setupAudio()
+      const a = audio.setup()
 
       a.addEventListener('waiting', (e) => {
         this.playing = false
@@ -385,24 +397,6 @@ export default {
         this.loading = false
       })
     },
-
-    // Close active audio
-    closeAudio() {
-      _audio.stopAudio()
-      this.playing = false
-    },
-
-    playChannel() {
-      if (this.playing) {
-        return
-      }
-
-      const channel = '/stream.mp3'
-      this.loading = true
-      _audio.playSource(channel)
-      _audio.setVolume(this.stream_volume / 100)
-    },
-
     togglePlay() {
       if (this.loading) {
         return
@@ -411,10 +405,6 @@ export default {
         return this.closeAudio()
       }
       return this.playChannel()
-    },
-
-    change_stream_volume() {
-      _audio.setVolume(this.stream_volume / 100)
     }
   }
 }
