@@ -21,10 +21,10 @@
       </template>
       <template #content>
         <list-directories :directories="dirs" />
-        <list-playlists :playlists="playlists" />
+        <list-playlists :items="playlists" />
         <list-tracks
-          :tracks="tracks"
           :expression="play_expression"
+          :items="tracks"
           :show_icon="true"
         />
         <modal-dialog-directory
@@ -94,8 +94,8 @@ export default {
     return {
       dirs: [],
       playlists: new GroupedList(),
-      tracks: new GroupedList(),
-      show_details_modal: false
+      show_details_modal: false,
+      tracks: new GroupedList()
     }
   },
 
@@ -106,7 +106,6 @@ export default {
       }
       return '/'
     },
-
     play_expression() {
       return `path starts with "${this.current_directory}" order by path asc`
     }

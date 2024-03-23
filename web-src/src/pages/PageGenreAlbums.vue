@@ -33,7 +33,7 @@
             v-text="$t('page.genre.track-count', { count: genre.track_count })"
           />
         </p>
-        <list-albums :albums="albums" />
+        <list-albums :items="albums" />
         <modal-dialog-genre
           :genre="genre"
           :media_kind="media_kind"
@@ -46,8 +46,8 @@
 </template>
 
 <script>
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
@@ -106,7 +106,6 @@ export default {
         query: { media_kind: this.media_kind }
       })
     },
-
     play() {
       webapi.player_play_expression(
         `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`,

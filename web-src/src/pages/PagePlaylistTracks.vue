@@ -23,7 +23,7 @@
           class="heading has-text-centered-mobile"
           v-text="$t('page.playlist.track-count', { count: tracks.count })"
         />
-        <list-tracks :tracks="tracks" :uris="uris" />
+        <list-tracks :items="tracks" :uris="uris" />
         <modal-dialog-playlist
           :show="show_details_modal"
           :playlist="playlist"

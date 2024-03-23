@@ -13,15 +13,15 @@
         />
       </template>
       <template #content>
-        <list-genres :genres="genres" :media_kind="'audiobook'" />
+        <list-genres :items="genres" :media_kind="'audiobook'" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListGenres from '@/components/ListGenres.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'

@@ -14,15 +14,15 @@
         />
       </template>
       <template #content>
-        <list-playlists :playlists="playlists" />
+        <list-playlists :items="playlists" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import webapi from '@/webapi'
 

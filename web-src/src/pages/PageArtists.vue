@@ -56,7 +56,7 @@
       </template>
       <template #heading-right />
       <template #content>
-        <list-artists :artists="artists" />
+        <list-artists :items="artists" />
       </template>
     </content-with-heading>
   </div>
@@ -64,9 +64,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -133,7 +133,6 @@ export default {
       if (!this.artists_list) {
         return []
       }
-
       const grouping = this.grouping_options.find(
         (o) => o.id === this.selected_grouping_option_id
       )
@@ -143,23 +142,8 @@ export default {
         (artist) => !this.hide_spotify || artist.data_kind !== 'spotify'
       ]
       this.artists_list.group(grouping.options)
-
       return this.artists_list
     },
-
-    selected_grouping_option_id: {
-      get() {
-        return this.$store.state.artists_sort
-      },
-      set(value) {
-        this.$store.commit(types.ARTISTS_SORT, value)
-      }
-    },
-
-    spotify_enabled() {
-      return this.$store.state.spotify.webapi_token_valid
-    },
-
     hide_singles: {
       get() {
         return this.$store.state.hide_singles
@@ -168,7 +152,6 @@ export default {
         this.$store.commit(types.HIDE_SINGLES, value)
       }
     },
-
     hide_spotify: {
       get() {
         return this.$store.state.hide_spotify
@@ -176,6 +159,17 @@ export default {
       set(value) {
         this.$store.commit(types.HIDE_SPOTIFY, value)
       }
+    },
+    selected_grouping_option_id: {
+      get() {
+        return this.$store.state.artists_sort
+      },
+      set(value) {
+        this.$store.commit(types.ARTISTS_SORT, value)
+      }
+    },
+    spotify_enabled() {
+      return this.$store.state.spotify.webapi_token_valid
     }
   }
 }

@@ -9,7 +9,7 @@
         <list-item-album-spotify
           v-for="album in new_releases"
           :key="album.id"
-          :album="album"
+          :item="album"
           @click="open_album(album)"
         >
           <template v-if="is_visible_artwork" #artwork>

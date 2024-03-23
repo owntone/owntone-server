@@ -1,5 +1,5 @@
 <template>
-  <template v-for="album in albums" :key="album.itemId">
+  <template v-for="album in items" :key="album.itemId">
     <div v-if="!album.isItem" class="mt-6 mb-5 py-2">
       <span
         :id="'index_' + album.index"
@@ -8,7 +8,7 @@
       />
     </div>
     <div
-      v-else-if="album.isItem"
+      v-else
       class="media is-align-items-center"
       @click="open_album(album.item)"
     >
@@ -78,17 +78,17 @@ export default {
   name: 'ListAlbums',
   components: { CoverArtwork, ModalDialog, ModalDialogAlbum },
   props: {
-    albums: { required: true, type: Object },
+    items: { required: true, type: Object },
     media_kind: { default: '', type: String }
   },
   emits: ['play-count-changed', 'podcast-deleted'],
 
   data() {
     return {
-      show_details_modal: false,
+      rss_playlist_to_remove: {},
       selected_album: {},
-      show_remove_podcast_modal: false,
-      rss_playlist_to_remove: {}
+      show_details_modal: false,
+      show_remove_podcast_modal: false
     }
   },
 
@@ -101,7 +101,7 @@ export default {
     },
 
     media_kind_resolved() {
-      return this.media_kind ? this.media_kind : this.selected_album.media_kind
+      return this.media_kind || this.selected_album.media_kind
     }
   },
 

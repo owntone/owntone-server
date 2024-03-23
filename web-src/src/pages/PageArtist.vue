@@ -59,7 +59,7 @@
             v-text="$t('page.artist.track-count', { count: track_count })"
           />
         </p>
-        <list-albums :albums="albums" />
+        <list-albums :items="albums" />
         <modal-dialog-artist
           :show="show_details_modal"
           :artist="artist"
@@ -72,9 +72,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'
@@ -117,8 +117,8 @@ export default {
 
   data() {
     return {
-      artist: {},
       albums_list: new GroupedList(),
+      artist: {},
       grouping_options: [
         {
           id: 1,
@@ -181,7 +181,6 @@ export default {
         params: { id: this.artist.id }
       })
     },
-
     play() {
       webapi.player_play_uri(
         this.albums.items.map((a) => a.uri).join(','),

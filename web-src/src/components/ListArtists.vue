@@ -1,5 +1,5 @@
 <template>
-  <template v-for="artist in artists" :key="artist.itemId">
+  <template v-for="artist in items" :key="artist.itemId">
     <div v-if="!artist.isItem" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
         <span
@@ -10,7 +10,7 @@
       </div>
     </div>
     <div
-      v-else-if="artist.isItem"
+      v-else
       class="media is-align-items-center"
       @click="open_artist(artist.item)"
     >
@@ -40,7 +40,7 @@ export default {
   name: 'ListArtists',
   components: { ModalDialogArtist },
   props: {
-    artists: { required: true, type: Object }
+    items: { required: true, type: Object }
   },
 
   data() {

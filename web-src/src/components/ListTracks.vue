@@ -1,5 +1,5 @@
 <template>
-  <template v-for="track in tracks" :key="track.itemId">
+  <template v-for="track in items" :key="track.itemId">
     <div v-if="!track.isItem" class="mt-6 mb-5 py-2">
       <span
         :id="'index_' + track.index"
@@ -63,17 +63,17 @@ export default {
   components: { ModalDialogTrack },
   props: {
     expression: { default: '', type: String },
+    items: { required: true, type: Object },
     show_icon: Boolean,
     show_progress: Boolean,
-    tracks: { required: true, type: Object },
     uris: { default: '', type: String }
   },
   emits: ['play-count-changed'],
 
   data() {
     return {
-      show_details_modal: false,
-      selected_track: {}
+      selected_track: {},
+      show_details_modal: false
     }
   },
 
@@ -82,19 +82,18 @@ export default {
       this.selected_track = track
       this.show_details_modal = true
     },
-
     play_track(track) {
       if (this.uris) {
         webapi.player_play_uri(
           this.uris,
           false,
-          this.tracks.items.indexOf(track)
+          this.items.items.indexOf(track)
         )
       } else if (this.expression) {
         webapi.player_play_expression(
           this.expression,
           false,
-          this.tracks.items.indexOf(track)
+          this.items.items.indexOf(track)
         )
       } else {
         webapi.player_play_uri(track.uri, false)

@@ -37,7 +37,7 @@
             })
           "
         />
-        <list-tracks :tracks="tracks" :uris="album.uri" />
+        <list-tracks :items="tracks" :uris="album.uri" />
         <modal-dialog-album
           :show="show_details_modal"
           :album="album"
@@ -104,7 +104,6 @@ export default {
         params: { id: this.album.artist_id }
       })
     },
-
     play() {
       webapi.player_play_uri(this.album.uri, false)
     }

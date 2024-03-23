@@ -42,7 +42,7 @@
             v-text="$t('page.genre.track-count', { count: genre.track_count })"
           />
         </p>
-        <list-tracks :tracks="tracks" :expression="expression" />
+        <list-tracks :items="tracks" :expression="expression" />
         <modal-dialog-genre
           :show="show_details_modal"
           :genre="genre"
@@ -56,9 +56,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'

@@ -14,15 +14,15 @@
       </template>
       <template #heading-right />
       <template #content>
-        <list-artists :artists="artists" />
+        <list-artists :items="artists" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
@@ -44,9 +44,9 @@ export default {
   name: 'PageAudiobooksArtists',
   components: {
     ContentWithHeading,
-    TabsAudiobooks,
     IndexButtonList,
-    ListArtists
+    ListArtists,
+    TabsAudiobooks
   },
 
   beforeRouteEnter(to, from, next) {

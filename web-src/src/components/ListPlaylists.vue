@@ -1,6 +1,6 @@
 <template>
   <div
-    v-for="playlist in playlists"
+    v-for="playlist in items"
     :key="playlist.itemId"
     class="media is-align-items-center"
     @click="open_playlist(playlist.item)"
@@ -32,16 +32,28 @@ import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 export default {
   name: 'ListPlaylists',
   components: { ModalDialogPlaylist },
-  props: { playlists: { required: true, type: Object } },
+  props: { items: { required: true, type: Object } },
 
   data() {
     return {
-      show_details_modal: false,
-      selected_playlist: {}
+      selected_playlist: {},
+      show_details_modal: false
     }
   },
 
   methods: {
+    icon_name(playlist) {
+      if (playlist.type === 'folder') {
+        return 'folder'
+      } else if (playlist.type === 'rss') {
+        return 'rss'
+      }
+      return 'music-box-multiple'
+    },
+    open_dialog(playlist) {
+      this.selected_playlist = playlist
+      this.show_details_modal = true
+    },
     open_playlist(playlist) {
       if (playlist.type === 'folder') {
         this.$router.push({
@@ -54,20 +66,6 @@ export default {
           params: { id: playlist.id }
         })
       }
-    },
-
-    open_dialog(playlist) {
-      this.selected_playlist = playlist
-      this.show_details_modal = true
-    },
-
-    icon_name(playlist) {
-      if (playlist.type === 'folder') {
-        return 'folder'
-      } else if (playlist.type === 'rss') {
-        return 'rss'
-      }
-      return 'music-box-multiple'
     }
   }
 }

@@ -60,7 +60,7 @@
             v-text="$t('page.artist.track-count', { count: tracks.count })"
           />
         </p>
-        <list-tracks :tracks="tracks" :uris="track_uris" />
+        <list-tracks :items="tracks" :uris="track_uris" />
         <modal-dialog-artist
           :show="show_details_modal"
           :artist="artist"
@@ -73,9 +73,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
@@ -168,6 +168,9 @@ export default {
     spotify_enabled() {
       return this.$store.state.spotify.webapi_token_valid
     },
+    track_uris() {
+      return this.tracks_list.items.map((a) => a.uri).join(',')
+    },
     tracks() {
       const grouping = this.grouping_options.find(
         (o) => o.id === this.selected_grouping_option_id
@@ -177,9 +180,6 @@ export default {
       ]
       this.tracks_list.group(grouping.options)
       return this.tracks_list
-    },
-    track_uris() {
-      return this.tracks_list.items.map((a) => a.uri).join(',')
     }
   },
 
@@ -191,7 +191,6 @@ export default {
         params: { id: this.artist.id }
       })
     },
-
     play() {
       webapi.player_play_uri(
         this.tracks_list.items.map((a) => a.uri).join(','),

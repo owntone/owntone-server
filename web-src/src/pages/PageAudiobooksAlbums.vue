@@ -13,15 +13,15 @@
         />
       </template>
       <template #content>
-        <list-albums :albums="albums" />
+        <list-albums :items="albums" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
@@ -42,10 +42,10 @@ const dataObject = {
 export default {
   name: 'PageAudiobooksAlbums',
   components: {
-    TabsAudiobooks,
     ContentWithHeading,
     IndexButtonList,
-    ListAlbums
+    ListAlbums,
+    TabsAudiobooks
   },
 
   beforeRouteEnter(to, from, next) {

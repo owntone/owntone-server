@@ -14,7 +14,7 @@
       </template>
       <template #content>
         <list-tracks
-          :tracks="new_episodes"
+          :items="new_episodes"
           :show_progress="true"
           @play-count-changed="reload_new_episodes"
         />

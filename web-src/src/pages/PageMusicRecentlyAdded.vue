@@ -6,15 +6,15 @@
         <p class="title is-4" v-text="$t('page.music.recently-added.title')" />
       </template>
       <template #content>
-        <list-albums :albums="recently_added" />
+        <list-albums :items="recently_added" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import store from '@/store'
@@ -24,10 +24,10 @@ const dataObject = {
   load(to) {
     const limit = store.getters.settings_option_recently_added_limit
     return webapi.search({
-      type: 'album',
       expression:
         'media_kind is music having track_count > 3 order by time_added desc',
-      limit
+      limit,
+      type: 'album'
     })
   },
 

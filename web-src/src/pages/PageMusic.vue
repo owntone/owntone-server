@@ -7,7 +7,7 @@
         <p class="title is-4" v-text="$t('page.music.recently-added.title')" />
       </template>
       <template #content>
-        <list-albums :albums="recently_added" />
+        <list-albums :items="recently_added" />
       </template>
       <template #footer>
         <nav class="level">
@@ -27,7 +27,7 @@
         <p class="title is-4" v-text="$t('page.music.recently-played.title')" />
       </template>
       <template #content>
-        <list-tracks :tracks="recently_played" />
+        <list-tracks :items="recently_played" />
       </template>
       <template #footer>
         <nav class="level">
@@ -56,16 +56,16 @@ const dataObject = {
   load(to) {
     return Promise.all([
       webapi.search({
-        type: 'album',
         expression:
           'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc',
-        limit: 3
+        limit: 3,
+        type: 'album'
       }),
       webapi.search({
-        type: 'track',
         expression:
           'time_played after 8 weeks ago and media_kind is music order by time_played desc',
-        limit: 3
+        limit: 3,
+        type: 'track'
       })
     ])
   },

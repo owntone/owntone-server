@@ -34,7 +34,7 @@
             "
           />
         </p>
-        <list-albums :albums="albums" />
+        <list-albums :items="albums" />
         <modal-dialog-composer
           :show="show_details_modal"
           :composer="composer"
@@ -102,7 +102,6 @@ export default {
         params: { name: this.composer.name }
       })
     },
-
     play() {
       webapi.player_play_expression(
         `composer is "${this.composer.name}" and media_kind is music`,

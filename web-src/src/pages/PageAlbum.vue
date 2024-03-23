@@ -33,7 +33,7 @@
           class="heading has-text-centered-mobile mt-5"
           v-text="$t('page.album.track-count', { count: album.track_count })"
         />
-        <list-tracks :tracks="tracks" :uris="album.uri" />
+        <list-tracks :items="tracks" :uris="album.uri" />
         <modal-dialog-album
           :show="show_details_modal"
           :album="album"
@@ -45,9 +45,9 @@
 </template>
 
 <script>
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'

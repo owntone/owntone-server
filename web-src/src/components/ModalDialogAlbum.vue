@@ -50,7 +50,7 @@
                   v-text="$filters.date(album.date_released)"
                 />
               </p>
-              <p v-else-if="album.year > 0">
+              <p v-else-if="album.year">
                 <span class="heading" v-text="$t('dialog.album.year')" />
                 <span class="title is-6" v-text="album.year" />
               </p>
@@ -133,7 +133,7 @@ export default {
 
   computed: {
     media_kind_resolved() {
-      return this.media_kind ? this.media_kind : this.album.media_kind
+      return this.media_kind || this.album.media_kind
     }
   },
 
@@ -192,14 +192,6 @@ export default {
           this.$emit('play-count-changed')
           this.$emit('close')
         })
-    },
-
-    artwork_loaded() {
-      this.artwork_visible = true
-    },
-
-    artwork_error() {
-      this.artwork_visible = false
     }
   }
 }

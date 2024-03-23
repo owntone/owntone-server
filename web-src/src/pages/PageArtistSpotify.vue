@@ -26,7 +26,7 @@
         <list-item-album-spotify
           v-for="album in albums"
           :key="album.id"
-          :album="album"
+          :item="album"
           @click="open_album(album)"
         >
           <template v-if="is_visible_artwork" #artwork>
@@ -157,6 +157,17 @@ export default {
   },
 
   methods: {
+    append_albums(data) {
+      this.albums = this.albums.concat(data.items)
+      this.total = data.total
+      this.offset += data.limit
+    },
+    artwork_url(album) {
+      if (album.images && album.images.length > 0) {
+        return album.images[0].url
+      }
+      return ''
+    },
     load_next({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
@@ -171,35 +182,19 @@ export default {
           loaded(data.items.length, PAGE_SIZE)
         })
     },
-
-    append_albums(data) {
-      this.albums = this.albums.concat(data.items)
-      this.total = data.total
-      this.offset += data.limit
-    },
-
-    play() {
-      this.show_album_details_modal = false
-      webapi.player_play_uri(this.artist.uri, true)
-    },
-
     open_album(album) {
       this.$router.push({
         name: 'music-spotify-album',
         params: { id: album.id }
       })
     },
-
     open_dialog(album) {
       this.selected_album = album
       this.show_album_details_modal = true
     },
-
-    artwork_url(album) {
-      if (album.images && album.images.length > 0) {
-        return album.images[0].url
-      }
-      return ''
+    play() {
+      this.show_album_details_modal = false
+      webapi.player_play_uri(this.artist.uri, true)
     }
   }
 }

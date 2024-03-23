@@ -6,7 +6,7 @@
         <p class="title is-4" v-text="$t('page.music.recently-played.title')" />
       </template>
       <template #content>
-        <list-tracks :tracks="recently_played" />
+        <list-tracks :items="recently_played" />
       </template>
     </content-with-heading>
   </div>
@@ -22,10 +22,10 @@ import webapi from '@/webapi'
 const dataObject = {
   load(to) {
     return webapi.search({
-      type: 'track',
       expression:
         'time_played after 8 weeks ago and media_kind is music order by time_played desc',
-      limit: 50
+      limit: 50,
+      type: 'track'
     })
   },
 

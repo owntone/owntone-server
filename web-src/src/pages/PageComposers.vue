@@ -13,15 +13,15 @@
         />
       </template>
       <template #content>
-        <list-composers :composers="composers" />
+        <list-composers :items="composers" />
       </template>
     </content-with-heading>
   </div>
 </template>
 
 <script>
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import TabsMusic from '@/components/TabsMusic.vue'

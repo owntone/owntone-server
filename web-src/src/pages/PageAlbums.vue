@@ -56,7 +56,7 @@
       </template>
       <template #heading-right />
       <template #content>
-        <list-albums :albums="albums" />
+        <list-albums :items="albums" />
       </template>
     </content-with-heading>
   </div>
@@ -64,9 +64,9 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import { GroupedList } from '@/lib/GroupedList'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -119,7 +119,7 @@ export default {
           id: 2,
           name: this.$t('page.albums.sort.recently-added'),
           options: {
-            criteria: [{ field: 'time_added', type: Date, order: -1 }],
+            criteria: [{ field: 'time_added', order: -1, type: Date }],
             index: { field: 'time_added', type: Date }
           }
         },
@@ -127,7 +127,7 @@ export default {
           id: 3,
           name: this.$t('page.albums.sort.recently-released'),
           options: {
-            criteria: [{ field: 'date_released', type: Date, order: -1 }],
+            criteria: [{ field: 'date_released', order: -1, type: Date }],
             index: { field: 'date_released', type: Date }
           }
         },
@@ -170,20 +170,6 @@ export default {
 
       return this.albums_list
     },
-
-    selected_grouping_option_id: {
-      get() {
-        return this.$store.state.albums_sort
-      },
-      set(value) {
-        this.$store.commit(types.ALBUMS_SORT, value)
-      }
-    },
-
-    spotify_enabled() {
-      return this.$store.state.spotify.webapi_token_valid
-    },
-
     hide_singles: {
       get() {
         return this.$store.state.hide_singles
@@ -192,7 +178,6 @@ export default {
         this.$store.commit(types.HIDE_SINGLES, value)
       }
     },
-
     hide_spotify: {
       get() {
         return this.$store.state.hide_spotify
@@ -200,6 +185,17 @@ export default {
       set(value) {
         this.$store.commit(types.HIDE_SPOTIFY, value)
       }
+    },
+    selected_grouping_option_id: {
+      get() {
+        return this.$store.state.albums_sort
+      },
+      set(value) {
+        this.$store.commit(types.ALBUMS_SORT, value)
+      }
+    },
+    spotify_enabled() {
+      return this.$store.state.spotify.webapi_token_valid
     }
   }
 }

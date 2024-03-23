@@ -9,7 +9,7 @@
         />
       </template>
       <template #content>
-        <list-tracks :tracks="tracks" />
+        <list-tracks :items="tracks" />
       </template>
     </content-with-heading>
   </div>

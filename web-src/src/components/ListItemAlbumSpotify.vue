@@ -4,16 +4,14 @@
       <slot name="artwork" />
     </div>
     <div class="media-content is-clickable is-clipped">
-      <h1 class="title is-6" v-text="album.name" />
+      <h1 class="title is-6" v-text="item.name" />
       <h2
         class="subtitle is-7 has-text-grey has-text-weight-bold"
-        v-text="album.artists[0].name"
+        v-text="item.artists[0]?.name"
       />
       <h2
         class="subtitle is-7 has-text-grey"
-        v-text="
-          [album.album_type, $filters.date(album.release_date)].join(', ')
-        "
+        v-text="[item.album_type, $filters.date(item.release_date)].join(', ')"
       />
     </div>
     <div class="media-right">
@@ -25,7 +23,7 @@
 <script>
 export default {
   name: 'ListItemAlbumSpotify',
-  props: { album: { required: true, type: Object } }
+  props: { item: { required: true, type: Object } }
 }
 </script>
 

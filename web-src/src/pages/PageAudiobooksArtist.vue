@@ -27,7 +27,7 @@
             })
           "
         />
-        <list-albums :albums="albums" />
+        <list-albums :items="albums" />
         <modal-dialog-artist
           :show="show_details_modal"
           :artist="artist"

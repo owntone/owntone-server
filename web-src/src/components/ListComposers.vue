@@ -1,5 +1,5 @@
 <template>
-  <template v-for="composer in composers" :key="composer.itemId">
+  <template v-for="composer in items" :key="composer.itemId">
     <div v-if="!composer.isItem" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
         <span
@@ -10,7 +10,7 @@
       </div>
     </div>
     <div
-      v-else-if="composer.isItem"
+      v-else
       class="media is-align-items-center"
       @click="open_composer(composer.item)"
     >
@@ -40,13 +40,13 @@ export default {
   name: 'ListComposers',
   components: { ModalDialogComposer },
   props: {
-    composers: { required: true, type: Object }
+    items: { required: true, type: Object }
   },
 
   data() {
     return {
-      show_details_modal: false,
-      selected_composer: {}
+      selected_composer: {},
+      show_details_modal: false
     }
   },
 
