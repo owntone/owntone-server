@@ -42,7 +42,7 @@
       </template>
       <template #content>
         <list-albums
-          :albums="albums"
+          :items="albums"
           @play-count-changed="reload_new_episodes()"
           @podcast-deleted="reload_podcasts()"
         />

@@ -32,7 +32,7 @@
           v-text="$t('page.podcast.track-count', { count: album.track_count })"
         />
         <list-tracks
-          :tracks="tracks"
+          :items="tracks"
           :show_progress="true"
           @play-count-changed="reload_tracks"
         />

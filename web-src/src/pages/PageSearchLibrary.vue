@@ -54,7 +54,7 @@
         <p class="title is-4" v-text="$t('page.search.tracks')" />
       </template>
       <template #content>
-        <list-tracks :tracks="tracks" />
+        <list-tracks :items="tracks" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(tracks)" class="level">
@@ -83,7 +83,7 @@
         <p class="title is-4" v-text="$t('page.search.artists')" />
       </template>
       <template #content>
-        <list-artists :artists="artists" />
+        <list-artists :items="artists" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(artists)" class="level">
@@ -112,7 +112,7 @@
         <p class="title is-4" v-text="$t('page.search.albums')" />
       </template>
       <template #content>
-        <list-albums :albums="albums" />
+        <list-albums :items="albums" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(albums)" class="level">
@@ -141,7 +141,7 @@
         <p class="title is-4" v-text="$t('page.search.composers')" />
       </template>
       <template #content>
-        <list-composers :composers="composers" />
+        <list-composers :items="composers" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(composers)" class="level">
@@ -170,7 +170,7 @@
         <p class="title is-4" v-text="$t('page.search.playlists')" />
       </template>
       <template #content>
-        <list-playlists :playlists="playlists" />
+        <list-playlists :items="playlists" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(playlists)" class="level">
@@ -199,7 +199,7 @@
         <p class="title is-4" v-text="$t('page.search.podcasts')" />
       </template>
       <template #content>
-        <list-albums :albums="podcasts" />
+        <list-albums :items="podcasts" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(podcasts)" class="level">
@@ -229,7 +229,7 @@
         <p class="title is-4" v-text="$t('page.search.audiobooks')" />
       </template>
       <template #content>
-        <list-albums :albums="audiobooks" />
+        <list-albums :items="audiobooks" />
       </template>
       <template #footer>
         <nav v-if="show_all_button(audiobooks)" class="level">
