@@ -12,7 +12,7 @@
         <list-item-playlist-spotify
           v-for="playlist in featured_playlists"
           :key="playlist.id"
-          :playlist="playlist"
+          :item="playlist"
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">

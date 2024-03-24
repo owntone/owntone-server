@@ -43,7 +43,7 @@
         <list-item-track-spotify
           v-for="track in tracks.items"
           :key="track.id"
-          :track="track"
+          :item="track"
           :position="0"
           :context_uri="track.uri"
         >
@@ -107,7 +107,7 @@
         <list-item-artist-spotify
           v-for="artist in artists.items"
           :key="artist.id"
-          :artist="artist"
+          :item="artist"
         >
           <template #actions>
             <a @click.prevent.stop="open_artist_dialog(artist)">
@@ -238,7 +238,7 @@
         <list-item-playlist-spotify
           v-for="playlist in playlists.items"
           :key="playlist.id"
-          :playlist="playlist"
+          :item="playlist"
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">

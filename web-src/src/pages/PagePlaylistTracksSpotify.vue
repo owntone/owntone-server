@@ -28,7 +28,7 @@
         <list-item-track-spotify
           v-for="track in tracks"
           :key="track.id"
-          :track="track"
+          :item="track"
           :position="track.position"
           :context_uri="playlist.uri"
         >
@@ -95,6 +95,7 @@ const dataObject = {
   },
 
   set(vm, response) {
+    console.log(response[0])
     vm.playlist = response[0]
     vm.tracks = []
     vm.total = 0
@@ -128,34 +129,17 @@ export default {
 
   data() {
     return {
-      playlist: { tracks: {} },
-      tracks: [],
-      total: 0,
       offset: 0,
-
-      show_track_details_modal: false,
+      playlist: { tracks: {} },
       selected_track: {},
-
-      show_playlist_details_modal: false
+      show_playlist_details_modal: false,
+      show_track_details_modal: false,
+      total: 0,
+      tracks: []
     }
   },
 
   methods: {
-    load_next({ loaded }) {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
-      spotifyApi
-        .getPlaylistTracks(this.playlist.id, {
-          limit: PAGE_SIZE,
-          offset: this.offset,
-          market: store.state.spotify.webapi_country
-        })
-        .then((data) => {
-          this.append_tracks(data)
-          loaded(data.items.length, PAGE_SIZE)
-        })
-    },
-
     append_tracks(data) {
       let position = Math.max(
         -1,
@@ -174,15 +158,27 @@ export default {
       this.total = data.total
       this.offset += data.limit
     },
-
-    play() {
-      this.show_details_modal = false
-      webapi.player_play_uri(this.playlist.uri, true)
+    load_next({ loaded }) {
+      const spotifyApi = new SpotifyWebApi()
+      spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
+      spotifyApi
+        .getPlaylistTracks(this.playlist.id, {
+          limit: PAGE_SIZE,
+          market: store.state.spotify.webapi_country,
+          offset: this.offset
+        })
+        .then((data) => {
+          this.append_tracks(data)
+          loaded(data.items.length, PAGE_SIZE)
+        })
     },
-
     open_track_dialog(track) {
       this.selected_track = track
       this.show_track_details_modal = true
+    },
+    play() {
+      this.show_details_modal = false
+      webapi.player_play_uri(this.playlist.uri, true)
     }
   }
 }

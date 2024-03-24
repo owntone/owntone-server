@@ -10,7 +10,7 @@
         <list-item-album-spotify
           v-for="album in new_releases"
           :key="album.id"
-          :album="album"
+          :item="album"
           @click="open_album(album)"
         >
           <template v-if="is_visible_artwork" #artwork>
@@ -61,7 +61,7 @@
         <list-item-playlist-spotify
           v-for="playlist in featured_playlists"
           :key="playlist.id"
-          :playlist="playlist"
+          :item="playlist"
         >
           <template #actions>
             <a @click.prevent.stop="open_playlist_dialog(playlist)">
@@ -176,42 +176,37 @@ export default {
   },
 
   computed: {
-    new_releases() {
-      return this.$store.state.spotify_new_releases.slice(0, 3)
-    },
-
     featured_playlists() {
       return this.$store.state.spotify_featured_playlists.slice(0, 3)
     },
-
     is_visible_artwork() {
       return this.$store.getters.settings_option(
         'webinterface',
         'show_cover_artwork_in_album_lists'
       ).value
+    },
+    new_releases() {
+      return this.$store.state.spotify_new_releases.slice(0, 3)
     }
   },
 
   methods: {
+    artwork_url(album) {
+      return album.images?.[0]?.url || ''
+    },
     open_album(album) {
       this.$router.push({
         name: 'music-spotify-album',
         params: { id: album.id }
       })
     },
-
     open_album_dialog(album) {
       this.selected_album = album
       this.show_album_details_modal = true
     },
-
     open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true
-    },
-
-    artwork_url(album) {
-      return album.images?.[0]?.url || ''
     }
   }
 }

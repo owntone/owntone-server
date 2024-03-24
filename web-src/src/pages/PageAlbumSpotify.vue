@@ -42,7 +42,7 @@
         <list-item-track-spotify
           v-for="(track, index) in album.tracks.items"
           :key="track.id"
-          :track="track"
+          :item="track"
           :position="index"
           :context_uri="album.uri"
         >

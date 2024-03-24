@@ -1,8 +1,8 @@
 <template>
   <div class="media is-align-items-center">
     <div class="media-content is-clickable is-clipped" @click="open_playlist">
-      <h1 class="title is-6" v-text="playlist.name" />
-      <h2 class="subtitle is-7" v-text="playlist.owner.display_name" />
+      <h1 class="title is-6" v-text="item.name" />
+      <h2 class="subtitle is-7" v-text="item.owner.display_name" />
     </div>
     <div class="media-right">
       <slot name="actions" />
@@ -13,13 +13,13 @@
 <script>
 export default {
   name: 'ListItemPlaylistSpotify',
-  props: { playlist: { required: true, type: Object } },
+  props: { item: { required: true, type: Object } },
 
   methods: {
     open_playlist() {
       this.$router.push({
         name: 'playlist-spotify',
-        params: { id: this.playlist.id }
+        params: { id: this.item.id }
       })
     }
   }

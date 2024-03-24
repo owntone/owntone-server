@@ -1,7 +1,7 @@
 <template>
   <div class="media is-align-items-center">
     <div class="media-content is-clickable is-clipped" @click="open_artist">
-      <h1 class="title is-6" v-text="artist.name" />
+      <h1 class="title is-6" v-text="item.name" />
     </div>
     <div class="media-right">
       <slot name="actions" />
@@ -12,13 +12,13 @@
 <script>
 export default {
   name: 'ListItemArtistSpotify',
-  props: { artist: { required: true, type: Object } },
+  props: { item: { required: true, type: Object } },
 
   methods: {
     open_artist() {
       this.$router.push({
         name: 'music-spotify-artist',
-        params: { id: this.artist.id }
+        params: { id: this.item.id }
       })
     }
   }
