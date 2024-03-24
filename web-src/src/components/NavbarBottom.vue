@@ -255,8 +255,8 @@
 <script>
 import * as types from '@/store/mutation_types'
 import ControlSlider from '@/components/ControlSlider.vue'
-import NavbarItemLink from './NavbarItemLink.vue'
-import NavbarItemOutput from './NavbarItemOutput.vue'
+import NavbarItemLink from '@/components/NavbarItemLink.vue'
+import NavbarItemOutput from '@/components/NavbarItemOutput.vue'
 import PlayerButtonConsume from '@/components/PlayerButtonConsume.vue'
 import PlayerButtonLyrics from '@/components/PlayerButtonLyrics.vue'
 import PlayerButtonNext from '@/components/PlayerButtonNext.vue'

@@ -122,7 +122,7 @@
 
 <script>
 import * as types from '@/store/mutation_types'
-import NavbarItemLink from './NavbarItemLink.vue'
+import NavbarItemLink from '@/components/NavbarItemLink.vue'
 
 export default {
   name: 'NavbarTop',
