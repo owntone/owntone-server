@@ -11,14 +11,6 @@
           :key="album.id"
           :item="album"
         >
-          <template v-if="is_visible_artwork" #artwork>
-            <cover-artwork
-              :artwork_url="artwork_url(album)"
-              :artist="album.artist"
-              :album="album.name"
-              class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
-            />
-          </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
               <mdicon
@@ -42,7 +34,6 @@
 <script>
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
 import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -74,7 +65,6 @@ export default {
   name: 'PageMusicSpotifyNewReleases',
   components: {
     ContentWithHeading,
-    CoverArtwork,
     ListItemAlbumSpotify,
     ModalDialogAlbumSpotify,
     TabsMusic
@@ -101,21 +91,12 @@ export default {
   },
 
   computed: {
-    is_visible_artwork() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_cover_artwork_in_album_lists'
-      ).value
-    },
     new_releases() {
       return this.$store.state.spotify_new_releases
     }
   },
 
   methods: {
-    artwork_url(album) {
-      return album.images?.[0]?.url || ''
-    },
     open_album_dialog(album) {
       this.selected_album = album
       this.show_details_modal = true

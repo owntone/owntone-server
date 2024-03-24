@@ -170,14 +170,6 @@
           :key="album.id"
           :item="album"
         >
-          <template v-if="is_visible_artwork" #artwork>
-            <cover-artwork
-              :artwork_url="artwork_url(album)"
-              :artist="album.artist"
-              :album="album.name"
-              class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
-            />
-          </template>
           <template #actions>
             <a @click.prevent.stop="open_album_dialog(album)">
               <mdicon
@@ -295,7 +287,6 @@
 <script>
 import ContentText from '@/templates/ContentText.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
 import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
 import ListItemArtistSpotify from '@/components/ListItemArtistSpotify.vue'
 import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
@@ -316,7 +307,6 @@ export default {
   components: {
     ContentText,
     ContentWithHeading,
-    CoverArtwork,
     ListItemAlbumSpotify,
     ListItemArtistSpotify,
     ListItemPlaylistSpotify,
@@ -351,12 +341,6 @@ export default {
   },
 
   computed: {
-    is_visible_artwork() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_cover_artwork_in_album_lists'
-      ).value
-    },
     recent_searches() {
       return this.$store.state.recent_searches.filter(
         (search) => !search.startsWith('query:')
@@ -377,9 +361,6 @@ export default {
   },
 
   methods: {
-    artwork_url(album) {
-      return album.images?.[0]?.url || ''
-    },
     new_search() {
       if (!this.search_query) {
         return

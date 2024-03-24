@@ -28,14 +28,6 @@
           :key="album.id"
           :item="album"
         >
-          <template v-if="is_visible_artwork" #artwork>
-            <cover-artwork
-              :artwork_url="artwork_url(album)"
-              :artist="album.artist"
-              :album="album.name"
-              class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
-            />
-          </template>
           <template #actions>
             <a @click.prevent.stop="open_dialog(album)">
               <mdicon
@@ -73,7 +65,6 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
 import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
@@ -113,7 +104,6 @@ export default {
   name: 'PageArtistSpotify',
   components: {
     ContentWithHeading,
-    CoverArtwork,
     ListItemAlbumSpotify,
     ModalDialogAlbumSpotify,
     ModalDialogArtistSpotify,
@@ -145,26 +135,11 @@ export default {
     }
   },
 
-  computed: {
-    is_visible_artwork() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_cover_artwork_in_album_lists'
-      ).value
-    }
-  },
-
   methods: {
     append_albums(data) {
       this.albums = this.albums.concat(data.items)
       this.total = data.total
       this.offset += data.limit
-    },
-    artwork_url(album) {
-      if (album.images && album.images.length > 0) {
-        return album.images[0].url
-      }
-      return ''
     },
     load_next({ loaded }) {
       const spotifyApi = new SpotifyWebApi()

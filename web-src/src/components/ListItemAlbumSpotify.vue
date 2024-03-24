@@ -1,7 +1,12 @@
 <template>
   <div class="media is-align-items-center" @click="open_album">
-    <div v-if="$slots['artwork']" class="media-left is-clickable">
-      <slot name="artwork" />
+    <div v-if="show_artwork" class="media-left is-clickable">
+      <cover-artwork
+        :artwork_url="artwork_url"
+        :artist="item.artist"
+        :album="item.name"
+        class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
+      />
     </div>
     <div class="media-content is-clickable is-clipped">
       <h1 class="title is-6" v-text="item.name" />
@@ -21,9 +26,24 @@
 </template>
 
 <script>
+import CoverArtwork from '@/components/CoverArtwork.vue'
+
 export default {
   name: 'ListItemAlbumSpotify',
+  components: { CoverArtwork },
   props: { item: { required: true, type: Object } },
+
+  computed: {
+    artwork_url() {
+      return this.item.images?.[0]?.url ?? ''
+    },
+    show_artwork() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_cover_artwork_in_album_lists'
+      ).value
+    }
+  },
 
   methods: {
     open_album() {
