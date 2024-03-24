@@ -141,7 +141,6 @@ export default {
       offset: 0,
       selected_album: {},
       show_album_details_modal: false,
-
       show_details_modal: false,
       total: 0
     }
@@ -173,9 +172,9 @@ export default {
       spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
       spotifyApi
         .getArtistAlbums(this.artist.id, {
+          include_groups: 'album,single',
           limit: PAGE_SIZE,
-          offset: this.offset,
-          include_groups: 'album,single'
+          offset: this.offset
         })
         .then((data) => {
           this.append_albums(data)

@@ -58,12 +58,11 @@ export default {
   },
 
   computed: {
-    state() {
-      return this.$store.state.player
-    },
-
     is_next() {
       return this.current_position < 0 || this.position >= this.current_position
+    },
+    state() {
+      return this.$store.state.player
     }
   },
 

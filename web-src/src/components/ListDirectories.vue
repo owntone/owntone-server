@@ -52,8 +52,8 @@ export default {
 
   data() {
     return {
-      show_details_modal: false,
-      selected_directory: ''
+      selected_directory: '',
+      show_details_modal: false
     }
   },
 
@@ -67,6 +67,16 @@ export default {
   },
 
   methods: {
+    open_dialog(directory) {
+      this.selected_directory = directory.path
+      this.show_details_modal = true
+    },
+    open_directory(directory) {
+      this.$router.push({
+        name: 'files',
+        query: { directory: directory.path }
+      })
+    },
     open_parent_directory() {
       const parent = this.current_directory.slice(
         0,
@@ -88,18 +98,6 @@ export default {
           }
         })
       }
-    },
-
-    open_directory(directory) {
-      this.$router.push({
-        name: 'files',
-        query: { directory: directory.path }
-      })
-    },
-
-    open_dialog(directory) {
-      this.selected_directory = directory.path
-      this.show_details_modal = true
     }
   }
 }
