@@ -1,5 +1,5 @@
 <template>
-  <div class="media is-align-items-center" @click="open_album">
+  <div class="media is-align-items-center" @click="open">
     <div v-if="show_artwork" class="media-left is-clickable">
       <cover-artwork
         :artwork_url="artwork_url"
@@ -20,18 +20,34 @@
       />
     </div>
     <div class="media-right">
-      <slot name="actions" />
+      <a @click.prevent.stop="show_details_modal = true">
+        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+      </a>
     </div>
   </div>
+  <teleport to="#app">
+    <modal-dialog-album-spotify
+      :show="show_details_modal"
+      :album="item"
+      @close="show_details_modal = false"
+    />
+  </teleport>
 </template>
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
+import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 
 export default {
   name: 'ListItemAlbumSpotify',
-  components: { CoverArtwork },
+  components: { CoverArtwork, ModalDialogAlbumSpotify },
   props: { item: { required: true, type: Object } },
+
+  data() {
+    return {
+      show_details_modal: false
+    }
+  },
 
   computed: {
     artwork_url() {
@@ -46,7 +62,7 @@ export default {
   },
 
   methods: {
-    open_album() {
+    open() {
       this.$router.push({
         name: 'music-spotify-album',
         params: { id: this.item.id }

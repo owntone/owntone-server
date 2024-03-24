@@ -28,15 +28,6 @@
           :key="album.id"
           :item="album"
         >
-          <template #actions>
-            <a @click.prevent.stop="open_dialog(album)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
         </list-item-album-spotify>
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #loading>
@@ -53,11 +44,6 @@
           :artist="artist"
           @close="show_details_modal = false"
         />
-        <modal-dialog-album-spotify
-          :show="show_album_details_modal"
-          :album="selected_album"
-          @close="show_album_details_modal = false"
-        />
       </template>
     </content-with-heading>
   </div>
@@ -66,7 +52,6 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
-import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
@@ -92,7 +77,6 @@ const dataObject = {
 
   set(vm, response) {
     vm.artist = response[0]
-
     vm.albums = []
     vm.total = 0
     vm.offset = 0
@@ -105,7 +89,6 @@ export default {
   components: {
     ContentWithHeading,
     ListItemAlbumSpotify,
-    ModalDialogAlbumSpotify,
     ModalDialogArtistSpotify,
     VueEternalLoading
   },
@@ -128,8 +111,6 @@ export default {
       albums: [],
       artist: {},
       offset: 0,
-      selected_album: {},
-      show_album_details_modal: false,
       show_details_modal: false,
       total: 0
     }
@@ -154,10 +135,6 @@ export default {
           this.append_albums(data)
           loaded(data.items.length, PAGE_SIZE)
         })
-    },
-    open_dialog(album) {
-      this.selected_album = album
-      this.show_album_details_modal = true
     },
     play() {
       this.show_album_details_modal = false

@@ -21,11 +21,6 @@
             </a>
           </template>
         </list-item-album-spotify>
-        <modal-dialog-album-spotify
-          :show="show_details_modal"
-          :album="selected_album"
-          @close="show_details_modal = false"
-        />
       </template>
     </content-with-heading>
   </div>
@@ -35,7 +30,6 @@
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
-import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import store from '@/store'
@@ -66,7 +60,6 @@ export default {
   components: {
     ContentWithHeading,
     ListItemAlbumSpotify,
-    ModalDialogAlbumSpotify,
     TabsMusic
   },
 
@@ -83,23 +76,9 @@ export default {
     })
   },
 
-  data() {
-    return {
-      selected_album: {},
-      show_details_modal: false
-    }
-  },
-
   computed: {
     new_releases() {
       return this.$store.state.spotify_new_releases
-    }
-  },
-
-  methods: {
-    open_album_dialog(album) {
-      this.selected_album = album
-      this.show_details_modal = true
     }
   }
 }

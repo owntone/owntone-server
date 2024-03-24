@@ -12,21 +12,7 @@
           :key="album.id"
           :item="album"
         >
-          <template #actions>
-            <a @click.prevent.stop="open_album_dialog(album)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
         </list-item-album-spotify>
-        <modal-dialog-album-spotify
-          :show="show_album_details_modal"
-          :album="selected_album"
-          @close="show_album_details_modal = false"
-        />
       </template>
       <template #footer>
         <nav class="level">
@@ -136,7 +122,6 @@ export default {
     ContentWithHeading,
     ListItemAlbumSpotify,
     ListItemPlaylistSpotify,
-    ModalDialogAlbumSpotify,
     ModalDialogPlaylistSpotify,
     TabsMusic
   },
@@ -156,9 +141,7 @@ export default {
 
   data() {
     return {
-      selected_album: {},
       selected_playlist: {},
-      show_album_details_modal: false,
       show_playlist_details_modal: false
     }
   },
@@ -173,10 +156,6 @@ export default {
   },
 
   methods: {
-    open_album_dialog(album) {
-      this.selected_album = album
-      this.show_album_details_modal = true
-    },
     open_playlist_dialog(playlist) {
       this.selected_playlist = playlist
       this.show_playlist_details_modal = true

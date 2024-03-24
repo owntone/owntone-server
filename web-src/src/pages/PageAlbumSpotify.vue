@@ -130,24 +130,21 @@ export default {
 
   methods: {
     artwork_url(album) {
-      return album.images?.[0]?.url || ''
+      return album.images?.[0]?.url ?? ''
     },
-
     open_artist() {
       this.$router.push({
         name: 'music-spotify-artist',
         params: { id: this.album.artists[0].id }
       })
     },
-
-    play() {
-      this.show_details_modal = false
-      webapi.player_play_uri(this.album.uri, true)
-    },
-
     open_track_dialog(track) {
       this.selected_track = track
       this.show_track_details_modal = true
+    },
+    play() {
+      this.show_details_modal = false
+      webapi.player_play_uri(this.album.uri, true)
     }
   }
 }
