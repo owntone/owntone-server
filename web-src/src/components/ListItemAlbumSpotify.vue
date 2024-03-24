@@ -44,9 +44,7 @@ export default {
   props: { item: { required: true, type: Object } },
 
   data() {
-    return {
-      show_details_modal: false
-    }
+    return { show_details_modal: false }
   },
 
   computed: {
