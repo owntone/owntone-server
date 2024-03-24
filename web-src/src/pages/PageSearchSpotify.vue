@@ -109,15 +109,6 @@
           :key="artist.id"
           :item="artist"
         >
-          <template #actions>
-            <a @click.prevent.stop="open_artist_dialog(artist)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
         </list-item-artist-spotify>
         <VueEternalLoading
           v-if="query.type === 'artist'"
@@ -132,11 +123,6 @@
           </template>
           <template #no-more>&nbsp;</template>
         </VueEternalLoading>
-        <modal-dialog-artist-spotify
-          :show="show_artist_details_modal"
-          :artist="selected_artist"
-          @close="show_artist_details_modal = false"
-        />
       </template>
       <template #footer>
         <nav v-if="show_all_button(artists)" class="level">
@@ -263,7 +249,6 @@ import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
 import ListItemArtistSpotify from '@/components/ListItemArtistSpotify.vue'
 import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
 import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
-import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsSearch from '@/components/TabsSearch.vue'
@@ -281,7 +266,6 @@ export default {
     ListItemArtistSpotify,
     ListItemPlaylistSpotify,
     ListItemTrackSpotify,
-    ModalDialogArtistSpotify,
     ModalDialogTrackSpotify,
     TabsSearch,
     VueEternalLoading
@@ -295,9 +279,7 @@ export default {
       query: {},
       search_param: {},
       search_query: '',
-      selected_artist: {},
       selected_track: {},
-      show_artist_details_modal: false,
       show_track_details_modal: false,
       tracks: { items: [], total: 0 },
       validSearchTypes: ['track', 'artist', 'album', 'playlist']
@@ -339,10 +321,6 @@ export default {
         }
       })
       this.$refs.search_field.blur()
-    },
-    open_artist_dialog(artist) {
-      this.selected_artist = artist
-      this.show_artist_details_modal = true
     },
     open_recent_search(query) {
       this.search_query = query

@@ -4,16 +4,31 @@
       <h1 class="title is-6" v-text="item.name" />
     </div>
     <div class="media-right">
-      <slot name="actions" />
+      <a @click.prevent.stop="show_details_modal = true">
+        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+      </a>
     </div>
   </div>
+  <teleport to="#app">
+    <modal-dialog-artist-spotify
+      :show="show_details_modal"
+      :artist="item"
+      @close="show_details_modal = false"
+    />
+  </teleport>
 </template>
 
 <script>
+import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
+
 export default {
   name: 'ListItemArtistSpotify',
+  components: { ModalDialogArtistSpotify },
   props: { item: { required: true, type: Object } },
 
+  data() {
+    return { show_details_modal: false }
+  },
   methods: {
     open_artist() {
       this.$router.push({
