@@ -95,7 +95,6 @@ const dataObject = {
   },
 
   set(vm, response) {
-    console.log(response[0])
     vm.playlist = response[0]
     vm.tracks = []
     vm.total = 0
