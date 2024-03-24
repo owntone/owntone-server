@@ -41,21 +41,19 @@ export default {
   props: { query: { default: '', type: String } },
 
   computed: {
+    route_query() {
+      if (this.query) {
+        return {
+          limit: 3,
+          offset: 0,
+          query: this.query,
+          type: 'track,artist,album,composer,playlist,audiobook,podcast'
+        }
+      }
+      return null
+    },
     spotify_enabled() {
       return this.$store.state.spotify.webapi_token_valid
-    },
-
-    route_query() {
-      if (!this.query) {
-        return null
-      }
-
-      return {
-        type: 'track,artist,album,playlist,audiobook,podcast',
-        query: this.query,
-        limit: 3,
-        offset: 0
-      }
     }
   },
 
