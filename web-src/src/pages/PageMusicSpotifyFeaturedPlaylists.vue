@@ -13,8 +13,7 @@
           v-for="playlist in featured_playlists"
           :key="playlist.id"
           :item="playlist"
-        >
-        </list-item-playlist-spotify>
+        />
       </template>
     </content-with-heading>
   </div>

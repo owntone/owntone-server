@@ -11,8 +11,7 @@
           v-for="album in new_releases"
           :key="album.id"
           :item="album"
-        >
-        </list-item-album-spotify>
+        />
       </template>
       <template #footer>
         <nav class="level">
@@ -39,8 +38,7 @@
           v-for="playlist in featured_playlists"
           :key="playlist.id"
           :item="playlist"
-        >
-        </list-item-playlist-spotify>
+        />
       </template>
       <template #footer>
         <nav class="level">
