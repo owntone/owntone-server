@@ -1,5 +1,5 @@
 <template>
-  <div class="media is-align-items-center">
+  <div class="media is-align-items-center" @click="open_album">
     <div v-if="$slots['artwork']" class="media-left is-clickable">
       <slot name="artwork" />
     </div>
@@ -23,7 +23,16 @@
 <script>
 export default {
   name: 'ListItemAlbumSpotify',
-  props: { item: { required: true, type: Object } }
+  props: { item: { required: true, type: Object } },
+
+  methods: {
+    open_album() {
+      this.$router.push({
+        name: 'music-spotify-album',
+        params: { id: this.item.id }
+      })
+    }
+  }
 }
 </script>
 

@@ -11,7 +11,6 @@
           v-for="album in new_releases"
           :key="album.id"
           :item="album"
-          @click="open_album(album)"
         >
           <template v-if="is_visible_artwork" #artwork>
             <cover-artwork
@@ -167,11 +166,10 @@ export default {
 
   data() {
     return {
-      show_album_details_modal: false,
       selected_album: {},
-
-      show_playlist_details_modal: false,
-      selected_playlist: {}
+      selected_playlist: {},
+      show_album_details_modal: false,
+      show_playlist_details_modal: false
     }
   },
 
@@ -193,12 +191,6 @@ export default {
   methods: {
     artwork_url(album) {
       return album.images?.[0]?.url || ''
-    },
-    open_album(album) {
-      this.$router.push({
-        name: 'music-spotify-album',
-        params: { id: album.id }
-      })
     },
     open_album_dialog(album) {
       this.selected_album = album

@@ -169,7 +169,6 @@
           v-for="album in albums.items"
           :key="album.id"
           :item="album"
-          @click="open_album(album)"
         >
           <template v-if="is_visible_artwork" #artwork>
             <cover-artwork
@@ -395,12 +394,6 @@ export default {
         }
       })
       this.$refs.search_field.blur()
-    },
-    open_album(album) {
-      this.$router.push({
-        name: 'music-spotify-album',
-        params: { id: album.id }
-      })
     },
     open_album_dialog(album) {
       this.selected_album = album
