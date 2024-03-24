@@ -40,21 +40,7 @@
           :key="playlist.id"
           :item="playlist"
         >
-          <template #actions>
-            <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
         </list-item-playlist-spotify>
-        <modal-dialog-playlist-spotify
-          :show="show_playlist_details_modal"
-          :playlist="selected_playlist"
-          @close="show_playlist_details_modal = false"
-        />
       </template>
       <template #footer>
         <nav class="level">
@@ -76,8 +62,6 @@ import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
 import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
-import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
-import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import store from '@/store'
@@ -122,7 +106,6 @@ export default {
     ContentWithHeading,
     ListItemAlbumSpotify,
     ListItemPlaylistSpotify,
-    ModalDialogPlaylistSpotify,
     TabsMusic
   },
 
@@ -139,26 +122,12 @@ export default {
     })
   },
 
-  data() {
-    return {
-      selected_playlist: {},
-      show_playlist_details_modal: false
-    }
-  },
-
   computed: {
     featured_playlists() {
       return this.$store.state.spotify_featured_playlists.slice(0, 3)
     },
     new_releases() {
       return this.$store.state.spotify_new_releases.slice(0, 3)
-    }
-  },
-
-  methods: {
-    open_playlist_dialog(playlist) {
-      this.selected_playlist = playlist
-      this.show_playlist_details_modal = true
     }
   }
 }

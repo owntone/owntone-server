@@ -14,21 +14,7 @@
           :key="playlist.id"
           :item="playlist"
         >
-          <template #actions>
-            <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
         </list-item-playlist-spotify>
-        <modal-dialog-playlist-spotify
-          :show="show_details_modal"
-          :playlist="selected_playlist"
-          @close="show_details_modal = false"
-        />
       </template>
     </content-with-heading>
   </div>
@@ -38,7 +24,6 @@
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
-import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import store from '@/store'
@@ -69,7 +54,6 @@ export default {
   components: {
     ContentWithHeading,
     ListItemPlaylistSpotify,
-    ModalDialogPlaylistSpotify,
     TabsMusic
   },
 
@@ -86,23 +70,9 @@ export default {
     })
   },
 
-  data() {
-    return {
-      selected_playlist: {},
-      show_details_modal: false
-    }
-  },
-
   computed: {
     featured_playlists() {
       return this.$store.state.spotify_featured_playlists
-    }
-  },
-
-  methods: {
-    open_playlist_dialog(playlist) {
-      this.selected_playlist = playlist
-      this.show_details_modal = true
     }
   }
 }

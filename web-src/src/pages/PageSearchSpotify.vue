@@ -217,15 +217,6 @@
           :key="playlist.id"
           :item="playlist"
         >
-          <template #actions>
-            <a @click.prevent.stop="open_playlist_dialog(playlist)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
         </list-item-playlist-spotify>
         <VueEternalLoading
           v-if="query.type === 'playlist'"
@@ -240,11 +231,6 @@
           </template>
           <template #no-more>&nbsp;</template>
         </VueEternalLoading>
-        <modal-dialog-playlist-spotify
-          :show="show_playlist_details_modal"
-          :playlist="selected_playlist"
-          @close="show_playlist_details_modal = false"
-        />
       </template>
       <template #footer>
         <nav v-if="show_all_button(playlists)" class="level">
@@ -278,7 +264,6 @@ import ListItemArtistSpotify from '@/components/ListItemArtistSpotify.vue'
 import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
 import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
-import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsSearch from '@/components/TabsSearch.vue'
@@ -297,7 +282,6 @@ export default {
     ListItemPlaylistSpotify,
     ListItemTrackSpotify,
     ModalDialogArtistSpotify,
-    ModalDialogPlaylistSpotify,
     ModalDialogTrackSpotify,
     TabsSearch,
     VueEternalLoading
@@ -312,10 +296,8 @@ export default {
       search_param: {},
       search_query: '',
       selected_artist: {},
-      selected_playlist: {},
       selected_track: {},
       show_artist_details_modal: false,
-      show_playlist_details_modal: false,
       show_track_details_modal: false,
       tracks: { items: [], total: 0 },
       validSearchTypes: ['track', 'artist', 'album', 'playlist']
@@ -361,10 +343,6 @@ export default {
     open_artist_dialog(artist) {
       this.selected_artist = artist
       this.show_artist_details_modal = true
-    },
-    open_playlist_dialog(playlist) {
-      this.selected_playlist = playlist
-      this.show_playlist_details_modal = true
     },
     open_recent_search(query) {
       this.search_query = query
