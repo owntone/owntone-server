@@ -44,8 +44,6 @@
           v-for="track in tracks.items"
           :key="track.id"
           :item="track"
-          :position="0"
-          :context_uri="track.uri"
         />
         <VueEternalLoading v-if="query.type === 'track'" :load="search_next">
           <template #loading>

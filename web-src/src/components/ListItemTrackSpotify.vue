@@ -57,9 +57,9 @@ export default {
   name: 'ListItemTrackSpotify',
   components: { ModalDialogTrackSpotify },
   props: {
-    context_uri: { required: true, type: String },
+    context_uri: { default: '', type: String },
     item: { required: true, type: Object },
-    position: { required: true, type: Number }
+    position: { default: 0, type: Number }
   },
   data() {
     return { show_details_modal: false }
@@ -67,7 +67,11 @@ export default {
   methods: {
     play() {
       if (this.item.is_playable) {
-        webapi.player_play_uri(this.context_uri, false, this.position)
+        webapi.player_play_uri(
+          this.context_uri || this.item.uri,
+          false,
+          this.position
+        )
       }
     }
   }
