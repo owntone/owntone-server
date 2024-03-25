@@ -38,12 +38,7 @@
         <p class="title is-4" v-text="$t(`page.spotify.search.${type}s`)" />
       </template>
       <template #content>
-        <component
-          :is="components[type]"
-          v-for="item in results[type].items"
-          :key="item.id"
-          :item="item"
-        />
+        <component :is="components[type]" :items="results[type].items" />
         <VueEternalLoading v-if="query.type === type" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
@@ -62,13 +57,9 @@
               class="button is-light is-small is-rounded"
               @click="open_search(type)"
               v-text="
-                $t(
-                  `page.spotify.search.show-${type}s`,
-                  results[type].total,
-                  {
-                    count: $filters.number(results[type].total)
-                  }
-                )
+                $t(`page.spotify.search.show-${type}s`, results[type].total, {
+                  count: $filters.number(results[type].total)
+                })
               "
             />
           </p>
@@ -206,8 +197,8 @@ export default {
     search_next({ loaded }) {
       const items = this.results[this.query.type]
       this.spotify_search([this.query.type]).then((data) => {
-        const next = Object.values(data)[0]
-        items.items = items.items.concat(next.items)
+        const [next] = Object.values(data)
+        items.items.push(...next.items)
         items.total = next.total
         this.search_param.offset += next.limit
         loaded(next.items.length, PAGE_SIZE)

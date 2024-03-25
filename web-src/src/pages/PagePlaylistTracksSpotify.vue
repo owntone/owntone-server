@@ -25,13 +25,7 @@
             $t('page.spotify.playlist.count', { count: playlist.tracks.total })
           "
         />
-        <list-item-track-spotify
-          v-for="track in tracks"
-          :key="track.id"
-          :item="track"
-          :position="track.position"
-          :context_uri="playlist.uri"
-        />
+        <list-item-track-spotify :items="tracks" :context_uri="playlist.uri" />
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #loading>
             <div class="columns is-centered">

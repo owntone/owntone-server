@@ -39,13 +39,7 @@
             $t('page.spotify.album.track-count', { count: album.tracks.total })
           "
         />
-        <list-item-track-spotify
-          v-for="(track, index) in tracks"
-          :key="track.id"
-          :item="track"
-          :position="index"
-          :context_uri="album.uri"
-        />
+        <list-item-track-spotify :items="tracks" :context_uri="album.uri" />
         <modal-dialog-album-spotify
           :show="show_details_modal"
           :album="album"

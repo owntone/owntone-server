@@ -7,11 +7,7 @@
         <p class="title is-4" v-text="$t('page.spotify.music.new-releases')" />
       </template>
       <template #content>
-        <list-item-album-spotify
-          v-for="album in new_releases"
-          :key="album.id"
-          :item="album"
-        />
+        <list-item-album-spotify :items="new_releases" />
       </template>
       <template #footer>
         <nav class="level">
@@ -34,11 +30,7 @@
         />
       </template>
       <template #content>
-        <list-item-playlist-spotify
-          v-for="playlist in featured_playlists"
-          :key="playlist.id"
-          :item="playlist"
-        />
+        <list-item-playlist-spotify :items="featured_playlists" />
       </template>
       <template #footer>
         <nav class="level">

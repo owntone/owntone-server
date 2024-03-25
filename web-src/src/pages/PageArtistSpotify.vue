@@ -23,11 +23,7 @@
           class="heading has-text-centered-mobile"
           v-text="$t('page.spotify.artist.album-count', { count: total })"
         />
-        <list-item-album-spotify
-          v-for="album in albums"
-          :key="album.id"
-          :item="album"
-        />
+        <list-item-album-spotify :items="albums" />
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #loading>
             <div class="columns is-centered">

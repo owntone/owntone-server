@@ -9,11 +9,7 @@
         />
       </template>
       <template #content>
-        <list-item-playlist-spotify
-          v-for="playlist in featured_playlists"
-          :key="playlist.id"
-          :item="playlist"
-        />
+        <list-item-playlist-spotify :items="featured_playlists" />
       </template>
     </content-with-heading>
   </div>

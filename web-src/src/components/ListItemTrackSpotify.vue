@@ -1,49 +1,51 @@
 <template>
-  <div class="media is-align-items-center">
-    <div
-      class="media-content is-clipped"
-      :class="{
-        'is-clickable': item.is_playable,
-        'fd-is-not-allowed': !item.is_playable
-      }"
-      @click="play"
-    >
-      <h1
-        class="title is-6"
-        :class="{ 'has-text-grey-light': !item.is_playable }"
-        v-text="item.name"
-      />
-      <h2
-        class="subtitle is-7 has-text-weight-bold"
+  <template v-for="item in items" :key="item.id">
+    <div class="media is-align-items-center">
+      <div
+        class="media-content is-clipped"
         :class="{
-          'has-text-grey': item.is_playable,
-          'has-text-grey-light': !item.is_playable
+          'is-clickable': item.is_playable,
+          'fd-is-not-allowed': !item.is_playable
         }"
-        v-text="item.artists[0].name"
-      />
-      <h2 class="subtitle is-7 has-text-grey" v-text="item.album.name" />
-      <h2 v-if="!item.is_playable" class="subtitle is-7">
-        (<span v-text="$t('list.spotify.not-playable-track')" />
-        <span
-          v-if="item.restrictions && item.restrictions.reason"
-          v-text="
-            $t('list.spotify.restriction-reason', {
-              reason: item.restrictions.reason
-            })
-          "
-        />)
-      </h2>
+        @click="play(item)"
+      >
+        <h1
+          class="title is-6"
+          :class="{ 'has-text-grey-light': !item.is_playable }"
+          v-text="item.name"
+        />
+        <h2
+          class="subtitle is-7 has-text-weight-bold"
+          :class="{
+            'has-text-grey': item.is_playable,
+            'has-text-grey-light': !item.is_playable
+          }"
+          v-text="item.artists[0].name"
+        />
+        <h2 class="subtitle is-7 has-text-grey" v-text="item.album.name" />
+        <h2 v-if="!item.is_playable" class="subtitle is-7">
+          (<span v-text="$t('list.spotify.not-playable-track')" />
+          <span
+            v-if="item.restrictions && item.restrictions.reason"
+            v-text="
+              $t('list.spotify.restriction-reason', {
+                reason: item.restrictions.reason
+              })
+            "
+          />)
+        </h2>
+      </div>
+      <div class="media-right">
+        <a @click.prevent.stop="open_dialog(item)">
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+        </a>
+      </div>
     </div>
-    <div class="media-right">
-      <a @click.prevent.stop="show_details_modal = true">
-        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
-      </a>
-    </div>
-  </div>
+  </template>
   <teleport to="#app">
     <modal-dialog-track-spotify
       :show="show_details_modal"
-      :track="item"
+      :track="selected_item"
       @close="show_details_modal = false"
     />
   </teleport>
@@ -58,19 +60,22 @@ export default {
   components: { ModalDialogTrackSpotify },
   props: {
     context_uri: { default: '', type: String },
-    item: { required: true, type: Object },
-    position: { default: 0, type: Number }
+    items: { required: true, type: Object }
   },
   data() {
-    return { show_details_modal: false }
+    return { selected_item: {}, show_details_modal: false }
   },
   methods: {
-    play() {
-      if (this.item.is_playable) {
+    open_dialog(item) {
+      this.selected_item = item
+      this.show_details_modal = true
+    },
+    play(item) {
+      if (item.is_playable) {
         webapi.player_play_uri(
-          this.context_uri || this.item.uri,
+          this.context_uri || item.uri,
           false,
-          this.position
+          item.position || 0
         )
       }
     }
