@@ -69,7 +69,7 @@
           </p>
         </nav>
         <p v-if="!results[type].total" class="has-text-centered-mobile">
-          <i v-text="$t('page.search.no-tracks')" />
+          <i v-text="$t('page.search.no-results')" />
         </p>
       </template>
     </content-with-heading>

@@ -63,7 +63,7 @@
               @click="open_search(type)"
               v-text="
                 $t(
-                  `page.spotify.search.show-all-${type}s`,
+                  `page.spotify.search.show-${type}s`,
                   results[type].total,
                   {
                     count: $filters.number(results[type].total)
@@ -74,7 +74,7 @@
           </p>
         </nav>
         <p v-if="!results[type].total" class="has-text-centered-mobile">
-          <i v-text="$t(`page.spotify.search.no-${type}s`)" />
+          <i v-text="$t(`page.spotify.search.no-results`)" />
         </p>
       </template>
     </content-with-heading>
@@ -170,10 +170,7 @@ export default {
     open_search(type) {
       this.$router.push({
         name: 'search-spotify',
-        query: {
-          query: this.$route.query.query,
-          type
-        }
+        query: { query: this.$route.query.query, type }
       })
     },
     reset() {
