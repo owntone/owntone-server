@@ -1,51 +1,50 @@
 <template>
-  <div>
-    <!-- Search field + recent searches -->
-    <section class="section pb-0">
-      <div class="container">
-        <div class="columns is-centered">
-          <div class="column is-four-fifths">
-            <form @submit.prevent="new_search">
-              <div class="field">
-                <p class="control has-icons-left">
-                  <input
-                    ref="search_field"
-                    v-model="search_query"
-                    class="input is-rounded is-shadowless"
-                    type="text"
-                    :placeholder="$t('page.spotify.search.placeholder')"
-                    autocomplete="off"
-                  />
-                  <mdicon class="icon is-left" name="magnify" size="16" />
-                </p>
-              </div>
-            </form>
-            <div class="tags mt-4">
-              <a
-                v-for="recent_search in recent_searches"
-                :key="recent_search"
-                class="tag"
-                @click="open_recent_search(recent_search)"
-                v-text="recent_search"
-              />
+  <section class="section pb-0">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <form @submit.prevent="new_search">
+            <div class="field">
+              <p class="control has-icons-left">
+                <input
+                  ref="search_field"
+                  v-model="search_query"
+                  class="input is-rounded is-shadowless"
+                  type="text"
+                  :placeholder="$t('page.spotify.search.placeholder')"
+                  autocomplete="off"
+                />
+                <mdicon class="icon is-left" name="magnify" size="16" />
+              </p>
             </div>
+          </form>
+          <div class="tags mt-4">
+            <a
+              v-for="recent_search in recent_searches"
+              :key="recent_search"
+              class="tag"
+              @click="open_recent_search(recent_search)"
+              v-text="recent_search"
+            />
           </div>
         </div>
       </div>
-    </section>
-    <tabs-search :query="search_query" />
-    <!-- Tracks -->
-    <content-with-heading v-if="show('track') && tracks.total" class="pt-0">
+    </div>
+  </section>
+  <tabs-search :query="search_query" />
+  <template v-for="type in validSearchTypes" :key="type">
+    <content-with-heading v-if="show(type)" class="pt-0">
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.spotify.search.tracks')" />
+        <p class="title is-4" v-text="$t(`page.spotify.search.${type}s`)" />
       </template>
       <template #content>
-        <list-item-track-spotify
-          v-for="track in tracks.items"
-          :key="track.id"
-          :item="track"
+        <component
+          :is="components[type]"
+          v-for="item in results[type].items"
+          :key="item.id"
+          :item="item"
         />
-        <VueEternalLoading v-if="query.type === 'track'" :load="search_next">
+        <VueEternalLoading v-if="query.type === type" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -57,160 +56,32 @@
         </VueEternalLoading>
       </template>
       <template #footer>
-        <nav v-if="show_all_button(tracks)" class="level">
+        <nav v-if="show_all_button(type)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search('track')"
+              @click="open_search(type)"
               v-text="
-                $t('page.spotify.search.show-all-tracks', tracks.total, {
-                  count: $filters.number(tracks.total)
-                })
+                $t(
+                  `page.spotify.search.show-all-${type}s`,
+                  results[type].total,
+                  {
+                    count: $filters.number(results[type].total)
+                  }
+                )
               "
             />
           </p>
         </nav>
+        <p v-if="!results[type].total" class="has-text-centered-mobile">
+          <i v-text="$t(`page.spotify.search.no-${type}s`)" />
+        </p>
       </template>
     </content-with-heading>
-    <content-text v-if="show('track') && !tracks.total" class="pt-0">
-      <template #content>
-        <p><i v-text="$t('page.spotify.search.no-tracks')" /></p>
-      </template>
-    </content-text>
-    <!-- Artists -->
-    <content-with-heading v-if="show('artist') && artists.total">
-      <template #heading-left>
-        <p class="title is-4" v-text="$t('page.spotify.search.artists')" />
-      </template>
-      <template #content>
-        <list-item-artist-spotify
-          v-for="artist in artists.items"
-          :key="artist.id"
-          :item="artist"
-        />
-        <VueEternalLoading v-if="query.type === 'artist'" :load="search_next">
-          <template #loading>
-            <div class="columns is-centered">
-              <div class="column has-text-centered">
-                <mdicon class="icon mdi-spin" name="loading" />
-              </div>
-            </div>
-          </template>
-          <template #no-more>&nbsp;</template>
-        </VueEternalLoading>
-      </template>
-      <template #footer>
-        <nav v-if="show_all_button(artists)" class="level">
-          <p class="level-item">
-            <a
-              class="button is-light is-small is-rounded"
-              @click="open_search('artist')"
-              v-text="
-                $t('page.spotify.search.show-all-artists', artists.total, {
-                  count: $filters.number(artists.total)
-                })
-              "
-            />
-          </p>
-        </nav>
-      </template>
-    </content-with-heading>
-    <content-text v-if="show('artist') && !artists.total">
-      <template #content>
-        <p><i v-text="$t('page.spotify.search.no-artists')" /></p>
-      </template>
-    </content-text>
-    <!-- Albums -->
-    <content-with-heading v-if="show('album') && albums.total">
-      <template #heading-left>
-        <p class="title is-4" v-text="$t('page.spotify.search.albums')" />
-      </template>
-      <template #content>
-        <list-item-album-spotify
-          v-for="album in albums.items"
-          :key="album.id"
-          :item="album"
-        />
-        <VueEternalLoading v-if="query.type === 'album'" :load="search_next">
-          <template #loading>
-            <div class="columns is-centered">
-              <div class="column has-text-centered">
-                <mdicon class="icon mdi-spin" name="loading" />
-              </div>
-            </div>
-          </template>
-          <template #no-more>&nbsp;</template>
-        </VueEternalLoading>
-      </template>
-      <template #footer>
-        <nav v-if="show_all_button(albums)" class="level">
-          <p class="level-item">
-            <a
-              class="button is-light is-small is-rounded"
-              @click="open_search('album')"
-              v-text="
-                $t('page.spotify.search.show-all-albums', albums.total, {
-                  count: $filters.number(albums.total)
-                })
-              "
-            />
-          </p>
-        </nav>
-      </template>
-    </content-with-heading>
-    <content-text v-if="show('album') && !albums.total">
-      <template #content>
-        <p><i v-text="$t('page.spotify.search.no-albums')" /></p>
-      </template>
-    </content-text>
-    <!-- Playlists -->
-    <content-with-heading v-if="show('playlist') && playlists.total">
-      <template #heading-left>
-        <p class="title is-4" v-text="$t('page.spotify.search.playlists')" />
-      </template>
-      <template #content>
-        <list-item-playlist-spotify
-          v-for="playlist in playlists.items"
-          :key="playlist.id"
-          :item="playlist"
-        />
-        <VueEternalLoading v-if="query.type === 'playlist'" :load="search_next">
-          <template #loading>
-            <div class="columns is-centered">
-              <div class="column has-text-centered">
-                <mdicon class="icon mdi-spin" name="loading" />
-              </div>
-            </div>
-          </template>
-          <template #no-more>&nbsp;</template>
-        </VueEternalLoading>
-      </template>
-      <template #footer>
-        <nav v-if="show_all_button(playlists)" class="level">
-          <p class="level-item">
-            <a
-              class="button is-light is-small is-rounded"
-              @click="open_search('playlist')"
-              v-text="
-                $t('page.spotify.search.show-all-playlists', playlists.total, {
-                  count: $filters.number(playlists.total)
-                })
-              "
-            />
-          </p>
-        </nav>
-      </template>
-    </content-with-heading>
-    <content-text v-if="show('playlist') && !playlists.total">
-      <template #content>
-        <p><i v-text="$t('page.spotify.search.no-playlists')" /></p>
-      </template>
-    </content-text>
-  </div>
+  </template>
 </template>
 
 <script>
-import ContentText from '@/templates/ContentText.vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
 import ListItemArtistSpotify from '@/components/ListItemArtistSpotify.vue'
@@ -226,7 +97,6 @@ const PAGE_SIZE = 50
 export default {
   name: 'PageSearchSpotify',
   components: {
-    ContentText,
     ContentWithHeading,
     ListItemAlbumSpotify,
     ListItemArtistSpotify,
@@ -238,13 +108,21 @@ export default {
 
   data() {
     return {
-      albums: { items: [], total: 0 },
-      artists: { items: [], total: 0 },
-      playlists: { items: [], total: 0 },
+      components: {
+        album: ListItemAlbumSpotify.name,
+        artist: ListItemArtistSpotify.name,
+        playlist: ListItemPlaylistSpotify.name,
+        track: ListItemTrackSpotify.name
+      },
       query: {},
+      results: {
+        album: { items: [], total: 0 },
+        artist: { items: [], total: 0 },
+        playlist: { items: [], total: 0 },
+        track: { items: [], total: 0 }
+      },
       search_param: {},
       search_query: '',
-      tracks: { items: [], total: 0 },
       validSearchTypes: ['track', 'artist', 'album', 'playlist']
     }
   },
@@ -299,10 +177,9 @@ export default {
       })
     },
     reset() {
-      this.tracks = { items: [], total: 0 }
-      this.artists = { items: [], total: 0 }
-      this.albums = { items: [], total: 0 }
-      this.playlists = { items: [], total: 0 }
+      Object.entries(this.results).forEach(
+        (key) => (this.results[key] = { items: [], total: 0 })
+      )
     },
     search() {
       this.reset()
@@ -319,38 +196,39 @@ export default {
       this.search_all()
     },
     search_all() {
-      this.spotify_search().then((data) => {
-        this.tracks = data.tracks ?? { items: [], total: 0 }
-        this.artists = data.artists ?? { items: [], total: 0 }
-        this.albums = data.albums ?? { items: [], total: 0 }
-        this.playlists = data.playlists ?? { items: [], total: 0 }
+      const types = this.query.type
+        .split(',')
+        .filter((type) => this.validSearchTypes.includes(type))
+      this.spotify_search(types).then((data) => {
+        this.results.track = data.tracks ?? { items: [], total: 0 }
+        this.results.artist = data.artists ?? { items: [], total: 0 }
+        this.results.album = data.albums ?? { items: [], total: 0 }
+        this.results.playlist = data.playlists ?? { items: [], total: 0 }
       })
     },
-    search_next(obj) {
-      const items = this[`${this.query.type}s`]
-      this.spotify_search().then((data) => {
-        const newItems = data[`${this.query.type}s`]
-        items.items = items.items.concat(newItems.items)
-        items.total = newItems.total
-        this.search_param.offset += newItems.limit
-        obj.loaded(newItems.items.length, PAGE_SIZE)
+    search_next({ loaded }) {
+      const items = this.results[this.query.type]
+      this.spotify_search([this.query.type]).then((data) => {
+        const next = Object.values(data)[0]
+        items.items = items.items.concat(next.items)
+        items.total = next.total
+        this.search_param.offset += next.limit
+        loaded(next.items.length, PAGE_SIZE)
       })
     },
     show(type) {
       return this.$route.query.type?.includes(type) ?? false
     },
-    show_all_button(items) {
+    show_all_button(type) {
+      const items = this.results[type]
       return items.total > items.items.length
     },
-    spotify_search() {
+    spotify_search(types) {
       return webapi.spotify().then(({ data }) => {
         this.search_param.market = data.webapi_country
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(data.webapi_token)
-        const types = this.query.type
-          .split(',')
-          .filter((type) => this.validSearchTypes.includes(type))
-        return spotifyApi.search(this.query.query, types, this.search_param)
+        const api = new SpotifyWebApi()
+        api.setAccessToken(data.webapi_token)
+        return api.search(this.query.query, types, this.search_param)
       })
     }
   }
