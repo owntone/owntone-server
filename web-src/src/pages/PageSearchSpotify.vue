@@ -47,10 +47,7 @@
           :position="0"
           :context_uri="track.uri"
         />
-        <VueEternalLoading
-          v-if="query.type === 'track'"
-          :load="search_tracks_next"
-        >
+        <VueEternalLoading v-if="query.type === 'track'" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -93,10 +90,7 @@
           :key="artist.id"
           :item="artist"
         />
-        <VueEternalLoading
-          v-if="query.type === 'artist'"
-          :load="search_artists_next"
-        >
+        <VueEternalLoading v-if="query.type === 'artist'" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -139,10 +133,7 @@
           :key="album.id"
           :item="album"
         />
-        <VueEternalLoading
-          v-if="query.type === 'album'"
-          :load="search_albums_next"
-        >
+        <VueEternalLoading v-if="query.type === 'album'" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -185,10 +176,7 @@
           :key="playlist.id"
           :item="playlist"
         />
-        <VueEternalLoading
-          v-if="query.type === 'playlist'"
-          :load="search_playlists_next"
-        >
+        <VueEternalLoading v-if="query.type === 'playlist'" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -332,14 +320,6 @@ export default {
       this.$store.dispatch('add_recent_search', this.query.query)
       this.search_all()
     },
-    search_albums_next({ loaded }) {
-      this.spotify_search().then((data) => {
-        this.albums.items = this.albums.items.concat(data.albums.items)
-        this.albums.total = data.albums.total
-        this.search_param.offset += data.albums.limit
-        loaded(data.albums.items.length, PAGE_SIZE)
-      })
-    },
     search_all() {
       this.spotify_search().then((data) => {
         this.tracks = data.tracks ?? { items: [], total: 0 }
@@ -348,28 +328,14 @@ export default {
         this.playlists = data.playlists ?? { items: [], total: 0 }
       })
     },
-    search_artists_next({ loaded }) {
+    search_next(obj) {
+      const items = this[`${this.query.type}s`]
       this.spotify_search().then((data) => {
-        this.artists.items = this.artists.items.concat(data.artists.items)
-        this.artists.total = data.artists.total
-        this.search_param.offset += data.artists.limit
-        loaded(data.artists.items.length, PAGE_SIZE)
-      })
-    },
-    search_playlists_next({ loaded }) {
-      this.spotify_search().then((data) => {
-        this.playlists.items = this.playlists.items.concat(data.playlists.items)
-        this.playlists.total = data.playlists.total
-        this.search_param.offset += data.playlists.limit
-        loaded(data.playlists.items.length, PAGE_SIZE)
-      })
-    },
-    search_tracks_next({ loaded }) {
-      this.spotify_search().then((data) => {
-        this.tracks.items = this.tracks.items.concat(data.tracks.items)
-        this.tracks.total = data.tracks.total
-        this.search_param.offset += data.tracks.limit
-        loaded(data.tracks.items.length, PAGE_SIZE)
+        const newItems = data[`${this.query.type}s`]
+        items.items = items.items.concat(newItems.items)
+        items.total = newItems.total
+        this.search_param.offset += newItems.limit
+        obj.loaded(newItems.items.length, PAGE_SIZE)
       })
     },
     show(type) {
