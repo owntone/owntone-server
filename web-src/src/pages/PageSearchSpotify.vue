@@ -32,7 +32,7 @@
     </div>
   </section>
   <tabs-search :query="search_query" />
-  <template v-for="type in validSearchTypes" :key="type">
+  <template v-for="type in search_types" :key="type">
     <content-with-heading v-if="show(type)" class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t(`page.spotify.search.${type}s`)" />
@@ -123,7 +123,7 @@ export default {
       },
       search_param: {},
       search_query: '',
-      validSearchTypes: ['track', 'artist', 'album', 'playlist']
+      search_types: ['track', 'artist', 'album', 'playlist']
     }
   },
 
@@ -198,7 +198,7 @@ export default {
     search_all() {
       const types = this.query.type
         .split(',')
-        .filter((type) => this.validSearchTypes.includes(type))
+        .filter((type) => this.search_types.includes(type))
       this.spotify_search(types).then((data) => {
         this.results.track = data.tracks ?? { items: [], total: 0 }
         this.results.artist = data.artists ?? { items: [], total: 0 }
