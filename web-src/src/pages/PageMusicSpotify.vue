@@ -7,7 +7,7 @@
         <p class="title is-4" v-text="$t('page.spotify.music.new-releases')" />
       </template>
       <template #content>
-        <list-item-album-spotify :items="new_releases" />
+        <list-albums-spotify :items="new_releases" />
       </template>
       <template #footer>
         <nav class="level">
@@ -30,7 +30,7 @@
         />
       </template>
       <template #content>
-        <list-item-playlist-spotify :items="featured_playlists" />
+        <list-playlists-spotify :items="featured_playlists" />
       </template>
       <template #footer>
         <nav class="level">
@@ -50,8 +50,8 @@
 <script>
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
-import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
+import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
+import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import store from '@/store'
@@ -94,8 +94,8 @@ export default {
   name: 'PageMusicSpotify',
   components: {
     ContentWithHeading,
-    ListItemAlbumSpotify,
-    ListItemPlaylistSpotify,
+    ListAlbumsSpotify,
+    ListPlaylistsSpotify,
     TabsMusic
   },
 

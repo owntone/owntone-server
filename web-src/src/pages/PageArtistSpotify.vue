@@ -23,7 +23,7 @@
           class="heading has-text-centered-mobile"
           v-text="$t('page.spotify.artist.album-count', { count: total })"
         />
-        <list-item-album-spotify :items="albums" />
+        <list-albums-spotify :items="albums" />
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #loading>
             <div class="columns is-centered">
@@ -46,7 +46,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
+import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
@@ -83,7 +83,7 @@ export default {
   name: 'PageArtistSpotify',
   components: {
     ContentWithHeading,
-    ListItemAlbumSpotify,
+    ListAlbumsSpotify,
     ModalDialogArtistSpotify,
     VueEternalLoading
   },

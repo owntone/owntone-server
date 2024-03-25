@@ -9,7 +9,7 @@
         />
       </template>
       <template #content>
-        <list-item-playlist-spotify :items="featured_playlists" />
+        <list-playlists-spotify :items="featured_playlists" />
       </template>
     </content-with-heading>
   </div>
@@ -18,7 +18,7 @@
 <script>
 import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
+import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import store from '@/store'
@@ -48,7 +48,7 @@ export default {
   name: 'PageMusicSpotifyFeaturedPlaylists',
   components: {
     ContentWithHeading,
-    ListItemPlaylistSpotify,
+    ListPlaylistsSpotify,
     TabsMusic
   },
 

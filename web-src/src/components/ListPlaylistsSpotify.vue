@@ -25,7 +25,7 @@
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 
 export default {
-  name: 'ListItemPlaylistSpotify',
+  name: 'ListPlaylistsSpotify',
   components: {
     ModalDialogPlaylistSpotify
   },

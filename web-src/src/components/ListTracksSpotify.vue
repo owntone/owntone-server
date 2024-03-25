@@ -56,7 +56,7 @@ import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'ListItemTrackSpotify',
+  name: 'ListTracksSpotify',
   components: { ModalDialogTrackSpotify },
   props: {
     context_uri: { default: '', type: String },

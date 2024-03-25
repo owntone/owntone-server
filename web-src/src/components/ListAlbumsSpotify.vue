@@ -43,7 +43,7 @@ import CoverArtwork from '@/components/CoverArtwork.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 
 export default {
-  name: 'ListItemAlbumSpotify',
+  name: 'ListAlbumsSpotify',
   components: { CoverArtwork, ModalDialogAlbumSpotify },
   props: { items: { required: true, type: Object } },
 

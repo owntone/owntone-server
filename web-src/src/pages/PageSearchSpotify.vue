@@ -74,10 +74,10 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
-import ListItemArtistSpotify from '@/components/ListItemArtistSpotify.vue'
-import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
-import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
+import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
+import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
+import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
+import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsSearch from '@/components/TabsSearch.vue'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
@@ -89,10 +89,10 @@ export default {
   name: 'PageSearchSpotify',
   components: {
     ContentWithHeading,
-    ListItemAlbumSpotify,
-    ListItemArtistSpotify,
-    ListItemPlaylistSpotify,
-    ListItemTrackSpotify,
+    ListAlbumsSpotify,
+    ListArtistsSpotify,
+    ListPlaylistsSpotify,
+    ListTracksSpotify,
     TabsSearch,
     VueEternalLoading
   },
@@ -100,10 +100,10 @@ export default {
   data() {
     return {
       components: {
-        album: ListItemAlbumSpotify.name,
-        artist: ListItemArtistSpotify.name,
-        playlist: ListItemPlaylistSpotify.name,
-        track: ListItemTrackSpotify.name
+        album: ListAlbumsSpotify.name,
+        artist: ListArtistsSpotify.name,
+        playlist: ListPlaylistsSpotify.name,
+        track: ListTracksSpotify.name
       },
       query: {},
       results: {

@@ -25,7 +25,7 @@
             $t('page.spotify.playlist.count', { count: playlist.tracks.total })
           "
         />
-        <list-item-track-spotify :items="tracks" :context_uri="playlist.uri" />
+        <list-tracks-spotify :items="tracks" :context_uri="playlist.uri" />
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #loading>
             <div class="columns is-centered">
@@ -48,7 +48,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
+import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
@@ -84,7 +84,7 @@ export default {
   name: 'PagePlaylistTracksSpotify',
   components: {
     ContentWithHeading,
-    ListItemTrackSpotify,
+    ListTracksSpotify,
     ModalDialogPlaylistSpotify,
     VueEternalLoading
   },

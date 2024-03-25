@@ -39,7 +39,7 @@
             $t('page.spotify.album.track-count', { count: album.tracks.total })
           "
         />
-        <list-item-track-spotify :items="tracks" :context_uri="album.uri" />
+        <list-tracks-spotify :items="tracks" :context_uri="album.uri" />
         <modal-dialog-album-spotify
           :show="show_details_modal"
           :album="album"
@@ -53,7 +53,7 @@
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
+import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import store from '@/store'
@@ -78,7 +78,7 @@ export default {
   components: {
     ContentWithHero,
     CoverArtwork,
-    ListItemTrackSpotify,
+    ListTracksSpotify,
     ModalDialogAlbumSpotify
   },
 

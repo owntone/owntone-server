@@ -24,7 +24,7 @@
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 
 export default {
-  name: 'ListItemArtistSpotify',
+  name: 'ListArtistsSpotify',
   components: { ModalDialogArtistSpotify },
   props: { items: { required: true, type: Object } },
 
