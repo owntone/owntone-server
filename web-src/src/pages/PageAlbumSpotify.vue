@@ -40,32 +40,16 @@
           "
         />
         <list-item-track-spotify
-          v-for="(track, index) in album.tracks.items"
+          v-for="(track, index) in tracks"
           :key="track.id"
           :item="track"
           :position="index"
           :context_uri="album.uri"
-        >
-          <template #actions>
-            <a @click.prevent.stop="open_track_dialog(track)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
-        </list-item-track-spotify>
+        />
         <modal-dialog-album-spotify
           :show="show_details_modal"
           :album="album"
           @close="show_details_modal = false"
-        />
-        <modal-dialog-track-spotify
-          :show="show_track_details_modal"
-          :track="selected_track"
-          :album="album"
-          @close="show_track_details_modal = false"
         />
       </template>
     </content-with-hero>
@@ -77,7 +61,6 @@ import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
-import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import store from '@/store'
 import webapi from '@/webapi'
@@ -102,8 +85,7 @@ export default {
     ContentWithHero,
     CoverArtwork,
     ListItemTrackSpotify,
-    ModalDialogAlbumSpotify,
-    ModalDialogTrackSpotify
+    ModalDialogAlbumSpotify
   },
 
   beforeRouteEnter(to, from, next) {
@@ -122,12 +104,19 @@ export default {
   data() {
     return {
       album: { artists: [{}], tracks: {} },
-      selected_track: {},
-      show_details_modal: false,
-      show_track_details_modal: false
+      show_details_modal: false
     }
   },
 
+  computed: {
+    tracks() {
+      const { album } = this
+      if (album.tracks.total) {
+        return album.tracks.items.map((track) => ({ ...track, album }))
+      }
+      return {}
+    }
+  },
   methods: {
     artwork_url(album) {
       return album.images?.[0]?.url ?? ''
@@ -137,10 +126,6 @@ export default {
         name: 'music-spotify-artist',
         params: { id: this.album.artists[0].id }
       })
-    },
-    open_track_dialog(track) {
-      this.selected_track = track
-      this.show_track_details_modal = true
     },
     play() {
       this.show_details_modal = false

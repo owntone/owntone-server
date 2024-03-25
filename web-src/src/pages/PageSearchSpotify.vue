@@ -46,17 +46,7 @@
           :item="track"
           :position="0"
           :context_uri="track.uri"
-        >
-          <template #actions>
-            <a @click.prevent.stop="open_track_dialog(track)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
-        </list-item-track-spotify>
+        />
         <VueEternalLoading
           v-if="query.type === 'track'"
           :load="search_tracks_next"
@@ -70,12 +60,6 @@
           </template>
           <template #no-more>&nbsp;</template>
         </VueEternalLoading>
-        <modal-dialog-track-spotify
-          :show="show_track_details_modal"
-          :track="selected_track"
-          :album="selected_track.album"
-          @close="show_track_details_modal = false"
-        />
       </template>
       <template #footer>
         <nav v-if="show_all_button(tracks)" class="level">
@@ -108,8 +92,7 @@
           v-for="artist in artists.items"
           :key="artist.id"
           :item="artist"
-        >
-        </list-item-artist-spotify>
+        />
         <VueEternalLoading
           v-if="query.type === 'artist'"
           :load="search_artists_next"
@@ -155,8 +138,7 @@
           v-for="album in albums.items"
           :key="album.id"
           :item="album"
-        >
-        </list-item-album-spotify>
+        />
         <VueEternalLoading
           v-if="query.type === 'album'"
           :load="search_albums_next"
@@ -202,8 +184,7 @@
           v-for="playlist in playlists.items"
           :key="playlist.id"
           :item="playlist"
-        >
-        </list-item-playlist-spotify>
+        />
         <VueEternalLoading
           v-if="query.type === 'playlist'"
           :load="search_playlists_next"
@@ -249,7 +230,6 @@ import ListItemAlbumSpotify from '@/components/ListItemAlbumSpotify.vue'
 import ListItemArtistSpotify from '@/components/ListItemArtistSpotify.vue'
 import ListItemPlaylistSpotify from '@/components/ListItemPlaylistSpotify.vue'
 import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
-import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsSearch from '@/components/TabsSearch.vue'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
@@ -266,7 +246,6 @@ export default {
     ListItemArtistSpotify,
     ListItemPlaylistSpotify,
     ListItemTrackSpotify,
-    ModalDialogTrackSpotify,
     TabsSearch,
     VueEternalLoading
   },
@@ -279,8 +258,6 @@ export default {
       query: {},
       search_param: {},
       search_query: '',
-      selected_track: {},
-      show_track_details_modal: false,
       tracks: { items: [], total: 0 },
       validSearchTypes: ['track', 'artist', 'album', 'playlist']
     }
@@ -334,10 +311,6 @@ export default {
           type
         }
       })
-    },
-    open_track_dialog(track) {
-      this.selected_track = track
-      this.show_track_details_modal = true
     },
     reset() {
       this.tracks = { items: [], total: 0 }

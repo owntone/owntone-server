@@ -10,17 +10,7 @@
           v-for="album in new_releases"
           :key="album.id"
           :item="album"
-        >
-          <template #actions>
-            <a @click.prevent.stop="open_album_dialog(album)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
-        </list-item-album-spotify>
+        />
       </template>
     </content-with-heading>
   </div>

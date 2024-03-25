@@ -31,17 +31,7 @@
           :item="track"
           :position="track.position"
           :context_uri="playlist.uri"
-        >
-          <template #actions>
-            <a @click.prevent.stop="open_track_dialog(track)">
-              <mdicon
-                class="icon has-text-dark"
-                name="dots-vertical"
-                size="16"
-              />
-            </a>
-          </template>
-        </list-item-track-spotify>
+        />
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #loading>
             <div class="columns is-centered">
@@ -52,12 +42,6 @@
           </template>
           <template #no-more>&nbsp;</template>
         </VueEternalLoading>
-        <modal-dialog-track-spotify
-          :show="show_track_details_modal"
-          :track="selected_track"
-          :album="selected_track.album"
-          @close="show_track_details_modal = false"
-        />
         <modal-dialog-playlist-spotify
           :show="show_playlist_details_modal"
           :playlist="playlist"
@@ -72,7 +56,6 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListItemTrackSpotify from '@/components/ListItemTrackSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
-import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
 import store from '@/store'
@@ -109,7 +92,6 @@ export default {
     ContentWithHeading,
     ListItemTrackSpotify,
     ModalDialogPlaylistSpotify,
-    ModalDialogTrackSpotify,
     VueEternalLoading
   },
 
@@ -130,9 +112,7 @@ export default {
     return {
       offset: 0,
       playlist: { tracks: {} },
-      selected_track: {},
       show_playlist_details_modal: false,
-      show_track_details_modal: false,
       total: 0,
       tracks: []
     }
@@ -170,10 +150,6 @@ export default {
           this.append_tracks(data)
           loaded(data.items.length, PAGE_SIZE)
         })
-    },
-    open_track_dialog(track) {
-      this.selected_track = track
-      this.show_track_details_modal = true
     },
     play() {
       this.show_details_modal = false

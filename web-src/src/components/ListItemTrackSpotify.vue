@@ -14,13 +14,14 @@
         v-text="item.name"
       />
       <h2
-        class="subtitle is-7"
+        class="subtitle is-7 has-text-weight-bold"
         :class="{
           'has-text-grey': item.is_playable,
           'has-text-grey-light': !item.is_playable
         }"
         v-text="item.artists[0].name"
       />
+      <h2 class="subtitle is-7 has-text-grey" v-text="item.album.name" />
       <h2 v-if="!item.is_playable" class="subtitle is-7">
         (<span v-text="$t('list.spotify.not-playable-track')" />
         <span
@@ -34,20 +35,34 @@
       </h2>
     </div>
     <div class="media-right">
-      <slot name="actions" />
+      <a @click.prevent.stop="show_details_modal = true">
+        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+      </a>
     </div>
   </div>
+  <teleport to="#app">
+    <modal-dialog-track-spotify
+      :show="show_details_modal"
+      :track="item"
+      @close="show_details_modal = false"
+    />
+  </teleport>
 </template>
 
 <script>
+import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ListItemTrackSpotify',
+  components: { ModalDialogTrackSpotify },
   props: {
     context_uri: { required: true, type: String },
     item: { required: true, type: Object },
     position: { required: true, type: Number }
+  },
+  data() {
+    return { show_details_modal: false }
   },
   methods: {
     play() {
