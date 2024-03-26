@@ -217,7 +217,6 @@ export default {
           this.$emit('close')
         })
     },
-
     mark_played() {
       webapi
         .library_track_update(this.track.id, { play_count: 'increment' })
@@ -226,7 +225,6 @@ export default {
           this.$emit('close')
         })
     },
-
     open_album() {
       if (
         this.track.data_kind === 'spotify' &&
@@ -253,7 +251,6 @@ export default {
         })
       }
     },
-
     open_album_artist() {
       if (this.track.data_kind === 'spotify') {
         this.$router.push({
@@ -275,7 +272,6 @@ export default {
         })
       }
     },
-
     open_genre() {
       this.$router.push({
         name: 'genre-albums',
@@ -283,17 +279,14 @@ export default {
         query: { media_kind: this.track.media_kind }
       })
     },
-
     play() {
       this.$emit('close')
       webapi.player_play_uri(this.track.uri, false)
     },
-
     queue_add() {
       this.$emit('close')
       webapi.queue_add(this.track.uri)
     },
-
     queue_add_next() {
       this.$emit('close')
       webapi.queue_add_next(this.track.uri)

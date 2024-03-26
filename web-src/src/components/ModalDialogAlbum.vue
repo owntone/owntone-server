@@ -138,21 +138,14 @@ export default {
   },
 
   methods: {
-    play() {
-      this.$emit('close')
-      webapi.player_play_uri(this.album.uri, false)
+    mark_played() {
+      webapi
+        .library_album_track_update(this.album.id, { play_count: 'played' })
+        .then(({ data }) => {
+          this.$emit('play-count-changed')
+          this.$emit('close')
+        })
     },
-
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_add(this.album.uri)
-    },
-
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_add_next(this.album.uri)
-    },
-
     open_album() {
       this.$emit('close')
       if (this.media_kind_resolved === 'podcast') {
@@ -169,7 +162,6 @@ export default {
         })
       }
     },
-
     open_artist() {
       this.$emit('close')
       if (this.media_kind_resolved === 'audiobook') {
@@ -184,14 +176,17 @@ export default {
         })
       }
     },
-
-    mark_played() {
-      webapi
-        .library_album_track_update(this.album.id, { play_count: 'played' })
-        .then(({ data }) => {
-          this.$emit('play-count-changed')
-          this.$emit('close')
-        })
+    play() {
+      this.$emit('close')
+      webapi.player_play_uri(this.album.uri, false)
+    },
+    queue_add() {
+      this.$emit('close')
+      webapi.queue_add(this.album.uri)
+    },
+    queue_add_next() {
+      this.$emit('close')
+      webapi.queue_add_next(this.album.uri)
     }
   }
 }

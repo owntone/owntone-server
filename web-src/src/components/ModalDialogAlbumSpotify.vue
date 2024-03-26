@@ -99,25 +99,15 @@ export default {
   },
 
   methods: {
+    artwork_error() {
+      this.artwork_visible = false
+    },
+    artwork_loaded() {
+      this.artwork_visible = true
+    },
     artwork_url(album) {
       return album.images?.[0]?.url || ''
     },
-
-    play() {
-      this.$emit('close')
-      webapi.player_play_uri(this.album.uri, false)
-    },
-
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_add(this.album.uri)
-    },
-
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_add_next(this.album.uri)
-    },
-
     open_album() {
       this.$emit('close')
       this.$router.push({
@@ -125,7 +115,6 @@ export default {
         params: { id: this.album.id }
       })
     },
-
     open_artist() {
       this.$emit('close')
       this.$router.push({
@@ -133,13 +122,17 @@ export default {
         params: { id: this.album.artists[0].id }
       })
     },
-
-    artwork_loaded() {
-      this.artwork_visible = true
+    play() {
+      this.$emit('close')
+      webapi.player_play_uri(this.album.uri, false)
     },
-
-    artwork_error() {
-      this.artwork_visible = false
+    queue_add() {
+      this.$emit('close')
+      webapi.queue_add(this.album.uri)
+    },
+    queue_add_next() {
+      this.$emit('close')
+      webapi.queue_add_next(this.album.uri)
     }
   }
 }

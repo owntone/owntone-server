@@ -77,27 +77,24 @@ export default {
   emits: ['close'],
 
   methods: {
-    play() {
-      this.$emit('close')
-      webapi.player_play_uri(this.artist.uri, false)
-    },
-
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_add(this.artist.uri)
-    },
-
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_add_next(this.artist.uri)
-    },
-
     open_artist() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-artist',
         params: { id: this.artist.id }
       })
+    },
+    play() {
+      this.$emit('close')
+      webapi.player_play_uri(this.artist.uri, false)
+    },
+    queue_add() {
+      this.$emit('close')
+      webapi.queue_add(this.artist.uri)
+    },
+    queue_add_next() {
+      this.$emit('close')
+      webapi.queue_add_next(this.artist.uri)
     }
   }
 }
