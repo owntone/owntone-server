@@ -6,13 +6,13 @@
         <div class="card">
           <div class="card-content">
             <cover-artwork
-              :artwork_url="album.artwork_url"
-              :artist="album.artist"
-              :album="album.name"
+              :artwork_url="item.artwork_url"
+              :artist="item.artist"
+              :album="item.name"
               class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
             />
             <p class="title is-4">
-              <a class="has-text-link" @click="open" v-text="album.name" />
+              <a class="has-text-link" @click="open" v-text="item.name" />
             </p>
             <div v-if="media_kind_resolved === 'podcast'" class="buttons">
               <a
@@ -21,44 +21,44 @@
                 v-text="$t('dialog.album.mark-as-played')"
               />
               <a
-                v-if="album.data_kind === 'url'"
+                v-if="item.data_kind === 'url'"
                 class="button is-small"
                 @click="$emit('remove-podcast')"
                 v-text="$t('dialog.album.remove-podcast')"
               />
             </div>
             <div class="content is-small">
-              <p v-if="album.artist">
+              <p v-if="item.artist">
                 <span class="heading" v-text="$t('dialog.album.artist')" />
                 <a
                   class="title is-6 has-text-link"
                   @click="open_artist"
-                  v-text="album.artist"
+                  v-text="item.artist"
                 />
               </p>
-              <p v-if="album.date_released">
+              <p v-if="item.date_released">
                 <span
                   class="heading"
                   v-text="$t('dialog.album.release-date')"
                 />
                 <span
                   class="title is-6"
-                  v-text="$filters.date(album.date_released)"
+                  v-text="$filters.date(item.date_released)"
                 />
               </p>
-              <p v-else-if="album.year">
+              <p v-else-if="item.year">
                 <span class="heading" v-text="$t('dialog.album.year')" />
-                <span class="title is-6" v-text="album.year" />
+                <span class="title is-6" v-text="item.year" />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.album.tracks')" />
-                <span class="title is-6" v-text="album.track_count" />
+                <span class="title is-6" v-text="item.track_count" />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.album.duration')" />
                 <span
                   class="title is-6"
-                  v-text="$filters.durationInHours(album.length_ms)"
+                  v-text="$filters.durationInHours(item.length_ms)"
                 />
               </p>
               <p>
@@ -67,8 +67,8 @@
                   class="title is-6"
                   v-text="
                     [
-                      $t('media.kind.' + album.media_kind),
-                      $t('data.kind.' + album.data_kind)
+                      $t('media.kind.' + item.media_kind),
+                      $t('data.kind.' + item.data_kind)
                     ].join(' - ')
                   "
                 />
@@ -77,7 +77,7 @@
                 <span class="heading" v-text="$t('dialog.album.added-on')" />
                 <span
                   class="title is-6"
-                  v-text="$filters.datetime(album.time_added)"
+                  v-text="$filters.datetime(item.time_added)"
                 />
               </p>
             </div>
@@ -115,7 +115,7 @@ export default {
   name: 'ModalDialogAlbum',
   components: { CoverArtwork },
   props: {
-    album: { required: true, type: Object },
+    item: { required: true, type: Object },
     media_kind: { default: '', type: String },
     show: Boolean
   },
@@ -129,14 +129,14 @@ export default {
 
   computed: {
     media_kind_resolved() {
-      return this.media_kind || this.album.media_kind
+      return this.media_kind || this.item.media_kind
     }
   },
 
   methods: {
     mark_played() {
       webapi
-        .library_album_track_update(this.album.id, { play_count: 'played' })
+        .library_album_track_update(this.item.id, { play_count: 'played' })
         .then(({ data }) => {
           this.$emit('play-count-changed')
           this.$emit('close')
@@ -145,16 +145,16 @@ export default {
     open() {
       this.$emit('close')
       if (this.media_kind_resolved === 'podcast') {
-        this.$router.push({ name: 'podcast', params: { id: this.album.id } })
+        this.$router.push({ name: 'podcast', params: { id: this.item.id } })
       } else if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({
           name: 'audiobooks-album',
-          params: { id: this.album.id }
+          params: { id: this.item.id }
         })
       } else {
         this.$router.push({
           name: 'music-album',
-          params: { id: this.album.id }
+          params: { id: this.item.id }
         })
       }
     },
@@ -163,26 +163,26 @@ export default {
       if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({
           name: 'audiobooks-artist',
-          params: { id: this.album.artist_id }
+          params: { id: this.item.artist_id }
         })
       } else {
         this.$router.push({
           name: 'music-artist',
-          params: { id: this.album.artist_id }
+          params: { id: this.item.artist_id }
         })
       }
     },
     play() {
       this.$emit('close')
-      webapi.player_play_uri(this.album.uri, false)
+      webapi.player_play_uri(this.item.uri, false)
     },
     queue_add() {
       this.$emit('close')
-      webapi.queue_add(this.album.uri)
+      webapi.queue_add(this.item.uri)
     },
     queue_add_next() {
       this.$emit('close')
-      webapi.queue_add_next(this.album.uri)
+      webapi.queue_add_next(this.item.uri)
     }
   }
 }

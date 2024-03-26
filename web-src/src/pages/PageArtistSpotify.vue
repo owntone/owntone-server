@@ -35,8 +35,8 @@
           <template #no-more>&nbsp;</template>
         </VueEternalLoading>
         <modal-dialog-artist-spotify
+          :item="artist"
           :show="show_details_modal"
-          :artist="artist"
           @close="show_details_modal = false"
         />
       </template>

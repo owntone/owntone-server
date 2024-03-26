@@ -35,7 +35,7 @@
         </p>
         <list-albums :items="albums" />
         <modal-dialog-genre
-          :genre="genre"
+          :item="genre"
           :media_kind="media_kind"
           :show="show_details_modal"
           @close="show_details_modal = false"

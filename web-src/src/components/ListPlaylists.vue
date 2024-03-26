@@ -1,26 +1,23 @@
 <template>
-  <div
-    v-for="playlist in items"
-    :key="playlist.itemId"
-    class="media is-align-items-center"
-    @click="open_playlist(playlist.item)"
-  >
-    <figure class="media-left is-clickable">
-      <mdicon class="icon" :name="icon_name(playlist.item)" size="16" />
-    </figure>
-    <div class="media-content is-clickable is-clipped">
-      <h1 class="title is-6" v-text="playlist.item.name" />
+  <template v-for="item in items" :key="item.itemId">
+    <div class="media is-align-items-center" @click="open(item.item)">
+      <figure class="media-left is-clickable">
+        <mdicon class="icon" :name="icon_name(item.item)" size="16" />
+      </figure>
+      <div class="media-content is-clickable is-clipped">
+        <h1 class="title is-6" v-text="item.item.name" />
+      </div>
+      <div class="media-right">
+        <a @click.prevent.stop="open_dialog(item.item)">
+          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+        </a>
+      </div>
     </div>
-    <div class="media-right">
-      <a @click.prevent.stop="open_dialog(playlist.item)">
-        <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
-      </a>
-    </div>
-  </div>
+  </template>
   <teleport to="#app">
     <modal-dialog-playlist
+      :item="selected_item"
       :show="show_details_modal"
-      :playlist="selected_playlist"
       @close="show_details_modal = false"
     />
   </teleport>
@@ -36,36 +33,30 @@ export default {
 
   data() {
     return {
-      selected_playlist: {},
+      selected_item: {},
       show_details_modal: false
     }
   },
 
   methods: {
-    icon_name(playlist) {
-      if (playlist.type === 'folder') {
+    icon_name(item) {
+      if (item.type === 'folder') {
         return 'folder'
-      } else if (playlist.type === 'rss') {
+      } else if (item.type === 'rss') {
         return 'rss'
       }
       return 'music-box-multiple'
     },
-    open_dialog(playlist) {
-      this.selected_playlist = playlist
-      this.show_details_modal = true
-    },
-    open_playlist(playlist) {
-      if (playlist.type === 'folder') {
-        this.$router.push({
-          name: 'playlist-folder',
-          params: { id: playlist.id }
-        })
+    open(item) {
+      if (item.type === 'folder') {
+        this.$router.push({ name: 'playlist-folder', params: { id: item.id } })
       } else {
-        this.$router.push({
-          name: 'playlist',
-          params: { id: playlist.id }
-        })
+        this.$router.push({ name: 'playlist', params: { id: item.id } })
       }
+    },
+    open_dialog(item) {
+      this.selected_item = item
+      this.show_details_modal = true
     }
   }
 }

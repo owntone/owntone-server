@@ -5,7 +5,7 @@
       <div class="modal-content">
         <div class="card">
           <div class="card-content">
-            <p class="title is-4" v-text="directory" />
+            <p class="title is-4" v-text="item" />
           </div>
           <footer class="card-footer">
             <a class="card-footer-item has-text-dark" @click="queue_add">
@@ -40,29 +40,27 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogDirectory',
-  props: { directory: { required: true, type: String }, show: Boolean },
+  props: { item: { required: true, type: String }, show: Boolean },
   emits: ['close'],
 
   methods: {
     play() {
       this.$emit('close')
       webapi.player_play_expression(
-        `path starts with "${this.directory}" order by path asc`,
+        `path starts with "${this.item}" order by path asc`,
         false
       )
     },
-
     queue_add() {
       this.$emit('close')
       webapi.queue_expression_add(
-        `path starts with "${this.directory}" order by path asc`
+        `path starts with "${this.item}" order by path asc`
       )
     },
-
     queue_add_next() {
       this.$emit('close')
       webapi.queue_expression_add_next(
-        `path starts with "${this.directory}" order by path asc`
+        `path starts with "${this.item}" order by path asc`
       )
     }
   }

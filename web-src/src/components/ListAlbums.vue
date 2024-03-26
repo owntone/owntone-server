@@ -1,37 +1,37 @@
 <template>
-  <template v-for="album in items" :key="album.itemId">
-    <div v-if="!album.isItem" class="mt-6 mb-5 py-2">
+  <template v-for="item in items" :key="item.itemId">
+    <div v-if="!item.isItem" class="mt-6 mb-5 py-2">
       <span
-        :id="'index_' + album.index"
+        :id="'index_' + item.index"
         class="tag is-info is-light is-small has-text-weight-bold"
-        v-text="album.index"
+        v-text="item.index"
       />
     </div>
-    <div v-else class="media is-align-items-center" @click="open(album.item)">
+    <div v-else class="media is-align-items-center" @click="open(item.item)">
       <div v-if="show_artwork" class="media-left">
         <cover-artwork
-          :artwork_url="album.item.artwork_url"
-          :artist="album.item.artist"
-          :album="album.item.name"
+          :artwork_url="item.item.artwork_url"
+          :artist="item.item.artist"
+          :album="item.item.name"
           class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
         />
       </div>
       <div class="media-content is-clickable is-clipped">
         <div>
-          <h1 class="title is-6" v-text="album.item.name" />
+          <h1 class="title is-6" v-text="item.item.name" />
           <h2
             class="subtitle is-7 has-text-grey has-text-weight-bold"
-            v-text="album.item.artist"
+            v-text="item.item.artist"
           />
           <h2
-            v-if="album.item.date_released && album.item.media_kind === 'music'"
+            v-if="item.item.date_released && item.item.media_kind === 'music'"
             class="subtitle is-7 has-text-grey"
-            v-text="$filters.date(album.item.date_released)"
+            v-text="$filters.date(item.item.date_released)"
           />
         </div>
       </div>
       <div class="media-right">
-        <a @click.prevent.stop="open_dialog(album.item)">
+        <a @click.prevent.stop="open_dialog(item.item)">
           <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
@@ -39,8 +39,8 @@
   </template>
   <teleport to="#app">
     <modal-dialog-album
+      :item="selected_item"
       :show="show_details_modal"
-      :album="selected_album"
       :media_kind="media_kind"
       @remove-podcast="open_remove_podcast_dialog()"
       @play-count-changed="play_count_changed()"
@@ -82,7 +82,7 @@ export default {
   data() {
     return {
       rss_playlist_to_remove: {},
-      selected_album: {},
+      selected_item: {},
       show_details_modal: false,
       show_remove_podcast_modal: false
     }
@@ -90,7 +90,7 @@ export default {
 
   computed: {
     media_kind_resolved() {
-      return this.media_kind || this.selected_album.media_kind
+      return this.media_kind || this.selected_item.media_kind
     },
     show_artwork() {
       return this.$store.getters.settings_option(
@@ -101,21 +101,21 @@ export default {
   },
 
   methods: {
-    open(album) {
-      this.selected_album = album
+    open(item) {
+      this.selected_item = item
       if (this.media_kind_resolved === 'podcast') {
-        this.$router.push({ name: 'podcast', params: { id: album.id } })
+        this.$router.push({ name: 'podcast', params: { id: item.id } })
       } else if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({
           name: 'audiobooks-album',
-          params: { id: album.id }
+          params: { id: item.id }
         })
       } else {
-        this.$router.push({ name: 'music-album', params: { id: album.id } })
+        this.$router.push({ name: 'music-album', params: { id: item.id } })
       }
     },
-    open_dialog(album) {
-      this.selected_album = album
+    open_dialog(item) {
+      this.selected_item = item
       this.show_details_modal = true
     },
     open_remove_podcast_dialog() {
@@ -123,9 +123,9 @@ export default {
         .library_album_tracks(this.selected_album.id, { limit: 1 })
         .then(({ data }) => {
           webapi.library_track_playlists(data.items[0].id).then(({ data }) => {
-            this.rss_playlist_to_remove = data.items.filter(
+            ;[this.rss_playlist_to_remove] = data.items.filter(
               (pl) => pl.type === 'rss'
-            )[0]
+            )
             this.show_remove_podcast_modal = true
             this.show_details_modal = false
           })

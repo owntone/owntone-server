@@ -13,8 +13,8 @@
   </template>
   <teleport to="#app">
     <modal-dialog-artist-spotify
+      :item="selected_item"
       :show="show_details_modal"
-      :artist="selected_item"
       @close="show_details_modal = false"
     />
   </teleport>

@@ -6,15 +6,15 @@
         <div class="card">
           <div class="card-content">
             <cover-artwork
-              :artwork_url="artwork_url(album)"
-              :artist="album.artist"
-              :album="album.name"
+              :artwork_url="artwork_url(item)"
+              :artist="item.artist"
+              :album="item.name"
               class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
               @load="artwork_loaded"
               @error="artwork_error"
             />
             <p class="title is-4">
-              <a class="has-text-link" @click="open" v-text="album.name" />
+              <a class="has-text-link" @click="open" v-text="item.name" />
             </p>
             <div class="content is-small">
               <p>
@@ -25,7 +25,7 @@
                 <a
                   class="title is-6 has-text-link"
                   @click="open_artist"
-                  v-text="album.artists[0].name"
+                  v-text="item.artists[0].name"
                 />
               </p>
               <p>
@@ -35,7 +35,7 @@
                 />
                 <span
                   class="title is-6"
-                  v-text="$filters.date(album.release_date)"
+                  v-text="$filters.date(item.release_date)"
                 />
               </p>
               <p>
@@ -43,7 +43,7 @@
                   class="heading"
                   v-text="$t('dialog.spotify.album.type')"
                 />
-                <span class="title is-6" v-text="album.album_type" />
+                <span class="title is-6" v-text="item.album_type" />
               </p>
             </div>
           </div>
@@ -85,7 +85,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogAlbumSpotify',
   components: { CoverArtwork },
-  props: { album: { required: true, type: Object }, show: Boolean },
+  props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
   data() {
@@ -101,34 +101,34 @@ export default {
     artwork_loaded() {
       this.artwork_visible = true
     },
-    artwork_url(album) {
-      return album.images?.[0]?.url || ''
+    artwork_url(item) {
+      return item.images?.[0]?.url || ''
     },
     open() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-album',
-        params: { id: this.album.id }
+        params: { id: this.item.id }
       })
     },
     open_artist() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-artist',
-        params: { id: this.album.artists[0].id }
+        params: { id: this.item.artists[0].id }
       })
     },
     play() {
       this.$emit('close')
-      webapi.player_play_uri(this.album.uri, false)
+      webapi.player_play_uri(this.item.uri, false)
     },
     queue_add() {
       this.$emit('close')
-      webapi.queue_add(this.album.uri)
+      webapi.queue_add(this.item.uri)
     },
     queue_add_next() {
       this.$emit('close')
-      webapi.queue_add_next(this.album.uri)
+      webapi.queue_add_next(this.item.uri)
     }
   }
 }

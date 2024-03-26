@@ -25,8 +25,8 @@
         />
         <list-tracks :items="tracks" :uris="uris" />
         <modal-dialog-playlist
+          :item="playlist"
           :show="show_details_modal"
-          :playlist="playlist"
           :uris="uris"
           @close="show_details_modal = false"
         />

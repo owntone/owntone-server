@@ -9,7 +9,7 @@
               <a
                 class="has-text-link"
                 @click="open_albums"
-                v-text="composer.name"
+                v-text="item.name"
               />
             </p>
             <p>
@@ -17,7 +17,7 @@
               <a
                 class="has-text-link is-6"
                 @click="open_albums"
-                v-text="composer.album_count"
+                v-text="item.album_count"
               />
             </p>
             <p>
@@ -25,14 +25,14 @@
               <a
                 class="has-text-link is-6"
                 @click="open_tracks"
-                v-text="composer.track_count"
+                v-text="item.track_count"
               />
             </p>
             <p>
               <span class="heading" v-text="$t('dialog.composer.duration')" />
               <span
                 class="title is-6"
-                v-text="$filters.durationInHours(composer.length_ms)"
+                v-text="$filters.durationInHours(item.length_ms)"
               />
             </p>
           </div>
@@ -66,45 +66,41 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogComposer',
-  props: { composer: { required: true, type: Object }, show: Boolean },
+  props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
   methods: {
-    play() {
-      this.$emit('close')
-      webapi.player_play_expression(
-        `composer is "${this.composer.name}" and media_kind is music`,
-        false
-      )
-    },
-
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_expression_add(
-        `composer is "${this.composer.name}" and media_kind is music`
-      )
-    },
-
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_expression_add_next(
-        `composer is "${this.composer.name}" and media_kind is music`
-      )
-    },
-
     open_albums() {
       this.$emit('close')
       this.$router.push({
         name: 'music-composer-albums',
-        params: { name: this.composer.name }
+        params: { name: this.item.name }
       })
     },
-
     open_tracks() {
       this.$router.push({
         name: 'music-composer-tracks',
-        params: { name: this.composer.name }
+        params: { name: this.item.name }
       })
+    },
+    play() {
+      this.$emit('close')
+      webapi.player_play_expression(
+        `composer is "${this.item.name}" and media_kind is music`,
+        false
+      )
+    },
+    queue_add() {
+      this.$emit('close')
+      webapi.queue_expression_add(
+        `composer is "${this.item.name}" and media_kind is music`
+      )
+    },
+    queue_add_next() {
+      this.$emit('close')
+      webapi.queue_expression_add_next(
+        `composer is "${this.item.name}" and media_kind is music`
+      )
     }
   }
 }

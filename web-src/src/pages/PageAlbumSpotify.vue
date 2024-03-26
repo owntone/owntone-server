@@ -41,8 +41,8 @@
         />
         <list-tracks-spotify :items="tracks" :context_uri="album.uri" />
         <modal-dialog-album-spotify
+          :item="album"
           :show="show_details_modal"
-          :album="album"
           @close="show_details_modal = false"
         />
       </template>

@@ -31,8 +31,8 @@
   </template>
   <teleport to="#app">
     <modal-dialog-album-spotify
+      :item="selected_item"
       :show="show_details_modal"
-      :album="selected_item"
       @close="show_details_modal = false"
     />
   </teleport>

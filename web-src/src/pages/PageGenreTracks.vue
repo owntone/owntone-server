@@ -44,9 +44,9 @@
         </p>
         <list-tracks :items="tracks" :expression="expression" />
         <modal-dialog-genre
-          :show="show_details_modal"
-          :genre="genre"
+          :item="genre"
           :media_kind="media_kind"
+          :show="show_details_modal"
           @close="show_details_modal = false"
         />
       </template>
@@ -155,7 +155,6 @@ export default {
         query: { media_kind: this.media_kind }
       })
     },
-
     play() {
       webapi.player_play_expression(this.expression, true)
     }

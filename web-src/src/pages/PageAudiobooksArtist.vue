@@ -29,8 +29,8 @@
         />
         <list-albums :items="albums" />
         <modal-dialog-artist
+          :item="artist"
           :show="show_details_modal"
-          :artist="artist"
           @close="show_details_modal = false"
         />
       </template>

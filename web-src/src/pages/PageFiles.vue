@@ -20,7 +20,7 @@
         </div>
       </template>
       <template #content>
-        <list-directories :directories="dirs" />
+        <list-directories :items="dirs" />
         <list-playlists :items="playlists" />
         <list-tracks
           :expression="play_expression"
@@ -28,8 +28,8 @@
           :show_icon="true"
         />
         <modal-dialog-directory
+          :item="current_directory"
           :show="show_details_modal"
-          :directory="current_directory"
           @close="show_details_modal = false"
         />
       </template>

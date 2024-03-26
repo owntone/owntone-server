@@ -6,33 +6,29 @@
         <div class="card">
           <div class="card-content">
             <p class="title is-4">
-              <a
-                class="has-text-link"
-                @click="open_artist"
-                v-text="artist.name"
-              />
+              <a class="has-text-link" @click="open" v-text="item.name" />
             </p>
             <div class="content is-small">
               <p>
                 <span class="heading" v-text="$t('dialog.artist.albums')" />
-                <span class="title is-6" v-text="artist.album_count" />
+                <span class="title is-6" v-text="item.album_count" />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.artist.tracks')" />
-                <span class="title is-6" v-text="artist.track_count" />
+                <span class="title is-6" v-text="item.track_count" />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.artist.type')" />
                 <span
                   class="title is-6"
-                  v-text="$t('data.kind.' + artist.data_kind)"
+                  v-text="$t(`data.kind.${item.data_kind}`)"
                 />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.artist.added-on')" />
                 <span
                   class="title is-6"
-                  v-text="$filters.datetime(artist.time_added)"
+                  v-text="$filters.datetime(item.time_added)"
                 />
               </p>
             </div>
@@ -67,28 +63,28 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogArtist',
-  props: { artist: { required: true, type: Object }, show: Boolean },
+  props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
   methods: {
-    open_artist() {
+    open() {
       this.$emit('close')
       this.$router.push({
         name: 'music-artist',
-        params: { id: this.artist.id }
+        params: { id: this.item.id }
       })
     },
     play() {
       this.$emit('close')
-      webapi.player_play_uri(this.artist.uri, false)
+      webapi.player_play_uri(this.item.uri, false)
     },
     queue_add() {
       this.$emit('close')
-      webapi.queue_add(this.artist.uri)
+      webapi.queue_add(this.item.uri)
     },
     queue_add_next() {
       this.$emit('close')
-      webapi.queue_add_next(this.artist.uri)
+      webapi.queue_add_next(this.item.uri)
     }
   }
 }

@@ -36,8 +36,8 @@
         </p>
         <list-albums :items="albums" />
         <modal-dialog-composer
+          :item="composer"
           :show="show_details_modal"
-          :composer="composer"
           @close="show_details_modal = false"
         />
       </template>

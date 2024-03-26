@@ -2,7 +2,7 @@
   <div
     v-if="$route.query.directory"
     class="media is-align-items-center"
-    @click="open_parent_directory()"
+    @click="open_parent()"
   >
     <figure class="media-left is-clickable">
       <mdicon class="icon" name="subdirectory-arrow-left" size="16" />
@@ -14,20 +14,20 @@
       <slot name="actions" />
     </div>
   </div>
-  <template v-for="directory in directories" :key="directory.path">
-    <div class="media is-align-items-center" @click="open_directory(directory)">
+  <template v-for="item in items" :key="item.path">
+    <div class="media is-align-items-center" @click="open(item)">
       <figure class="media-left is-clickable">
         <mdicon class="icon" name="folder" size="16" />
       </figure>
       <div class="media-content is-clickable is-clipped">
         <h1
           class="title is-6"
-          v-text="directory.path.substring(directory.path.lastIndexOf('/') + 1)"
+          v-text="item.path.substring(item.path.lastIndexOf('/') + 1)"
         />
-        <h2 class="subtitle is-7 has-text-grey" v-text="directory.path" />
+        <h2 class="subtitle is-7 has-text-grey" v-text="item.path" />
       </div>
       <div class="media-right">
-        <a @click.prevent.stop="open_dialog(directory)">
+        <a @click.prevent.stop="open_dialog(item)">
           <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
         </a>
       </div>
@@ -35,8 +35,8 @@
   </template>
   <teleport to="#app">
     <modal-dialog-directory
+      :item="selected_item"
       :show="show_details_modal"
-      :directory="selected_directory"
       @close="show_details_modal = false"
     />
   </teleport>
@@ -48,17 +48,17 @@ import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
 export default {
   name: 'ListDirectories',
   components: { ModalDialogDirectory },
-  props: { directories: { required: true, type: Array } },
+  props: { items: { required: true, type: Array } },
 
   data() {
     return {
-      selected_directory: '',
+      selected_item: '',
       show_details_modal: false
     }
   },
 
   computed: {
-    current_directory() {
+    current() {
       if (this.$route.query && this.$route.query.directory) {
         return this.$route.query.directory
       }
@@ -67,34 +67,28 @@ export default {
   },
 
   methods: {
-    open_dialog(directory) {
-      this.selected_directory = directory.path
-      this.show_details_modal = true
-    },
-    open_directory(directory) {
+    open(item) {
       this.$router.push({
         name: 'files',
-        query: { directory: directory.path }
+        query: { directory: item.path }
       })
     },
-    open_parent_directory() {
-      const parent = this.current_directory.slice(
-        0,
-        this.current_directory.lastIndexOf('/')
-      )
+    open_dialog(item) {
+      this.selected_item = item.path
+      this.show_details_modal = true
+    },
+    open_parent() {
+      const parent = this.current.slice(0, this.current.lastIndexOf('/'))
       if (
         parent === '' ||
-        this.$store.state.config.directories.includes(this.current_directory)
+        this.$store.state.config.directories.includes(this.current)
       ) {
         this.$router.push({ name: 'files' })
       } else {
         this.$router.push({
           name: 'files',
           query: {
-            directory: this.current_directory.slice(
-              0,
-              this.current_directory.lastIndexOf('/')
-            )
+            directory: this.current.slice(0, this.current.lastIndexOf('/'))
           }
         })
       }

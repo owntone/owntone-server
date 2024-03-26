@@ -14,8 +14,8 @@
   </template>
   <teleport to="#app">
     <modal-dialog-playlist-spotify
+      :item="selected_item"
       :show="show_details_modal"
-      :playlist="selected_item"
       @close="show_details_modal = false"
     />
   </teleport>

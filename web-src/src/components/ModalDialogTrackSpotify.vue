@@ -5,8 +5,8 @@
       <div class="modal-content">
         <div class="card">
           <div class="card-content">
-            <p class="title is-4" v-text="track.name" />
-            <p class="subtitle" v-text="track.artists[0].name" />
+            <p class="title is-4" v-text="item.name" />
+            <p class="subtitle" v-text="item.artists[0].name" />
             <div class="content is-small">
               <p>
                 <span
@@ -16,7 +16,7 @@
                 <a
                   class="title is-6 has-text-link"
                   @click="open_album"
-                  v-text="track.album.name"
+                  v-text="item.album.name"
                 />
               </p>
               <p>
@@ -27,7 +27,7 @@
                 <a
                   class="title is-6 has-text-link"
                   @click="open_artist"
-                  v-text="track.artists[0].name"
+                  v-text="item.artists[0].name"
                 />
               </p>
               <p>
@@ -37,7 +37,7 @@
                 />
                 <span
                   class="title is-6"
-                  v-text="$filters.date(track.album.release_date)"
+                  v-text="$filters.date(item.album.release_date)"
                 />
               </p>
               <p>
@@ -47,7 +47,7 @@
                 />
                 <span
                   class="title is-6"
-                  v-text="[track.disc_number, track.track_number].join(' / ')"
+                  v-text="[item.disc_number, item.track_number].join(' / ')"
                 />
               </p>
               <p>
@@ -57,7 +57,7 @@
                 />
                 <span
                   class="title is-6"
-                  v-text="$filters.durationInHours(track.duration_ms)"
+                  v-text="$filters.durationInHours(item.duration_ms)"
                 />
               </p>
               <p>
@@ -65,7 +65,7 @@
                   class="heading"
                   v-text="$t('dialog.spotify.track.path')"
                 />
-                <span class="title is-6" v-text="track.uri" />
+                <span class="title is-6" v-text="item.uri" />
               </p>
             </div>
           </div>
@@ -105,10 +105,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrackSpotify',
-  props: {
-    show: Boolean,
-    track: { required: true, type: Object }
-  },
+  props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
   methods: {
@@ -116,27 +113,27 @@ export default {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-album',
-        params: { id: this.track.album.id }
+        params: { id: this.item.album.id }
       })
     },
     open_artist() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-artist',
-        params: { id: this.track.artists[0].id }
+        params: { id: this.item.artists[0].id }
       })
     },
     play() {
       this.$emit('close')
-      webapi.player_play_uri(this.track.uri, false)
+      webapi.player_play_uri(this.item.uri, false)
     },
     queue_add() {
       this.$emit('close')
-      webapi.queue_add(this.track.uri)
+      webapi.queue_add(this.item.uri)
     },
     queue_add_next() {
       this.$emit('close')
-      webapi.queue_add_next(this.track.uri)
+      webapi.queue_add_next(this.item.uri)
     }
   }
 }

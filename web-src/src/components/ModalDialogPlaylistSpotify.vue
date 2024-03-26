@@ -6,11 +6,7 @@
         <div class="card">
           <div class="card-content">
             <p class="title is-4">
-              <a
-                class="has-text-link"
-                @click="open_playlist"
-                v-text="playlist.name"
-              />
+              <a class="has-text-link" @click="open" v-text="item.name" />
             </p>
             <div class="content is-small">
               <p>
@@ -18,21 +14,21 @@
                   class="heading"
                   v-text="$t('dialog.spotify.playlist.owner')"
                 />
-                <span class="title is-6" v-text="playlist.owner.display_name" />
+                <span class="title is-6" v-text="item.owner.display_name" />
               </p>
               <p>
                 <span
                   class="heading"
                   v-text="$t('dialog.spotify.playlist.tracks')"
                 />
-                <span class="title is-6" v-text="playlist.tracks.total" />
+                <span class="title is-6" v-text="item.tracks.total" />
               </p>
               <p>
                 <span
                   class="heading"
                   v-text="$t('dialog.spotify.playlist.path')"
                 />
-                <span class="title is-6" v-text="playlist.uri" />
+                <span class="title is-6" v-text="item.uri" />
               </p>
             </div>
           </div>
@@ -75,28 +71,28 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogPlaylistSpotify',
-  props: { playlist: { required: true, type: Object }, show: Boolean },
+  props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
   methods: {
-    open_playlist() {
+    open() {
       this.$emit('close')
       this.$router.push({
         name: 'playlist-spotify',
-        params: { id: this.playlist.id }
+        params: { id: this.item.id }
       })
     },
     play() {
       this.$emit('close')
-      webapi.player_play_uri(this.playlist.uri, false)
+      webapi.player_play_uri(this.item.uri, false)
     },
     queue_add() {
       this.$emit('close')
-      webapi.queue_add(this.playlist.uri)
+      webapi.queue_add(this.item.uri)
     },
     queue_add_next() {
       this.$emit('close')
-      webapi.queue_add_next(this.playlist.uri)
+      webapi.queue_add_next(this.item.uri)
     }
   }
 }

@@ -37,8 +37,8 @@
           @play-count-changed="reload_tracks"
         />
         <modal-dialog-album
+          :item="album"
           :show="show_details_modal"
-          :album="album"
           :media_kind="'podcast'"
           @close="show_details_modal = false"
           @play-count-changed="reload_tracks"

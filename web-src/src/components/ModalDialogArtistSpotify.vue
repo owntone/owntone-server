@@ -6,11 +6,7 @@
         <div class="card">
           <div class="card-content">
             <p class="title is-4">
-              <a
-                class="has-text-link"
-                @click="open_artist"
-                v-text="artist.name"
-              />
+              <a class="has-text-link" @click="open" v-text="item.name" />
             </p>
             <div class="content is-small">
               <p>
@@ -20,9 +16,7 @@
                 />
                 <span
                   class="title is-6"
-                  v-text="
-                    [artist.popularity, artist.followers.total].join(' / ')
-                  "
+                  v-text="[item.popularity, item.followers.total].join(' / ')"
                 />
               </p>
               <p>
@@ -30,7 +24,7 @@
                   class="heading"
                   v-text="$t('dialog.spotify.artist.genres')"
                 />
-                <span class="title is-6" v-text="artist.genres.join(', ')" />
+                <span class="title is-6" v-text="item.genres.join(', ')" />
               </p>
             </div>
           </div>
@@ -73,28 +67,28 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogArtistSpotify',
-  props: { artist: { required: true, type: Object }, show: Boolean },
+  props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
   methods: {
-    open_artist() {
+    open() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-artist',
-        params: { id: this.artist.id }
+        params: { id: this.item.id }
       })
     },
     play() {
       this.$emit('close')
-      webapi.player_play_uri(this.artist.uri, false)
+      webapi.player_play_uri(this.item.uri, false)
     },
     queue_add() {
       this.$emit('close')
-      webapi.queue_add(this.artist.uri)
+      webapi.queue_add(this.item.uri)
     },
     queue_add_next() {
       this.$emit('close')
-      webapi.queue_add_next(this.artist.uri)
+      webapi.queue_add_next(this.item.uri)
     }
   }
 }

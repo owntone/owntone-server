@@ -6,26 +6,22 @@
         <div class="card">
           <div class="card-content">
             <p class="title is-4">
-              <a
-                class="has-text-link"
-                @click="open_genre"
-                v-text="genre.name"
-              />
+              <a class="has-text-link" @click="open" v-text="item.name" />
             </p>
             <div class="content is-small">
               <p>
                 <span class="heading" v-text="$t('dialog.genre.albums')" />
-                <span class="title is-6" v-text="genre.album_count" />
+                <span class="title is-6" v-text="item.album_count" />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.genre.tracks')" />
-                <span class="title is-6" v-text="genre.track_count" />
+                <span class="title is-6" v-text="item.track_count" />
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.genre.duration')" />
                 <span
                   class="title is-6"
-                  v-text="$filters.durationInHours(genre.length_ms)"
+                  v-text="$filters.durationInHours(item.length_ms)"
                 />
               </p>
             </div>
@@ -61,7 +57,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ModalDialogGenre',
   props: {
-    genre: { required: true, type: Object },
+    item: { required: true, type: Object },
     media_kind: { required: true, type: String },
     show: Boolean
   },
@@ -69,32 +65,29 @@ export default {
 
   computed: {
     expression() {
-      return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
+      return `genre is "${this.item.name}" and media_kind is ${this.media_kind}`
     }
   },
   methods: {
+    open() {
+      this.$emit('close')
+      this.$router.push({
+        name: 'genre-albums',
+        params: { name: this.item.name },
+        query: { media_kind: this.media_kind }
+      })
+    },
     play() {
       this.$emit('close')
       webapi.player_play_expression(this.expression, false)
     },
-
     queue_add() {
       this.$emit('close')
       webapi.queue_expression_add(this.expression)
     },
-
     queue_add_next() {
       this.$emit('close')
       webapi.queue_expression_add_next(this.expression)
-    },
-
-    open_genre() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'genre-albums',
-        params: { name: this.genre.name },
-        query: { media_kind: this.media_kind }
-      })
     }
   }
 }

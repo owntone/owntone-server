@@ -37,8 +37,8 @@
           <template #no-more>&nbsp;</template>
         </VueEternalLoading>
         <modal-dialog-playlist-spotify
+          :item="playlist"
           :show="show_playlist_details_modal"
-          :playlist="playlist"
           @close="show_playlist_details_modal = false"
         />
       </template>

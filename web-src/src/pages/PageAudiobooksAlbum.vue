@@ -39,8 +39,8 @@
         />
         <list-tracks :items="tracks" :uris="album.uri" />
         <modal-dialog-album
+          :item="album"
           :show="show_details_modal"
-          :album="album"
           :media_kind="'audiobook'"
           @close="show_details_modal = false"
         />

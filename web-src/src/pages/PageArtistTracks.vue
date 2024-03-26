@@ -62,8 +62,8 @@
         </p>
         <list-tracks :items="tracks" :uris="track_uris" />
         <modal-dialog-artist
+          :item="artist"
           :show="show_details_modal"
-          :artist="artist"
           @close="show_details_modal = false"
         />
       </template>
