@@ -12,11 +12,7 @@
               class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
             />
             <p class="title is-4">
-              <a
-                class="has-text-link"
-                @click="open_album"
-                v-text="album.name"
-              />
+              <a class="has-text-link" @click="open" v-text="album.name" />
             </p>
             <div v-if="media_kind_resolved === 'podcast'" class="buttons">
               <a
@@ -146,7 +142,7 @@ export default {
           this.$emit('close')
         })
     },
-    open_album() {
+    open() {
       this.$emit('close')
       if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ name: 'podcast', params: { id: this.album.id } })

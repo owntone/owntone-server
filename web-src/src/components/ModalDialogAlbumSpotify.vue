@@ -14,11 +14,7 @@
               @error="artwork_error"
             />
             <p class="title is-4">
-              <a
-                class="has-text-link"
-                @click="open_album"
-                v-text="album.name"
-              />
+              <a class="has-text-link" @click="open" v-text="album.name" />
             </p>
             <div class="content is-small">
               <p>
@@ -108,7 +104,7 @@ export default {
     artwork_url(album) {
       return album.images?.[0]?.url || ''
     },
-    open_album() {
+    open() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-album',

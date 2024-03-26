@@ -7,12 +7,8 @@
         v-text="album.index"
       />
     </div>
-    <div
-      v-else
-      class="media is-align-items-center"
-      @click="open_album(album.item)"
-    >
-      <div v-if="is_visible_artwork" class="media-left">
+    <div v-else class="media is-align-items-center" @click="open(album.item)">
+      <div v-if="show_artwork" class="media-left">
         <cover-artwork
           :artwork_url="album.item.artwork_url"
           :artist="album.item.artist"
@@ -93,20 +89,19 @@ export default {
   },
 
   computed: {
-    is_visible_artwork() {
+    media_kind_resolved() {
+      return this.media_kind || this.selected_album.media_kind
+    },
+    show_artwork() {
       return this.$store.getters.settings_option(
         'webinterface',
         'show_cover_artwork_in_album_lists'
       ).value
-    },
-
-    media_kind_resolved() {
-      return this.media_kind || this.selected_album.media_kind
     }
   },
 
   methods: {
-    open_album(album) {
+    open(album) {
       this.selected_album = album
       if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ name: 'podcast', params: { id: album.id } })
@@ -119,12 +114,10 @@ export default {
         this.$router.push({ name: 'music-album', params: { id: album.id } })
       }
     },
-
     open_dialog(album) {
       this.selected_album = album
       this.show_details_modal = true
     },
-
     open_remove_podcast_dialog() {
       webapi
         .library_album_tracks(this.selected_album.id, { limit: 1 })
@@ -138,11 +131,9 @@ export default {
           })
         })
     },
-
     play_count_changed() {
       this.$emit('play-count-changed')
     },
-
     remove_podcast() {
       this.show_remove_podcast_modal = false
       webapi
