@@ -22,7 +22,7 @@
   </template>
   <teleport to="#app">
     <modal-dialog-genre
-      :item="selected_genre"
+      :item="selected_item"
       :media_kind="media_kind"
       :show="show_details_modal"
       @close="show_details_modal = false"
