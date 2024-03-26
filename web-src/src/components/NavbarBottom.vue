@@ -344,17 +344,12 @@ export default {
   },
 
   methods: {
-    change_volume() {
-      webapi.player_volume(this.player.volume)
-    },
     change_stream_volume() {
       audio.setVolume(this.stream_volume / 100)
     },
-    toggle_mute_volume() {
-      this.player.volume = this.player.volume > 0 ? 0 : this.old_volume
-      this.change_volume()
+    change_volume() {
+      webapi.player_volume(this.player.volume)
     },
-
     closeAudio() {
       audio.stop()
       this.playing = false
@@ -366,15 +361,12 @@ export default {
       if (this.playing) {
         return
       }
-
-      const channel = '/stream.mp3'
       this.loading = true
-      audio.play(channel)
+      audio.play('/stream.mp3')
       audio.setVolume(this.stream_volume / 100)
     },
     setupAudio() {
       const a = audio.setup()
-
       a.addEventListener('waiting', (e) => {
         this.playing = false
         this.loading = true
@@ -402,9 +394,13 @@ export default {
         return
       }
       if (this.playing) {
-        return this.closeAudio()
+        this.closeAudio()
       }
-      return this.playChannel()
+      this.playChannel()
+    },
+    toggle_mute_volume() {
+      this.player.volume = this.player.volume > 0 ? 0 : this.old_volume
+      this.change_volume()
     }
   }
 }

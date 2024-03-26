@@ -16,21 +16,18 @@ export default {
   name: 'PlayerButtonShuffle',
 
   props: {
-    icon_size: {
-      type: Number,
-      default: 16
-    }
+    icon_size: { default: 16, type: Number }
   },
 
   computed: {
-    is_shuffle() {
-      return this.$store.state.player.shuffle
-    },
     icon_name() {
       if (this.is_shuffle) {
         return 'shuffle'
       }
       return 'shuffle-disabled'
+    },
+    is_shuffle() {
+      return this.$store.state.player.shuffle
     }
   },
 

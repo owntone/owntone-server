@@ -66,8 +66,8 @@ export default {
 
   data() {
     return {
-      url: '',
-      loading: false
+      loading: false,
+      url: ''
     }
   },
 
@@ -75,7 +75,6 @@ export default {
     show() {
       if (this.show) {
         this.loading = false
-
         // We need to delay setting the focus to the input field until the field is part of the dom and visible
         setTimeout(() => {
           this.$refs.url_field.focus()

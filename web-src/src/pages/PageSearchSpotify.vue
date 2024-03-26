@@ -214,9 +214,9 @@ export default {
     spotify_search(types) {
       return webapi.spotify().then(({ data }) => {
         this.search_param.market = data.webapi_country
-        const api = new SpotifyWebApi()
-        api.setAccessToken(data.webapi_token)
-        return api.search(this.query.query, types, this.search_param)
+        const spotifyApi = new SpotifyWebApi()
+        spotifyApi.setAccessToken(data.webapi_token)
+        return spotifyApi.search(this.query.query, types, this.search_param)
       })
     }
   }

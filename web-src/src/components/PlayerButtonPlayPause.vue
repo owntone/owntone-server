@@ -19,21 +19,9 @@ export default {
   },
 
   computed: {
-    is_playing() {
-      return this.$store.state.player.state === 'play'
-    },
-
-    is_pause_allowed() {
-      return (
-        this.$store.getters.now_playing &&
-        this.$store.getters.now_playing.data_kind !== 'pipe'
-      )
-    },
-
     disabled() {
       return !this.$store.state.queue || this.$store.state.queue.count <= 0
     },
-
     icon_name() {
       if (!this.is_playing) {
         return 'play'
@@ -41,6 +29,15 @@ export default {
         return 'pause'
       }
       return 'stop'
+    },
+    is_pause_allowed() {
+      return (
+        this.$store.getters.now_playing &&
+        this.$store.getters.now_playing.data_kind !== 'pipe'
+      )
+    },
+    is_playing() {
+      return this.$store.state.player.state === 'play'
     }
   },
 
@@ -50,9 +47,9 @@ export default {
         if (this.show_disabled_message) {
           this.$store.dispatch('add_notification', {
             text: this.$t('server.empty-queue'),
-            type: 'info',
+            timeout: 2000,
             topic: 'connection',
-            timeout: 2000
+            type: 'info'
           })
         }
         return

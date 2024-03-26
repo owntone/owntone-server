@@ -40,9 +40,9 @@ export default {
 
   data() {
     return {
+      statusUpdate: '',
       timerDelay: 2000,
-      timerId: -1,
-      statusUpdate: ''
+      timerId: -1
     }
   },
 
@@ -52,20 +52,6 @@ export default {
         (elem) => elem.name === this.category_name
       )
     },
-
-    option() {
-      if (!this.category) {
-        return {}
-      }
-      return this.category.options.find(
-        (elem) => elem.name === this.option_name
-      )
-    },
-
-    value() {
-      return this.option.value
-    },
-
     info() {
       if (this.statusUpdate === 'success') {
         return this.$t('setting.saved')
@@ -74,39 +60,47 @@ export default {
       }
       return ''
     },
-
+    is_error() {
+      return this.statusUpdate === 'error'
+    },
     is_success() {
       return this.statusUpdate === 'success'
     },
-
-    is_error() {
-      return this.statusUpdate === 'error'
+    option() {
+      if (!this.category) {
+        return {}
+      }
+      return this.category.options.find(
+        (elem) => elem.name === this.option_name
+      )
+    },
+    value() {
+      return this.option.value
     }
   },
 
   methods: {
+    clear_status() {
+      this.statusUpdate = ''
+    },
     set_update_timer() {
       if (this.timerId > 0) {
         window.clearTimeout(this.timerId)
         this.timerId = -1
       }
-
       this.statusUpdate = ''
       const newValue = this.$refs.setting.value
       if (newValue !== this.value) {
         this.timerId = window.setTimeout(this.update_setting, this.timerDelay)
       }
     },
-
     update_setting() {
       this.timerId = -1
-
       const newValue = this.$refs.setting.value
       if (newValue === this.value) {
         this.statusUpdate = ''
         return
       }
-
       const option = {
         category: this.category.name,
         name: this.option_name,
@@ -125,10 +119,6 @@ export default {
         .finally(() => {
           this.timerId = window.setTimeout(this.clear_status, this.timerDelay)
         })
-    },
-
-    clear_status() {
-      this.statusUpdate = ''
     }
   }
 }

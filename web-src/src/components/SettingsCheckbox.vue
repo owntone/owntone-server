@@ -40,6 +40,20 @@ export default {
   },
 
   computed: {
+    info() {
+      if (this.is_success) {
+        return this.$t('setting.saved')
+      } else if (this.is_error) {
+        return this.$t('setting.not-saved')
+      }
+      return ''
+    },
+    is_error() {
+      return this.statusUpdate === 'error'
+    },
+    is_success() {
+      return this.statusUpdate === 'success'
+    },
     option() {
       const option = this.$store.getters.settings_option(
         this.category_name,
@@ -53,27 +67,16 @@ export default {
         }
       }
       return option
-    },
-
-    info() {
-      if (this.is_success) {
-        return this.$t('setting.saved')
-      } else if (this.is_error) {
-        return this.$t('setting.not-saved')
-      }
-      return ''
-    },
-
-    is_success() {
-      return this.statusUpdate === 'success'
-    },
-
-    is_error() {
-      return this.statusUpdate === 'error'
     }
   },
 
   methods: {
+    clear_status() {
+      if (this.is_error) {
+        this.option.value = !this.option.value
+      }
+      this.statusUpdate = ''
+    },
     update_setting() {
       this.timerId = -1
       const option = {
@@ -93,13 +96,6 @@ export default {
         .finally(() => {
           this.timerId = window.setTimeout(this.clear_status, this.timerDelay)
         })
-    },
-
-    clear_status() {
-      if (this.is_error) {
-        this.option.value = !this.option.value
-      }
-      this.statusUpdate = ''
     }
   }
 }

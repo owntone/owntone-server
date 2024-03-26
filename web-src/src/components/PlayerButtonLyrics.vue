@@ -17,11 +17,11 @@ export default {
   },
 
   computed: {
-    is_active() {
-      return this.$store.state.lyrics.pane
-    },
     icon_name() {
       return this.is_active ? 'script-text-play' : 'script-text-outline'
+    },
+    is_active() {
+      return this.$store.state.lyrics.pane
     }
   },
 

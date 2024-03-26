@@ -19,12 +19,6 @@ export default {
   },
 
   computed: {
-    now_playing() {
-      return this.$store.getters.now_playing
-    },
-    is_stopped() {
-      return this.$store.state.player.state === 'stop'
-    },
     disabled() {
       return (
         !this.$store.state.queue ||
@@ -32,6 +26,12 @@ export default {
         this.is_stopped ||
         this.now_playing.data_kind === 'pipe'
       )
+    },
+    is_stopped() {
+      return this.$store.state.player.state === 'stop'
+    },
+    now_playing() {
+      return this.$store.getters.now_playing
     },
     visible() {
       return ['podcast', 'audiobook'].includes(this.now_playing.media_kind)

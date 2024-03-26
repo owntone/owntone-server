@@ -69,8 +69,8 @@ export default {
 
   data() {
     return {
-      url: '',
-      loading: false
+      loading: false,
+      url: ''
     }
   },
 

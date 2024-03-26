@@ -19,15 +19,6 @@ export default {
   },
 
   computed: {
-    is_repeat_all() {
-      return this.$store.state.player.repeat === 'all'
-    },
-    is_repeat_single() {
-      return this.$store.state.player.repeat === 'single'
-    },
-    is_repeat_off() {
-      return !this.is_repeat_all && !this.is_repeat_single
-    },
     icon_name() {
       if (this.is_repeat_all) {
         return 'repeat'
@@ -35,6 +26,15 @@ export default {
         return 'repeat-once'
       }
       return 'repeat-off'
+    },
+    is_repeat_all() {
+      return this.$store.state.player.repeat === 'all'
+    },
+    is_repeat_off() {
+      return !this.is_repeat_all && !this.is_repeat_single
+    },
+    is_repeat_single() {
+      return this.$store.state.player.repeat === 'single'
     }
   },
 
