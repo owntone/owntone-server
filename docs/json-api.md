@@ -2096,14 +2096,14 @@ curl -X PUT "http://localhost:3689/api/library/backup"
 
 | Method    | Endpoint                                                    | Description                          |
 | --------- | ----------------------------------------------------------- | ------------------------------------ |
-| GET       | [/api/search](#search-by-search-term)                       | Search for playlists, artists, albums, tracks,genres by a simple search term |
+| GET       | [/api/search](#search-by-search-term)                       | Search for playlists, artists, albums, tracks, composers by a simple search term |
 | GET       | [/api/search](#search-by-query-language)                    | Search by complex query expression   |
 
 
 
 ### Search by search term
 
-Search for playlists, artists, albums, tracks, genres that include the given query in their title (case insensitive matching).
+Search for playlists, artists, albums, tracks, composers that include the given query in their title (case insensitive matching).
 
 **Endpoint**
 
@@ -2116,7 +2116,7 @@ GET /api/search
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | query           | The search keyword                                          |
-| type            | Comma separated list of the result types (`playlist`, `artist`, `album`, `track`, `genre`) |
+| type            | Comma separated list of the result types (`playlist`, `artist`, `album`, `track`, `composers`) |
 | media_kind      | *(Optional)* Filter results by media kind (`music`, `movie`, `podcast`, `audiobook`, `musicvideo`, `tvshow`). Filter only applies to artist, album and track result types. |
 | offset          | *(Optional)* Offset of the first item to return for each type |
 | limit           | *(Optional)* Maximum number of items to return for each type  |
@@ -2129,6 +2129,7 @@ GET /api/search
 | artists         | object   | [`paging`](#paging-object) object containing [`artist`](#artist-object) objects that matches the `query` |
 | albums          | object   | [`paging`](#paging-object) object containing [`album`](#album-object) objects that matches the `query` |
 | playlists       | object   | [`paging`](#paging-object) object containing [`playlist`](#playlist-object) objects that matches the `query` |
+| composers       | object   | [`paging`](#paging-object) object containing `composers` objects that matches the `query` |
 
 
 **Example**
