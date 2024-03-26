@@ -547,6 +547,7 @@
   },
   "playlist": {
     "type": {
+      "folder": "文件夹",
       "plain": "简单",
       "smart": "智能"
     }

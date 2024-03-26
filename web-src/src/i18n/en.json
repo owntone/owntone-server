@@ -547,6 +547,7 @@
   },
   "playlist": {
     "type": {
+      "folder": "Folder",
       "plain": "Plain",
       "smart": "Smart"
     }
