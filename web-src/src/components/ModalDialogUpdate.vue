@@ -88,17 +88,16 @@ export default {
   },
 
   methods: {
+    close() {
+      this.update_dialog_scan_kind = ''
+      this.$emit('close')
+    },
     update_library() {
       if (this.rescan_metadata) {
         webapi.library_rescan(this.update_dialog_scan_kind)
       } else {
         webapi.library_update(this.update_dialog_scan_kind)
       }
-    },
-
-    close() {
-      this.update_dialog_scan_kind = ''
-      this.$emit('close')
     }
   }
 }

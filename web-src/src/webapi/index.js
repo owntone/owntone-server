@@ -58,7 +58,7 @@ export default {
     })
   },
 
-  library_albums(media_kind = undefined) {
+  library_albums(media_kind) {
     return axios.get('./api/library/albums', { params: { media_kind } })
   },
 
@@ -71,16 +71,14 @@ export default {
   },
 
   library_artist_tracks(artist) {
-    if (artist) {
-      const params = {
-        expression: `songartistid is "${artist}"`,
-        type: 'tracks'
-      }
-      return axios.get('./api/search', { params })
+    const params = {
+      expression: `songartistid is "${artist}"`,
+      type: 'tracks'
     }
+    return axios.get('./api/search', { params })
   },
 
-  library_artists(media_kind = undefined) {
+  library_artists(media_kind) {
     return axios.get('./api/library/artists', { params: { media_kind } })
   },
 
@@ -104,7 +102,7 @@ export default {
     return axios.get('./api/search', { params })
   },
 
-  library_composers(media_kind = undefined) {
+  library_composers(media_kind) {
     return axios.get('./api/library/composers', { params: { media_kind } })
   },
 
@@ -112,11 +110,11 @@ export default {
     return axios.get(`./api/library/count?expression=${expression}`)
   },
 
-  library_files(directory = undefined) {
+  library_files(directory) {
     return axios.get('./api/library/files', { params: { directory } })
   },
 
-  library_genre(genre, media_kind = undefined) {
+  library_genre(genre, media_kind) {
     return axios.get(`./api/library/genres/${encodeURIComponent(genre)}`, {
       params: { media_kind }
     })
@@ -138,7 +136,7 @@ export default {
     return axios.get('./api/search', { params })
   },
 
-  library_genres(media_kind = undefined) {
+  library_genres(media_kind) {
     return axios.get('./api/library/genres', { params: { media_kind } })
   },
 
@@ -188,12 +186,8 @@ export default {
     return axios.get('./api/search', { params })
   },
 
-  library_rescan(scanKind) {
-    const params = {}
-    if (scanKind) {
-      params.scan_kind = scanKind
-    }
-    return axios.put('./api/rescan', undefined, { params })
+  library_rescan(scan_kind) {
+    return axios.put('./api/rescan', undefined, { params: { scan_kind } })
   },
 
   library_stats() {
@@ -214,12 +208,8 @@ export default {
     })
   },
 
-  library_update(scanKind) {
-    const params = {}
-    if (scanKind) {
-      params.scan_kind = scanKind
-    }
-    return axios.put('./api/update', undefined, { params })
+  library_update(scan_kind) {
+    return axios.put('./api/update', undefined, { params: { scan_kind } })
   },
 
   output_toggle(outputId) {
@@ -264,23 +254,23 @@ export default {
     return axios.put('./api/player/play', undefined, { params: options })
   },
 
-  player_play_expression(expression, shuffle, position = undefined) {
+  player_play_expression(expression, shuffle, position) {
     const params = {
       clear: 'true',
       expression,
       playback: 'start',
       playback_from_position: position,
-      shuffle: `${shuffle}`
+      shuffle
     }
     return axios.post('./api/queue/items/add', undefined, { params })
   },
 
-  player_play_uri(uris, shuffle, position = undefined) {
+  player_play_uri(uris, shuffle, position) {
     const params = {
       clear: 'true',
       playback: 'start',
       playback_from_position: position,
-      shuffle: `${shuffle}`,
+      shuffle,
       uris
     }
     return axios.post('./api/queue/items/add', undefined, { params })
