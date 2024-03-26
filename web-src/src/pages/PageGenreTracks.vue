@@ -114,7 +114,7 @@ export default {
           id: 2,
           name: this.$t('page.genre.sort.rating'),
           options: {
-            criteria: [{ field: 'rating', type: Number, order: -1 }],
+            criteria: [{ field: 'rating', order: -1, type: Number }],
             index: { field: 'rating', type: 'Digits' }
           }
         }

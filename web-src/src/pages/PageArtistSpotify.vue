@@ -62,10 +62,10 @@ const dataObject = {
     return Promise.all([
       spotifyApi.getArtist(to.params.id),
       spotifyApi.getArtistAlbums(to.params.id, {
-        limit: PAGE_SIZE,
-        offset: 0,
         include_groups: 'album,single',
-        market: store.state.spotify.webapi_country
+        limit: PAGE_SIZE,
+        market: store.state.spotify.webapi_country,
+        offset: 0
       })
     ])
   },

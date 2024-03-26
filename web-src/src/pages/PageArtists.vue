@@ -119,7 +119,7 @@ export default {
           id: 2,
           name: this.$t('page.artists.sort.recently-added'),
           options: {
-            criteria: [{ field: 'time_added', type: Date, order: -1 }],
+            criteria: [{ field: 'time_added', order: -1, type: Date }],
             index: { field: 'time_added', type: Date }
           }
         }

@@ -172,13 +172,13 @@ export default {
       }
       const currentVerse = pane.children[this.verse_index]
       pane.scrollBy({
+        behavior: 'smooth',
+        left: 0,
         top:
           currentVerse.offsetTop -
           (pane.offsetHeight >> 1) +
           (currentVerse.offsetHeight >> 1) -
-          pane.scrollTop,
-        left: 0,
-        behavior: 'smooth'
+          pane.scrollTop
       })
     }
   }

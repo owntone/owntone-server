@@ -33,7 +33,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.recently_added = new GroupedList(response.data.albums, {
-      criteria: [{ field: 'time_added', type: Date, order: -1 }],
+      criteria: [{ field: 'time_added', order: -1, type: Date }],
       index: { field: 'time_added', type: Date }
     })
   }

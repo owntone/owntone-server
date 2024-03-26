@@ -88,7 +88,7 @@ export default {
   methods: {
     play() {
       webapi.player_play_uri(
-        this.albums.items.map((a) => a.uri).join(','),
+        this.albums.items.map((item) => item.uri).join(),
         false
       )
     }

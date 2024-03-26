@@ -131,7 +131,7 @@ export default {
           id: 2,
           name: this.$t('page.artist.sort.rating'),
           options: {
-            criteria: [{ field: 'rating', type: Number, order: -1 }],
+            criteria: [{ field: 'rating', order: -1, type: Number }],
             index: { field: 'rating', type: 'Digits' }
           }
         }
@@ -169,7 +169,7 @@ export default {
       return this.$store.state.spotify.webapi_token_valid
     },
     track_uris() {
-      return this.tracks_list.items.map((a) => a.uri).join(',')
+      return this.tracks_list.items.map((item) => item.uri).join()
     },
     tracks() {
       const grouping = this.grouping_options.find(
@@ -193,7 +193,7 @@ export default {
     },
     play() {
       webapi.player_play_uri(
-        this.tracks_list.items.map((a) => a.uri).join(','),
+        this.tracks_list.items.map((item) => item.uri).join(),
         true
       )
     }

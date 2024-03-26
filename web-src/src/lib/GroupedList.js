@@ -103,18 +103,18 @@ export class GroupedList {
     for (const [index, items] of this.itemsGrouped.entries()) {
       if (index !== NO_INDEX) {
         yield {
-          index: index,
-          itemId: index,
+          index,
           isItem: false,
-          item: {}
+          item: {},
+          itemId: index
         }
       }
       for (const item of items) {
         yield {
-          index: index,
-          itemId: item.id,
+          index,
           isItem: true,
-          item: item
+          item,
+          itemId: item.id
         }
       }
     }

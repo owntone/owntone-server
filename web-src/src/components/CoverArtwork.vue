@@ -34,13 +34,7 @@ export default {
     },
 
     caption() {
-      if (this.album) {
-        return this.album.substring(0, 2)
-      }
-      if (this.artist) {
-        return this.artist.substring(0, 2)
-      }
-      return ''
+      return (this.album || this.artist || '').substring(0, 2)
     }
   },
 

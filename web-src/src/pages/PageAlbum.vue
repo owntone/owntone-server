@@ -67,7 +67,7 @@ const dataObject = {
       index: { field: 'disc_number', type: Number }
     })
     if (vm.tracks.indices.length < 2) {
-      vm.tracks.group({ index: { type: undefined } })
+      vm.tracks.group()
     }
   }
 }

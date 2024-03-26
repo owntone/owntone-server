@@ -6,28 +6,25 @@
     aria-label="main navigation"
   >
     <div class="navbar-brand">
-      <navbar-item-link v-if="is_visible_playlists" :to="{ name: 'playlists' }">
+      <navbar-item-link v-if="show_playlists" :to="{ name: 'playlists' }">
         <mdicon class="icon" name="music-box-multiple" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_music" :to="{ name: 'music' }">
+      <navbar-item-link v-if="show_music" :to="{ name: 'music' }">
         <mdicon class="icon" name="music" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_podcasts" :to="{ name: 'podcasts' }">
+      <navbar-item-link v-if="show_podcasts" :to="{ name: 'podcasts' }">
         <mdicon class="icon" name="microphone" size="16" />
       </navbar-item-link>
-      <navbar-item-link
-        v-if="is_visible_audiobooks"
-        :to="{ name: 'audiobooks' }"
-      >
+      <navbar-item-link v-if="show_audiobooks" :to="{ name: 'audiobooks' }">
         <mdicon class="icon" name="book-open-variant" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_radio" :to="{ name: 'radio' }">
+      <navbar-item-link v-if="show_radio" :to="{ name: 'radio' }">
         <mdicon class="icon" name="radio" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_files" :to="{ name: 'files' }">
+      <navbar-item-link v-if="show_files" :to="{ name: 'files' }">
         <mdicon class="icon" name="folder-open" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="is_visible_search" :to="{ name: search_name }">
+      <navbar-item-link v-if="show_search" :to="{ name: search_name }">
         <mdicon class="icon" name="magnify" size="16" />
       </navbar-item-link>
       <div
@@ -135,52 +132,17 @@ export default {
   },
 
   computed: {
-    is_visible_playlists() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_playlists'
-      ).value
+    search_name: {
+      get() {
+        return `search-${this.$store.state.search_source}`
+      }
     },
-    is_visible_music() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_music'
-      ).value
-    },
-    is_visible_podcasts() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_podcasts'
-      ).value
-    },
-    is_visible_audiobooks() {
+    show_audiobooks() {
       return this.$store.getters.settings_option(
         'webinterface',
         'show_menu_item_audiobooks'
       ).value
     },
-    is_visible_radio() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_radio'
-      ).value
-    },
-    is_visible_files() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_files'
-      ).value
-    },
-    is_visible_search() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_search'
-      ).value
-    },
-    spotify_enabled() {
-      return this.$store.state.spotify.webapi_token_valid
-    },
-
     show_burger_menu: {
       get() {
         return this.$store.state.show_burger_menu
@@ -189,11 +151,45 @@ export default {
         this.$store.commit(types.SHOW_BURGER_MENU, value)
       }
     },
-
+    show_files() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_menu_item_files'
+      ).value
+    },
+    show_music() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_menu_item_music'
+      ).value
+    },
     show_player_menu() {
       return this.$store.state.show_player_menu
     },
-
+    show_playlists() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_menu_item_playlists'
+      ).value
+    },
+    show_podcasts() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_menu_item_podcasts'
+      ).value
+    },
+    show_radio() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_menu_item_radio'
+      ).value
+    },
+    show_search() {
+      return this.$store.getters.settings_option(
+        'webinterface',
+        'show_menu_item_search'
+      ).value
+    },
     show_update_dialog: {
       get() {
         return this.$store.state.show_update_dialog
@@ -202,13 +198,9 @@ export default {
         this.$store.commit(types.SHOW_UPDATE_DIALOG, value)
       }
     },
-
-    search_name: {
-      get() {
-        return `search-${this.$store.state.search_source}`
-      }
+    spotify_enabled() {
+      return this.$store.state.spotify.webapi_token_valid
     },
-
     zindex() {
       if (this.show_player_menu) {
         return 'z-index: 21'
@@ -227,7 +219,6 @@ export default {
     on_click_outside_settings() {
       this.show_settings_menu = !this.show_settings_menu
     },
-
     open_update_dialog() {
       this.show_update_dialog = true
       this.show_settings_menu = false
