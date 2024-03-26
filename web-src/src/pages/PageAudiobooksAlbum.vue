@@ -37,7 +37,7 @@
             })
           "
         />
-        <list-tracks :items="tracks" :uris="album.uri" />
+        <list-tracks :items="tracks" :show_progress="true" :uris="album.uri" />
         <modal-dialog-album
           :item="album"
           :show="show_details_modal"
