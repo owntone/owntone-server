@@ -76,7 +76,7 @@
       "add": "Ajouter",
       "play": "Lire",
       "path": "Emplacement",
-      "track-count": "Pistes",
+      "tracks": "Pistes",
       "type": "Type",
       "save": {
         "cancel": "Annuler",

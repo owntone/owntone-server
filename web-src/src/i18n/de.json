@@ -76,7 +76,7 @@
       "add": "Hinzufügen",
       "path": "Pfad",
       "play": "Spielen",
-      "track-count": "Tracknummer",
+      "tracks": "Tracks",
       "type": "Art",
       "save": {
         "cancel": "Abbrechen",
@@ -378,7 +378,7 @@
     "playlist": {
       "length": "{length} Tracks",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Tracks"
+      "track-count": "{count} Track|{count} Track|{count} Tracks"
     },
     "playlists": {
       "title": "Playlisten",
@@ -390,7 +390,7 @@
       "remove-info-1": "Diesen Podcast wirklich dauerhaft aus der Bibliothek löschen?",
       "remove-info-2": "Damit wird auch die RSS-Playliste gelöscht. ",
       "remove-podcast": "Entferne podcast",
-      "track-count": "{count} Track|{count} Tracks"
+      "track-count": "{count} Track|{count} Track|{count} Tracks"
     },
     "podcasts": {
       "add": "Hinzufügen",

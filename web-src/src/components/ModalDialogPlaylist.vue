@@ -23,7 +23,7 @@
               <p v-if="!item.folder">
                 <span
                   class="heading"
-                  v-text="$t('dialog.playlist.track-count')"
+                  v-text="$t('dialog.playlist.tracks')"
                 />
                 <span class="title is-6" v-text="item.item_count" />
               </p>

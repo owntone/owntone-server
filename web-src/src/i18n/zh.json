@@ -76,7 +76,7 @@
       "add": "最后播放",
       "play": "播放",
       "path": "路径",
-      "track-count": "只曲目",
+      "tracks": "只曲目",
       "type": "类型",
       "save": {
         "cancel": "取消",

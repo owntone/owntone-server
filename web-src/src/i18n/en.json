@@ -37,7 +37,7 @@
       "play": "Play",
       "release-date": "Release date",
       "remove-podcast": "Remove podcast",
-      "tracks": "Track count",
+      "tracks": "Tracks",
       "type": "Type",
       "year": "Year"
     },
@@ -76,7 +76,7 @@
       "add": "Add",
       "play": "Play",
       "path": "Path",
-      "track-count": "Track Count",
+      "tracks": "Tracks",
       "type": "Type",
       "save": {
         "cancel": "Cancel",
