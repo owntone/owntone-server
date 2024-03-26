@@ -72,14 +72,14 @@ export default createStore({
   getters: {
     now_playing: (state) =>
       state.queue.items.find((e) => e.id === state.player.item_id) ?? {},
-    settings_option_recently_added_limit: (state, getters) =>
-      getters.settings_webinterface?.options.find(
-        (option) => option.name === 'recently_added_limit'
-      )?.value ?? 100,
     settings_option: (state) => (categoryName, optionName) =>
       state.settings.categories
         .find((category) => category.name === categoryName)
         ?.options.find((option) => option.name === optionName) ?? {},
+    settings_option_recently_added_limit: (state, getters) =>
+      getters.settings_webinterface?.options.find(
+        (option) => option.name === 'recently_added_limit'
+      )?.value ?? 100,
     settings_option_show_composer_for_genre: (state, getters) =>
       getters.settings_webinterface?.options.find(
         (option) => option.name === 'show_composer_for_genre'
