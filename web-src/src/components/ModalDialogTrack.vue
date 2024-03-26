@@ -90,10 +90,7 @@
                 <span class="title is-6">
                   <span
                     v-text="
-                      [
-                        $t('media.kind.' + item.media_kind),
-                        $t('data.kind.' + item.data_kind)
-                      ].join(' - ')
+                      `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
                     "
                   />
                 </span>

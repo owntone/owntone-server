@@ -17,7 +17,7 @@
                 <span class="heading" v-text="$t('dialog.playlist.type')" />
                 <span
                   class="title is-6"
-                  v-text="$t('playlist.type.' + item.type)"
+                  v-text="$t(`playlist.type.${item.type}`)"
                 />
               </p>
               <p v-if="!item.folder">

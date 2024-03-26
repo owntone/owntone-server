@@ -75,10 +75,7 @@
                 <span class="title is-6">
                   <span
                     v-text="
-                      [
-                        $t('media.kind.' + item.media_kind),
-                        $t('data.kind.' + item.data_kind)
-                      ].join(' - ')
+                      `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
                     "
                   />
                 </span>
@@ -192,7 +189,6 @@ export default {
         })
       }
     },
-
     open_album_artist() {
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
@@ -214,7 +210,6 @@ export default {
         })
       }
     },
-
     open_genre() {
       this.$router.push({
         name: 'genre-albums',
@@ -222,12 +217,10 @@ export default {
         query: { media_kind: this.item.media_kind }
       })
     },
-
     play() {
       this.$emit('close')
       webapi.player_play({ item_id: this.item.id })
     },
-
     remove() {
       this.$emit('close')
       webapi.queue_remove(this.item.id)

@@ -2,7 +2,7 @@
   <template v-for="item in items" :key="item.itemId">
     <div v-if="!item.isItem" class="mt-6 mb-5 py-2">
       <span
-        :id="'index_' + item.index"
+        :id="`index_${item.index}`"
         class="tag is-info is-light is-small has-text-weight-bold"
         v-text="item.index"
       />
@@ -40,16 +40,16 @@
   <teleport to="#app">
     <modal-dialog-album
       :item="selected_item"
-      :show="show_details_modal"
       :media_kind="media_kind"
+      :show="show_details_modal"
+      @close="show_details_modal = false"
       @remove-podcast="open_remove_podcast_dialog()"
       @play-count-changed="play_count_changed()"
-      @close="show_details_modal = false"
     />
     <modal-dialog
+      :delete_action="$t('page.podcast.remove')"
       :show="show_remove_podcast_modal"
       :title="$t('page.podcast.remove-podcast')"
-      :delete_action="$t('page.podcast.remove')"
       @close="show_remove_podcast_modal = false"
       @delete="remove_podcast"
     >

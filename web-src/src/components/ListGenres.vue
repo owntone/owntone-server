@@ -3,7 +3,7 @@
     <div v-if="!item.isItem" class="mt-6 mb-5 py-2">
       <div class="media-content is-clipped">
         <span
-          :id="'index_' + item.index"
+          :id="`index_${item.index}`"
           class="tag is-info is-light is-small has-text-weight-bold"
           v-text="item.index"
         />
