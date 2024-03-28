@@ -215,6 +215,14 @@ a.navbar-item {
   min-height: calc(100vh - calc(2 * $navbar-height));
 }
 
+.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  > * {
+    pointer-events: none;
+  }
+}
+
 .fd-cover {
   align-items: center;
   display: flex;

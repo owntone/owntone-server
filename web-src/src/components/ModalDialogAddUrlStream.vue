@@ -13,10 +13,11 @@
                   v-model="url"
                   class="input is-shadowless"
                   type="url"
-                  pattern="http[s]?://.*"
+                  pattern="http[s]?://.+"
                   required
                   :placeholder="$t('dialog.add.stream.placeholder')"
                   :disabled="loading"
+                  @input="check_url"
                 />
                 <mdicon class="icon is-left" name="web" size="16" />
               </p>
@@ -36,11 +37,16 @@
               <mdicon class="icon" name="cancel" size="16" />
               <span class="is-size-7" v-text="$t('dialog.add.stream.cancel')" />
             </a>
-            <a class="card-footer-item has-text-dark" @click="add_stream">
+            <a
+              :class="{ 'is-disabled': disabled }"
+              class="card-footer-item has-text-dark"
+              @click="add_stream"
+            >
               <mdicon class="icon" name="playlist-plus" size="16" />
               <span class="is-size-7" v-text="$t('dialog.add.stream.add')" />
             </a>
             <a
+              :class="{ 'is-disabled': disabled }"
               class="card-footer-item has-background-info has-text-white has-text-weight-bold"
               @click="play"
             >
@@ -69,6 +75,7 @@ export default {
 
   data() {
     return {
+      disabled: true,
       loading: false,
       url: ''
     }
@@ -78,7 +85,6 @@ export default {
     show() {
       if (this.show) {
         this.loading = false
-
         // We need to delay setting the focus to the input field until the field is part of the dom and visible
         setTimeout(() => {
           this.$refs.url_field.focus()
@@ -100,7 +106,10 @@ export default {
           this.loading = false
         })
     },
-
+    check_url(event) {
+      const { validity } = event.target
+      this.disabled = validity.patternMismatch || validity.valueMissing
+    },
     play() {
       this.loading = true
       webapi

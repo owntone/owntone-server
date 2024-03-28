@@ -13,10 +13,11 @@
                   v-model="url"
                   class="input is-shadowless"
                   type="url"
-                  pattern="http[s]?://.*"
+                  pattern="http[s]?://.+"
                   required
                   :placeholder="$t('dialog.add.rss.placeholder')"
                   :disabled="loading"
+                  @input="check_url"
                 />
                 <mdicon class="icon is-left" name="rss" size="16" />
               </p>
@@ -38,6 +39,7 @@
               <span class="is-size-7" v-text="$t('dialog.add.rss.cancel')" />
             </a>
             <a
+              :class="{ 'is-disabled': disabled }"
               class="card-footer-item has-background-info has-text-white has-text-weight-bold"
               @click="add_stream"
             >
@@ -66,6 +68,7 @@ export default {
 
   data() {
     return {
+      disabled: true,
       loading: false,
       url: ''
     }
@@ -96,6 +99,10 @@ export default {
         .catch(() => {
           this.loading = false
         })
+    },
+    check_url(event) {
+      const { validity } = event.target
+      this.disabled = validity.patternMismatch || validity.valueMissing
     }
   }
 }
