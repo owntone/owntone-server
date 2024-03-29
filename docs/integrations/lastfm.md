@@ -5,4 +5,3 @@ go to the web interface and authorize OwnTone with your LastFM credentials.
 
 OwnTone will not store your LastFM username/password, only the session key.
 The session key does not expire.
-

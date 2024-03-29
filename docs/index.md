@@ -36,9 +36,9 @@ OwnTone is written in C with a web interface written in Vue.js.
 - :material-volume-high: Local audio playback with ALSA or PulseAudio
 - Supports multiple different clients:
 
-    - :material-cellphone: Remote apps like Apple Remote (iOS) or Retune (Android)
-    - :material-web: Integrated mobile friendly web interface
-    - :material-console: MPD clients
+  - :material-cellphone: Remote apps like Apple Remote (iOS) or Retune (Android)
+  - :material-web: Integrated mobile friendly web interface
+  - :material-console: MPD clients
 
 - Supports :material-music: music and :material-book-open-variant:
   audiobook files, :material-microphone: podcast files and :material-rss: RSS
@@ -66,7 +66,7 @@ and what features it was built with (e.g. Spotify support).
 
 How to find out? Go to the [web interface](http://owntone.local:3689) and
 check. No web interface? Then check the top of OwnTone's log file (usually
-/var/log/owntone.log).
+`/var/log/owntone.log`).
 
 Note that you are viewing a snapshot of the instructions that may or may not
 match the version of OwnTone that you are using.

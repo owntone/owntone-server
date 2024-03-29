@@ -15,7 +15,7 @@ Alternative ALSA names can be used to refer to physical ALSA devices and can be 
 
 The ALSA device information required for configuration the server can be determined using `aplay`, as described in the rest of this document, but OwnTone can also assist; when configured to log at `INFO` level the following information is provided during startup:
 
-```
+```shell
 laudio: Available ALSA playback mixer(s) on hw:0 CARD=Intel (HDA Intel): 'Master' 'Headphone' 'Speaker' 'PCM' 'Mic' 'Beep'
 laudio: Available ALSA playback mixer(s) on hw:1 CARD=E30 (E30): 'E30 '
 laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwire 3210 Seri): 'Sidetone' 'Headset'
@@ -29,7 +29,7 @@ On this machine the server reports that it can see the onboard HDA Intel sound c
 
 OwnTone can support a single ALSA device or multiple ALSA devices.
 
-```
+```conf
 # example audio section for server for a single sound card
 audio {
     nickname = "Computer"
@@ -43,7 +43,7 @@ audio {
 
 Multiple devices can be made available to OwnTone using separate `alsa { .. }` sections.
 
-```
+```conf
 audio {
     type = "alsa"
 }
@@ -63,11 +63,11 @@ NB: When introducing `alsa { .. }` section(s) the ALSA specific configuration in
 
 If there is only one sound card, verify if the `default` sound device is correct for playback, we will use the `aplay` utility.
 
-```
+```shell
 # generate some audio if you don't have a wav file to hand
-$ sox -n -c 2 -r 44100 -b 16 -C 128 /tmp/sine441.wav synth 30 sin 500-100 fade h 0.2 30 0.2
+sox -n -c 2 -r 44100 -b 16 -C 128 /tmp/sine441.wav synth 30 sin 500-100 fade h 0.2 30 0.2
 
-$ aplay -Ddefault /tmp/sine441.wav
+aplay -Ddefault /tmp/sine441.wav
 ```
 
 If you can hear music played then you are good to use `default` for the server configuration.  If you can not hear anything from the `aplay` firstly verify (using `alsamixer`) that the sound card is not muted.  If the card is not muted AND there is no sound you can try the options below to determine the card and mixer for configuring the server.
@@ -76,7 +76,7 @@ If you can hear music played then you are good to use `default` for the server c
 
 As shown above, OwnTone can help, consider the information that logged:
 
-```
+```log
 laudio: Available ALSA playback mixer(s) on hw:0 CARD=Intel (HDA Intel): 'Master' 'Headphone' 'Speaker' 'PCM' 'Mic' 'Beep'
 laudio: Available ALSA playback mixer(s) on hw:1 CARD=E30 (E30): 'E30 '
 laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwire 3210 Seri): 'Sidetone' 'Headset'
@@ -84,7 +84,7 @@ laudio: Available ALSA playback mixer(s) on hw:2 CARD=Seri (Plantronics Blackwir
 
 Using the information above, we can see 3 sound cards that we could use with OwnTone with the first sound card having a number of separate mixer devices (volume control) for headphone and the internal speakers - we'll configure the server to use both these and also the E30 device.  The server configuration for these multiple outputs would be:
 
-```
+```conf
 # using ALSA device alias where possible
 
 alsa "hw:Intel" {
@@ -110,12 +110,14 @@ alsa "plughw:E30" {
 NB: it is troublesome to use `hw` or `plughw` ALSA addressing when running OwnTone on a machine with `pulseaudio` and if you wish to use refer to ALSA devices directly that you stop `pulseaudio`.
 
 ## Manually Determining the sound cards you have / ALSA can see
+
 The example below is how I determined the correct sound card and mixer values for a Raspberry Pi that has an additional DAC card (hat) mounted.  Of course using the log output from the server would have given the same results.
 
 Use `aplay -l` to list all the sound cards and their order as known to the system - you can have multiple `card X, device Y` entries; some cards can also have multiple playback devices such as the RPI's onboard sound card which feeds both headphone (card 0, device 0) and HDMI (card 0, device 1).
 
 ```shell
 $ aplay -l
+
 **** List of PLAYBACK Hardware Devices ****
 card 0: ALSA [bcm2835 ALSA], device 0: bcm2835 ALSA [bcm2835 ALSA]
   Subdevices: 6/7
@@ -142,6 +144,7 @@ Use `aplay -L` to get more information about the PCM devices defined on the syst
 
 ```shell
 $ aplay -L
+
 null
     Discard all samples (playback) or generate zero samples (capture)
 default:CARD=ALSA
@@ -196,7 +199,7 @@ plughw:CARD=IQaudIODAC,DEV=0
 
 For the server configuration, we will use:
 
-```
+```conf
 audio {
     nickname = "Computer"
     type = "alsa"
@@ -237,7 +240,7 @@ This card has multiple controls but we want to find a mixer control listed with 
 
 For the server configuration, we will use:
 
-```
+```conf
 audio {
     nickname = "Computer"
     type = "alsa"
@@ -251,8 +254,7 @@ audio {
 
 This is the name of the underlying physical device used for the mixer - it is typically the same value as the value of `card` in which case a value is not required by the server configuration.  An example of when you want to change explicitly configure this is if you need to use a `dmix` device (see below).
 
-
-## Handling Devices that cannot concurrently play multiple audio streams 
+## Handling Devices that cannot concurrently play multiple audio streams
 
 Some devices such as various RPI DAC boards (IQaudio DAC, Allo Boss DAC...) cannot have multiple streams opened at the same time/cannot play multiple sound files at the same time. This results in `Device or resource busy` errors.  You can confirm if your sound card has this problem by using the example below once have determined the names/cards information as above.
 
@@ -302,7 +304,7 @@ The downside to the `dmix` approach will be the need to fix a sample rate (48000
 
 A `dmix` device can be defined in `/etc/asound.conf` or `~/.asoundrc` for the same user running OwnTone.  We will need to know the underlying physical sound card to be used: in our examples above, `hw:1,0` / `card 1, device 0` representing our IQaudIODAC as per output of `aplay -l`.  We also take the `buffer_size` and `period_size` from the output of playing a sound file via `aplay -v`.
 
-```
+```conf
 # use 'dac' as the name of the device: "aplay -Ddac ...."
 pcm.!dac {
     type plug
@@ -317,11 +319,11 @@ pcm.dmixer  {
     ipc_perm 0666            # multi-user sharing permissions
 
     slave {
-	pcm "hw:1,0"         # points at the underlying device - could also simply be hw:1
-	period_time 0
-	period_size 4096     # from the output of aplay -v
-	buffer_size 22052    # from the output of aplay -v
-	rate 44100           # locked in sample rate for resampling on dmix device
+        pcm "hw:1,0"         # points at the underlying device - could also simply be hw:1
+        period_time 0
+        period_size 4096     # from the output of aplay -v
+        buffer_size 22052    # from the output of aplay -v
+        rate 44100           # locked in sample rate for resampling on dmix device
     }
     hint.description "IQAudio DAC s/w dmix device"
 }
@@ -360,7 +362,7 @@ We will use the newly defined card named `dac` which uses the underlying `hw:1` 
 
 For the final server configuration, we will use:
 
-```
+```conf
 audio {
     nickname = "Computer"
     type = "alsa"
@@ -378,7 +380,7 @@ Once installed the user must setup a virtual device and use this device in the s
 
 If you wish to use your `hw:0` device for output:
 
-```
+```conf
 # /etc/asound.conf
 ctl.equal {
   type equal;
@@ -402,7 +404,7 @@ pcm.equal {
 
 and in `owntone.conf`
 
-```
+```conf
 alsa "equal" {
     nickname = "Equalised Output"
     # adjust accordingly for mixer with pvolume capability
@@ -424,7 +426,7 @@ Note however, the equalizer appears to require a `plughw` device which means you
 
     `mixer` value is wrong.  Verify name of `mixer` value in server config against the names from all devices capable of playback using `amixer -c <card number>`.  Assume the device is card 1:
 
-    ```
+    ```shell
     (IFS=$'\n'
      CARD=1
      for i in $(amixer -c ${CARD} scontrols | awk -F\' '{ print $2 }'); do 
@@ -433,9 +435,9 @@ Note however, the equalizer appears to require a `plughw` device which means you
     )
     ```
 
-    Look at the names output and choose the one that fits.  The outputs can be something like:
+    Look at the names output and choose the one that fits. The outputs can be something like:
 
-    ```
+    ```shell
     # laptop
     Master
     Headphone
@@ -454,16 +456,16 @@ Note however, the equalizer appears to require a `plughw` device which means you
 
 * No sound during playback - valid mixer/verified by aplay
 
-    Check that the mixer is not muted or volume set to 0.  Using the value of `mixer` as per server config and unmute or set volume to max.  Assume the device is card 1 and `mixer = Analogue`:
+    Check that the mixer is not muted or volume set to 0.  Using the value of `mixer` as per server config and unmute or set volume to max. Assume the device is card 1 and `mixer = Analogue`:
 
-    ```
+    ```shell
     amixer -c 1 set Analogue unmute  ## some mixers can not be muted resulting in "invalid command"
     amixer -c 1 set Analogue 100%
     ```
 
     An example of a device with volume turned all the way down - notice the `Playback` values are `0`[0%]`:
 
-    ```
+    ```shell
     Simple mixer control 'Analogue',0
     Capabilities: pvolume
     Playback channels: Front Left - Front Right
@@ -476,7 +478,7 @@ Note however, the equalizer appears to require a `plughw` device which means you
 * Server stops playing after moving to new track in paly queue, Error in log `Could not open playback device`
     The log contains these log lines:
 
-    ```
+    ```log
     [2019-06-19 20:52:51] [  LOG]   laudio: open '/dev/snd/pcmC0D0p' failed (-16)[2019-06-19 20:52:51] [  LOG]   laudio: Could not open playback device: Device or resource busy
     [2019-06-19 20:52:51] [  LOG]   laudio: Device 'hw' does not support quality (48000/16/2), falling back to default
     [2019-06-19 20:52:51] [  LOG]   laudio: open '/dev/snd/pcmC0D0p' failed (-16)[2019-06-19 20:52:51] [  LOG]   laudio: Could not open playback device: Device or resource busy

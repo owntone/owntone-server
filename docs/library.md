@@ -23,7 +23,6 @@ directories only.
 
 Files starting with . (dot) and _ (underscore) are ignored.
 
-
 ## Pipes (for e.g. multiroom with Shairport-sync)
 
 Some programs, like for instance Shairport-sync, can be configured to output
@@ -38,7 +37,7 @@ speakers you have selected (through Remote).
 
 The format of the audio being written to the pipe must be PCM16.
 
-You can also start playback of pipes manually. You will find them in remotes 
+You can also start playback of pipes manually. You will find them in remotes
 listed under "Unknown artist" and "Unknown album". The track title will be the
 name of the pipe.
 
@@ -46,7 +45,6 @@ Shairport-sync can write metadata to a pipe, and OwnTone can read this.
 This requires that the metadata pipe has the same filename as the audio pipe
 plus a ".metadata" suffix. Say Shairport-sync is configured to write audio to
 "/foo/bar/pipe", then the metadata pipe should be "/foo/bar/pipe.metadata".
-
 
 ## Libraries on network mounts
 
@@ -57,13 +55,13 @@ Instead you can schedule a cron job to update the database.
 The first step in doing this is to add two entries to the 'directories'
 configuration item in owntone.conf:
 
-```
+```conf
   directories = { "/some/local/dir", "/your/network/mount/library" }
 ```
 
 Now you can make a cron job that runs this command:
 
-```
+```shell
   touch /some/local/dir/trigger.init-rescan
 ```
 

@@ -10,7 +10,7 @@ First, understand what and how the particular stream is sending information.
 information. `ffprobe <http://stream.url>` should give you some useful output,
 look at the Metadata section, below is an example.
 
-```
+```m3u
  Metadata:
     icy-br          : 320
     icy-description : DJ-mixed blend of modern and classic rock, electronica, world music, and more. Always 100% commercial-free
@@ -29,7 +29,7 @@ StreamUrl points to the artwork image file.
 Below is another example that will require some tweaks to the server, Notice
 `icy-name` is blank and `StreamUrl` doesn't point to an image.
 
-```
+```m3u
 Metadata:
     icy-br          : 127
     icy-pub         : 0
@@ -43,10 +43,11 @@ Metadata:
 
 In the above, first fix is the blank name, second is the image artwork.
 
-### 1) Set stream name/title via the M3U file
+## 1) Set stream name/title via the M3U file
+
 Set the name with an EXTINF tag in the m3u playlist file:
 
-```
+```m3u
 #EXTM3U
 #EXTINF:-1, - My Radio Stream Name
 http://radio.stream.domain/stream.url
@@ -57,7 +58,8 @@ Length is -1 since it's a stream, `<Artist Name>` was left blank since
 `StreamTitle` is accurate in the Metadata but `<Artist Title>` was set to
 `My Radio Stream Name` since `icy-name` was blank.
 
-### 2) StreamUrl is a JSON file with metadata
+## 2) StreamUrl is a JSON file with metadata
+
 If `StreamUrl` does not point directly to an artwork file then the link may be
 to a json file that contains an artwork link. If so, you can make the server
 download the file automatically and search for an artwork link, and also track
@@ -91,7 +93,8 @@ curl -X PUT "http://localhost:3689/api/settings/misc/streamurl_keywords_artwork_
 
 If you want multiple search phrases then comma separate, e.g. "duration,length".
 
-### 3) Set metadata with a custom script
+## 3) Set metadata with a custom script
+
 If your radio station publishes metadata via another method than the above, e.g.
 just on their web site, then you will have to write a script that pulls the
 metadata and then pushes it to the server. To update metadata for the

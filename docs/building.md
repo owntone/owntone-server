@@ -125,6 +125,7 @@ all the steps that you need to execute:
 ## "Quick" version for macOS (using macports)
 
 Caution:
+
 1) this approach may be out of date, consider using the Homebrew method above
 since it is continuously tested.
 2) macports requires many downloads and lots of time to install (and sometimes
@@ -337,6 +338,7 @@ The following description assumes that you want all runtime data stored in
 `$HOME/owntone_data` and the source  in `$HOME/projects/owntone-server`.
 
 Prepare directories for runtime data:
+
 ```bash
 mkdir -p $HOME/owntone_data/etc
 mkdir -p $HOME/owntone_data/media
@@ -345,6 +347,7 @@ mkdir -p $HOME/owntone_data/media
 Copy one or more mp3 file to test with to `owntone_data/media`.
 
 Checkout OwnTone and configure build:
+
 ```bash
 cd $HOME/projects
 git clone https://github.com/owntone/owntone-server.git
@@ -362,10 +365,10 @@ make install
 Edit `owntone_data/etc/owntone.conf`, find the following configuration settings
 and set them to these values:
 
-```
-	uid = ${USER}
-	loglevel = "debug"
-	directories = { "${HOME}/owntone_data/media" }
+```conf
+  uid = ${USER}
+  loglevel = "debug"
+  directories = { "${HOME}/owntone_data/media" }
 ```
 
 Run the server:
@@ -373,4 +376,5 @@ Run the server:
 ```bash
 ./src/owntone -f
 ```
+
 (you can also use the copy of the binary in `$HOME/owntone_data/usr/sbin`)

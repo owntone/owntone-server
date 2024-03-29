@@ -1,10 +1,8 @@
 # OwnTone smart playlists
 
-
-To add a smart playlist to the server, create a new text file with a filename ending with .smartpl; 
+To add a smart playlist to the server, create a new text file with a filename ending with .smartpl;
 the filename doesn't matter, only the .smartpl ending does. The file must be placed somewhere in your
 library folder.
-
 
 ## Syntax
 
@@ -15,7 +13,6 @@ The contents of a smart playlist must follow the syntax:
 ```
 
 There is exactly one smart playlist allowed for a .smartpl file.
-
 
 An expression consists of:
 
@@ -82,9 +79,7 @@ Valid operands for the enumeration `media_kind` are:
 * `audiobook`
 * `tvshow`
 
-
 Multiple expressions can be anded or ored together, using the keywords `OR` and `AND`. The unary not operator is also supported using the keyword `NOT`.
-
 
 It is possible to define the sort order and limit the number of items by adding an order clause and/or a limit clause after the last expression:
 
@@ -95,7 +90,6 @@ It is possible to define the sort order and limit the number of items by adding 
 "sort-direction" is either `ASC` (ascending) or `DESC` (descending). "limit" is the maximum number of items.
 
 There is additionally a special `random` _field-name_ that can be used in conjunction with `limit` to select a random number of items based on current expression.
-
 
 ## Examples
 
@@ -144,6 +138,7 @@ This would match any podcast and audiobook file that was never played.
   limit 10
 }
 ```
+
 This would match the last 10 music files added to the library.
 
 ```
@@ -155,6 +150,7 @@ This would match the last 10 music files added to the library.
   limit 10
 }
 ```
+
 This generates a random set of, maximum of 10, rated Pop music tracks every time the playlist is queried.
 
 ## Date operand syntax
@@ -177,7 +173,6 @@ A valid date can also be made by applying an interval to a date. Intervals can b
 As an example, a valid date might be:
 
 ```3 weeks before today``` or ```3 weeks ago```
-
 
 Examples:
 
@@ -202,7 +197,6 @@ All dates, except for `YYYY-DD-HH`, are relative to the day of when the server e
 
 Note that `time_added after 4 weeks ago` and `time_added after last month` are subtly different; the former is exactly 4 weeks ago (from today) whereas the latter is the first day of the previous month.
 
-
 ## Differences to mt-daapd smart playlists
 
 The syntax is really close to the mt-daapd smart playlist syntax (see
@@ -216,4 +210,3 @@ Some differences are:
 * the not operator must be placed before an expression and not before the operator
 * `||`, `&&`, `!` are not supported (use `or`, `and`, `not`)
 * comments are not supported
-

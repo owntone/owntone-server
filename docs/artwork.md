@@ -15,7 +15,7 @@ artwork (group artwork) by the following procedure:
 - failing that, if [directory name].{png,jpg} is found in one of the
   directories containing files that are part of the group, it is used as the
   artwork. The first file found is used, ordering is not guaranteed;
-- failing that, individual files are examined and the first file found 
+- failing that, individual files are examined and the first file found
   with an embedded artwork is used. Here again, ordering is not guaranteed.
 
 {artwork,cover,Folder} are the default, you can add other base names in the
@@ -28,7 +28,7 @@ the list, OwnTone will look for /foo/bar.{jpg,png}.
 
 You can use symlinks for the artwork files.
 
-OwnTone caches artwork in a separate cache file. The default path is 
-`/var/cache/owntone/cache.db` and can be configured in the configuration 
-file. The cache.db file can be deleted without losing the library and pairing 
+OwnTone caches artwork in a separate cache file. The default path is
+`/var/cache/owntone/cache.db` and can be configured in the configuration
+file. The cache.db file can be deleted without losing the library and pairing
 informations.
