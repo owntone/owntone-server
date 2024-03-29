@@ -3,12 +3,12 @@ hide:
   - navigation
 ---
 
-# OwnTone API Endpoint Reference
+# API Endpoint Reference
 
 Available API endpoints:
 
 * [Player](#player): control playback, volume, shuffle/repeat modes
-* [Outputs / Speakers](#outputs-speakers): list available outputs and enable/disable outputs
+* [Outputs](#outputs): list available outputs and enable/disable outputs
 * [Queue](#queue): list, add or modify the current queue
 * [Library](#library): list playlists, artists, albums and tracks from your library or trigger library rescan
 * [Search](#search): search for playlists, artists, albums and tracks
@@ -18,10 +18,15 @@ Available API endpoints:
 
 JSON-Object model:
 
-* [Queue item](#queue-item-object)
-* [Playlist](#playlist-object)
-* [Artist](#artist-object)
 * [Album](#album-object)
+* [Artist](#artist-object)
+* [Browse Info](#browse-info-object)
+* [Category](#category-object)
+* [Directory](#directory-object)
+* [Option](#option-object)
+* [Paging](#paging-object)
+* [Playlist](#playlist-object)
+* [Queue item](#queue-item-object)
 * [Track](#track-object)
 
 ## Player
@@ -36,8 +41,6 @@ JSON-Object model:
 | PUT       | [/api/player/repeat](#set-repeat-mode)           | Set repeat mode                      |
 | PUT       | [/api/player/volume](#set-volume)                | Set master volume or volume for a specific output |
 | PUT       | [/api/player/seek](#seek)                        | Seek to a position in the currently playing track |
-
-
 
 ### Get player status
 
@@ -60,7 +63,6 @@ GET /api/player
 | item_length_ms    | integer  | Total length in milliseconds of the current queue item |
 | item_progress_ms  | integer  | Progress into the current queue item in milliseconds |
 
-
 **Example**
 
 ```shell
@@ -79,7 +81,6 @@ curl -X GET "http://localhost:3689/api/player"
   "item_progress_ms": 3674
 }
 ```
-
 
 ### Control playback
 
@@ -125,7 +126,6 @@ curl -X PUT "http://localhost:3689/api/player/stop"
 curl -X PUT "http://localhost:3689/api/player/toggle"
 ```
 
-
 ### Skip tracks
 
 Skip forward or backward
@@ -154,7 +154,6 @@ curl -X PUT "http://localhost:3689/api/player/next"
 curl -X PUT "http://localhost:3689/api/player/previous"
 ```
 
-
 ### Set shuffle mode
 
 Enable or disable shuffle mode
@@ -171,7 +170,6 @@ PUT /api/player/shuffle
 | --------------- | ----------------------------------------------------------- |
 | state           | The new shuffle state, should be either `true` or `false` |
 
-
 **Response**
 
 On success returns the HTTP `204 No Content` success status response code.
@@ -181,7 +179,6 @@ On success returns the HTTP `204 No Content` success status response code.
 ```shell
 curl -X PUT "http://localhost:3689/api/player/shuffle?state=true"
 ```
-
 
 ### Set consume mode
 
@@ -199,7 +196,6 @@ PUT /api/player/consume
 | --------------- | ----------------------------------------------------------- |
 | state           | The new consume state, should be either `true` or `false` |
 
-
 **Response**
 
 On success returns the HTTP `204 No Content` success status response code.
@@ -209,7 +205,6 @@ On success returns the HTTP `204 No Content` success status response code.
 ```shell
 curl -X PUT "http://localhost:3689/api/player/consume?state=true"
 ```
-
 
 ### Set repeat mode
 
@@ -227,7 +222,6 @@ PUT /api/player/repeat
 | --------------- | ----------------------------------------------------------- |
 | state           | The new repeat mode, should be either `off`, `all` or `single` |
 
-
 **Response**
 
 On success returns the HTTP `204 No Content` success status response code.
@@ -237,7 +231,6 @@ On success returns the HTTP `204 No Content` success status response code.
 ```shell
 curl -X PUT "http://localhost:3689/api/player/repeat?state=all"
 ```
-
 
 ### Set volume
 
@@ -255,7 +248,7 @@ PUT /api/player/volume
 | --------------- | ----------------------------------------------------------- |
 | volume          | The new volume (0 - 100)                                    |
 | step            | The increase or decrease volume by the given amount (-100 - 100) |
-| output_id       | *(Optional)* If an output id is given, only the volume of this output will be changed. If parameter is omited, the master volume will be changed. |
+| output_id       | *(Optional)* If an output id is given, only the volume of this output will be changed. If parameter is omitted, the master volume will be changed. |
 
 Either `volume` or `step` must be present as query parameter
 
@@ -277,7 +270,6 @@ curl -X PUT "http://localhost:3689/api/player/volume?step=-5"
 curl -X PUT "http://localhost:3689/api/player/volume?volume=50&output_id=0"
 ```
 
-
 ### Seek
 
 Seek to a position in the currently playing track.
@@ -294,7 +286,6 @@ PUT /api/player/seek
 | --------------- | ----------------------------------------------------------- |
 | position_ms     | The new position in milliseconds to seek to                 |
 | seek_ms         | A relative amount of milliseconds to seek to                 |
-
 
 **Response**
 
@@ -314,8 +305,7 @@ Relative seeking (skip 30 seconds backwards):
 curl -X PUT "http://localhost:3689/api/player/seek?seek_ms=-30000"
 ```
 
-
-## Outputs / Speakers
+## Outputs
 
 | Method    | Endpoint                                         | Description                          |
 | --------- | ------------------------------------------------ | ------------------------------------ |
@@ -324,8 +314,6 @@ curl -X PUT "http://localhost:3689/api/player/seek?seek_ms=-30000"
 | GET       | [/api/outputs/{id}](#get-an-output)              | Get an output                        |
 | PUT       | [/api/outputs/{id}](#change-an-output)           | Change an output setting             |
 | PUT       | [/api/outputs/{id}/toggle](#toggle-an-output)    | Enable or disable an output, depending on the current state |
-
-
 
 ### Get a list of available outputs
 
@@ -353,7 +341,6 @@ GET /api/outputs
 | requires_auth   | boolean  | `true` if output requires authentication |
 | needs_auth_key  | boolean  | `true` if output requires an authorization key (device verification) |
 | volume          | integer  | Volume in percent (0 - 100)               |
-
 
 **Example**
 
@@ -424,7 +411,6 @@ On success returns the HTTP `204 No Content` success status response code.
 ```shell
 curl -X PUT "http://localhost:3689/api/outputs/set" --data "{\"outputs\":[\"198018693182577\",\"0\"]}"
 ```
-
 
 ### Get an output
 
@@ -525,8 +511,6 @@ On success returns the HTTP `204 No Content` success status response code.
 curl -X PUT "http://localhost:3689/api/outputs/0/toggle"
 ```
 
-
-
 ## Queue
 
 | Method    | Endpoint                                                    | Description                          |
@@ -536,8 +520,6 @@ curl -X PUT "http://localhost:3689/api/outputs/0/toggle"
 | POST      | [/api/queue/items/add](#adding-items-to-the-queue)          | Add items to the queue               |
 | PUT       | [/api/queue/items/{id}\|now_playing](#updating-a-queue-item)| Updating a queue item in the queue   |
 | DELETE    | [/api/queue/items/{id}](#removing-a-queue-item)             | Remove a queue item from the queue   |
-
-
 
 ### List queue items
 
@@ -553,7 +535,7 @@ GET /api/queue
 
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
-| id              | *(Optional)* If a queue item id is given, only the item with the id will be returend. Use id=now_playing to get the currently playing item. |
+| id              | *(Optional)* If a queue item id is given, only the item with the id will be returned. Use id=now_playing to get the currently playing item. |
 | start           | *(Optional)* If a `start`and an `end` position is given, only the items from `start` (included) to `end` (excluded) will be returned. If only a `start` position is given, only the item at this position will be returned. |
 | end             | *(Optional)* See `start` parameter |
 
@@ -602,7 +584,6 @@ curl -X GET "http://localhost:3689/api/queue"
 }
 ```
 
-
 ### Clearing the queue
 
 Remove all items form the current queue
@@ -622,7 +603,6 @@ On success returns the HTTP `204 No Content` success status response code.
 ```shell
 curl -X PUT "http://localhost:3689/api/queue/clear"
 ```
-
 
 ### Adding items to the queue
 
@@ -644,10 +624,10 @@ POST /api/queue/items/add
 | playback        | *(Optional)* If the `playback` parameter is set to `start`, playback will be started after adding the new items. |
 | playback_from_position | *(Optional)* If the `playback` parameter is set to `start`, playback will be started with the queue item at the position given in `playback_from_position`. |
 | clear           | *(Optional)* If the `clear` parameter is set to `true`, the queue will be cleared before adding the new items.    |
-| shuffle         | *(Optional)* If the `shuffle` parameter is set to `true`, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be ommited.    |
+| shuffle         | *(Optional)* If the `shuffle` parameter is set to `true`, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be omitted.    |
 | limit           | *(Optional)* Maximum number of tracks to add |
 
-Either the `uris` or the `expression` parameter must be set. If both are set the `uris` parameter takes presedence and the `expression` parameter will be ignored.
+Either the `uris` or the `expression` parameter must be set. If both are set the `uris` parameter takes precedence and the `expression` parameter will be ignored.
 
 **Response**
 
@@ -658,7 +638,6 @@ On success returns the HTTP `200 OK` success status response code.
 | version         | integer  | Version number of the current queue       |
 | count           | integer  | Number of tracks added to the queue       |
 | items           | array    | Array of [`queue item`](#queue-item-object) objects added |
-
 
 **Example**
 
@@ -736,8 +715,9 @@ curl -X POST "http://localhost:3689/api/queue/items/add?expression=media_kind+is
 }
 ```
 
-Clear current queue, add 10 new random tracks of `genre` _Pop_ and start playback
-```
+Clear current queue, add 10 new random tracks of `genre` *Pop* and start playback
+
+```shell
 curl -X POST "http://localhost:3689/api/queue/items/add?limit=10&clear=true&playback=start&expression=genre+is+%22Pop%22+order+by+random+desc"
 ```
 
@@ -756,7 +736,9 @@ Update or move a queue item in the current queue
 ```http
 PUT /api/queue/items/{id}
 ```
+
 or
+
 ```http
 PUT /api/queue/items/now_playing
 ```
@@ -767,7 +749,7 @@ PUT /api/queue/items/now_playing
 | --------------- | -------------------- |
 | id              | Queue item id        |
 
-(or use now_playing to update the currenly playing track)
+(or use now_playing to update the track currently playing)
 
 **Query parameters**
 
@@ -826,8 +808,6 @@ On success returns the HTTP `204 No Content` success status response code.
 curl -X PUT "http://localhost:3689/api/queue/items/2"
 ```
 
-
-
 ## Library
 
 | Method    | Endpoint                                                    | Description                          |
@@ -858,8 +838,6 @@ curl -X PUT "http://localhost:3689/api/queue/items/2"
 | PUT       | [/api/rescan](#trigger-metadata-rescan)                     | Trigger a library metadata rescan    |
 | PUT       | [/api/library/backup](#backup-db)                           | Request library backup db            |
 
-
-
 ### Library information
 
 List some library stats
@@ -882,7 +860,6 @@ GET /api/library
 | updated_at      | string   | Last library update (timestamp in `ISO 8601` format)     |
 | updating        | boolean  | `true` if library rescan is in progress  |
 
-
 **Example**
 
 ```shell
@@ -900,7 +877,6 @@ curl -X GET "http://localhost:3689/api/library"
   "updating": false
 }
 ```
-
 
 ### List playlists
 
@@ -928,7 +904,6 @@ GET /api/library/playlists
 | offset          | integer  | Requested offset of the first playlist    |
 | limit           | integer  | Requested maximum number of playlists     |
 
-
 **Example**
 
 ```shell
@@ -953,7 +928,6 @@ curl -X GET "http://localhost:3689/api/library/playlists"
 }
 ```
 
-
 ### Get a playlist
 
 Get a specific playlists in your library
@@ -974,7 +948,6 @@ GET /api/library/playlists/{id}
 
 On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`playlist`](#playlist-object) object**.
 
-
 **Example**
 
 ```shell
@@ -990,7 +963,6 @@ curl -X GET "http://localhost:3689/api/library/playlists/1"
   "uri": "library:playlist:1"
 }
 ```
-
 
 ### Update a playlist
 
@@ -1014,13 +986,11 @@ PUT /api/library/playlists/{id}
 | --------------- | ----------------------------------------------------------- |
 | query_limit     | For RSS feeds, this sets how many podcasts to retrieve      |
 
-
 **Example**
 
 ```shell
 curl -X PUT "http://localhost:3689/api/library/playlists/25?query_limit=20"
 ```
-
 
 ### Delete a playlist
 
@@ -1043,7 +1013,6 @@ DELETE /api/library/playlists/{id}
 ```shell
 curl -X DELETE "http://localhost:3689/api/library/playlists/25"
 ```
-
 
 ### List playlist tracks
 
@@ -1076,7 +1045,6 @@ GET /api/library/playlists/{id}/tracks
 | total           | integer  | Total number of tracks in the playlist    |
 | offset          | integer  | Requested offset of the first track       |
 | limit           | integer  | Requested maximum number of tracks        |
-
 
 **Example**
 
@@ -1139,7 +1107,6 @@ PUT /api/library/playlists/{id}/tracks
 | --------------- | ----------------------------------------------------------- |
 | play_count      | Either `increment`, `played` or `reset`. `increment` will increment `play_count` and update `time_played`, `played` will be like `increment` but only where `play_count` is 0, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped` |
 
-
 **Example**
 
 ```shell
@@ -1180,7 +1147,6 @@ GET /api/library/playlists/{id}/playlists
 | offset          | integer  | Requested offset of the first playlist           |
 | limit           | integer  | Requested maximum number of playlist             |
 
-
 **Example**
 
 ```shell
@@ -1215,7 +1181,6 @@ curl -X GET "http://localhost:3689/api/library/playlists/0/tracks"
 }
 ```
 
-
 ### List artists
 
 Lists the artists in your library
@@ -1241,7 +1206,6 @@ GET /api/library/artists
 | total           | integer  | Total number of artists in the library      |
 | offset          | integer  | Requested offset of the first artist        |
 | limit           | integer  | Requested maximum number of artists         |
-
 
 **Example**
 
@@ -1269,7 +1233,6 @@ curl -X GET "http://localhost:3689/api/library/artists"
 }
 ```
 
-
 ### Get an artist
 
 Get a specific artist in your library
@@ -1290,7 +1253,6 @@ GET /api/library/artists/{id}
 
 On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`artist`](#artist-object) object**.
 
-
 **Example**
 
 ```shell
@@ -1308,7 +1270,6 @@ curl -X GET "http://localhost:3689/api/library/artists/3815427709949443149"
   "uri": "library:artist:3815427709949443149"
 }
 ```
-
 
 ### List artist albums
 
@@ -1342,7 +1303,6 @@ GET /api/library/artists/{id}/albums
 | offset          | integer  | Requested offset of the first album       |
 | limit           | integer  | Requested maximum number of albums        |
 
-
 **Example**
 
 ```shell
@@ -1370,7 +1330,6 @@ curl -X GET "http://localhost:3689/api/library/artists/32561671101664759/albums"
 }
 ```
 
-
 ### List albums
 
 Lists the albums in your library
@@ -1396,7 +1355,6 @@ GET /api/library/albums
 | total           | integer  | Total number of albums in the library     |
 | offset          | integer  | Requested offset of the first albums      |
 | limit           | integer  | Requested maximum number of albums        |
-
 
 **Example**
 
@@ -1425,7 +1383,6 @@ curl -X GET "http://localhost:3689/api/library/albums"
 }
 ```
 
-
 ### Get an album
 
 Get a specific album in your library
@@ -1446,7 +1403,6 @@ GET /api/library/albums/{id}
 
 On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`album`](#album-object) object**.
 
-
 **Example**
 
 ```shell
@@ -1465,7 +1421,6 @@ curl -X GET "http://localhost:3689/api/library/albums/8009851123233197743"
   "uri": "library:album:8009851123233197743"
 }
 ```
-
 
 ### List album tracks
 
@@ -1498,7 +1453,6 @@ GET /api/library/albums/{id}/tracks
 | total           | integer  | Total number of tracks                    |
 | offset          | integer  | Requested offset of the first track       |
 | limit           | integer  | Requested maximum number of tracks        |
-
 
 **Example**
 
@@ -1538,7 +1492,6 @@ curl -X GET "http://localhost:3689/api/library/albums/1/tracks"
 }
 ```
 
-
 ### Get a track
 
 Get a specific track in your library
@@ -1558,7 +1511,6 @@ GET /api/library/tracks/{id}
 **Response**
 
 On success returns the HTTP `200 OK` success status response code. With the response body holding the **[`track`](#track-object) object**.
-
 
 **Example**
 
@@ -1600,7 +1552,6 @@ curl -X GET "http://localhost:3689/api/library/tracks/1"
   "lyrics": "[00:00:10] Let's start the music [...]"
 }
 ```
-
 
 ### List playlists for a track
 
@@ -1658,7 +1609,6 @@ curl -X GET "http://localhost:3689/api/library/tracks/27/playlists"
 }
 ```
 
-
 ### Update track properties
 
 Change properties of one or more tracks (supported properties are "rating", "play_count" and "usermark")
@@ -1674,7 +1624,6 @@ PUT /api/library/tracks
 | Parameter       | Type     | Value                   |
 | --------------- | -------- | ----------------------- |
 | tracks          | array    | Array of track objects  |
-
 
 **Response**
 
@@ -1706,7 +1655,6 @@ PUT /api/library/tracks/{id}
 | play_count      | Either `increment` or `reset`. `increment` will increment `play_count` and update `time_played`, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped` |
 | usermark        | The new usermark (>= 0)                                     |
 
-
 **Response**
 
 On success returns the HTTP `204 No Content` success status response code.
@@ -1721,7 +1669,6 @@ curl -X PUT "http://localhost:3689/api/library/tracks/1?rating=100"
 curl -X PUT "http://localhost:3689/api/library/tracks/1?play_count=increment"
 ```
 
-
 ### List genres
 
 Get list of genres
@@ -1731,6 +1678,7 @@ Get list of genres
 ```http
 GET /api/library/genres
 ```
+
 **Response**
 
 | Key             | Type     | Value                                     |
@@ -1739,7 +1687,6 @@ GET /api/library/genres
 | total           | integer  | Total number of genres in the library     |
 | offset          | integer  | Requested offset of the first genre       |
 | limit           | integer  | Requested maximum number of genres        |
-
 
 **Example**
 
@@ -1770,7 +1717,6 @@ curl -X GET "http://localhost:3689/api/library/genres"
   "offset": 0,
   "limit": -1
 }
-
 ```
 
 ### List albums for genre
@@ -1799,7 +1745,6 @@ GET api/search?type=albums&expression=genre+is+\"{genre name}\""
 | total           | integer  | Total number of albums in the library     |
 | offset          | integer  | Requested offset of the first albums      |
 | limit           | integer  | Requested maximum number of albums        |
-
 
 **Example**
 
@@ -1877,7 +1822,6 @@ GET /api/library/count
 | albums          | integer  | Number of albums matching the expression  |
 | db_playtime     | integer  | Total playtime in milliseconds of all tracks matching the expression |
 
-
 **Example**
 
 ```shell
@@ -1893,11 +1837,9 @@ curl -X GET "http://localhost:3689/api/library/count?expression=data_kind+is+fil
 }
 ```
 
-
 ### List local directories
 
 List the local directories and the directory contents (tracks and playlists)
-
 
 **Endpoint**
 
@@ -1918,7 +1860,6 @@ GET /api/library/files
 | directories     | array    | Array of [`directory`](#directory-object) objects containing the sub directories |
 | tracks          | object   | [`paging`](#paging-object) object containing [`track`](#track-object) objects that matches the `directory`   |
 | playlists       | object   | [`paging`](#paging-object) object containing [`playlist`](#playlist-object) objects that matches the `directory`   |
-
 
 **Example**
 
@@ -1994,7 +1935,7 @@ curl -X GET "http://localhost:3689/api/library/files?directory=/music/srv"
 
 ### Add an item to the library
 
-This endpoint currently only supports addind RSS feeds.
+This endpoint currently only supports adding RSS feeds.
 
 **Endpoint**
 
@@ -2052,7 +1993,7 @@ curl -X PUT "http://localhost:3689/api/update"
 
 ### Trigger metadata rescan
 
-Trigger a library metadata rescan even if files have not been updated.  Maintenence method.
+Trigger a library metadata rescan even if files have not been updated.  Maintenance method.
 
 **Endpoint**
 
@@ -2099,8 +2040,6 @@ curl -X PUT "http://localhost:3689/api/library/backup"
 | GET       | [/api/search](#search-by-search-term)                       | Search for playlists, artists, albums, tracks, composers by a simple search term |
 | GET       | [/api/search](#search-by-query-language)                    | Search by complex query expression   |
 
-
-
 ### Search by search term
 
 Search for playlists, artists, albums, tracks, composers that include the given query in their title (case insensitive matching).
@@ -2130,7 +2069,6 @@ GET /api/search
 | albums          | object   | [`paging`](#paging-object) object containing [`album`](#album-object) objects that matches the `query` |
 | playlists       | object   | [`paging`](#paging-object) object containing [`playlist`](#playlist-object) objects that matches the `query` |
 | composers       | object   | [`paging`](#paging-object) object containing `composers` objects that matches the `query` |
-
 
 **Example**
 
@@ -2272,7 +2210,6 @@ GET /api/search
 | artists         | object   | [`paging`](#paging-object) object containing [`artist`](#artist-object) objects that matches the `query` |
 | albums          | object   | [`paging`](#paging-object) object containing [`album`](#album-object) objects that matches the `query` |
 
-
 **Example**
 
 Search for music tracks ordered descending by the time added to the library and limit result to 2 items:
@@ -2281,14 +2218,11 @@ Search for music tracks ordered descending by the time added to the library and 
 curl -X GET "http://localhost:3689/api/search?type=tracks&expression=media_kind+is+music+order+by+time_added+desc&offset=0&limit=2"
 ```
 
-
 ## Server info
 
 | Method    | Endpoint                                         | Description                          |
 | --------- | ------------------------------------------------ | ------------------------------------ |
 | GET       | [/api/config](#config)                           | Get configuration information        |
-
-
 
 ### Config
 
@@ -2305,7 +2239,6 @@ GET /api/config
 | version         | string   | Server version                            |
 | websocket_port  | integer  | Port number for the [websocket](#push-notifications) (or `0` if websocket is disabled) |
 | buildoptions    | array    | Array of strings indicating which features are supported by the server |
-
 
 **Example**
 
@@ -2330,7 +2263,6 @@ curl -X GET "http://localhost:3689/api/config"
 }
 ```
 
-
 ## Settings
 
 | Method    | Endpoint                                         | Description                          |
@@ -2340,8 +2272,6 @@ curl -X GET "http://localhost:3689/api/config"
 | GET       | [/api/settings/{category-name}/{option-name}](#get-an-option) | Get a single setting option    |
 | PUT       | [/api/settings/{category-name}/{option-name}](#change-an-option-value) | Change the value of a setting option    |
 | DELETE    | [/api/settings/{category-name}/{option-name}](#delete-an-option) | Reset a setting option to its default   |
-
-
 
 ### List categories
 
@@ -2358,7 +2288,6 @@ GET /api/settings
 | Key             | Type     | Value                                     |
 | --------------- | -------- | ----------------------------------------- |
 | categories      | array    | Array of settings [category](#category-object) objects |
-
 
 **Example**
 
@@ -2388,7 +2317,6 @@ curl -X GET "http://localhost:3689/api/settings"
 }
 ```
 
-
 ### Get a category
 
 Get a settings category with their options
@@ -2402,7 +2330,6 @@ GET /api/settings/{category-name}
 **Response**
 
 Returns a settings [category](#category-object) object
-
 
 **Example**
 
@@ -2428,7 +2355,6 @@ curl -X GET "http://localhost:3689/api/settings/webinterface"
 }
 ```
 
-
 ### Get an option
 
 Get a single settings option
@@ -2443,7 +2369,6 @@ GET /api/settings/{category-name}/{option-name}
 
 Returns a settings [option](#option-object) object
 
-
 **Example**
 
 ```shell
@@ -2457,7 +2382,6 @@ curl -X GET "http://localhost:3689/api/settings/webinterface/show_composer_now_p
   "value": true
 }
 ```
-
 
 ### Change an option value
 
@@ -2480,13 +2404,11 @@ PUT /api/settings/{category-name}/{option-name}
 
 On success returns the HTTP `204 No Content` success status response code.
 
-
 **Example**
 
 ```shell
 curl -X PUT "http://localhost:3689/api/settings/webinterface/show_composer_now_playing" --data "{\"name\":\"show_composer_now_playing\",\"value\":true}"
 ```
-
 
 ### Delete an option
 
@@ -2502,13 +2424,11 @@ DELETE /api/settings/{category-name}/{option-name}
 
 On success returns the HTTP `204 No Content` success status response code.
 
-
 **Example**
 
 ```shell
 curl -X DELETE "http://localhost:3689/api/settings/webinterface/show_composer_now_playing"
 ```
-
 
 ## Push notifications
 
@@ -2560,9 +2480,89 @@ curl --include \
 }
 ```
 
+## Objects
 
-## Object model
+### `album` object
 
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| id              | string   | Album id                                  |
+| name            | string   | Album name                                |
+| name_sort       | string   | Album sort name                           |
+| artist_id       | string   | Album artist id                           |
+| artist          | string   | Album artist name                         |
+| track_count     | integer  | Number of tracks                          |
+| length_ms       | integer  | Total length of tracks in milliseconds    |
+| uri             | string   | Resource identifier                       |
+| artwork_url     | string   | *(optional)* [Artwork url](#artwork-urls) |
+
+### `artist` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| id              | string   | Artist id                                 |
+| name            | string   | Artist name                               |
+| name_sort       | string   | Artist sort name                          |
+| album_count     | integer  | Number of albums                          |
+| track_count     | integer  | Number of tracks                          |
+| length_ms       | integer  | Total length of tracks in milliseconds    |
+| uri             | string   | Resource identifier                       |
+| artwork_url     | string   | *(optional)* [Artwork url](#artwork-urls) |
+
+### `browse-info` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| name            | string   | Name (depends on the type of the query)   |
+| name_sort       | string   | Sort name                                 |
+| artist_count    | integer  | Number of artists                         |
+| album_count     | integer  | Number of albums                          |
+| track_count     | integer  | Number of tracks                          |
+| time_played     | string   | Timestamp in `ISO 8601` format           |
+| time_added      | string   | Timestamp in `ISO 8601` format           |
+
+### `category` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| name            | string   | Category name                             |
+| options         | array    | Array of option in this category          |
+
+### `directory` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| path            | string   | Directory path                            |
+
+### `option` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| name            | string   | Option name                               |
+| type            | integer  | The type of the value for this option (`0`: integer, `1`: boolean, `2`: string) |
+| value           | (integer / boolean / string)  | Current value for this option                               |
+
+### `paging` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| items           | array    | Array of result objects                   |
+| total           | integer  | Total number of items                     |
+| offset          | integer  | Requested offset of the first item        |
+| limit           | integer  | Requested maximum number of items         |
+
+### `playlist` object
+
+| Key             | Type     | Value                                     |
+| --------------- | -------- | ----------------------------------------- |
+| id              | string   | Playlist id                               |
+| name            | string   | Playlist name                             |
+| path            | string   | Path                                      |
+| parent_id       | integer  | Playlist id of the parent (folder) playlist |
+| type            | string   | Type of this playlist: `special`, `folder`, `smart`, `plain` |
+| smart_playlist  | boolean  | `true` if playlist is a smart playlist    |
+| folder          | boolean  | `true` if it is a playlist folder         |
+| uri             | string   | Resource identifier                       |
 
 ### `queue item` object
 
@@ -2595,50 +2595,6 @@ curl --include \
 | bitrate            | string   | file bitrate (ie 192/128/...)             |
 | samplerate         | string   | file sample rate (ie 44100/48000/...)     |
 | channel            | string   | file channel (ie mono/stereo/xx ch))      |
-
-
-### `playlist` object
-
-| Key             | Type     | Value                                     |
-| --------------- | -------- | ----------------------------------------- |
-| id              | string   | Playlist id                               |
-| name            | string   | Playlist name                             |
-| path            | string   | Path                                      |
-| parent_id       | integer  | Playlist id of the parent (folder) playlist |
-| type            | string   | Type of this playlist: `special`, `folder`, `smart`, `plain` |
-| smart_playlist  | boolean  | `true` if playlist is a smart playlist    |
-| folder          | boolean  | `true` if it is a playlist folder         |
-| uri             | string   | Resource identifier                       |
-
-
-### `artist` object
-
-| Key             | Type     | Value                                     |
-| --------------- | -------- | ----------------------------------------- |
-| id              | string   | Artist id                                 |
-| name            | string   | Artist name                               |
-| name_sort       | string   | Artist sort name                          |
-| album_count     | integer  | Number of albums                          |
-| track_count     | integer  | Number of tracks                          |
-| length_ms       | integer  | Total length of tracks in milliseconds    |
-| uri             | string   | Resource identifier                       |
-| artwork_url     | string   | *(optional)* [Artwork url](#artwork-urls) |
-
-
-### `album` object
-
-| Key             | Type     | Value                                     |
-| --------------- | -------- | ----------------------------------------- |
-| id              | string   | Album id                                  |
-| name            | string   | Album name                                |
-| name_sort       | string   | Album sort name                           |
-| artist_id       | string   | Album artist id                           |
-| artist          | string   | Album artist name                         |
-| track_count     | integer  | Number of tracks                          |
-| length_ms       | integer  | Total length of tracks in milliseconds    |
-| uri             | string   | Resource identifier                       |
-| artwork_url     | string   | *(optional)* [Artwork url](#artwork-urls) |
-
 
 ### `track` object
 
@@ -2677,54 +2633,6 @@ curl --include \
 | artwork_url        | string   | *(optional)* [Artwork url](#artwork-urls) |
 | usermark           | integer  | User review marking of track (ranges from 0) |
 | lyrics             | string   | The lyrics if found either as LRC or plain text |
-
-
-### `paging` object
-
-| Key             | Type     | Value                                     |
-| --------------- | -------- | ----------------------------------------- |
-| items           | array    | Array of result objects                   |
-| total           | integer  | Total number of items                     |
-| offset          | integer  | Requested offset of the first item        |
-| limit           | integer  | Requested maximum number of items         |
-
-
-### `browse-info` object
-
-| Key             | Type     | Value                                     |
-| --------------- | -------- | ----------------------------------------- |
-| name            | string   | Name (depends on the type of the query)   |
-| name_sort       | string   | Sort name                                 |
-| artist_count    | integer  | Number of artists                         |
-| album_count     | integer  | Number of albums                          |
-| track_count     | integer  | Number of tracks                          |
-| time_played     | string   | Timestamp in `ISO 8601` format           |
-| time_added      | string   | Timestamp in `ISO 8601` format           |
-
-
-### `directory` object
-
-| Key             | Type     | Value                                     |
-| --------------- | -------- | ----------------------------------------- |
-| path            | string   | Directory path                            |
-
-
-### `category` object
-
-| Key             | Type     | Value                                     |
-| --------------- | -------- | ----------------------------------------- |
-| name            | string   | Category name                             |
-| options         | array    | Array of option in this category          |
-
-
-### `option` object
-
-| Key             | Type     | Value                                     |
-| --------------- | -------- | ----------------------------------------- |
-| name            | string   | Option name                               |
-| type            | integer  | The type of the value for this option (`0`: integer, `1`: boolean, `2`: string) |
-| value           | (integer / boolean / string)  | Current value for this option                               |
-
 
 ### Artwork urls
 
