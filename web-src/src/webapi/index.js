@@ -156,10 +156,6 @@ export default {
     return axios.get(`./api/library/playlists/${playlistId}/tracks`)
   },
 
-  library_playlists() {
-    return axios.get('./api/library/playlists')
-  },
-
   library_podcast_episodes(albumId) {
     const params = {
       expression: `media_kind is podcast and songalbumid is "${albumId}" ORDER BY date_released DESC`,
@@ -274,14 +270,6 @@ export default {
       uris
     }
     return axios.post('./api/queue/items/add', undefined, { params })
-  },
-
-  player_playid(itemId) {
-    return axios.put(`./api/player/play?item_id=${itemId}`)
-  },
-
-  player_playpos(position) {
-    return axios.put(`./api/player/play?position=${position}`)
   },
 
   player_previous() {
