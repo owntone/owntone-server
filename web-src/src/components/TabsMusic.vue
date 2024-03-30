@@ -13,7 +13,10 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <mdicon class="icon is-small" name="history" size="16" />
-                    <span v-text="$t('page.music.tabs.history')" />
+                    <span
+                      class="is-hidden-mobile"
+                      v-text="$t('page.music.tabs.history')"
+                    />
                   </a>
                 </li>
               </router-link>
@@ -29,7 +32,10 @@
                       name="account-music"
                       size="16"
                     />
-                    <span v-text="$t('page.music.tabs.artists')" />
+                    <span
+                      class="is-hidden-mobile"
+                      v-text="$t('page.music.tabs.artists')"
+                    />
                   </a>
                 </li>
               </router-link>
@@ -41,7 +47,10 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <mdicon class="icon is-small" name="album" size="16" />
-                    <span v-text="$t('page.music.tabs.albums')" />
+                    <span
+                      class="is-hidden-mobile"
+                      v-text="$t('page.music.tabs.albums')"
+                    />
                   </a>
                 </li>
               </router-link>
@@ -53,7 +62,10 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <mdicon class="icon is-small" name="speaker" size="16" />
-                    <span v-text="$t('page.music.tabs.genres')" />
+                    <span
+                      class="is-hidden-mobile"
+                      v-text="$t('page.music.tabs.genres')"
+                    />
                   </a>
                 </li>
               </router-link>
@@ -69,7 +81,10 @@
                       name="book-open-page-variant"
                       size="16"
                     />
-                    <span v-text="$t('page.music.tabs.composers')" />
+                    <span
+                      class="is-hidden-mobile"
+                      v-text="$t('page.music.tabs.composers')"
+                    />
                   </a>
                 </li>
               </router-link>
@@ -82,7 +97,10 @@
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
                     <mdicon class="icon is-small" name="spotify" size="16" />
-                    <span v-text="$t('page.music.tabs.spotify')" />
+                    <span
+                      class="is-hidden-mobile"
+                      v-text="$t('page.music.tabs.spotify')"
+                    />
                   </a>
                 </li>
               </router-link>
