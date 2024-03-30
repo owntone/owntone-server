@@ -4327,6 +4327,68 @@ search_composers(json_object *reply, struct httpd_request *hreq, const char *par
 }
 
 static int
+search_genres(json_object *reply, struct httpd_request *hreq, const char *param_query, struct smartpl *smartpl_expression, enum media_kind media_kind)
+{
+  json_object *type;
+  json_object *items;
+  struct query_params query_params;
+  int total;
+  int ret;
+
+  memset(&query_params, 0, sizeof(struct query_params));
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto out;
+
+  type = json_object_new_object();
+  json_object_object_add(reply, "genres", type);
+  items = json_object_new_array();
+  json_object_object_add(type, "items", items);
+
+  query_params.type = Q_BROWSE_GENRES;
+  query_params.sort = S_GENRE;
+
+  ret = query_params_limit_set(&query_params, hreq);
+  if (ret < 0)
+    goto out;
+
+  if (param_query)
+    {
+      if (media_kind)
+	query_params.filter = db_mprintf("(f.genre LIKE '%%%q%%' AND f.media_kind = %d)", param_query, media_kind);
+      else
+	query_params.filter = db_mprintf("(f.genre LIKE '%%%q%%')", param_query);
+    }
+  else
+    {
+      query_params.filter = strdup(smartpl_expression->query_where);
+      query_params.having = safe_strdup(smartpl_expression->having);
+      query_params.order = safe_strdup(smartpl_expression->order);
+
+      if (smartpl_expression->limit > 0)
+	{
+	  query_params.idx_type = I_SUB;
+	  query_params.limit = smartpl_expression->limit;
+	  query_params.offset = 0;
+	}
+    }
+
+  ret = fetch_browse_info(&query_params, items, &total);
+  if (ret < 0)
+    goto out;
+
+  json_object_object_add(type, "total", json_object_new_int(total));
+  json_object_object_add(type, "offset", json_object_new_int(query_params.offset));
+  json_object_object_add(type, "limit", json_object_new_int(query_params.limit));
+
+ out:
+  free_query_params(&query_params, 1);
+
+  return ret;
+}
+
+static int
 search_playlists(json_object *reply, struct httpd_request *hreq, const char *param_query)
 {
   json_object *type;
@@ -4444,6 +4506,13 @@ jsonapi_reply_search(struct httpd_request *hreq)
   if (strstr(param_type, "composer"))
     {
       ret = search_composers(reply, hreq, param_query, &smartpl_expression, media_kind);
+      if (ret < 0)
+        goto error;
+    }
+
+  if (strstr(param_type, "genre"))
+    {
+      ret = search_genres(reply, hreq, param_query, &smartpl_expression, media_kind);
       if (ret < 0)
         goto error;
     }
