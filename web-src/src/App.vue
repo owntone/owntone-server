@@ -25,14 +25,14 @@
 </template>
 
 <script>
-import NavbarTop from '@/components/NavbarTop.vue'
-import NavbarBottom from '@/components/NavbarBottom.vue'
-import NotificationList from '@/components/NotificationList.vue'
+import * as types from '@/store/mutation_types'
 import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing.vue'
 import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
-import webapi from '@/webapi'
-import * as types from '@/store/mutation_types'
+import NavbarBottom from '@/components/NavbarBottom.vue'
+import NavbarTop from '@/components/NavbarTop.vue'
+import NotificationList from '@/components/NotificationList.vue'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
+import webapi from '@/webapi'
 
 export default {
   name: 'App',

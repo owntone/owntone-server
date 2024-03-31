@@ -94,10 +94,9 @@ export default {
             : (end = index - 1)
         }
         return -1
-      } else {
-        this.reset_scrolling()
-        return -1
       }
+      this.reset_scrolling()
+      return -1
     },
     lyrics() {
       const raw = this.$store.state.lyrics.content
@@ -110,7 +109,7 @@ export default {
           if (matches && matches[4]) {
             const verse = {
               text: matches[4],
-              time: matches[2] * 60 + matches[3] * 1
+              time: matches[2] * 60 + Number(matches[3])
             }
             parsed.push(verse)
           }

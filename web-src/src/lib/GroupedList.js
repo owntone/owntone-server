@@ -31,8 +31,8 @@ const characterIndex = (string = '') => {
   return '⌘'
 }
 
-export const numberIndex = (number) => {
-  return Math.floor(number / 10)
+const numberIndex = (number) => {
+  Math.floor(number / 10)
 }
 
 const times = [

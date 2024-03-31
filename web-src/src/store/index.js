@@ -1,5 +1,5 @@
-import { createStore } from 'vuex'
 import * as types from './mutation_types'
+import { createStore } from 'vuex'
 
 export default createStore({
   state() {
