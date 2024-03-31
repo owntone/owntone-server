@@ -55,14 +55,6 @@ export default {
     })
   },
 
-  beforeRouteUpdate(to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
-  },
-
   data() {
     return {
       artists: new GroupedList()

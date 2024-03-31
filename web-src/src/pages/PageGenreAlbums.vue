@@ -82,13 +82,7 @@ export default {
       next((vm) => dataObject.set(vm, response))
     })
   },
-  beforeRouteUpdate(to, from, next) {
-    const vm = this
-    dataObject.load(to).then((response) => {
-      dataObject.set(vm, response)
-      next()
-    })
-  },
+
   data() {
     return {
       albums: new GroupedList(),
