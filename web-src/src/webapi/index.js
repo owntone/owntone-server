@@ -115,9 +115,11 @@ export default {
   },
 
   library_genre(genre, media_kind) {
-    return axios.get(`./api/library/genres/${encodeURIComponent(genre)}`, {
-      params: { media_kind }
-    })
+    const params = {
+      expression: `genre is "${genre}" and media_kind is ${media_kind}`,
+      type: 'genres'
+    }
+    return axios.get('./api/search', { params })
   },
 
   library_genre_albums(genre, media_kind) {
@@ -137,7 +139,11 @@ export default {
   },
 
   library_genres(media_kind) {
-    return axios.get('./api/library/genres', { params: { media_kind } })
+    const params = {
+      expression: `media_kind is ${media_kind}`,
+      type: 'genres'
+    }
+    return axios.get('./api/search', { params })
   },
 
   library_playlist(playlistId) {

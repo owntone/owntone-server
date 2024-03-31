@@ -62,7 +62,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.genre = response[0].data
+    vm.genre = response[0].data.genres.items[0]
     vm.albums = new GroupedList(response[1].data.albums, {
       index: { field: 'name_sort', type: String }
     })
