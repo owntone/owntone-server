@@ -50,6 +50,13 @@ export default {
     })
   },
 
+  beforeRouteUpdate(to, from, next) {
+    dataObject.load(to).then((response) => {
+      dataObject.set(this, response)
+      next()
+    })
+  },
+
   data() {
     return {
       playlist: {},
