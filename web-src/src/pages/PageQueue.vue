@@ -135,10 +135,7 @@ export default {
 
   computed: {
     current_position() {
-      const nowPlaying = this.$store.getters.now_playing
-      return nowPlaying === undefined || nowPlaying.position === undefined
-        ? -1
-        : this.$store.getters.now_playing.position
+      return this.$store.getters.now_playing?.position ?? -1
     },
     is_queue_save_allowed() {
       return (
@@ -189,7 +186,7 @@ export default {
     remove(item) {
       webapi.queue_remove(item.id)
     },
-    update_show_next_items(e) {
+    update_show_next_items() {
       this.$store.commit(types.SHOW_ONLY_NEXT_ITEMS, !this.show_only_next_items)
     },
     save_dialog() {

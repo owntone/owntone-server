@@ -97,9 +97,8 @@ export default {
     // Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
       if (to.meta.show_progress && !(to.path === from.path && to.hash)) {
-        if (to.meta.progress !== undefined) {
-          const meta = to.meta.progress
-          this.$Progress.parseMeta(meta)
+        if (to.meta.progress) {
+          this.$Progress.parseMeta(to.meta.progress)
         }
         this.$Progress.start()
       }
@@ -171,7 +170,7 @@ export default {
         maxReconnectInterval: 2000
       })
 
-      socket.onopen = function () {
+      socket.onopen = () => {
         vm.reconnect_attempts = 0
         socket.send(
           JSON.stringify({
@@ -239,7 +238,7 @@ export default {
         }
       })
 
-      socket.onmessage = function (response) {
+      socket.onmessage = (response) => {
         const data = JSON.parse(response.data)
         if (
           data.notify.includes('update') ||

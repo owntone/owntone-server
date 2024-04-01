@@ -1,15 +1,15 @@
 const toColor = (string) => {
   let hash = 0
-  for (let i = 0; i < string.length; i++) {
-    hash = string.charCodeAt(i) + ((hash << 5) - hash)
+  for (const char of string) {
+    hash = char.charCodeAt(0) + ((hash << 5) - hash)
   }
   return (hash & 0x00ffffff).toString(16)
 }
 
 const luminance = (color) =>
   [0.2126, 0.7152, 0.0722].reduce(
-    (luminance, factor, index) =>
-      luminance + Number(`0x${color.slice(index * 2, index * 2 + 2)}`) * factor,
+    (value, factor, index) =>
+      value + Number(`0x${color.slice(index * 2, index * 2 + 2)}`) * factor,
     0
   ) / 255
 

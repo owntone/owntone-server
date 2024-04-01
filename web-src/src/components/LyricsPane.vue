@@ -146,7 +146,7 @@ export default {
   methods: {
     reset_scrolling() {
       // Scroll to the start of the lyrics in all cases
-      if (this.player.item_id != this.lastItemId && this.$refs.lyrics) {
+      if (this.player.item_id !== this.lastItemId && this.$refs.lyrics) {
         this.$refs.lyrics.scrollTo(0, 0)
       }
       this.lastItemId = this.player.item_id
@@ -154,7 +154,7 @@ export default {
     },
     start_scrolling(e) {
       // Consider only user events
-      if (e.screenX || e.screenX != 0 || e.screenY || e.screenY != 0) {
+      if (e.screenX || e.screenX !== 0 || e.screenY || e.screenY !== 0) {
         this.autoScrolling = false
         if (this.scrollingTimer) {
           clearTimeout(this.scrollingTimer)
