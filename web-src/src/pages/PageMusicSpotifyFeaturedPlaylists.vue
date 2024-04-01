@@ -16,31 +16,26 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
-import store from '@/store'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    if (store.state.spotify_featured_playlists.length > 0) {
-      return Promise.resolve()
-    }
-
-    const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(store.state.spotify.webapi_token)
-    spotifyApi.getFeaturedPlaylists({
-      country: store.state.spotify.webapi_country,
-      limit: 50
+    return webapi.spotify().then(({ data }) => {
+      const spotifyApi = new SpotifyWebApi()
+      spotifyApi.setAccessToken(data.webapi_token)
+      return spotifyApi.getFeaturedPlaylists({
+        country: data.webapi_country,
+        limit: 50
+      })
     })
   },
 
   set(vm, response) {
-    if (response) {
-      store.commit(types.SPOTIFY_FEATURED_PLAYLISTS, response.playlists.items)
-    }
+    vm.featured_playlists = response.playlists.items
   }
 }
 
@@ -58,9 +53,9 @@ export default {
     })
   },
 
-  computed: {
-    featured_playlists() {
-      return this.$store.state.spotify_featured_playlists
+  data() {
+    return {
+      featured_playlists: []
     }
   }
 }

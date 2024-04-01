@@ -13,31 +13,26 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
-import store from '@/store'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    if (store.state.spotify_new_releases.length > 0) {
-      return Promise.resolve()
-    }
-
-    const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(store.state.spotify.webapi_token)
-    return spotifyApi.getNewReleases({
-      country: store.state.spotify.webapi_country,
-      limit: 50
+    return webapi.spotify().then(({ data }) => {
+      const spotifyApi = new SpotifyWebApi()
+      spotifyApi.setAccessToken(data.webapi_token)
+      return spotifyApi.getNewReleases({
+        country: data.webapi_country,
+        limit: 50
+      })
     })
   },
 
   set(vm, response) {
-    if (response) {
-      store.commit(types.SPOTIFY_NEW_RELEASES, response.albums.items)
-    }
+    vm.new_releases = response.albums.items
   }
 }
 
@@ -55,9 +50,9 @@ export default {
     })
   },
 
-  computed: {
-    new_releases() {
-      return this.$store.state.spotify_new_releases
+  data() {
+    return {
+      new_releases: []
     }
   }
 }

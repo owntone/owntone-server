@@ -63,8 +63,6 @@ export default createStore({
       show_player_menu: false,
       show_update_dialog: false,
       spotify: {},
-      spotify_featured_playlists: [],
-      spotify_new_releases: [],
       update_dialog_scan_kind: ''
     }
   },
@@ -131,12 +129,6 @@ export default createStore({
     },
     [types.UPDATE_PAIRING](state, pairing) {
       state.pairing = pairing
-    },
-    [types.SPOTIFY_NEW_RELEASES](state, newReleases) {
-      state.spotify_new_releases = newReleases
-    },
-    [types.SPOTIFY_FEATURED_PLAYLISTS](state, featuredPlaylists) {
-      state.spotify_featured_playlists = featuredPlaylists
     },
     [types.SEARCH_SOURCE](state, searchSource) {
       state.search_source = searchSource

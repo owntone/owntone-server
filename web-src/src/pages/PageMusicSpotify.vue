@@ -48,45 +48,34 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
-import store from '@/store'
+import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    if (
-      store.state.spotify_new_releases.length > 0 &&
-      store.state.spotify_featured_playlists.length > 0
-    ) {
-      return Promise.resolve()
-    }
-
-    const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(store.state.spotify.webapi_token)
-    return Promise.all([
-      spotifyApi.getNewReleases({
-        country: store.state.spotify.webapi_country,
-        limit: 50
-      }),
-      spotifyApi.getFeaturedPlaylists({
-        country: store.state.spotify.webapi_country,
-        limit: 50
-      })
-    ])
+    return webapi.spotify().then(({ data }) => {
+      const spotifyApi = new SpotifyWebApi()
+      spotifyApi.setAccessToken(data.webapi_token)
+      return Promise.all([
+        spotifyApi.getNewReleases({
+          country: data.webapi_country,
+          limit: 3
+        }),
+        spotifyApi.getFeaturedPlaylists({
+          country: data.webapi_country,
+          limit: 3
+        })
+      ])
+    })
   },
 
   set(vm, response) {
-    if (response) {
-      store.commit(types.SPOTIFY_NEW_RELEASES, response[0].albums.items)
-      store.commit(
-        types.SPOTIFY_FEATURED_PLAYLISTS,
-        response[1].playlists.items
-      )
-    }
+    vm.new_releases = response[0].albums.items
+    vm.featured_playlists = response[1].playlists.items
   }
 }
 
@@ -105,12 +94,10 @@ export default {
     })
   },
 
-  computed: {
-    featured_playlists() {
-      return this.$store.state.spotify_featured_playlists.slice(0, 3)
-    },
-    new_releases() {
-      return this.$store.state.spotify_new_releases.slice(0, 3)
+  data() {
+    return {
+      featured_playlists: [],
+      new_releases: []
     }
   }
 }
