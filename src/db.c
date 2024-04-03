@@ -7093,8 +7093,9 @@ db_statements_prepare(void)
   return 0;
 }
 
+// Returns -2 if backup not enabled in config
 int
-db_backup()
+db_backup(void)
 {
   int ret;
   sqlite3 *backup_hdl;
@@ -7114,7 +7115,7 @@ db_backup()
   if (realpath(db_path, resolved_dbp) == NULL || realpath(backup_path, resolved_bp) == NULL)
     {
       DPRINTF(E_LOG, L_DB, "Failed to resolve real path of db/backup path: %s\n", strerror(errno));
-      goto error;
+      return -1;
     }
 
   if (strcmp(resolved_bp, resolved_dbp) == 0)
@@ -7129,14 +7130,15 @@ db_backup()
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_WARN, L_DB, "Failed to create backup '%s': %s\n", backup_path, sqlite3_errmsg(backup_hdl));
-      goto error;
+      return -1;
     }
 
   backup = sqlite3_backup_init(backup_hdl, "main", hdl, "main");
   if (!backup)
     {
       DPRINTF(E_WARN, L_DB, "Failed to initiate backup '%s': %s\n", backup_path, sqlite3_errmsg(backup_hdl));
-      goto error;
+      sqlite3_close(backup_hdl);
+      return -1;
     }
 
   ret = sqlite3_backup_step(backup, -1);
@@ -7148,10 +7150,7 @@ db_backup()
   else
     DPRINTF(E_WARN, L_DB, "Failed to complete backup '%s': %s (%d)\n", backup_path, sqlite3_errstr(ret), ret);
 
-  return ret;
-
-error:
-  return -1;
+  return 0;
 }
 
 int
