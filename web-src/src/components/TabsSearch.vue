@@ -7,7 +7,7 @@
             <ul>
               <li
                 :class="{
-                  'is-active': $store.state.search_source === 'library'
+                  'is-active': $route.name === 'search-library'
                 }"
               >
                 <a @click="search_library">
@@ -17,7 +17,7 @@
               </li>
               <li
                 :class="{
-                  'is-active': $store.state.search_source === 'spotify'
+                  'is-active': $route.name === 'search-spotify'
                 }"
               >
                 <a @click="search_spotify">
@@ -34,8 +34,6 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
-
 export default {
   name: 'TabsSearch',
   props: { query: { default: '', type: String } },
@@ -59,7 +57,6 @@ export default {
 
   methods: {
     search_library() {
-      this.$store.commit(types.SEARCH_SOURCE, 'library')
       this.$router.push({
         name: 'search-library',
         query: this.route_query
@@ -67,7 +64,6 @@ export default {
     },
 
     search_spotify() {
-      this.$store.commit(types.SEARCH_SOURCE, 'spotify')
       this.$router.push({
         name: 'search-spotify',
         query: this.route_query

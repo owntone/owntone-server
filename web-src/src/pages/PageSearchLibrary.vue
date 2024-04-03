@@ -77,6 +77,7 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
@@ -146,6 +147,7 @@ export default {
   },
 
   mounted() {
+    this.$store.commit(types.SEARCH_SOURCE, this.$route.name)
     this.search(this.$route)
   },
 
@@ -155,7 +157,6 @@ export default {
         return
       }
       this.$router.push({
-        name: 'search-library',
         query: {
           limit: 3,
           offset: 0,
@@ -171,7 +172,6 @@ export default {
     },
     open_search(type) {
       this.$router.push({
-        name: 'search-library',
         query: { query: this.$route.query.query, type }
       })
     },

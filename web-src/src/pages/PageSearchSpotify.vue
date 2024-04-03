@@ -73,6 +73,7 @@
 </template>
 
 <script>
+import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
@@ -134,6 +135,7 @@ export default {
   },
 
   mounted() {
+    this.$store.commit(types.SEARCH_SOURCE, this.$route.name)
     this.query = this.$route.query
     this.search()
   },
@@ -144,12 +146,11 @@ export default {
         return
       }
       this.$router.push({
-        name: 'search-spotify',
         query: {
           limit: 3,
           offset: 0,
           query: this.search_query,
-          type: 'track,artist,album,playlist,audiobook,podcast'
+          type: this.search_types.join()
         }
       })
       this.$refs.search_field.blur()
@@ -160,7 +161,6 @@ export default {
     },
     open_search(type) {
       this.$router.push({
-        name: 'search-spotify',
         query: { query: this.$route.query.query, type }
       })
     },

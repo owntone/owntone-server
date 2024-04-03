@@ -54,7 +54,7 @@ export default createStore({
       },
       recent_searches: [],
       rss_count: {},
-      search_source: 'library',
+      search_source: 'search-library',
       settings: {
         categories: []
       },

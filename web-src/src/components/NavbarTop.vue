@@ -134,7 +134,7 @@ export default {
   computed: {
     search_name: {
       get() {
-        return `search-${this.$store.state.search_source}`
+        return this.$store.state.search_source
       }
     },
     show_audiobooks() {
