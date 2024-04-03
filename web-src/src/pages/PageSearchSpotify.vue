@@ -39,7 +39,7 @@
       </template>
       <template #content>
         <component :is="components[type]" :items="results[type].items" />
-        <VueEternalLoading v-if="query.type === type" :load="search_next">
+        <VueEternalLoading v-if="$route.query.type === type" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -106,7 +106,6 @@ export default {
         playlist: ListPlaylistsSpotify.name,
         track: ListTracksSpotify.name
       },
-      query: {},
       results: {
         album: { items: [], total: 0 },
         artist: { items: [], total: 0 },
@@ -129,14 +128,12 @@ export default {
 
   watch: {
     $route(to, from) {
-      this.query = to.query
       this.search()
     }
   },
 
   mounted() {
     this.$store.commit(types.SEARCH_SOURCE, this.$route.name)
-    this.query = this.$route.query
     this.search()
   },
 
@@ -171,23 +168,23 @@ export default {
     },
     search() {
       this.reset()
-      this.search_query = this.query.query?.trim()
+      this.search_query = this.$route.query.query?.trim()
       if (!this.search_query || this.search_query.startsWith('query:')) {
         this.search_query = ''
         this.$refs.search_field.focus()
         return
       }
-      this.query.query = this.search_query
-      this.search_param.limit = this.query.limit ?? PAGE_SIZE
-      this.search_param.offset = this.query.offset ?? 0
-      this.$store.dispatch('add_recent_search', this.query.query)
+      this.$route.query.query = this.search_query
       this.search_all()
+      this.$store.dispatch('add_recent_search', this.search_query)
     },
     search_all() {
-      const types = this.query.type
+      this.search_param.limit = this.$route.query.limit ?? PAGE_SIZE
+      this.search_param.offset = this.$route.query.offset ?? 0
+      const types = this.$route.query.type
         .split(',')
         .filter((type) => this.search_types.includes(type))
-      this.spotify_search(types).then((data) => {
+      this.search_spotify(types).then((data) => {
         this.results.track = data.tracks ?? { items: [], total: 0 }
         this.results.artist = data.artists ?? { items: [], total: 0 }
         this.results.album = data.albums ?? { items: [], total: 0 }
@@ -195,13 +192,21 @@ export default {
       })
     },
     search_next({ loaded }) {
-      const items = this.results[this.query.type]
-      this.spotify_search([this.query.type]).then((data) => {
+      const items = this.results[this.$route.query.type]
+      this.search_spotify([this.$route.query.type]).then((data) => {
         const [next] = Object.values(data)
         items.items.push(...next.items)
         items.total = next.total
         this.search_param.offset += next.limit
         loaded(next.items.length, PAGE_SIZE)
+      })
+    },
+    search_spotify(types) {
+      return webapi.spotify().then(({ data }) => {
+        this.search_param.market = data.webapi_country
+        const spotifyApi = new SpotifyWebApi()
+        spotifyApi.setAccessToken(data.webapi_token)
+        return spotifyApi.search(this.$route.query.query, types, this.search_param)
       })
     },
     show(type) {
@@ -210,14 +215,6 @@ export default {
     show_all_button(type) {
       const items = this.results[type]
       return items.total > items.items.length
-    },
-    spotify_search(types) {
-      return webapi.spotify().then(({ data }) => {
-        this.search_param.market = data.webapi_country
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(data.webapi_token)
-        return spotifyApi.search(this.query.query, types, this.search_param)
-      })
     }
   }
 }

@@ -148,7 +148,7 @@ export default {
 
   mounted() {
     this.$store.commit(types.SEARCH_SOURCE, this.$route.name)
-    this.search(this.$route)
+    this.search()
   },
 
   methods: {
@@ -175,16 +175,16 @@ export default {
         query: { query: this.$route.query.query, type }
       })
     },
-    search(route) {
-      this.search_query = route.query.query?.trim()
+    search() {
+      this.search_query = this.$route.query.query?.trim()
       if (!this.search_query || !this.search_query.replace(/^query:/u, '')) {
         this.$refs.search_field.focus()
         return
       }
-      route.query.query = this.search_query
-      this.searchMusic(route.query)
-      this.searchType(route.query, 'audiobook')
-      this.searchType(route.query, 'podcast')
+      this.$route.query.query = this.search_query
+      this.searchMusic(this.$route.query)
+      this.searchType(this.$route.query, 'audiobook')
+      this.searchType(this.$route.query, 'podcast')
       this.$store.dispatch('add_recent_search', this.search_query)
     },
     searchMusic(query) {
