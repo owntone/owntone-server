@@ -59,10 +59,7 @@ export default {
 
   computed: {
     current() {
-      if (this.$route.query && this.$route.query.directory) {
-        return this.$route.query.directory
-      }
-      return '/'
+      return this.$route.query?.directory || '/'
     }
   },
 
