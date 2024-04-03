@@ -49,6 +49,10 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
+      path: '/:all(.*)*',
+      redirect: '/'
+    },
+    {
       component: PageAbout,
       name: 'about',
       path: '/about'
