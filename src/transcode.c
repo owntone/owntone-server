@@ -48,6 +48,7 @@
 #define USE_CONST_AVCODEC (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
 #define USE_NO_CLEAR_AVFMT_NOFILE (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
 #define USE_CH_LAYOUT (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR > 24))
+#define USE_CONST_AVIO_WRITE_PACKET (LIBAVFORMAT_VERSION_MAJOR > 61) || ((LIBAVFORMAT_VERSION_MAJOR == 61) && (LIBAVFORMAT_VERSION_MINOR > 0))
 
 // Interval between ICY metadata checks for streams, in seconds
 #define METADATA_ICY_INTERVAL 5
@@ -887,8 +888,13 @@ avio_evbuffer_read(void *opaque, uint8_t *buf, int size)
   return (ret > 0) ? ret : AVERROR_EOF;
 }
 
+#if USE_CONST_AVIO_WRITE_PACKET
+static int
+avio_evbuffer_write(void *opaque, const uint8_t *buf, int size)
+#else
 static int
 avio_evbuffer_write(void *opaque, uint8_t *buf, int size)
+#endif
 {
   struct avio_evbuffer *ae = (struct avio_evbuffer *)opaque;
   int ret;
