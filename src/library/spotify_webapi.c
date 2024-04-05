@@ -341,7 +341,7 @@ request_access_tokens(struct spotify_credentials *credentials, struct keyval *kv
 }
 
 /*
- * Request the api endpoint at 'href' and retuns the response body as
+ * Request the api endpoint at 'href' and returns the response body as
  * an allocated JSON object (must be freed by the caller) or NULL.
  *
  * @param href The spotify endpoint uri
@@ -369,7 +369,7 @@ request_endpoint(const char *uri, const char *access_token)
       goto out;
     }
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Request Spotify API endpoint: '%s')\n", uri);
+  DPRINTF(E_DBG, L_SPOTIFY, "Making request to '%s'\n", uri);
 
   CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_http_session.lock));
   ret = http_client_request(ctx, &spotify_http_session.session);
@@ -396,7 +396,7 @@ request_endpoint(const char *uri, const char *access_token)
   if (!json_response)
     DPRINTF(E_LOG, L_SPOTIFY, "JSON parser returned an error for '%s'\n", uri);
   else
-    DPRINTF(E_DBG, L_SPOTIFY, "Spotify API endpoint request: '%s'\n", uri);
+    DPRINTF(E_DBG, L_SPOTIFY, "Got JSON response for request to '%s'\n", uri);
 
  out:
   free_http_client_ctx(ctx);
@@ -648,7 +648,7 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
 	      ret = item_cb(item, (i + offset), total, request_type, arg, credentials);
 	      if (ret < 0)
 		{
-		  DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: error processing item at index %d '%s' (API endpoint: '%s')\n",
+		  DPRINTF(E_LOG, L_SPOTIFY, "Couldn't add item at index %d '%s' (API endpoint: '%s')\n",
 			  i, json_object_to_json_string(item), href);
 		}
 	    }
