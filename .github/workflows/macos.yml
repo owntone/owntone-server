@@ -70,7 +70,7 @@ jobs:
 
     - name: Install other dependencies
       # Homebrew has libmxml but it isn't compatible with mxml 3
-      run: brew install libunistring libmxml@3.3.1 confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
+      run: brew install libunistring libmxml@3.3 confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
 
     - name: Configure
       # We configure a non-privileged setup, since how to add a "owntone" system
