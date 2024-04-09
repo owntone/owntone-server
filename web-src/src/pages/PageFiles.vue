@@ -60,7 +60,15 @@ const dataObject = {
       vm.playlists = new GroupedList(response.data.playlists)
       vm.tracks = new GroupedList(response.data.tracks)
     } else {
-      vm.dirs = vm.$store.state.config.directories.map((dir) => ({ path: dir }))
+      if (vm.$store.state.config.directories) {
+        vm.dirs = vm.$store.state.config.directories.map((dir) => ({
+          path: dir
+        }))
+      } else {
+        webapi.config().then((config) => {
+          vm.dirs = config.data.directories.map((dir) => ({ path: dir }))
+        })
+      }
       vm.playlists = new GroupedList()
       vm.tracks = new GroupedList()
     }
