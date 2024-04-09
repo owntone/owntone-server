@@ -10,7 +10,7 @@
                   'is-active': $route.name === 'search-library'
                 }"
               >
-                <a @click="search_library">
+                <a @click="$emit('search-library')">
                   <mdicon class="icon is-small" name="bookshelf" size="16" />
                   <span v-text="$t('page.search.tabs.library')" />
                 </a>
@@ -20,7 +20,7 @@
                   'is-active': $route.name === 'search-spotify'
                 }"
               >
-                <a @click="search_spotify">
+                <a @click="$emit('search-spotify')">
                   <mdicon class="icon is-small" name="spotify" size="16" />
                   <span v-text="$t('page.search.tabs.spotify')" />
                 </a>
@@ -36,38 +36,11 @@
 <script>
 export default {
   name: 'TabsSearch',
-  props: { query: { default: '', type: String } },
+  emits: ['search-library', 'search-spotify'],
 
   computed: {
-    route_query() {
-      if (this.query) {
-        return {
-          limit: 3,
-          offset: 0,
-          query: this.query,
-          type: 'track,artist,album,composer,playlist,audiobook,podcast'
-        }
-      }
-      return null
-    },
     spotify_enabled() {
       return this.$store.state.spotify.webapi_token_valid
-    }
-  },
-
-  methods: {
-    search_library() {
-      this.$router.push({
-        name: 'search-library',
-        query: this.route_query
-      })
-    },
-
-    search_spotify() {
-      this.$router.push({
-        name: 'search-spotify',
-        query: this.route_query
-      })
     }
   }
 }

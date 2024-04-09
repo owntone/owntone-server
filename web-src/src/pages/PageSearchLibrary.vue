@@ -3,7 +3,7 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <form @submit.prevent="new_search">
+          <form @submit.prevent="search">
             <div class="field">
               <p class="control has-icons-left">
                 <input
@@ -32,43 +32,42 @@
               </i18n-t>
             </div>
           </form>
-          <div class="tags mt-4">
-            <a
-              v-for="recent_search in recent_searches"
-              :key="recent_search"
-              class="tag"
-              @click="open_recent_search(recent_search)"
-              v-text="recent_search"
-            />
+          <div class="field is-grouped is-grouped-multiline mt-4">
+            <div v-for="query in recent_searches" :key="query" class="control">
+              <div class="tags has-addons">
+                <a class="tag" @click="open_search(query)" v-text="query" />
+                <a class="tag is-delete" @click="remove_search(query)"></a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </section>
-  <tabs-search :query="search_query" />
-  <template v-for="type in search_types" :key="type">
-    <content-with-heading v-if="show(type)" class="pt-0">
+  <tabs-search @search-library="search" @search-spotify="search_spotify" />
+  <template v-for="[type, items] in results" :key="type">
+    <content-with-heading class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t(`page.search.${type}s`)" />
       </template>
       <template #content>
-        <component :is="components[type]" :items="results[type]" />
+        <component :is="components[type]" :items="items" />
       </template>
-      <template #footer>
-        <nav v-if="show_all_button(type)" class="level">
+      <template v-if="!expanded" #footer>
+        <nav v-if="show_all_button(items)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search(type)"
+              @click="expand(type)"
               v-text="
-                $t(`page.search.show-${type}s`, results[type].total, {
-                  count: $filters.number(results[type].total)
+                $t(`page.search.show-${type}s`, items.total, {
+                  count: $filters.number(items.total)
                 })
               "
             />
           </p>
         </nav>
-        <p v-if="!results[type].total" class="has-text-centered-mobile">
+        <p v-if="!items.total" class="has-text-centered-mobile">
           <i v-text="$t('page.search.no-results')" />
         </p>
       </template>
@@ -87,6 +86,17 @@ import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import TabsSearch from '@/components/TabsSearch.vue'
 import webapi from '@/webapi'
+
+const PAGE_SIZE = 3,
+  SEARCH_TYPES = [
+    'track',
+    'artist',
+    'album',
+    'composer',
+    'playlist',
+    'audiobook',
+    'podcast'
+  ]
 
 export default {
   name: 'PageSearchLibrary',
@@ -111,139 +121,98 @@ export default {
         podcast: ListAlbums.name,
         track: ListTracks.name
       },
-      results: {
-        album: new GroupedList(),
-        artist: new GroupedList(),
-        audiobook: new GroupedList(),
-        composer: new GroupedList(),
-        playlist: new GroupedList(),
-        podcast: new GroupedList(),
-        track: new GroupedList()
-      },
+      results: new Map(),
+      search_limit: {},
       search_query: '',
-      search_types: [
-        'track',
-        'artist',
-        'album',
-        'composer',
-        'playlist',
-        'audiobook',
-        'podcast'
-      ],
-      tracks: new GroupedList()
+      search_types: SEARCH_TYPES
     }
   },
 
   computed: {
+    expanded() {
+      return this.search_types.length === 1
+    },
     recent_searches() {
       return this.$store.state.recent_searches
     }
   },
 
   watch: {
-    $route(to, from) {
-      this.search(to)
+    search_query() {
+      this.$store.commit(types.SEARCH_QUERY, this.search_query)
     }
   },
 
   mounted() {
     this.$store.commit(types.SEARCH_SOURCE, this.$route.name)
+    this.search_query = this.$store.state.search_query
+    this.search_limit = PAGE_SIZE
     this.search()
   },
 
   methods: {
-    new_search() {
-      if (!this.search_query) {
-        return
-      }
-      this.$router.push({
-        query: {
-          limit: 3,
-          offset: 0,
-          query: this.search_query,
-          type: this.search_types.join()
-        }
-      })
-      this.$refs.search_field.blur()
+    expand(type) {
+      this.search_query = this.$store.state.search_query
+      this.search_types = [type]
+      this.search_limit = -1
+      this.search()
     },
-    open_recent_search(query) {
+    open_search(query) {
       this.search_query = query
-      this.new_search()
+      this.search_types = SEARCH_TYPES
+      this.search_limit = PAGE_SIZE
+      this.search()
     },
-    open_search(type) {
-      this.$router.push({
-        query: { query: this.$route.query.query, type }
+    remove_search(query) {
+      this.$store.dispatch('remove_recent_search', query)
+    },
+    reset() {
+      this.results.clear()
+      this.search_types.forEach((type) => {
+        this.results.set(type, new GroupedList())
       })
     },
-    search() {
-      this.search_query = this.$route.query.query?.trim()
+    search(event) {
+      if (event) {
+        this.search_types = SEARCH_TYPES
+        this.search_limit = PAGE_SIZE
+      }
       if (!this.search_query || !this.search_query.replace(/^query:/u, '')) {
         this.$refs.search_field.focus()
         return
       }
-      this.$route.query.query = this.search_query
-      this.searchMusic(this.$route.query)
-      this.searchType(this.$route.query, 'audiobook')
-      this.searchType(this.$route.query, 'podcast')
+      this.reset()
+      this.search_types.forEach((type) => {
+        this.search_items(type)
+      })
       this.$store.dispatch('add_recent_search', this.search_query)
     },
-    searchMusic(query) {
-      if (
-        !query.type.includes('track') &&
-        !query.type.includes('artist') &&
-        !query.type.includes('album') &&
-        !query.type.includes('playlist') &&
-        !query.type.includes('composer')
-      ) {
-        return
-      }
-      const parameters = {
-        type: query.type
-      }
-      if (query.query.startsWith('query:')) {
-        parameters.expression = `(${query.query.replace(/^query:/u, '').trim()}) and media_kind is music`
+    search_items(type) {
+      const music = type !== 'audiobook' && type !== 'podcast',
+        kind = music ? 'music' : type,
+        parameters = {
+          type: music ? type : 'album',
+          limit: this.search_limit
+        }
+      if (this.search_query.startsWith('query:')) {
+        parameters.expression = `(${this.search_query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
+      } else if (music) {
+        parameters.query = this.search_query
+        parameters.media_kind = kind
       } else {
-        parameters.query = query.query
-        parameters.media_kind = 'music'
-      }
-      if (query.limit) {
-        parameters.limit = query.limit
-        parameters.offset = query.offset
+        parameters.expression = `(album includes "${this.search_query}" or artist includes "${this.search_query}") and media_kind is ${kind}`
       }
       webapi.search(parameters).then(({ data }) => {
-        this.results.track = new GroupedList(data.tracks)
-        this.results.artist = new GroupedList(data.artists)
-        this.results.album = new GroupedList(data.albums)
-        this.results.composer = new GroupedList(data.composers)
-        this.results.playlist = new GroupedList(data.playlists)
+        this.results.set(type, new GroupedList(data[`${parameters.type}s`]))
       })
     },
-    searchType(query, type) {
-      if (!query.type.includes(type)) {
-        return
-      }
-      const parameters = {
-        type: 'album'
-      }
-      if (query.query.startsWith('query:')) {
-        parameters.expression = query.query.replace(/^query:/u, '').trim()
-      } else {
-        parameters.expression = `album includes "${query.query}" or artist includes "${query.query}"`
-      }
-      parameters.expression = `(${parameters.expression}) and media_kind is ${type}`
-      if (query.limit) {
-        parameters.limit = query.limit
-        parameters.offset = query.offset
-      }
-      webapi.search(parameters).then(({ data }) => {
-        this.results[type] = new GroupedList(data.albums)
-      })
+    search_spotify() {
+      this.$router.push({ name: 'search-spotify' })
     },
     show(type) {
-      return this.$route.query.type?.includes(type) ?? false
+      return this.search_types.includes(type)
     },
-    show_all_button(type) {
-      const items = this.results[type]
+    show_all_button(items) {
       return items.total > items.items.length
     }
   }

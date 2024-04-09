@@ -3,7 +3,7 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <form @submit.prevent="new_search">
+          <form @submit.prevent="search">
             <div class="field">
               <p class="control has-icons-left">
                 <input
@@ -18,28 +18,27 @@
               </p>
             </div>
           </form>
-          <div class="tags mt-4">
-            <a
-              v-for="recent_search in recent_searches"
-              :key="recent_search"
-              class="tag"
-              @click="open_recent_search(recent_search)"
-              v-text="recent_search"
-            />
+          <div class="field is-grouped is-grouped-multiline mt-4">
+            <div v-for="query in recent_searches" :key="query" class="control">
+              <div class="tags has-addons">
+                <a class="tag" @click="open_search(query)" v-text="query" />
+                <a class="tag is-delete" @click="remove_search(query)"></a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </section>
-  <tabs-search :query="search_query" />
-  <template v-for="type in search_types" :key="type">
-    <content-with-heading v-if="show(type)" class="pt-0">
+  <tabs-search @search-library="search_library" @search-spotify="search" />
+  <template v-for="[type, items] in results" :key="type">
+    <content-with-heading class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t(`page.spotify.search.${type}s`)" />
       </template>
       <template #content>
-        <component :is="components[type]" :items="results[type].items" />
-        <VueEternalLoading v-if="$route.query.type === type" :load="search_next">
+        <component :is="components[type]" :items="items.items" />
+        <VueEternalLoading v-if="expanded" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -50,21 +49,21 @@
           <template #no-more>&nbsp;</template>
         </VueEternalLoading>
       </template>
-      <template #footer>
-        <nav v-if="show_all_button(type)" class="level">
+      <template v-if="!expanded" #footer>
+        <nav v-if="show_all_button(items)" class="level">
           <p class="level-item">
             <a
               class="button is-light is-small is-rounded"
-              @click="open_search(type)"
+              @click="expand(type)"
               v-text="
-                $t(`page.spotify.search.show-${type}s`, results[type].total, {
-                  count: $filters.number(results[type].total)
+                $t(`page.spotify.search.show-${type}s`, items.total, {
+                  count: $filters.number(items.total)
                 })
               "
             />
           </p>
         </nav>
-        <p v-if="!results[type].total" class="has-text-centered-mobile">
+        <p v-if="!items.total" class="has-text-centered-mobile">
           <i v-text="$t(`page.spotify.search.no-results`)" />
         </p>
       </template>
@@ -84,7 +83,9 @@ import TabsSearch from '@/components/TabsSearch.vue'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
 import webapi from '@/webapi'
 
-const PAGE_SIZE = 50
+const PAGE_SIZE = 3,
+  PAGE_SIZE_EXPANDED = 50,
+  SEARCH_TYPES = ['track', 'artist', 'album', 'playlist']
 
 export default {
   name: 'PageSearchSpotify',
@@ -106,114 +107,115 @@ export default {
         playlist: ListPlaylistsSpotify.name,
         track: ListTracksSpotify.name
       },
-      results: {
-        album: { items: [], total: 0 },
-        artist: { items: [], total: 0 },
-        playlist: { items: [], total: 0 },
-        track: { items: [], total: 0 }
-      },
-      search_param: {},
+      results: new Map(),
+      search_parameters: {},
       search_query: '',
-      search_types: ['track', 'artist', 'album', 'playlist']
+      search_types: SEARCH_TYPES
     }
   },
 
   computed: {
+    expanded() {
+      return this.search_types.length === 1
+    },
     recent_searches() {
       return this.$store.state.recent_searches.filter(
-        (search) => !search.startsWith('query:')
+        (query) => !query.startsWith('query:')
       )
     }
   },
 
   watch: {
-    $route(to, from) {
-      this.search()
+    search_query() {
+      this.$store.commit(types.SEARCH_QUERY, this.search_query)
     }
   },
 
   mounted() {
     this.$store.commit(types.SEARCH_SOURCE, this.$route.name)
+    this.search_query = this.$store.state.search_query
+    this.search_parameters.limit = PAGE_SIZE
     this.search()
   },
 
   methods: {
-    new_search() {
-      if (!this.search_query) {
-        return
-      }
-      this.$router.push({
-        query: {
-          limit: 3,
-          offset: 0,
-          query: this.search_query,
-          type: this.search_types.join()
-        }
-      })
-      this.$refs.search_field.blur()
+    expand(type) {
+      this.search_query = this.$store.state.search_query
+      this.search_types = [type]
+      this.search_parameters.limit = PAGE_SIZE_EXPANDED
+      this.search_parameters.offset = 0
+
+      this.search()
     },
-    open_recent_search(query) {
+    open_search(query) {
       this.search_query = query
-      this.new_search()
+      this.search_types = SEARCH_TYPES
+      this.search_parameters.limit = PAGE_SIZE
+      this.search_parameters.offset = 0
+      this.search()
     },
-    open_search(type) {
-      this.$router.push({
-        query: { query: this.$route.query.query, type }
-      })
+    remove_search(query) {
+      this.$store.dispatch('remove_recent_search', query)
     },
     reset() {
-      Object.entries(this.results).forEach(
-        (key) => (this.results[key] = { items: [], total: 0 })
-      )
+      this.results.clear()
+      this.search_types.forEach((type) => {
+        this.results.set(type, { items: [], total: 0 })
+      })
     },
-    search() {
-      this.reset()
-      this.search_query = this.$route.query.query?.trim()
-      if (!this.search_query || this.search_query.startsWith('query:')) {
-        this.search_query = ''
+    search(event) {
+      if (event) {
+        this.search_types = SEARCH_TYPES
+        this.search_parameters.limit = PAGE_SIZE
+      }
+      if (!this.search_query) {
         this.$refs.search_field.focus()
         return
       }
-      this.$route.query.query = this.search_query
-      this.search_all()
+      this.reset()
+      this.search_items().then((data) => {
+        this.search_types.forEach((type) => {
+          this.results.set(type, data[`${type}s`])
+        })
+      })
       this.$store.dispatch('add_recent_search', this.search_query)
     },
-    search_all() {
-      this.search_param.limit = this.$route.query.limit ?? PAGE_SIZE
-      this.search_param.offset = this.$route.query.offset ?? 0
-      const types = this.$route.query.type
-        .split(',')
-        .filter((type) => this.search_types.includes(type))
-      this.search_spotify(types).then((data) => {
-        this.results.track = data.tracks ?? { items: [], total: 0 }
-        this.results.artist = data.artists ?? { items: [], total: 0 }
-        this.results.album = data.albums ?? { items: [], total: 0 }
-        this.results.playlist = data.playlists ?? { items: [], total: 0 }
+    search_items() {
+      return webapi.spotify().then(({ data }) => {
+        this.search_parameters.market = data.webapi_country
+        const spotifyApi = new SpotifyWebApi()
+        spotifyApi.setAccessToken(data.webapi_token)
+        return spotifyApi.search(
+          this.search_query,
+          this.search_types,
+          this.search_parameters
+        )
+      })
+    },
+    search_library() {
+      this.$router.push({
+        name: 'search-library'
       })
     },
     search_next({ loaded }) {
-      const items = this.results[this.$route.query.type]
-      this.search_spotify([this.$route.query.type]).then((data) => {
+      const [type] = this.search_types,
+        items = this.results.get(type)
+      this.search_parameters.limit = PAGE_SIZE_EXPANDED
+      this.search_items().then((data) => {
         const [next] = Object.values(data)
         items.items.push(...next.items)
         items.total = next.total
-        this.search_param.offset += next.limit
-        loaded(next.items.length, PAGE_SIZE)
-      })
-    },
-    search_spotify(types) {
-      return webapi.spotify().then(({ data }) => {
-        this.search_param.market = data.webapi_country
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(data.webapi_token)
-        return spotifyApi.search(this.$route.query.query, types, this.search_param)
+        if (!this.search_parameters.offset) {
+          this.search_parameters.offset = 0
+        }
+        this.search_parameters.offset += next.limit
+        loaded(next.items.length, PAGE_SIZE_EXPANDED)
       })
     },
     show(type) {
-      return this.$route.query.type?.includes(type) ?? false
+      return this.search_types.includes(type)
     },
-    show_all_button(type) {
-      const items = this.results[type]
+    show_all_button(items) {
       return items.total > items.items.length
     }
   }

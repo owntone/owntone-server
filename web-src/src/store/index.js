@@ -54,6 +54,7 @@ export default createStore({
       },
       recent_searches: [],
       rss_count: {},
+      search_query: '',
       search_source: 'search-library',
       settings: {
         categories: []
@@ -130,6 +131,9 @@ export default createStore({
     [types.UPDATE_PAIRING](state, pairing) {
       state.pairing = pairing
     },
+    [types.SEARCH_QUERY](state, query) {
+      state.search_query = query
+    },
     [types.SEARCH_SOURCE](state, searchSource) {
       state.search_source = searchSource
     },
@@ -200,13 +204,19 @@ export default createStore({
       }
     },
     add_recent_search({ commit, state }, query) {
-      const index = state.recent_searches.findIndex((elem) => elem === query)
-      if (index >= 0) {
+      const index = state.recent_searches.indexOf(query)
+      if (index !== -1) {
         state.recent_searches.splice(index, 1)
       }
       state.recent_searches.splice(0, 0, query)
       if (state.recent_searches.length > 5) {
         state.recent_searches.pop()
+      }
+    },
+    remove_recent_search({ commit, state }, query) {
+      const index = state.recent_searches.indexOf(query)
+      if (index !== -1) {
+        state.recent_searches.splice(index, 1)
       }
     },
     delete_notification({ commit, state }, notification) {
