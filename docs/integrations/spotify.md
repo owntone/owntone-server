@@ -44,7 +44,7 @@ The easiest way of accomplishing this may be with [Spocon](https://github.com/sp
 since it requires minimal configuration. After installing, create two pipes
 (with mkfifo) and set the configuration in the player section:
 
-```
+```conf
 # Audio output device (MIXER, PIPE, STDOUT)
 output = "PIPE"
 # Output raw (signed) PCM to this file (`player.output` must be PIPE)

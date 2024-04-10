@@ -1,4 +1,4 @@
-# OwnTone smart playlists
+# Smart Playlists
 
 To add a smart playlist to the server, create a new text file with a filename ending with .smartpl;
 the filename doesn't matter, only the .smartpl ending does. The file must be placed somewhere in your
@@ -153,7 +153,7 @@ This would match the last 10 music files added to the library.
 
 This generates a random set of, maximum of 10, rated Pop music tracks every time the playlist is queried.
 
-## Date operand syntax
+## Date Operand Syntax
 
 One example of a valid date is a date in yyyy-mm-dd format:
 
@@ -197,12 +197,11 @@ All dates, except for `YYYY-DD-HH`, are relative to the day of when the server e
 
 Note that `time_added after 4 weeks ago` and `time_added after last month` are subtly different; the former is exactly 4 weeks ago (from today) whereas the latter is the first day of the previous month.
 
-## Differences to mt-daapd smart playlists
+## Differences with MT-daapd Smart Playlists
 
-The syntax is really close to the mt-daapd smart playlist syntax (see
-http://sourceforge.net/p/mt-daapd/code/HEAD/tree/tags/release-0.2.4.2/contrib/mt-daapd.playlist).
+The syntax is really close to the mt-daapd smart playlist syntax (see [Multi-Threaded DAAP Daemon Code](https://sourceforge.net/p/mt-daapd/code/HEAD/tree/tags/release-0.2.4.2/contrib/mt-daapd.playlist).
 
-Even this documentation is based on the file linked above.
+Even this documentation is based on the document linked above.
 
 Some differences are:
 
