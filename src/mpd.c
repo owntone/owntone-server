@@ -4525,6 +4525,11 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
    */
   struct event_base *base = evconnlistener_get_base(listener);
   struct bufferevent *bev = bufferevent_socket_new(base, sock, BEV_OPT_CLOSE_ON_FREE);
+  if (!bev)
+  {
+    DPRINTF(E_LOG, L_MPD, "Out of memory for bufferevent\n");
+    return;
+  }
   char addr_str[INET6_ADDRSTRLEN];
   struct mpd_client_ctx *client_ctx = calloc(1, sizeof(struct mpd_client_ctx));
 
@@ -4546,6 +4551,11 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
   mpd_clients = client_ctx;
 
   bev = bufferevent_filter_new(bev, mpd_input_filter, NULL, BEV_OPT_CLOSE_ON_FREE, free_mpd_client_ctx, client_ctx);
+  if (!bev)
+  {
+    DPRINTF(E_LOG, L_MPD, "Out of memory for bufferevent\n");
+    return;
+  }
   bufferevent_setcb(bev, mpd_read_cb, NULL, mpd_event_cb, client_ctx);
   bufferevent_enable(bev, EV_READ | EV_WRITE);
 
