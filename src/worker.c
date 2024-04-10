@@ -84,6 +84,9 @@ execute(struct evthr *thr, void *arg, void *shared)
     {
       evbase = evthr_get_base(thr);
       cmdarg->timer = evtimer_new(evbase, execute_cb, cmdarg);
+      if (cmdarg->timer == NULL) {
+        return;
+      }
       evtimer_add(cmdarg->timer, &tv);
       return;
     }
