@@ -525,7 +525,7 @@ fetch_artist(bool *notfound, const char *artist_id)
   if ((ret = db_query_fetch_group(&dbgri, &query_params)) == 0)
     {
       artist = artist_to_json(&dbgri);
-      notfound = false;
+      *notfound = false;
     }
 
  error:
