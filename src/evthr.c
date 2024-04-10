@@ -138,13 +138,18 @@ _evthr_loop(void *args)
     thread->evbase = event_base_new();
     thread->event  = event_new(thread->evbase, thread->rdr,
                                EV_READ | EV_PERSIST, _evthr_read_cmd, args);
-
+    if (thread->event == NULL) {
+        return NULL;
+    }
     event_add(thread->event, NULL);
 
 #ifdef EVTHR_SHARED_PIPE
     if (thread->pool_rdr > 0) {
         thread->shared_pool_ev = event_new(thread->evbase, thread->pool_rdr,
                                            EV_READ | EV_PERSIST, _evthr_read_cmd, args);
+        if (thread->shared_pool_ev == NULL) {
+            return NULL;
+        }
         event_add(thread->shared_pool_ev, NULL);
     }
 #endif
