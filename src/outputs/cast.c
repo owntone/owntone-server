@@ -46,6 +46,7 @@
 #include <json.h>
 
 #include "conffile.h"
+#include "misc.h"
 #include "mdns.h"
 #include "transcode.h"
 #include "logger.h"
