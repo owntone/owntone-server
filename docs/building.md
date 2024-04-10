@@ -1,11 +1,11 @@
-# Build instructions for OwnTone
+# Build Instructions
 
 This document contains instructions for building OwnTone from the git tree. If
 you just want to build from a release tarball, you don't need the build tools
 (git, autotools, autoconf, automake, gawk, gperf, gettext, bison and flex), and
 you can skip the autoreconf step.
 
-## Quick version for Debian/Ubuntu users
+## Quick Version for Debian/Ubuntu
 
 If you are the lucky kind, this should get you all the required tools and
 libraries:
@@ -110,28 +110,28 @@ running with `sudo systemctl status owntone`.
 
 See the [Documentation](getting-started.md) for usage information.
 
-## Quick version for FreeBSD
+## Quick Version for FreeBSD
 
 There is a script in the 'scripts' folder that will at least attempt to do all
 the work for you. And should the script not work for you, you can still look
 through it and use it as an installation guide.
 
-## Quick version for macOS (using Homebrew)
+## Quick Version for macOS Using Homebrew
 
 This workflow file used for building OwnTone via Github actions includes
 all the steps that you need to execute:
 [.github/workflows/macos.yml](https://github.com/owntone/owntone-server/blob/master/.github/workflows/macos.yml)
 
-## "Quick" version for macOS (using macports)
+## "Quick" Version for macOS Using MacPorts
 
 Caution:
 
 1) this approach may be out of date, consider using the Homebrew method above
 since it is continuously tested.
-2) macports requires many downloads and lots of time to install (and sometimes
-build) ports... you'll want a decent network connection and some patience!
+2) MacPorts requires many downloads and lots of time to install (and sometimes
+build) ports. You will need a decent network connection and some patience!
 
-Install macports (which requires Xcode): <https://www.macports.org/install.php>
+Install MacPorts (which requires Xcode): <https://www.macports.org/install.php>
 
 ```bash
 sudo port install \
@@ -140,9 +140,9 @@ sudo port install \
   libplist libsodium protobuf-c
 ```
 
-Download, configure, build and install the Mini-XML library: <http://www.msweet.org/projects.php/Mini-XML>
+Download, configure, build, and install the [Mini-XML library](https://www.msweet.org/mxml/)
 
-Download, configure, build and install the libinotify library: <https://github.com/libinotify-kqueue/libinotify-kqueue>
+Download, configure, build and install the [libinotify-kqueue library](https://github.com/libinotify-kqueue/libinotify-kqueue)
 
 Add the following to `.bashrc`:
 
@@ -161,14 +161,14 @@ Optional features require the following additional ports:
  Chromecast          | `--enable-chromecast`    | gnutls
  PulseAudio          | `--with-pulseaudio`      | pulseaudio
 
-Clone the OwnTone repo:
+Clone the OwnTone repository:
 
 ```bash
 git clone https://github.com/owntone/owntone-server.git
 cd owntone-server
 ```
 
-Finally, configure, build and install, adding configure arguments for
+Finally, configure, build, install, and add configuration arguments for
 optional features:
 
 ```bash
@@ -178,11 +178,11 @@ make
 sudo make install
 ```
 
-Note: if for some reason you've installed the avahi port, you need to
+Note: if for some reason you've installed the `avahi` port, you need to
 add `--without-avahi` to configure above.
 
-Edit `/usr/local/etc/owntone.conf` and change the `uid` to a nice
-system daemon (eg: unknown), and run the following:
+Edit `/usr/local/etc/owntone.conf` and change the `uid` to a proper
+system daemon (eg: unknown), and run the following commands:
 
 ```bash
 sudo mkdir -p /usr/local/var/run
@@ -196,14 +196,14 @@ Run OwnTone:
 sudo /usr/local/sbin/owntone
 ```
 
-Verify it's running (you need to <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop
+Verify it is running (you need to <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop
 dns-sd):
 
 ```bash
 dns-sd -B _daap._tcp
 ```
 
-## Long version - requirements
+## Long Version - Requirements
 
 Required tools:
 
@@ -217,53 +217,34 @@ Required tools:
 
 Libraries:
 
-- Avahi client libraries (avahi-client), 0.6.24 minimum  
-  from <http://avahi.org/>
-- sqlite3 3.5.0+ with unlock notify API enabled (read below)  
-  from <http://sqlite.org/download.html>
-- ffmpeg (libav)
-  from <http://ffmpeg.org/>
-- libconfuse  
-  from <http://www.nongnu.org/confuse/>
-- libevent 2.1.4+
-  from <http://libevent.org/>
-- MiniXML (aka mxml or libmxml)  
-  from <http://minixml.org/software.php>
-- gcrypt 1.2.0+  
-  from <http://gnupg.org/download/index.en.html#libgcrypt>
-- zlib  
-  from <http://zlib.net/>
-- libunistring 0.9.3+  
-  from <http://www.gnu.org/software/libunistring/#downloading>
-- libjson-c  
-  from <https://github.com/json-c/json-c/wiki>
-- libcurl
-  from <http://curl.haxx.se/libcurl/>
-- libplist 0.16+
-  from <http://github.com/JonathanBeck/libplist/downloads>
-- libsodium
-  from <https://download.libsodium.org/doc/>
-- libprotobuf-c
-  from <https://github.com/protobuf-c/protobuf-c/wiki>
-- libasound (optional - ALSA local audio)
+- [Avahi](https://avahi.org/) client libraries (avahi-client) 0.6.24+
+- [SQLite](https://sqlite.org/) 3.5.0+ with the unlock notify API enabled.
+  SQLite needs to be built with the support for the unlock notify API; this is not
+  always the case in binary packages, so you may need to rebuild SQLite to
+  enable the unlock notify API. You can check for the presence of the
+  `sqlite3_unlock_notify` symbol in the sqlite library. Refer to the  `SQLITE_ENABLE_UNLOCK_NOTIFY` in the SQLlite documentation.
+- [FFmpeg](https://ffmpeg.org/)
+- [libconfuse](https://github.com/libconfuse/libconfuse)  
+- [libevent](https://libevent.org/) 2.1.4+
+- [Mini-XML](https://www.msweet.org/mxml/) (aka mxml or libmxml)  
+- [Libgcrypt](https://gnupg.org/software/libgcrypt/) 1.2.0+  
+- [zlib](https://zlib.net/)
+- [libunistring](https://www.gnu.org/software/libunistring/) 0.9.3+
+- [json-c](https://github.com/json-c/json-c/)
+- [libcurl](https://curl.se/libcurl/)
+- [libplist](https://github.com/JonathanBeck/libplist/) 0.16+
+- [libsodium](https://doc.libsodium.org/)
+- [protobuf-c](https://github.com/protobuf-c/protobuf-c/)
+- [alsa-lib](https://github.com/alsa-project/alsa-lib/) (optional - ALSA local audio)
   often already installed as part of your distro
-- libpulse (optional - Pulseaudio local audio)
-  from <https://www.freedesktop.org/wiki/Software/PulseAudio/Download/>
-- libgnutls (optional - Chromecast support)
-  from <http://www.gnutls.org/>
-- libwebsockets 2.0.2+ (optional - websocket support)
-  from <https://libwebsockets.org/>
+- [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/) (optional - PulseAudio local audio)
+- [GnuTLS](https://www.gnutls.org/) (optional - Chromecast support)
+- [Libwebsockets](https://libwebsockets.org/) 2.0.2+ (optional - websocket support)
 
-If using binary packages, remember that you need the development packages to
-build OwnTone (usually named -dev or -devel).
+Note: If using binary packages, remember that you need the development packages to
+build OwnTone (usually suffixed with -dev or -devel).
 
-sqlite3 needs to be built with support for the unlock notify API; this isn't
-always the case in binary packages, so you may need to rebuild sqlite3 to
-enable the unlock notify API (you can check for the presence of the
-sqlite3_unlock_notify symbol in the sqlite3 library). Refer to the sqlite3
-documentation, look for `SQLITE_ENABLE_UNLOCK_NOTIFY`.
-
-## Long version - building and installing
+## Long Version - Building and Installing
 
 Start by generating the build system by running `autoreconf -i`. This will
 generate the configure script and `Makefile.in`.
@@ -293,13 +274,13 @@ The source for the player web interface is located under the `web-src` folder an
 requires nodejs >= 6.0 to be built. In the `web-src` folder run `npm install` to
 install all dependencies for the player web interface. After that run `npm run build`.
 This will build the web interface and update the `htdocs` folder.
-(See [Web interface](clients/web-interface.md) for more
-informations)
+(See [Web interface](clients/web-interface.md) for more informations)
 
-Building with libwebsockets is required if you want the web interface. It will be enabled
-if the library is present (with headers). Use `--without-libwebsockets` to disable.
+Building with libwebsockets is required if you want the web interface.
+It will be enabled if the library is present (with headers).
+Use `--without-libwebsockets` to disable.
 
-Building with Pulseaudio is optional. It will be enabled if the library is
+Building with PulseAudio is optional. It will be enabled if the library is
 present (with headers). Use `--without-pulseaudio` to disable.
 
 Recommended build settings:
@@ -329,7 +310,7 @@ if it's started as root.
 This user must have read permission to your library and read/write permissions
 to the database location (`$localstatedir/cache/owntone` by default).
 
-## Non-priviliged user version (for development)
+## Non-Priviliged User Version for Development
 
 OwnTone is meant to be run as system wide daemon, but for development purposes
 you may want to run it isolated to your regular user.
@@ -377,4 +358,4 @@ Run the server:
 ./src/owntone -f
 ```
 
-(you can also use the copy of the binary in `$HOME/owntone_data/usr/sbin`)
+Note: You can also use the copy of the binary located in `$HOME/owntone_data/usr/sbin`
