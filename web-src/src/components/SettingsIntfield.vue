@@ -13,7 +13,7 @@
         <input
           ref="setting"
           class="column input is-one-fifth"
-          type="number"
+          inputmode="numeric"
           min="0"
           :placeholder="placeholder"
           :value="value"
@@ -84,29 +84,27 @@ export default {
     clear_status() {
       this.statusUpdate = ''
     },
-    set_update_timer() {
+    set_update_timer(event) {
+      event.target.value = event.target.value.replace(/[^0-9]/gu, '')
       if (this.timerId > 0) {
         window.clearTimeout(this.timerId)
         this.timerId = -1
       }
 
       this.statusUpdate = ''
-      const newValue = this.$refs.setting.value
-      if (newValue !== this.value) {
-        this.timerId = window.setTimeout(this.update_setting, this.timerDelay)
-      }
+      this.timerId = window.setTimeout(this.update_setting, this.timerDelay)
     },
     update_setting() {
       this.timerId = -1
-      const newValue = this.$refs.setting.value
-      if (newValue === this.value) {
+      const newValue = parseInt(this.$refs.setting.value, 10)
+      if (isNaN(newValue) || newValue === this.value) {
         this.statusUpdate = ''
         return
       }
       const option = {
         category: this.category.name,
         name: this.option_name,
-        value: parseInt(newValue, 10)
+        value: newValue
       }
       webapi
         .settings_update(this.category.name, option)
