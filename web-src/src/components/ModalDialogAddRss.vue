@@ -78,7 +78,7 @@ export default {
     show() {
       if (this.show) {
         this.loading = false
-        // We need to delay setting the focus to the input field until the field is part of the dom and visible
+        // Delay setting the focus on the input field until it is part of the DOM and visible
         setTimeout(() => {
           this.$refs.url_field.focus()
         }, 10)

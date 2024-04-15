@@ -14,7 +14,7 @@
                     ref="pin_field"
                     v-model="pairing_req.pin"
                     class="input"
-                    type="text"
+                    inputmode="numeric"
                     pattern="[\d]{4}"
                     :placeholder="$t('dialog.remote-pairing.pairing-code')"
                   />
@@ -76,8 +76,7 @@ export default {
     show() {
       if (this.show) {
         this.loading = false
-
-        // We need to delay setting the focus to the input field until the field is part of the dom and visible
+        // Delay setting the focus on the input field until it is part of the DOM and visible
         setTimeout(() => {
           this.$refs.pin_field.focus()
         }, 10)

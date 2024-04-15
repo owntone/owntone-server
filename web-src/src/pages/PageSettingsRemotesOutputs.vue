@@ -6,10 +6,9 @@
         <p class="title is-4" v-text="$t('page.settings.devices.pairing')" />
       </template>
       <template #content>
-        <!-- Paring request active -->
-        <div v-if="pairing.active" class="notification">
+        <div v-if="pairing.active">
           <form @submit.prevent="kickoff_pairing">
-            <label class="label has-text-weight-normal">
+            <label class="label has-text-weight-normal content">
               <span v-text="$t('page.settings.devices.pairing-request')" />
               <b v-text="pairing.remote" />
             </label>
@@ -18,7 +17,7 @@
                 <input
                   v-model="pairing_req.pin"
                   class="input"
-                  type="text"
+                  inputmode="numeric"
                   pattern="[\d]{4}"
                   :placeholder="$t('page.settings.devices.pairing-code')"
                 />
@@ -33,8 +32,7 @@
             </div>
           </form>
         </div>
-        <!-- No pairing requests -->
-        <div v-if="!pairing.active" class="content">
+        <div v-else>
           <p v-text="$t('page.settings.devices.no-active-pairing')" />
         </div>
       </template>
@@ -74,7 +72,7 @@
                 <input
                   v-model="verification_req.pin"
                   class="input"
-                  type="text"
+                  inputmode="numeric"
                   pattern="[\d]{4}"
                   :placeholder="$t('page.settings.devices.verification-code')"
                 />
