@@ -55,19 +55,6 @@ jobs:
         sudo make install
         cd ..
 
-    - name: Install sqlite
-      # When GH actions has 3.43.0_1+, which has unlock-notify, then this can be
-      # removed and we can just install brew's sqlite
-      run: |
-        wget https://www.sqlite.org/2020/sqlite-autoconf-3310100.tar.gz
-        tar xzf sqlite-autoconf-3310100.tar.gz
-        cd sqlite-autoconf-3310100
-        export CFLAGS='-DSQLITE_ENABLE_UNLOCK_NOTIFY=1'
-        ./configure
-        make
-        sudo make install
-        cd ..
-
     - name: Install ffmpeg
       # The libbluray ffmpeg dependency fails without the chown (source: stackoverflow)
       run: |
@@ -76,7 +63,7 @@ jobs:
 
     - name: Install other dependencies
       run: |
-        brew install libunistring confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
+        brew install sqlite libunistring confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
 
     - name: Configure
       # We configure a non-privileged setup, since how to add a "owntone" system
