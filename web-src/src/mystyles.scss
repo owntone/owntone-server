@@ -48,6 +48,7 @@
     border-top-color: $grey-dark;
   }
   a.tag:hover,
+  a.tag.is-delete:hover,
   a.dropdown-item:hover,
   a.dropdown-item:focus,
   a.navbar-item:hover,
