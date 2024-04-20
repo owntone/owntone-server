@@ -3,10 +3,10 @@
     <div v-if="show" class="modal is-active">
       <div class="modal-background" @click="$emit('close')" />
       <div class="modal-content">
-        <div class="card">
+        <form class="card" @submit.prevent="save">
           <div class="card-content">
             <p class="title is-4" v-text="$t('dialog.playlist.save.title')" />
-            <form class="mb-5" @submit.prevent="save">
+            
               <div class="field">
                 <p class="control has-icons-left">
                   <input
@@ -14,13 +14,15 @@
                     v-model="playlist_name"
                     class="input is-shadowless"
                     type="text"
+                    pattern=".+"
+                    required
                     :placeholder="$t('dialog.playlist.save.playlist-name')"
                     :disabled="loading"
+                    @input="check_name"
                   />
                   <mdicon class="icon is-left" name="file-music" size="16" />
                 </p>
               </div>
-            </form>
           </div>
           <footer v-if="loading" class="card-footer">
             <a class="card-footer-item has-text-dark">
@@ -40,6 +42,7 @@
               />
             </a>
             <a
+              :class="{ 'is-disabled': disabled }"
               class="card-footer-item has-background-info has-text-white has-text-weight-bold"
               @click="save"
             >
@@ -50,7 +53,7 @@
               />
             </a>
           </footer>
-        </div>
+        </form>
       </div>
       <button
         class="modal-close is-large"
@@ -71,6 +74,7 @@ export default {
 
   data() {
     return {
+      disabled: true,
       playlist_name: '',
       loading: false
     }
@@ -89,11 +93,11 @@ export default {
   },
 
   methods: {
+    check_name(event) {
+      const { validity } = event.target
+      this.disabled = validity.patternMismatch || validity.valueMissing
+    },
     save() {
-      if (this.playlist_name.length < 1) {
-        return
-      }
-
       this.loading = true
       webapi
         .queue_save_playlist(this.playlist_name)
