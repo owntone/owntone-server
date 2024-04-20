@@ -144,7 +144,6 @@ export default {
       this.search_types = [type]
       this.search_parameters.limit = PAGE_SIZE_EXPANDED
       this.search_parameters.offset = 0
-
       this.search()
     },
     open_search(query) {
@@ -168,6 +167,7 @@ export default {
         this.search_types = SEARCH_TYPES
         this.search_parameters.limit = PAGE_SIZE
       }
+      this.search_query = this.search_query.trim()
       if (!this.search_query) {
         this.$refs.search_field.focus()
         return

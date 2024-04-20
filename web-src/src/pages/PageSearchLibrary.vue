@@ -177,6 +177,7 @@ export default {
         this.search_types = SEARCH_TYPES
         this.search_limit = PAGE_SIZE
       }
+      this.search_query = this.search_query.trim()
       if (!this.search_query || !this.search_query.replace(/^query:/u, '')) {
         this.$refs.search_field.focus()
         return
