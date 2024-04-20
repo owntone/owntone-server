@@ -90,7 +90,6 @@ export default {
         window.clearTimeout(this.timerId)
         this.timerId = -1
       }
-
       this.statusUpdate = ''
       this.timerId = window.setTimeout(this.update_setting, this.timerDelay)
     },
