@@ -60,7 +60,8 @@
                     'is-loading': loading
                   }"
                   @click="togglePlay"
-                  ><mdicon class="icon" name="broadcast" size="18" />
+                >
+                  <mdicon class="icon" name="broadcast" size="18" />
                 </a>
               </div>
               <div class="level-item">
@@ -70,8 +71,8 @@
                     :class="{ 'has-text-grey-light': !playing }"
                   >
                     <p class="heading" v-text="$t('navigation.stream')" />
-                    <a href="stream.mp3" class="heading ml-2" target="_blank"
-                      ><mdicon
+                    <a href="stream.mp3" class="heading ml-2" target="_blank">
+                      <mdicon
                         class="icon is-small"
                         name="open-in-new"
                         size="16"
@@ -218,7 +219,8 @@
                   'is-loading': loading
                 }"
                 @click="togglePlay"
-                ><mdicon class="icon" name="radio-tower" size="16" />
+              >
+                <mdicon class="icon" name="radio-tower" size="16" />
               </a>
             </div>
             <div class="level-item">
@@ -228,8 +230,8 @@
                   :class="{ 'has-text-grey-light': !playing }"
                 >
                   <p class="heading" v-text="$t('navigation.stream')" />
-                  <a href="stream.mp3" class="heading ml-2" target="_blank"
-                    ><mdicon
+                  <a href="stream.mp3" class="heading ml-2" target="_blank">
+                    <mdicon
                       class="icon is-small"
                       name="open-in-new"
                       size="16"
@@ -367,19 +369,19 @@ export default {
     },
     setupAudio() {
       const a = audio.setup()
-      a.addEventListener('waiting', (e) => {
+      a.addEventListener('waiting', () => {
         this.playing = false
         this.loading = true
       })
-      a.addEventListener('playing', (e) => {
+      a.addEventListener('playing', () => {
         this.playing = true
         this.loading = false
       })
-      a.addEventListener('ended', (e) => {
+      a.addEventListener('ended', () => {
         this.playing = false
         this.loading = false
       })
-      a.addEventListener('error', (e) => {
+      a.addEventListener('error', () => {
         this.closeAudio()
         this.$store.dispatch('add_notification', {
           text: this.$t('navigation.stream-error'),

@@ -15,8 +15,9 @@
             <router-link
               :to="{ name: 'music-spotify-new-releases' }"
               class="button is-light is-small is-rounded"
-              >{{ $t('page.spotify.music.show-more') }}</router-link
             >
+              {{ $t('page.spotify.music.show-more') }}
+            </router-link>
           </p>
         </nav>
       </template>
@@ -38,8 +39,9 @@
             <router-link
               :to="{ name: 'music-spotify-featured-playlists' }"
               class="button is-light is-small is-rounded"
-              >{{ $t('page.spotify.music.show-more') }}</router-link
             >
+              {{ $t('page.spotify.music.show-more') }}
+            </router-link>
           </p>
         </nav>
       </template>

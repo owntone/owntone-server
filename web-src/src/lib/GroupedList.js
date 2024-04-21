@@ -8,8 +8,8 @@ const stringComparator = (a, b) => a.localeCompare(b, locale.value)
 const dateComparator = (a, b) =>
   new Date(a) - new Date(b) || (!a ? -1 : !b ? 1 : 0)
 
-function createComparators(criteria) {
-  return criteria.map(({ field, type, order = 1 }) => {
+const createComparators = (criteria) => {
+  criteria.map(({ field, type, order = 1 }) => {
     switch (type) {
       case String:
         return (a, b) => stringComparator(a[field], b[field]) * order
@@ -17,6 +17,8 @@ function createComparators(criteria) {
         return (a, b) => numberComparator(a[field], b[field]) * order
       case Date:
         return (a, b) => dateComparator(a[field], b[field]) * order
+      default:
+        return null
     }
   })
 }
@@ -49,7 +51,7 @@ const timeIndex = (string) => {
   return times.find((item) => isNaN(diff) || diff < item.difference)?.text(date)
 }
 
-function createIndexer({ field, type = undefined } = {}) {
+const createIndexer = ({ field, type = undefined } = {}) => {
   switch (type) {
     case String:
       return (item) => characterIndex(item[field])

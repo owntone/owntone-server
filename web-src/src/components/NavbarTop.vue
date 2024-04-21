@@ -94,17 +94,17 @@
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
             <hr class="my-3" />
-            <navbar-item-link :to="{ name: 'settings-webinterface' }">{{
-              $t('navigation.settings')
-            }}</navbar-item-link>
+            <navbar-item-link :to="{ name: 'settings-webinterface' }">
+              {{ $t('navigation.settings') }}
+            </navbar-item-link>
             <a
               class="navbar-item"
               @click.stop.prevent="open_update_dialog()"
               v-text="$t('navigation.update-library')"
             />
-            <navbar-item-link :to="{ name: 'about' }">{{
-              $t('navigation.about')
-            }}</navbar-item-link>
+            <navbar-item-link :to="{ name: 'about' }">
+              {{ $t('navigation.about') }}
+            </navbar-item-link>
           </div>
         </div>
       </div>

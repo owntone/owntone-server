@@ -6,8 +6,9 @@
         :key="index"
         class="button is-small"
         :to="{ hash: `#index_${index}`, query: $route.query }"
-        >{{ index }}</router-link
       >
+        {{ index }}
+      </router-link>
     </nav>
   </section>
 </template>

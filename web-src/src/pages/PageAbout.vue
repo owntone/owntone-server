@@ -146,25 +146,26 @@
                 keypath="page.about.built-with"
                 scope="global"
               >
-                <template #bulma><a href="https://bulma.io">Bulma</a></template>
-                <template #mdi
-                  ><a href="https://pictogrammers.com/library/mdi/"
-                    >Material Design Icons</a
-                  ></template
-                >
-                <template #vuejs
-                  ><a href="https://vuejs.org/">Vue.js</a></template
-                >
-                <template #axios
-                  ><a href="https://github.com/mzabriskie/axios"
-                    >axios</a
-                  ></template
-                >
-                <template #others
-                  ><a
+                <template #bulma>
+                  <a href="https://bulma.io">Bulma</a>
+                </template>
+                <template #mdi>
+                  <a href="https://pictogrammers.com/library/mdi/">
+                    Material Design Icons
+                  </a>
+                </template>
+                <template #vuejs>
+                  <a href="https://vuejs.org/">Vue.js</a>
+                </template>
+                <template #axios>
+                  <a href="https://github.com/mzabriskie/axios">axios</a>
+                </template>
+                <template #others>
+                  <a
                     href="https://github.com/owntone/owntone-server/network/dependencies"
                     v-text="$t('page.about.more')"
-                /></template>
+                  />
+                </template>
               </i18n-t>
             </div>
           </div>

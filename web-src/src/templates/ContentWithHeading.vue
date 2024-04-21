@@ -7,9 +7,9 @@
             <div ref="options_ref" style="height: 1px" />
             <slot name="options" />
             <nav class="buttons is-centered mt-4 mb-2">
-              <router-link class="button is-small is-white" :to="position"
-                ><mdicon class="icon is-small" :name="icon_name" size="16"
-              /></router-link>
+              <router-link class="button is-small is-white" :to="position">
+                <mdicon class="icon is-small" :name="icon_name" size="16" />
+              </router-link>
             </nav>
           </section>
           <div :class="{ 'is-full-height': $slots.options }">

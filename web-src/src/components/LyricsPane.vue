@@ -68,17 +68,19 @@ export default {
           (this.lastIndex < la.length - 1 &&
             la[this.lastIndex + 1].time > currentTime) ||
           this.lastIndex === la.length - 1
-        )
+        ) {
           return this.lastIndex
+        }
         if (
           this.lastIndex < la.length - 2 &&
           la[this.lastIndex + 2].time > currentTime
-        )
+        ) {
           return this.lastIndex + 1
+        }
         // Not found, then start a binary search
-        let start = 0,
-          end = la.length - 1,
-          index
+        let end = la.length - 1,
+          index = 0,
+          start = 0
         while (start <= end) {
           index = (start + end) >> 1
           const currentVerse = la[index]
@@ -103,7 +105,7 @@ export default {
       const parsed = []
       if (raw) {
         // Parse the lyrics
-        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/
+        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/u
         raw.split('\n').forEach((item, index) => {
           const matches = regex.exec(item)
           if (matches && matches[4]) {
@@ -120,7 +122,7 @@ export default {
             index < lyrics.length - 1 ? lyrics[index + 1].time - verse.time : 3
           const unitDuration = duration / verse.text.length
           let delay = 0
-          verse.words = verse.text.match(/\S+\s*/g).map((text) => {
+          verse.words = verse.text.match(/\S+\s*/gu).map((text) => {
             const duration = text.length * unitDuration
             delay += duration
             return {

@@ -143,15 +143,13 @@ export default {
         return
       }
 
-      const vm = this
-
       let protocol = 'ws://'
       if (window.location.protocol === 'https:') {
         protocol = 'wss://'
       }
 
       let wsUrl = `${protocol + window.location.hostname}:${
-        vm.$store.state.config.websocket_port
+        this.$store.state.config.websocket_port
       }`
 
       if (import.meta.env.DEV && import.meta.env.VITE_OWNTONE_URL) {
@@ -161,7 +159,7 @@ export default {
          */
         const owntoneUrl = new URL(import.meta.env.VITE_OWNTONE_URL)
         wsUrl = `${protocol + owntoneUrl.hostname}:${
-          vm.$store.state.config.websocket_port
+          this.$store.state.config.websocket_port
         }`
       }
 
@@ -170,6 +168,7 @@ export default {
         maxReconnectInterval: 2000
       })
 
+      const vm = this
       socket.onopen = () => {
         vm.reconnect_attempts = 0
         socket.send(
@@ -188,7 +187,6 @@ export default {
             ]
           })
         )
-
         vm.update_outputs()
         vm.update_player_status()
         vm.update_library_stats()
@@ -207,11 +205,10 @@ export default {
        */
       let update_throttled = false
 
-      function update_info() {
+      const update_info = () => {
         if (update_throttled) {
           return
         }
-
         vm.update_outputs()
         vm.update_player_status()
         vm.update_library_stats()
@@ -220,7 +217,6 @@ export default {
         vm.update_spotify()
         vm.update_lastfm()
         vm.update_pairing()
-
         update_throttled = true
         setTimeout(() => {
           update_throttled = false
