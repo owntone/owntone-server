@@ -8,7 +8,7 @@ const stringComparator = (a, b) => a.localeCompare(b, locale.value)
 const dateComparator = (a, b) =>
   new Date(a) - new Date(b) || (!a ? -1 : !b ? 1 : 0)
 
-const createComparators = (criteria) => {
+const createComparators = (criteria) =>
   criteria.map(({ field, type, order = 1 }) => {
     switch (type) {
       case String:
@@ -18,10 +18,9 @@ const createComparators = (criteria) => {
       case Date:
         return (a, b) => dateComparator(a[field], b[field]) * order
       default:
-        return null
+        return (a, b) => 0
     }
   })
-}
 
 const characterIndex = (string = '') => {
   const value = string.charAt(0)
