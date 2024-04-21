@@ -23,12 +23,13 @@
                 scope="global"
               >
                 <template #query><code>query:</code></template>
-                <template #help
-                  ><a
+                <template #help>
+                  <a
                     href="https://owntone.github.io/owntone-server/smart-playlists/"
                     target="_blank"
                     v-text="$t('page.search.expression')"
-                /></template>
+                  />
+                </template>
               </i18n-t>
             </div>
           </form>
