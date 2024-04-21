@@ -1,15 +1,15 @@
 <template>
   <div
-    v-click-away="onClickOutside"
+    v-click-away="deactivate"
     class="dropdown"
-    :class="{ 'is-active': is_active }"
+    :class="{ 'is-active': active }"
   >
     <div class="dropdown-trigger">
       <button
         class="button"
         aria-haspopup="true"
         aria-controls="dropdown"
-        @click="is_active = !is_active"
+        @click="active = !active"
       >
         <span v-text="option.name" />
         <mdicon class="icon" name="chevron-down" size="16" />
@@ -41,7 +41,7 @@ export default {
 
   data() {
     return {
-      is_active: false
+      active: false
     }
   },
 
@@ -54,12 +54,11 @@ export default {
   },
 
   methods: {
-    onClickOutside(event) {
-      this.is_active = false
+    deactivate() {
+      this.active = false
     },
-
     select(option) {
-      this.is_active = false
+      this.active = false
       this.$emit('update:value', option.id)
     }
   }
