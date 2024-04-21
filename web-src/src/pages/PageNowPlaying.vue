@@ -86,53 +86,6 @@ export default {
   },
 
   computed: {
-    is_live() {
-      return this.track.length_ms === 0
-    },
-
-    lyrics_visible() {
-      return this.$store.state.lyrics.pane
-    },
-
-    player() {
-      return this.$store.state.player
-    },
-
-    track() {
-      return this.$store.getters.now_playing
-    },
-
-    track_progress: {
-      get() {
-        return Math.floor(this.player.item_progress_ms / INTERVAL)
-      },
-      set(value) {
-        this.player.item_progress_ms = value * INTERVAL
-      }
-    },
-
-    track_progress_max() {
-      return this.is_live ? 1 : Math.floor(this.track.length_ms / INTERVAL)
-    },
-
-    track_elapsed_time() {
-      return this.$filters.durationInHours(this.track_progress * INTERVAL)
-    },
-
-    track_total_time() {
-      return this.is_live
-        ? this.$t('page.now-playing.live')
-        : this.$filters.durationInHours(this.track.length_ms)
-    },
-
-    settings_option_show_composer_now_playing() {
-      return this.$store.getters.settings_option_show_composer_now_playing
-    },
-
-    settings_option_show_composer_for_genre() {
-      return this.$store.getters.settings_option_show_composer_for_genre
-    },
-
     composer() {
       if (this.settings_option_show_composer_now_playing) {
         if (
@@ -151,16 +104,51 @@ export default {
       }
       return null
     },
-
-    settings_option_show_filepath_now_playing() {
-      return this.$store.getters.settings_option_show_filepath_now_playing
-    },
-
     filepath() {
       if (this.settings_option_show_filepath_now_playing) {
         return this.track.path
       }
       return null
+    },
+    is_live() {
+      return this.track.length_ms === 0
+    },
+    lyrics_visible() {
+      return this.$store.state.lyrics.pane
+    },
+    player() {
+      return this.$store.state.player
+    },
+    settings_option_show_composer_for_genre() {
+      return this.$store.getters.settings_option_show_composer_for_genre
+    },
+    settings_option_show_composer_now_playing() {
+      return this.$store.getters.settings_option_show_composer_now_playing
+    },
+    settings_option_show_filepath_now_playing() {
+      return this.$store.getters.settings_option_show_filepath_now_playing
+    },
+    track() {
+      return this.$store.getters.now_playing
+    },
+    track_elapsed_time() {
+      return this.$filters.durationInHours(this.track_progress * INTERVAL)
+    },
+    track_progress: {
+      get() {
+        return Math.floor(this.player.item_progress_ms / INTERVAL)
+      },
+      set(value) {
+        this.player.item_progress_ms = value * INTERVAL
+      }
+    },
+    track_progress_max() {
+      return this.is_live ? 1 : Math.floor(this.track.length_ms / INTERVAL)
+    },
+    track_total_time() {
+      return this.is_live
+        ? this.$t('page.now-playing.live')
+        : this.$filters.durationInHours(this.track.length_ms)
     }
   },
 
@@ -193,29 +181,25 @@ export default {
   },
 
   methods: {
-    tick() {
-      if (!this.is_dragged) {
-        this.track_progress += 1
-      }
-    },
-
-    start_dragging() {
-      this.is_dragged = true
-    },
-
     end_dragging() {
       this.is_dragged = false
     },
-
+    open_dialog(item) {
+      this.selected_item = item
+      this.show_details_modal = true
+    },
     seek() {
       if (!this.is_live) {
         webapi.player_seek_to_pos(this.track_progress * INTERVAL)
       }
     },
-
-    open_dialog(item) {
-      this.selected_item = item
-      this.show_details_modal = true
+    start_dragging() {
+      this.is_dragged = true
+    },
+    tick() {
+      if (!this.is_dragged) {
+        this.track_progress += 1
+      }
     }
   }
 }

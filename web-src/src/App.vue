@@ -37,18 +37,18 @@ import webapi from '@/webapi'
 export default {
   name: 'App',
   components: {
-    NavbarTop,
-    NavbarBottom,
-    NotificationList,
     ModalDialogRemotePairing,
-    ModalDialogUpdate
+    ModalDialogUpdate,
+    NavbarBottom,
+    NavbarTop,
+    NotificationList
   },
 
   data() {
     return {
-      token_timer_id: 0,
+      pairing_active: false,
       reconnect_attempts: 0,
-      pairing_active: false
+      token_timer_id: 0
     }
   },
 
@@ -90,10 +90,8 @@ export default {
 
   created() {
     this.connect()
-
     // Start the progress bar on app start
     this.$Progress.start()
-
     // Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
       if (to.meta.show_progress && !(to.path === from.path && to.hash)) {
@@ -104,7 +102,6 @@ export default {
       }
       next()
     })
-
     // Hook the progress bar to finish after we've finished moving router-view
     this.$router.afterEach((to, from) => {
       if (to.meta.show_progress) {
@@ -128,12 +125,11 @@ export default {
         .catch(() => {
           this.$store.dispatch('add_notification', {
             text: this.$t('server.connection-failed'),
-            type: 'danger',
-            topic: 'connection'
+            topic: 'connection',
+            type: 'danger'
           })
         })
     },
-
     open_ws() {
       if (this.$store.state.config.websocket_port <= 0) {
         this.$store.dispatch('add_notification', {
@@ -164,8 +160,8 @@ export default {
       }
 
       const socket = new ReconnectingWebSocket(wsUrl, 'notify', {
-        reconnectInterval: 1000,
-        maxReconnectInterval: 2000
+        maxReconnectInterval: 2000,
+        reconnectInterval: 1000
       })
 
       const vm = this
@@ -266,7 +262,29 @@ export default {
         }
       }
     },
-
+    update_is_clipped() {
+      if (this.show_burger_menu || this.show_player_menu) {
+        document.querySelector('html').classList.add('is-clipped')
+      } else {
+        document.querySelector('html').classList.remove('is-clipped')
+      }
+    },
+    update_outputs() {
+      webapi.outputs().then(({ data }) => {
+        this.$store.commit(types.UPDATE_OUTPUTS, data.outputs)
+      })
+    },
+    update_player_status() {
+      webapi.player_status().then(({ data }) => {
+        this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
+        this.update_lyrics()
+      })
+    },
+    update_lastfm() {
+      webapi.lastfm().then(({ data }) => {
+        this.$store.commit(types.UPDATE_LASTFM, data)
+      })
+    },
     update_library_stats() {
       webapi.library_stats().then(({ data }) => {
         this.$store.commit(types.UPDATE_LIBRARY_STATS, data)
@@ -275,27 +293,6 @@ export default {
         this.$store.commit(types.UPDATE_LIBRARY_RSS_COUNT, data)
       })
     },
-
-    update_outputs() {
-      webapi.outputs().then(({ data }) => {
-        this.$store.commit(types.UPDATE_OUTPUTS, data.outputs)
-      })
-    },
-
-    update_player_status() {
-      webapi.player_status().then(({ data }) => {
-        this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
-        this.update_lyrics()
-      })
-    },
-
-    update_queue() {
-      webapi.queue().then(({ data }) => {
-        this.$store.commit(types.UPDATE_QUEUE, data)
-        this.update_lyrics()
-      })
-    },
-
     update_lyrics() {
       const track = this.$store.getters.now_playing
       if (track && track.track_id) {
@@ -306,19 +303,23 @@ export default {
         this.$store.commit(types.UPDATE_LYRICS)
       }
     },
-
+    update_pairing() {
+      webapi.pairing().then(({ data }) => {
+        this.$store.commit(types.UPDATE_PAIRING, data)
+        this.pairing_active = data.active
+      })
+    },
+    update_queue() {
+      webapi.queue().then(({ data }) => {
+        this.$store.commit(types.UPDATE_QUEUE, data)
+        this.update_lyrics()
+      })
+    },
     update_settings() {
       webapi.settings().then(({ data }) => {
         this.$store.commit(types.UPDATE_SETTINGS, data)
       })
     },
-
-    update_lastfm() {
-      webapi.lastfm().then(({ data }) => {
-        this.$store.commit(types.UPDATE_LASTFM, data)
-      })
-    },
-
     update_spotify() {
       webapi.spotify().then(({ data }) => {
         this.$store.commit(types.UPDATE_SPOTIFY, data)
@@ -334,21 +335,6 @@ export default {
           )
         }
       })
-    },
-
-    update_pairing() {
-      webapi.pairing().then(({ data }) => {
-        this.$store.commit(types.UPDATE_PAIRING, data)
-        this.pairing_active = data.active
-      })
-    },
-
-    update_is_clipped() {
-      if (this.show_burger_menu || this.show_player_menu) {
-        document.querySelector('html').classList.add('is-clipped')
-      } else {
-        document.querySelector('html').classList.remove('is-clipped')
-      }
     }
   },
   template: '<App/>'

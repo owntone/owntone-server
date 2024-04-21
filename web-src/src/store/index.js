@@ -59,8 +59,8 @@ export default createStore({
       settings: {
         categories: []
       },
-      show_only_next_items: false,
       show_burger_menu: false,
+      show_only_next_items: false,
       show_player_menu: false,
       show_update_dialog: false,
       spotify: {},
@@ -213,16 +213,16 @@ export default createStore({
         state.recent_searches.pop()
       }
     },
-    remove_recent_search({ commit, state }, query) {
-      const index = state.recent_searches.indexOf(query)
-      if (index !== -1) {
-        state.recent_searches.splice(index, 1)
-      }
-    },
     delete_notification({ commit, state }, notification) {
       const index = state.notifications.list.indexOf(notification)
       if (index !== -1) {
         state.notifications.list.splice(index, 1)
+      }
+    },
+    remove_recent_search({ commit, state }, query) {
+      const index = state.recent_searches.indexOf(query)
+      if (index !== -1) {
+        state.recent_searches.splice(index, 1)
       }
     },
     update_settings_option({ commit, state }, option) {

@@ -31,10 +31,10 @@ export default [
       'no-plusplus': 'off',
       'no-shadow': 'off',
       'no-ternary': 'off',
-      'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
       'no-undef': 'off',
       'no-undefined': 'off',
       'no-unused-expressions': 'off',
+      'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
       'no-useless-assignment': 'off',
       'one-var': 'off',
       'prefer-destructuring': 'off',
@@ -43,7 +43,6 @@ export default [
       'sort-vars': 'off',
       'vue/html-self-closing': 'off',
       'vue/max-attributes-per-line': 'off',
-      'vue/no-unused-vars': 'off',
       'vue/prop-name-casing': 'off',
       'vue/singleline-html-element-content-newline': 'off'
     }

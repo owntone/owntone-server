@@ -50,6 +50,44 @@ export default {
     is_playing() {
       return this.player.state === 'play'
     },
+    lyrics() {
+      const raw = this.$store.state.lyrics.content
+      const parsed = []
+      if (raw) {
+        // Parse the lyrics
+        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/u
+        raw.split('\n').forEach((item, index) => {
+          const matches = regex.exec(item)
+          if (matches && matches[4]) {
+            const verse = {
+              text: matches[4],
+              time: matches[2] * 60 + Number(matches[3])
+            }
+            parsed.push(verse)
+          }
+        })
+        // Split the verses into words
+        parsed.forEach((verse, index, lyrics) => {
+          const duration =
+            index < lyrics.length - 1 ? lyrics[index + 1].time - verse.time : 3
+          const unitDuration = duration / verse.text.length
+          let delay = 0
+          verse.words = verse.text.match(/\S+\s*/gu).map((text) => {
+            const duration = text.length * unitDuration
+            delay += duration
+            return {
+              duration,
+              delay,
+              text
+            }
+          })
+        })
+      }
+      return parsed
+    },
+    player() {
+      return this.$store.state.player
+    },
     verse_index() {
       if (this.lyrics.length && this.lyrics[0].time) {
         const currentTime = this.player.item_progress_ms / 1000,
@@ -99,44 +137,6 @@ export default {
       }
       this.reset_scrolling()
       return -1
-    },
-    lyrics() {
-      const raw = this.$store.state.lyrics.content
-      const parsed = []
-      if (raw) {
-        // Parse the lyrics
-        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/u
-        raw.split('\n').forEach((item, index) => {
-          const matches = regex.exec(item)
-          if (matches && matches[4]) {
-            const verse = {
-              text: matches[4],
-              time: matches[2] * 60 + Number(matches[3])
-            }
-            parsed.push(verse)
-          }
-        })
-        // Split the verses into words
-        parsed.forEach((verse, index, lyrics) => {
-          const duration =
-            index < lyrics.length - 1 ? lyrics[index + 1].time - verse.time : 3
-          const unitDuration = duration / verse.text.length
-          let delay = 0
-          verse.words = verse.text.match(/\S+\s*/gu).map((text) => {
-            const duration = text.length * unitDuration
-            delay += duration
-            return {
-              duration,
-              delay,
-              text
-            }
-          })
-        })
-      }
-      return parsed
-    },
-    player() {
-      return this.$store.state.player
     }
   },
   watch: {
@@ -154,17 +154,6 @@ export default {
       this.lastItemId = this.player.item_id
       this.lastIndex = -1
     },
-    start_scrolling(e) {
-      // Consider only user events
-      if (e.screenX || e.screenX !== 0 || e.screenY || e.screenY !== 0) {
-        this.autoScrolling = false
-        if (this.scrollingTimer) {
-          clearTimeout(this.scrollingTimer)
-        }
-        // Reenable automatic scrolling after 2 seconds
-        this.scrollingTimer = setTimeout((this.autoScrolling = true), 2000)
-      }
-    },
     scroll_to_verse() {
       const pane = this.$refs.lyrics
       if (this.verse_index === -1) {
@@ -181,6 +170,17 @@ export default {
           (currentVerse.offsetHeight >> 1) -
           pane.scrollTop
       })
+    },
+    start_scrolling(e) {
+      // Consider only user events
+      if (e.screenX || e.screenX !== 0 || e.screenY || e.screenY !== 0) {
+        this.autoScrolling = false
+        if (this.scrollingTimer) {
+          clearTimeout(this.scrollingTimer)
+        }
+        // Reenable automatic scrolling after 2 seconds
+        this.scrollingTimer = setTimeout((this.autoScrolling = true), 2000)
+      }
     }
   }
 }

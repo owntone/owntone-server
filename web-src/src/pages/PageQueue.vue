@@ -172,13 +172,12 @@ export default {
         webapi.queue_move(item.id, newPosition)
       }
     },
+    open_add_stream_dialog() {
+      this.show_url_modal = true
+    },
     open_dialog(item) {
       this.selected_item = item
       this.show_details_modal = true
-    },
-
-    open_add_stream_dialog() {
-      this.show_url_modal = true
     },
     queue_clear() {
       webapi.queue_clear()
@@ -186,13 +185,13 @@ export default {
     remove(item) {
       webapi.queue_remove(item.id)
     },
-    update_show_next_items() {
-      this.$store.commit(types.SHOW_ONLY_NEXT_ITEMS, !this.show_only_next_items)
-    },
     save_dialog() {
       if (this.queue_items.length > 0) {
         this.show_pls_save_modal = true
       }
+    },
+    update_show_next_items() {
+      this.$store.commit(types.SHOW_ONLY_NEXT_ITEMS, !this.show_only_next_items)
     }
   }
 }
