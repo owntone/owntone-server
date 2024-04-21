@@ -117,7 +117,7 @@ export default {
       this.new_episodes.items = {}
     },
 
-    open_add_podcast_dialog(item) {
+    open_add_podcast_dialog() {
       this.show_url_modal = true
     },
 
