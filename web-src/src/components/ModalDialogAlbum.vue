@@ -134,7 +134,7 @@ export default {
     mark_played() {
       webapi
         .library_album_track_update(this.item.id, { play_count: 'played' })
-        .then(({ data }) => {
+        .then(() => {
           this.$emit('play-count-changed')
           this.$emit('close')
         })
