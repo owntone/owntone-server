@@ -6,23 +6,22 @@
         <form class="card" @submit.prevent="save">
           <div class="card-content">
             <p class="title is-4" v-text="$t('dialog.playlist.save.title')" />
-            
-              <div class="field">
-                <p class="control has-icons-left">
-                  <input
-                    ref="playlist_name_field"
-                    v-model="playlist_name"
-                    class="input is-shadowless"
-                    type="text"
-                    pattern=".+"
-                    required
-                    :placeholder="$t('dialog.playlist.save.playlist-name')"
-                    :disabled="loading"
-                    @input="check_name"
-                  />
-                  <mdicon class="icon is-left" name="file-music" size="16" />
-                </p>
-              </div>
+            <div class="field">
+              <p class="control has-icons-left">
+                <input
+                  ref="playlist_name_field"
+                  v-model="playlist_name"
+                  class="input is-shadowless"
+                  type="text"
+                  pattern=".+"
+                  required
+                  :placeholder="$t('dialog.playlist.save.playlist-name')"
+                  :disabled="loading"
+                  @input="check_name"
+                />
+                <mdicon class="icon is-left" name="file-music" size="16" />
+              </p>
+            </div>
           </div>
           <footer v-if="loading" class="card-footer">
             <a class="card-footer-item has-text-dark">
