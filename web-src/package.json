@@ -5,7 +5,7 @@
   "scripts": {
     "serve": "vite --port 3000",
     "build": "vite build --base='./'",
-    "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
+    "lint": "eslint",
     "dev": "vite",
     "format": "prettier . --write",
     "i18n:report": "vue-cli-service i18n:report --src \"./src/**/*.?(js|vue)\" --locales \"./src/i18n/**/*.json\"",
@@ -33,7 +33,7 @@
   "devDependencies": {
     "@intlify/unplugin-vue-i18n": "^4.0.0",
     "@vitejs/plugin-vue": "^5.0.4",
-    "eslint": "^8.56.0",
+    "eslint": "^9.1.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-vue": "^9.25.0",
     "prettier": "^3.2.5",
