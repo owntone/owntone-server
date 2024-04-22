@@ -9,10 +9,10 @@ You control the server via a web interface, Apple Remote, an Android remote
 (e.g. Retune), an MPD client, json API or DACP.
 
 OwnTone also serves local files via the Digital Audio Access Protocol (DAAP) to
-iTunes (Windows), Apple Music (MacOS) and Rhythmbox (Linux), and via the Roku
+iTunes (Windows), Apple Music (macOS) and Rhythmbox (Linux), and via the Roku
 Server Protocol (RSP) to Roku devices.
 
-Runs on Linux, BSD and MacOS.
+Runs on Linux, BSD and macOS.
 
 OwnTone was previously called forked-daapd, which again was a rewrite of
 mt-daapd (Firefly Media Server).

@@ -7,10 +7,10 @@ hide:
 # OwnTone
 
 **OwnTone** is an open source (audio) media server for GNU/Linux, FreeBSD
-and MacOS.
+and macOS.
 
 It allows sharing and streaming your media library to iTunes (DAAP[^1]),
-Roku (RSP), AirPlay devices (multiroom), Chromecast and also supports local
+Roku (RSP), AirPlay devices (multi-room), Chromecast and also supports local
 playback.
 
 You can control OwnTone via its web interface, Apple Remote (and compatible
@@ -78,4 +78,4 @@ please see the documentation on [Building from Source](installation.md).
 
 You can find source and documentation, also for older versions, here:
 
-- [https://github.com/owntone/owntone-server.git](https://github.com/owntone/owntone-server.git)
+- [Source Code](https://github.com/owntone/owntone-server.git)
