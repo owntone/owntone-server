@@ -71,11 +71,11 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.artist = response[0]
+    vm.artist = response.shift()
     vm.albums = []
     vm.total = 0
     vm.offset = 0
-    vm.append_albums(response[1])
+    vm.append_albums(response.shift())
   }
 }
 

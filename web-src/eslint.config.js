@@ -35,7 +35,6 @@ export default [
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
       'no-useless-assignment': 'off',
       'one-var': 'off',
-      'prefer-destructuring': 'off',
       'prefer-named-capture-group': 'off',
       'sort-keys': 'off',
       'vue/html-self-closing': 'off',

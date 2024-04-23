@@ -144,19 +144,15 @@ export default {
         protocol = 'wss://'
       }
 
-      let wsUrl = `${protocol + window.location.hostname}:${
-        this.$store.state.config.websocket_port
-      }`
+      let wsUrl = `${protocol}${window.location.hostname}:${this.$store.state.config.websocket_port}`
 
       if (import.meta.env.DEV && import.meta.env.VITE_OWNTONE_URL) {
         /*
          * If we are running in development mode, construct the websocket
          * url from the host of the environment variable VITE_OWNTONE_URL
          */
-        const owntoneUrl = new URL(import.meta.env.VITE_OWNTONE_URL)
-        wsUrl = `${protocol + owntoneUrl.hostname}:${
-          this.$store.state.config.websocket_port
-        }`
+        const url = new URL(import.meta.env.VITE_OWNTONE_URL)
+        wsUrl = `${protocol}${url.hostname}:${this.$store.state.config.websocket_port}`
       }
 
       const socket = new ReconnectingWebSocket(wsUrl, 'notify', {

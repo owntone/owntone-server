@@ -73,7 +73,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.genre = response[0].data.genres.items[0]
+    vm.genre = response[0].data.genres.items.shift()
     vm.tracks_list = new GroupedList(response[1].data.tracks)
   }
 }

@@ -72,11 +72,11 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.playlist = response[0]
+    vm.playlist = response.shift()
     vm.tracks = []
     vm.total = 0
     vm.offset = 0
-    vm.append_tracks(response[1])
+    vm.append_tracks(response.shift())
   }
 }
 
