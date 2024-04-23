@@ -1,14 +1,18 @@
 <template>
-  <div
-    v-if="$route.query.directory"
-    class="media is-align-items-center"
-    @click="open_parent()"
-  >
-    <figure class="media-left is-clickable">
-      <mdicon class="icon" name="subdirectory-arrow-left" size="16" />
+  <div v-if="$route.query.directory" class="media is-align-items-center">
+    <figure class="media-left is-clickable" @click="open_parent">
+      <mdicon class="icon" name="chevron-left" size="16" />
     </figure>
-    <div class="media-content is-clickable is-clipped">
-      <h1 class="title is-6">..</h1>
+    <div class="media-content is-clipped">
+      <nav class="breadcrumb">
+        <ul>
+          <li v-for="directory in directories" :key="directory.index">
+            <a @click="open(directory)">
+              <span v-text="directory.name" />
+            </a>
+          </li>
+        </ul>
+      </nav>
     </div>
     <div class="media-right">
       <slot name="actions" />
@@ -20,11 +24,7 @@
         <mdicon class="icon" name="folder" size="16" />
       </figure>
       <div class="media-content is-clickable is-clipped">
-        <h1
-          class="title is-6"
-          v-text="item.path.substring(item.path.lastIndexOf('/') + 1)"
-        />
-        <h2 class="subtitle is-7 has-text-grey" v-text="item.path" />
+        <h1 class="title is-6" v-text="item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">
@@ -58,37 +58,34 @@ export default {
   },
 
   computed: {
-    current() {
-      return this.$route.query?.directory || '/'
+    directories() {
+      const directories = []
+      let path = ''
+      this.$route.query?.directory
+        .split('/')
+        .slice(1, -1)
+        .forEach((name, index) => {
+          path = `${path}/${name}`
+          directories.push({ index, name, path })
+        })
+      return directories
     }
   },
 
   methods: {
     open(item) {
-      this.$router.push({
-        name: 'files',
-        query: { directory: item.path }
-      })
+      const route = { name: 'files' }
+      if (item.index !== 0) {
+        route.query = { directory: item.path }
+      }
+      this.$router.push(route)
     },
     open_dialog(item) {
       this.selected_item = item.path
       this.show_details_modal = true
     },
     open_parent() {
-      const parent = this.current.slice(0, this.current.lastIndexOf('/'))
-      if (
-        parent === '' ||
-        this.$store.state.config.directories.includes(this.current)
-      ) {
-        this.$router.push({ name: 'files' })
-      } else {
-        this.$router.push({
-          name: 'files',
-          query: {
-            directory: this.current.slice(0, this.current.lastIndexOf('/'))
-          }
-        })
-      }
+      this.open(this.directories.slice(-1).pop())
     }
   }
 }

@@ -12,6 +12,7 @@ import {
   mdiCellphone,
   mdiCheck,
   mdiChevronDown,
+  mdiChevronLeft,
   mdiChevronUp,
   mdiContentSave,
   mdiDelete,
@@ -57,7 +58,6 @@ import {
   mdiSpeaker,
   mdiSpotify,
   mdiStop,
-  mdiSubdirectoryArrowLeft,
   mdiVolumeHigh,
   mdiVolumeOff,
   mdiWeb
@@ -77,6 +77,7 @@ export const icons = {
   mdiCellphone,
   mdiCheck,
   mdiChevronDown,
+  mdiChevronLeft,
   mdiChevronUp,
   mdiContentSave,
   mdiDelete,
@@ -122,7 +123,6 @@ export const icons = {
   mdiSpeaker,
   mdiSpotify,
   mdiStop,
-  mdiSubdirectoryArrowLeft,
   mdiVolumeHigh,
   mdiVolumeOff,
   mdiWeb

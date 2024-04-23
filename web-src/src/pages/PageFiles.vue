@@ -2,8 +2,7 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.files.title')" />
-        <p class="title is-7 has-text-grey" v-text="current_directory" />
+        <p class="title is-4" v-text="name" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -20,7 +19,7 @@
         </div>
       </template>
       <template #content>
-        <list-directories :items="dirs" />
+        <list-directories :items="directories" />
         <list-playlists :items="playlists" />
         <list-tracks
           :expression="play_expression"
@@ -28,7 +27,7 @@
           :show_icon="true"
         />
         <modal-dialog-directory
-          :item="current_directory"
+          :item="current"
           :show="show_details_modal"
           @close="show_details_modal = false"
         />
@@ -53,25 +52,24 @@ const dataObject = {
     }
     return Promise.resolve()
   },
-
   set(vm, response) {
     if (response) {
-      vm.dirs = response.data.directories
-      vm.playlists = new GroupedList(response.data.playlists)
-      vm.tracks = new GroupedList(response.data.tracks)
+      vm.directories = response.data.directories.map((directory) =>
+        vm.transform(directory.path)
+      )
+    } else if (vm.$store.state.config.directories) {
+      vm.directories = vm.$store.state.config.directories.map((path) =>
+        vm.transform(path)
+      )
     } else {
-      if (vm.$store.state.config.directories) {
-        vm.dirs = vm.$store.state.config.directories.map((dir) => ({
-          path: dir
-        }))
-      } else {
-        webapi.config().then((config) => {
-          vm.dirs = config.data.directories.map((dir) => ({ path: dir }))
-        })
-      }
-      vm.playlists = new GroupedList()
-      vm.tracks = new GroupedList()
+      webapi.config().then((config) => {
+        vm.directories = config.data.directories.map((path) =>
+          vm.transform(path)
+        )
+      })
     }
+    vm.playlists = new GroupedList(response?.data.playlists)
+    vm.tracks = new GroupedList(response?.data.tracks)
   }
 }
 
@@ -100,7 +98,7 @@ export default {
 
   data() {
     return {
-      dirs: [],
+      directories: [],
       playlists: new GroupedList(),
       show_details_modal: false,
       tracks: new GroupedList()
@@ -108,20 +106,26 @@ export default {
   },
 
   computed: {
-    current_directory() {
-      if (this.$route.query && this.$route.query.directory) {
-        return this.$route.query.directory
+    current() {
+      return this.$route.query?.directory || '/'
+    },
+    name() {
+      if (this.current !== '/') {
+        return this.current?.slice(this.current.lastIndexOf('/') + 1)
       }
-      return '/'
+      return this.$t('page.files.title')
     },
     play_expression() {
-      return `path starts with "${this.current_directory}" order by path asc`
+      return `path starts with "${this.current}" order by path asc`
     }
   },
 
   methods: {
     play() {
       webapi.player_play_expression(this.play_expression, false)
+    },
+    transform(path) {
+      return { path, name: path.slice(path.lastIndexOf('/') + 1) }
     }
   }
 }
