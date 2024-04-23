@@ -19,6 +19,7 @@
     border-bottom-color: $grey-lighter;
     color: $grey-lighter !important;
   }
+  a:hover,
   a.has-text-dark:hover,
   a.has-text-dark:focus {
     color: $grey-lighter !important;
@@ -29,7 +30,6 @@
   .tabs a {
     border-bottom-color: $grey-dark;
   }
-  .breadcrumb a:hover,
   .tabs a,
   .hero.is-light .title,
   .title,
