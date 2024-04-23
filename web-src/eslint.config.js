@@ -33,7 +33,6 @@ export default [
       'no-ternary': 'off',
       'no-undef': 'off',
       'no-undefined': 'off',
-      'no-unused-expressions': 'off',
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
       'no-useless-assignment': 'off',
       'one-var': 'off',

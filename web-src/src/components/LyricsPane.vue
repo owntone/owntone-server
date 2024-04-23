@@ -129,9 +129,11 @@ export default {
           ) {
             return index
           }
-          currentVerse.time < currentTime
-            ? (start = index + 1)
-            : (end = index - 1)
+          if (currentVerse.time < currentTime) {
+            start = index + 1
+          } else {
+            end = index - 1
+          }
         }
         return -1
       }
@@ -141,7 +143,9 @@ export default {
   },
   watch: {
     verse_index() {
-      this.autoScrolling && this.scroll_to_verse()
+      if (this.autoScrolling) {
+        this.scroll_to_verse()
+      }
       this.lastIndex = this.verse_index
     }
   },
