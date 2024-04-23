@@ -66,7 +66,10 @@ const createIndexer = ({ field, type = undefined } = {}) => {
 }
 
 export class GroupedList {
-  constructor({ items = [], total = 0, offset = 0, limit = -1 } = {}, options) {
+  constructor(
+    { items = [], total = 0, offset = 0, limit = -1 } = {},
+    options = {}
+  ) {
     this.items = items
     this.total = total
     this.offset = offset

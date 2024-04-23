@@ -19,7 +19,6 @@ export default [
     rules: {
       camelcase: 'off',
       'consistent-this': 'off',
-      'default-param-last': 'off',
       'id-length': 'off',
       'max-lines': 'off',
       'max-lines-per-function': 'off',
