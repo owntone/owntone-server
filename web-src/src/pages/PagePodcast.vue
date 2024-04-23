@@ -47,6 +47,7 @@
         <modal-dialog
           :show="show_remove_podcast_modal"
           :title="$t('page.podcast.remove-podcast')"
+          :close_action="$t('page.podcast.cancel')"
           :delete_action="$t('page.podcast.remove')"
           @close="show_remove_podcast_modal = false"
           @delete="remove_podcast"

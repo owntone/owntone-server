@@ -45,7 +45,7 @@
 export default {
   name: 'ModalDialog',
   props: {
-    close_action: { default: 'dialog.cancel', type: String },
+    close_action: { default: '', type: String },
     delete_action: { default: '', type: String },
     ok_action: { default: '', type: String },
     show: Boolean,

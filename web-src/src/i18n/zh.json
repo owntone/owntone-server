@@ -8,7 +8,6 @@
     }
   },
   "dialog": {
-    "cancel": "取消",
     "add": {
       "rss": {
         "add": "添加",
@@ -385,6 +384,7 @@
       "count": "{count} 个播放列表|{count} 个播放列表"
     },
     "podcast": {
+      "cancel": "取消",
       "play": "播放",
       "remove": "移除",
       "remove-info-1": "从资料库中永久移除该播客？",

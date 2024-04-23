@@ -8,7 +8,6 @@
     }
   },
   "dialog": {
-    "cancel": "Cancel",
     "add": {
       "rss": {
         "add": "Add",
@@ -385,6 +384,7 @@
       "count": "{count} playlist|{count} playlist|{count} playlists"
     },
     "podcast": {
+      "cancel": "Cancel",
       "play": "Play",
       "remove": "Remove",
       "remove-info-1": "Permanently remove this podcast from your library?",
