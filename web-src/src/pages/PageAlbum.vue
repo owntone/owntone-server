@@ -21,7 +21,7 @@
       </template>
       <template #heading-right>
         <cover-artwork
-          :artwork_url="album.artwork_url"
+          :url="album.artwork_url"
           :artist="album.artist"
           :album="album.name"
           class="is-clickable fd-has-shadow fd-cover fd-cover-medium-image"

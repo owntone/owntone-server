@@ -10,7 +10,7 @@
     <div v-else class="media is-align-items-center" @click="open(item.item)">
       <div v-if="show_artwork" class="media-left">
         <cover-artwork
-          :artwork_url="item.item.artwork_url"
+          :url="item.item.artwork_url"
           :artist="item.item.artist"
           :album="item.item.name"
           class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"

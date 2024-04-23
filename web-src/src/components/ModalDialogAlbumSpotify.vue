@@ -6,7 +6,7 @@
         <div class="card">
           <div class="card-content">
             <cover-artwork
-              :artwork_url="artwork_url(item)"
+              :url="artwork_url(item)"
               :artist="item.artist"
               :album="item.name"
               class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"

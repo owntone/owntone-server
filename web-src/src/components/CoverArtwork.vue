@@ -1,6 +1,6 @@
 <template>
   <figure>
-    <img v-lazy="{ src: artwork_url, lifecycle }" @click="$emit('click')" />
+    <img v-lazy="{ src: url, lifecycle }" @click="$emit('click')" />
   </figure>
 </template>
 
@@ -12,7 +12,7 @@ export default {
   props: {
     album: { default: '', type: String },
     artist: { default: '', type: String },
-    artwork_url: { default: '', type: String }
+    url: { default: '', type: String }
   },
   emits: ['click'],
 

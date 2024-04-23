@@ -3,7 +3,7 @@
     <div class="media is-align-items-center" @click="open(item)">
       <div v-if="show_artwork" class="media-left is-clickable">
         <cover-artwork
-          :artwork_url="artwork_url(item)"
+          :url="artwork_url(item)"
           :artist="item.artist"
           :album="item.name"
           class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"

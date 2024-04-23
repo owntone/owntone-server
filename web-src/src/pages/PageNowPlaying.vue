@@ -3,7 +3,7 @@
     <div v-if="track.id > 0" class="hero-body is-flex is-align-items-center">
       <div class="container has-text-centered" style="max-width: 500px">
         <cover-artwork
-          :artwork_url="track.artwork_url"
+          :url="track.artwork_url"
           :artist="track.artist"
           :album="track.album"
           class="is-clickable fd-has-shadow fd-cover-big-image"
