@@ -40,7 +40,6 @@ export default [
       'prefer-destructuring': 'off',
       'prefer-named-capture-group': 'off',
       'sort-keys': 'off',
-      'sort-vars': 'off',
       'vue/html-self-closing': 'off',
       'vue/max-attributes-per-line': 'off',
       'vue/prop-name-casing': 'off',

@@ -190,12 +190,12 @@ export default {
       this.$store.dispatch('add_recent_search', this.search_query)
     },
     search_items(type) {
-      const music = type !== 'audiobook' && type !== 'podcast',
-        kind = music ? 'music' : type,
-        parameters = {
-          type: music ? type : 'album',
-          limit: this.search_limit
-        }
+      const music = type !== 'audiobook' && type !== 'podcast'
+      const kind = music ? 'music' : type
+      const parameters = {
+        type: music ? type : 'album',
+        limit: this.search_limit
+      }
       if (this.search_query.startsWith('query:')) {
         parameters.expression = `(${this.search_query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
       } else if (music) {
