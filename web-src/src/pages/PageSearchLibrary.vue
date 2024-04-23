@@ -193,8 +193,8 @@ export default {
       const music = type !== 'audiobook' && type !== 'podcast'
       const kind = music ? 'music' : type
       const parameters = {
-        type: music ? type : 'album',
-        limit: this.search_limit
+        limit: this.search_limit,
+        type: music ? type : 'album'
       }
       if (this.search_query.startsWith('query:')) {
         parameters.expression = `(${this.search_query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
