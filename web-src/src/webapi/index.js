@@ -39,7 +39,7 @@ export default {
   },
 
   library_add(url) {
-    return axios.post('./api/library/add', undefined, { params: { url } })
+    return axios.post('./api/library/add', null, { params: { url } })
   },
 
   library_album(albumId) {
@@ -47,7 +47,7 @@ export default {
   },
 
   library_album_track_update(albumId, attributes) {
-    return axios.put(`./api/library/albums/${albumId}/tracks`, undefined, {
+    return axios.put(`./api/library/albums/${albumId}/tracks`, null, {
       params: attributes
     })
   },
@@ -151,7 +151,7 @@ export default {
   },
 
   library_playlist_delete(playlistId) {
-    return axios.delete(`./api/library/playlists/${playlistId}`, undefined)
+    return axios.delete(`./api/library/playlists/${playlistId}`, null)
   },
 
   library_playlist_folder(playlistId = 0) {
@@ -189,7 +189,7 @@ export default {
   },
 
   library_rescan(scan_kind) {
-    return axios.put('./api/rescan', undefined, { params: { scan_kind } })
+    return axios.put('./api/rescan', null, { params: { scan_kind } })
   },
 
   library_stats() {
@@ -205,13 +205,13 @@ export default {
   },
 
   library_track_update(trackId, attributes = {}) {
-    return axios.put(`./api/library/tracks/${trackId}`, undefined, {
+    return axios.put(`./api/library/tracks/${trackId}`, null, {
       params: attributes
     })
   },
 
   library_update(scan_kind) {
-    return axios.put('./api/update', undefined, { params: { scan_kind } })
+    return axios.put('./api/update', null, { params: { scan_kind } })
   },
 
   output_toggle(outputId) {
@@ -253,7 +253,7 @@ export default {
   },
 
   player_play(options = {}) {
-    return axios.put('./api/player/play', undefined, { params: options })
+    return axios.put('./api/player/play', null, { params: options })
   },
 
   player_play_expression(expression, shuffle, position) {
@@ -264,7 +264,7 @@ export default {
       playback_from_position: position,
       shuffle
     }
-    return axios.post('./api/queue/items/add', undefined, { params })
+    return axios.post('./api/queue/items/add', null, { params })
   },
 
   player_play_uri(uris, shuffle, position) {
@@ -275,7 +275,7 @@ export default {
       shuffle,
       uris
     }
-    return axios.post('./api/queue/items/add', undefined, { params })
+    return axios.post('./api/queue/items/add', null, { params })
   },
 
   player_previous() {
@@ -350,7 +350,7 @@ export default {
 
   queue_expression_add(expression) {
     return axios
-      .post('./api/queue/items/add', undefined, { params: { expression } })
+      .post('./api/queue/items/add', null, { params: { expression } })
       .then((response) => {
         store.dispatch('add_notification', {
           text: t('server.appended-tracks', {
@@ -371,7 +371,7 @@ export default {
       params.position = store.getters.now_playing.position + 1
     }
     return axios
-      .post('./api/queue/items/add', undefined, { params })
+      .post('./api/queue/items/add', null, { params })
       .then((response) => {
         store.dispatch('add_notification', {
           text: t('server.appended-tracks', {
@@ -394,7 +394,7 @@ export default {
 
   queue_save_playlist(name) {
     return axios
-      .post('./api/queue/save', undefined, { params: { name } })
+      .post('./api/queue/save', null, { params: { name } })
       .then((response) => {
         store.dispatch('add_notification', {
           text: t('server.queue-saved', { name }),

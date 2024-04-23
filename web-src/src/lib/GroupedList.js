@@ -50,7 +50,7 @@ const timeIndex = (string) => {
   return times.find((item) => isNaN(diff) || diff < item.difference)?.text(date)
 }
 
-const createIndexer = ({ field, type = undefined } = {}) => {
+const createIndexer = ({ field, type } = {}) => {
   switch (type) {
     case String:
       return (item) => characterIndex(item[field])
