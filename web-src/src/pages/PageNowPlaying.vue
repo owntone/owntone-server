@@ -87,11 +87,11 @@ export default {
 
   computed: {
     composer() {
-      if (this.settings_option_show_composer_now_playing) {
+      if (this.setting_show_composer_now_playing) {
         if (
-          !this.settings_option_show_composer_for_genre ||
+          !this.setting_show_composer_for_genre ||
           (this.track.genre &&
-            this.settings_option_show_composer_for_genre
+            this.setting_show_composer_for_genre
               .toLowerCase()
               .split(',')
               .findIndex(
@@ -105,7 +105,7 @@ export default {
       return null
     },
     filepath() {
-      if (this.settings_option_show_filepath_now_playing) {
+      if (this.setting_show_filepath_now_playing) {
         return this.track.path
       }
       return null
@@ -119,14 +119,14 @@ export default {
     player() {
       return this.$store.state.player
     },
-    settings_option_show_composer_for_genre() {
-      return this.$store.getters.settings_option_show_composer_for_genre
+    setting_show_composer_for_genre() {
+      return this.$store.getters.setting_show_composer_for_genre
     },
-    settings_option_show_composer_now_playing() {
-      return this.$store.getters.settings_option_show_composer_now_playing
+    setting_show_composer_now_playing() {
+      return this.$store.getters.setting_show_composer_now_playing
     },
-    settings_option_show_filepath_now_playing() {
-      return this.$store.getters.settings_option_show_filepath_now_playing
+    setting_show_filepath_now_playing() {
+      return this.$store.getters.setting_show_filepath_now_playing
     },
     track() {
       return this.$store.getters.now_playing

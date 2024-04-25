@@ -22,7 +22,7 @@ import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    const limit = store.getters.settings_option_recently_added_limit
+    const limit = store.getters.setting_recently_added_limit
     return webapi.search({
       expression:
         'media_kind is music having track_count > 3 order by time_added desc',

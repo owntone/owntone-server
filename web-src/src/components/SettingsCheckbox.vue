@@ -55,7 +55,7 @@ export default {
       return this.statusUpdate === 'success'
     },
     option() {
-      const option = this.$store.getters.settings_option(
+      const option = this.$store.getters.setting(
         this.category_name,
         this.option_name
       )
@@ -87,7 +87,7 @@ export default {
       webapi
         .settings_update(this.category_name, option)
         .then(() => {
-          this.$store.dispatch('update_settings_option', option)
+          this.$store.dispatch('update_setting', option)
           this.statusUpdate = 'success'
         })
         .catch(() => {

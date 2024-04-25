@@ -16,7 +16,7 @@
           inputmode="numeric"
           min="0"
           :placeholder="placeholder"
-          :value="value"
+          :value="option.value"
           @input="set_update_timer"
         />
       </div>
@@ -48,11 +48,6 @@ export default {
   },
 
   computed: {
-    category() {
-      return this.$store.state.settings.categories.find(
-        (elem) => elem.name === this.category_name
-      )
-    },
     info() {
       if (this.statusUpdate === 'success') {
         return this.$t('setting.saved')
@@ -68,15 +63,7 @@ export default {
       return this.statusUpdate === 'success'
     },
     option() {
-      if (!this.category) {
-        return {}
-      }
-      return this.category.options.find(
-        (elem) => elem.name === this.option_name
-      )
-    },
-    value() {
-      return this.option.value
+      return this.$store.getters.setting(this.category_name, this.option_name)
     }
   },
 
@@ -101,14 +88,14 @@ export default {
         return
       }
       const option = {
-        category: this.category.name,
+        category: this.category_name,
         name: this.option_name,
         value: newValue
       }
       webapi
-        .settings_update(this.category.name, option)
+        .settings_update(this.category_name, option)
         .then(() => {
-          this.$store.dispatch('update_settings_option', option)
+          this.$store.dispatch('update_setting', option)
           this.statusUpdate = 'success'
         })
         .catch(() => {

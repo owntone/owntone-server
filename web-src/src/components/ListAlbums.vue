@@ -94,7 +94,7 @@ export default {
       return this.media_kind || this.selected_item.media_kind
     },
     show_artwork() {
-      return this.$store.getters.settings_option(
+      return this.$store.getters.setting(
         'webinterface',
         'show_cover_artwork_in_album_lists'
       ).value

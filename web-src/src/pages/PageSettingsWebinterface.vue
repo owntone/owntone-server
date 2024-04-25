@@ -123,7 +123,7 @@
         <settings-textfield
           category_name="webinterface"
           option_name="show_composer_for_genre"
-          :disabled="!settings_option_show_composer_now_playing"
+          :disabled="!setting_show_composer_now_playing"
           :placeholder="$t('page.settings.general.genres')"
         >
           <template #label>
@@ -225,11 +225,11 @@ export default {
         }))
       }
     },
-    settings_option_show_composer_now_playing() {
-      return this.$store.getters.settings_option_show_composer_now_playing
+    setting_show_composer_now_playing() {
+      return this.$store.getters.setting_show_composer_now_playing
     },
-    settings_option_show_filepath_now_playing() {
-      return this.$store.getters.settings_option_show_filepath_now_playing
+    setting_show_filepath_now_playing() {
+      return this.$store.getters.setting_show_filepath_now_playing
     }
   }
 }
