@@ -179,7 +179,7 @@ export default createStore({
   },
 
   actions: {
-    add_notification({ commit, state }, notification) {
+    add_notification({ state }, notification) {
       const newNotification = {
         id: state.notifications.next_id++,
         text: notification.text,
@@ -203,7 +203,7 @@ export default createStore({
         }, notification.timeout)
       }
     },
-    add_recent_search({ commit, state }, query) {
+    add_recent_search({ state }, query) {
       const index = state.recent_searches.indexOf(query)
       if (index !== -1) {
         state.recent_searches.splice(index, 1)
@@ -213,19 +213,19 @@ export default createStore({
         state.recent_searches.pop()
       }
     },
-    delete_notification({ commit, state }, notification) {
+    delete_notification({ state }, notification) {
       const index = state.notifications.list.indexOf(notification)
       if (index !== -1) {
         state.notifications.list.splice(index, 1)
       }
     },
-    remove_recent_search({ commit, state }, query) {
+    remove_recent_search({ state }, query) {
       const index = state.recent_searches.indexOf(query)
       if (index !== -1) {
         state.recent_searches.splice(index, 1)
       }
     },
-    update_settings_option({ commit, state }, option) {
+    update_settings_option({ state }, option) {
       const settingCategory = state.settings.categories.find(
           (e) => e.name === option.category
         ),
