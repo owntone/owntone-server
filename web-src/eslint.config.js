@@ -32,7 +32,6 @@ export default [
       'no-ternary': 'off',
       'no-undef': 'off',
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
-      'no-useless-assignment': 'off',
       'one-var': 'off',
       'prefer-named-capture-group': 'off',
       'sort-keys': 'off',

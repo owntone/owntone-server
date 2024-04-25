@@ -117,25 +117,25 @@ export default {
         }
         // Not found, then start a binary search
         let end = la.length - 1,
-          index = 0,
+          index = -1,
           start = 0
         while (start <= end) {
           index = (start + end) >> 1
-          const currentVerse = la[index]
-          const nextVerse = la[index + 1]
+          const currentVerseTime = la[index].time
+          const nextVerseTime = la[index + 1]?.time
           if (
-            currentVerse.time <= currentTime &&
-            (nextVerse?.time > currentTime || !nextVerse)
+            currentVerseTime <= currentTime &&
+            (nextVerseTime > currentTime || !nextVerseTime)
           ) {
-            return index
+            break
           }
-          if (currentVerse.time < currentTime) {
+          if (currentVerseTime < currentTime) {
             start = index + 1
           } else {
             end = index - 1
           }
         }
-        return -1
+        return index
       }
       this.reset_scrolling()
       return -1
