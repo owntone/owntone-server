@@ -70,7 +70,7 @@ export default createStore({
 
   getters: {
     now_playing: (state) =>
-      state.queue.items.find((e) => e.id === state.player.item_id) ?? {},
+      state.queue.items.find((item) => item.id === state.player.item_id) ?? {},
     setting: (state) => (categoryName, optionName) =>
       state.settings.categories
         .find((category) => category.name === categoryName)
@@ -227,10 +227,10 @@ export default createStore({
     },
     update_setting({ state }, option) {
       const settingCategory = state.settings.categories.find(
-          (e) => e.name === option.category
+          (category) => category.name === option.category
         ),
         settingOption = settingCategory.options.find(
-          (e) => e.name === option.name
+          (setting) => setting.name === option.name
         )
       settingOption.value = option.value
     }

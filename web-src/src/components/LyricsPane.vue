@@ -175,13 +175,11 @@ export default {
           pane.scrollTop
       })
     },
-    start_scrolling(e) {
+    start_scrolling(event) {
       // Consider only user events
-      if (e.screenX || e.screenX !== 0 || e.screenY || e.screenY !== 0) {
+      if (event.screenX ?? event.screenY) {
         this.autoScrolling = false
-        if (this.scrollingTimer) {
-          clearTimeout(this.scrollingTimer)
-        }
+        clearTimeout(this.scrollingTimer)
         // Reenable automatic scrolling after 2 seconds
         this.scrollingTimer = setTimeout((this.autoScrolling = true), 2000)
       }
