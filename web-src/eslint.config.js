@@ -32,7 +32,6 @@ export default [
       'no-undef': 'off',
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
       'one-var': 'off',
-      'prefer-named-capture-group': 'off',
       'sort-keys': 'off',
       'vue/html-self-closing': 'off',
       'vue/max-attributes-per-line': 'off',

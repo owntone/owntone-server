@@ -55,13 +55,15 @@ export default {
       const parsed = []
       if (raw) {
         // Parse the lyrics
-        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/u
-        raw.split('\n').forEach((item, index) => {
-          const matches = regex.exec(item)
-          if (matches && matches[4]) {
+        const regex =
+          /\[(?<minutes>\d+):(?<seconds>\d+)(?:\.(?<hundredths>\d+))?\] ?(?<text>.*)/u
+        raw.split('\n').forEach((item) => {
+          const { text, minutes, seconds, hundredths } = regex.exec(line).groups
+          if (text) {
             const verse = {
-              text: matches[4],
-              time: matches[2] * 60 + Number(matches[3])
+              text,
+              time:
+                minutes * 60 + Number(seconds) + Number(`.${hundredths || 0}`)
             }
             parsed.push(verse)
           }
