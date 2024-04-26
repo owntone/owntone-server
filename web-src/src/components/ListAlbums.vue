@@ -122,10 +122,10 @@ export default {
     open_remove_podcast_dialog() {
       webapi
         .library_album_tracks(this.selected_item.id, { limit: 1 })
-        .then(({ data }) => {
-          webapi.library_track_playlists(data.items[0].id).then(({ data }) => {
+        .then(({ data: album }) => {
+          webapi.library_track_playlists(album.items[0].id).then(({ data }) => {
             ;[this.rss_playlist_to_remove] = data.items.filter(
-              (pl) => pl.type === 'rss'
+              (playlist) => playlist.type === 'rss'
             )
             this.show_remove_podcast_modal = true
             this.show_details_modal = false

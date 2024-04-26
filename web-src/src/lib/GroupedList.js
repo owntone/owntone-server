@@ -80,7 +80,6 @@ export class GroupedList {
   }
 
   group({ criteria = [], filters = [], index } = {}) {
-    const indexer = createIndexer(index)
     const itemsFiltered = this.items.filter((item) =>
       filters.every((filter) => filter(item))
     )
@@ -94,9 +93,10 @@ export class GroupedList {
       )
     )
     // Group item list
+    const indexer = createIndexer(index)
     this.itemsGrouped = itemsSorted.reduce((map, item) => {
-      const index = indexer(item)
-      map.set(index, [...(map.get(index) || []), item])
+      const key = indexer(item)
+      map.set(key, [...(map.get(key) || []), item])
       return map
     }, new Map())
     // Create index list
