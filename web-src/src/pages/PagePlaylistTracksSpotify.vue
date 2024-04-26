@@ -34,7 +34,9 @@
               </div>
             </div>
           </template>
-          <template #no-more>&nbsp;</template>
+          <template #no-more>
+            <br />
+          </template>
         </VueEternalLoading>
         <modal-dialog-playlist-spotify
           :item="playlist"

@@ -35,8 +35,7 @@ export default [
       'sort-keys': 'off',
       'vue/html-self-closing': 'off',
       'vue/max-attributes-per-line': 'off',
-      'vue/prop-name-casing': 'off',
-      'vue/singleline-html-element-content-newline': 'off'
+      'vue/prop-name-casing': 'off'
     }
   }
 ]
