@@ -12,23 +12,23 @@ import vue from '@vitejs/plugin-vue'
 const owntoneUrl = process.env.VITE_OWNTONE_URL ?? 'http://localhost:3689'
 
 export default defineConfig({
-  resolve: { alias: { '@': '/src' } },
+  build: {
+    outDir: '../htdocs',
+    rollupOptions: {
+      output: {
+        assetFileNames: `assets/[name].[ext]`,
+        chunkFileNames: `assets/[name].js`,
+        entryFileNames: `assets/[name].js`
+      }
+    }
+  },
   plugins: [
     vue(),
     i18n({
       include: path.resolve(__dirname, './src/i18n/**.json')
     })
   ],
-  build: {
-    outDir: '../htdocs',
-    rollupOptions: {
-      output: {
-        entryFileNames: `assets/[name].js`,
-        chunkFileNames: `assets/[name].js`,
-        assetFileNames: `assets/[name].[ext]`
-      }
-    }
-  },
+  resolve: { alias: { '@': '/src' } },
   server: {
     proxy: {
       '/api': {

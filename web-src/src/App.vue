@@ -265,17 +265,6 @@ export default {
         document.querySelector('html').classList.remove('is-clipped')
       }
     },
-    update_outputs() {
-      webapi.outputs().then(({ data }) => {
-        this.$store.commit(types.UPDATE_OUTPUTS, data.outputs)
-      })
-    },
-    update_player_status() {
-      webapi.player_status().then(({ data }) => {
-        this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
-        this.update_lyrics()
-      })
-    },
     update_lastfm() {
       webapi.lastfm().then(({ data }) => {
         this.$store.commit(types.UPDATE_LASTFM, data)
@@ -299,10 +288,21 @@ export default {
         this.$store.commit(types.UPDATE_LYRICS)
       }
     },
+    update_outputs() {
+      webapi.outputs().then(({ data }) => {
+        this.$store.commit(types.UPDATE_OUTPUTS, data.outputs)
+      })
+    },
     update_pairing() {
       webapi.pairing().then(({ data }) => {
         this.$store.commit(types.UPDATE_PAIRING, data)
         this.pairing_active = data.active
+      })
+    },
+    update_player_status() {
+      webapi.player_status().then(({ data }) => {
+        this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
+        this.update_lyrics()
       })
     },
     update_queue() {

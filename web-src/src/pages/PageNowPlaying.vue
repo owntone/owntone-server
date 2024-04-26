@@ -76,8 +76,8 @@ export default {
 
   data() {
     return {
-      cursor: mdiCancel,
       INTERVAL,
+      cursor: mdiCancel,
       interval_id: 0,
       is_dragged: false,
       selected_item: {},

@@ -125,7 +125,7 @@ export default {
       webapi.player_play_expression(this.play_expression, false)
     },
     transform(path) {
-      return { path, name: path.slice(path.lastIndexOf('/') + 1) }
+      return { name: path.slice(path.lastIndexOf('/') + 1), path }
     }
   }
 }
