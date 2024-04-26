@@ -7,8 +7,8 @@
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.genre.sort.title')" />
             <control-dropdown
-              v-model:value="selected_grouping_option_id"
-              :options="grouping_options"
+              v-model:value="selected_grouping_id"
+              :options="groupings"
             />
           </div>
         </div>
@@ -97,7 +97,7 @@ export default {
   data() {
     return {
       genre: {},
-      grouping_options: [
+      groupings: [
         {
           id: 1,
           name: this.$t('page.genre.sort.name'),
@@ -122,7 +122,7 @@ export default {
     expression() {
       return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
     },
-    selected_grouping_option_id: {
+    selected_grouping_id: {
       get() {
         return this.$store.state.genre_tracks_sort
       },
@@ -131,8 +131,8 @@ export default {
       }
     },
     tracks() {
-      const grouping = this.grouping_options.find(
-        (o) => o.id === this.selected_grouping_option_id
+      const grouping = this.groupings.find(
+        (grouping) => grouping.id === this.selected_grouping_id
       )
       this.tracks_list.group(grouping.options)
       return this.tracks_list

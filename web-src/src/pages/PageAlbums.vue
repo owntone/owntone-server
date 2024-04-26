@@ -41,8 +41,8 @@
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.albums.sort.title')" />
             <control-dropdown
-              v-model:value="selected_grouping_option_id"
-              :options="grouping_options"
+              v-model:value="selected_grouping_id"
+              :options="groupings"
             />
           </div>
         </div>
@@ -101,7 +101,7 @@ export default {
   data() {
     return {
       albums_list: new GroupedList(),
-      grouping_options: [
+      groupings: [
         {
           id: 1,
           name: this.$t('page.albums.sort.name'),
@@ -151,8 +151,8 @@ export default {
 
   computed: {
     albums() {
-      const grouping = this.grouping_options.find(
-        (o) => o.id === this.selected_grouping_option_id
+      const grouping = this.groupings.find(
+        (grouping) => grouping.id === this.selected_grouping_id
       )
       grouping.options.filters = [
         (album) => !this.hide_singles || album.track_count > 2,
@@ -178,7 +178,7 @@ export default {
         this.$store.commit(types.HIDE_SPOTIFY, value)
       }
     },
-    selected_grouping_option_id: {
+    selected_grouping_id: {
       get() {
         return this.$store.state.albums_sort
       },
