@@ -16,7 +16,7 @@
           inputmode="numeric"
           min="0"
           :placeholder="placeholder"
-          :value="option.value"
+          :value="setting.value"
           @input="set_update_timer"
         />
       </div>
@@ -33,9 +33,9 @@ import webapi from '@/webapi'
 export default {
   name: 'SettingsIntfield',
   props: {
-    category_name: { required: true, type: String },
+    category: { required: true, type: String },
     disabled: Boolean,
-    option_name: { required: true, type: String },
+    name: { required: true, type: String },
     placeholder: { default: '', type: String }
   },
 
@@ -62,8 +62,8 @@ export default {
     is_success() {
       return this.statusUpdate === 'success'
     },
-    option() {
-      return this.$store.getters.setting(this.category_name, this.option_name)
+    setting() {
+      return this.$store.getters.setting(this.category, this.name)
     }
   },
 
@@ -87,15 +87,15 @@ export default {
         this.statusUpdate = ''
         return
       }
-      const option = {
-        category: this.category_name,
-        name: this.option_name,
+      const setting = {
+        category: this.category,
+        name: this.name,
         value: newValue
       }
       webapi
-        .settings_update(this.category_name, option)
+        .settings_update(this.category, setting)
         .then(() => {
-          this.$store.dispatch('update_setting', option)
+          this.$store.dispatch('update_setting', setting)
           this.statusUpdate = 'success'
         })
         .catch(() => {
