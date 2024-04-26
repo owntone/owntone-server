@@ -151,16 +151,14 @@ export default {
 
   computed: {
     albums() {
-      const grouping = this.groupings.find(
+      const { options } = this.groupings.find(
         (grouping) => grouping.id === this.selected_grouping_id
       )
-      grouping.options.filters = [
+      options.filters = [
         (album) => !this.hide_singles || album.track_count > 2,
         (album) => !this.hide_spotify || album.data_kind !== 'spotify'
       ]
-      this.albums_list.group(grouping.options)
-
-      return this.albums_list
+      return this.albums_list.group(options)
     },
     hide_singles: {
       get() {

@@ -101,6 +101,7 @@ export class GroupedList {
     }, new Map())
     // Create index list
     this.indices = Array.from(this.itemsGrouped.keys())
+    return this
   }
 
   *generate() {

@@ -165,14 +165,13 @@ export default {
       return this.tracks_list.items.map((item) => item.uri).join()
     },
     tracks() {
-      const grouping = this.groupings.find(
+      const { options } = this.groupings.find(
         (grouping) => grouping.id === this.selected_grouping_id
       )
-      grouping.options.filters = [
+      options.filters = [
         (track) => !this.hide_spotify || track.data_kind !== 'spotify'
       ]
-      this.tracks_list.group(grouping.options)
-      return this.tracks_list
+      return this.tracks_list.group(options)
     }
   },
 

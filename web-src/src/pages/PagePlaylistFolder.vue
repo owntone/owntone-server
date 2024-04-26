@@ -66,7 +66,7 @@ export default {
 
   computed: {
     playlists() {
-      this.playlists_list.group({
+      return this.playlists_list.group({
         filters: [
           (playlist) =>
             playlist.folder ||
@@ -75,7 +75,6 @@ export default {
             playlist.item_count > playlist.stream_count
         ]
       })
-      return this.playlists_list
     },
     radio_playlists() {
       return this.$store.state.config.radio_playlists
