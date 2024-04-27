@@ -6,7 +6,7 @@ const NO_INDEX = 'NO_INDEX'
 const numberComparator = (a, b) => a - b
 const stringComparator = (a, b) => a.localeCompare(b, locale.value)
 const dateComparator = (a, b) =>
-  new Date(a) - new Date(b) || (!a ? -1 : !b ? 1 : 0)
+  new Date(a) - new Date(b) || (a ? (b ? 0 : 1) : -1)
 
 const createComparators = (criteria) =>
   criteria.map(({ field, type, order = 1 }) => {

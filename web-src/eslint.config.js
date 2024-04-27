@@ -25,7 +25,6 @@ export default [
       'max-statements': 'off',
       'no-bitwise': 'off',
       'no-magic-numbers': 'off',
-      'no-negated-condition': 'off',
       'no-nested-ternary': 'off',
       'no-plusplus': 'off',
       'no-ternary': 'off',
