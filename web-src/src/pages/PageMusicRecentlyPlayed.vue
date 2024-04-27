@@ -6,7 +6,7 @@
         <p class="title is-4" v-text="$t('page.music.recently-played.title')" />
       </template>
       <template #content>
-        <list-tracks :items="recently_played" />
+        <list-tracks :items="tracks" />
       </template>
     </content-with-heading>
   </div>
@@ -30,7 +30,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.recently_played = new GroupedList(response.data.tracks)
+    vm.tracks = new GroupedList(response.data.tracks)
   }
 }
 
@@ -46,7 +46,7 @@ export default {
 
   data() {
     return {
-      recently_played: {}
+      tracks: {}
     }
   }
 }
