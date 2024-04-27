@@ -1,4 +1,4 @@
-# OwnTone and ALSA
+# ALSA
 
 ALSA is one of the main output configuration options for local audio; when using ALSA you will typically let the system select the sound card on your machine as the `default` device/sound card - a mixer associated with the ALSA device is used for volume control.  However if your machine has multiple sound cards and your system chooses the wrong playback device, you will need to manually select the card and mixer to complete the OwnTone configuration.
 

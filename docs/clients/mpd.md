@@ -1,4 +1,4 @@
-# MPD clients
+# MPD Clients
 
 You can - to some extent - use clients for MPD to control OwnTone.
 

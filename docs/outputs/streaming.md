@@ -1,4 +1,4 @@
-# MP3 network streaming (streaming to iOS)
+# Streaming
 
 You can listen to audio being played by OwnTone by opening this network
 stream address in pretty much any music player:

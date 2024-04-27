@@ -1,4 +1,4 @@
-# Radio Stream Tweaking
+# Radio Streams
 
 Radio streams have many different ways in how metadata is sent.  Many should
 just work as expected, but a few may require some tweaking. If you are not

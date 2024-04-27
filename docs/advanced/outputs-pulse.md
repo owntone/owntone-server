@@ -31,7 +31,7 @@ How to start PulseAudio depends on your distribution, but in many cases you will
 need to add a `pulseaudio.service` file to `/etc/systemd/system` with the
 following content:
 
-```
+```conf
 # systemd service file for PulseAudio running in system mode
 [Unit]
 Description=PulseAudio sound server
@@ -49,7 +49,7 @@ Bluetooth module. First install it (Debian:
 `apt install pulseaudio-module-bluetooth`) and then add the following to
 /etc/pulse/system.pa:
 
-```
+```conf
 #### Enable Bluetooth
 .ifexists module-bluetooth-discover.so
 load-module module-bluetooth-discover
@@ -117,7 +117,7 @@ Edit the file `~/.pulse/default.pa` , adding the following line at the end:
 load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1
 ```
 
-### Step 3: Restart the pulseaudio deamon
+### Step 3: Restart the PulseAudio daemon
 
 ```shell
 pulseaudio -k
@@ -125,11 +125,11 @@ pulseaudio -k
 pulseaudio -D
 ```
 
-### Step 4: Adjust configuration file
+### Step 4: Adjust the Configuration File
 
 In the `audio` section of `/etc/owntone.conf`, set `server` to `localhost`:
 
-```
+```conf
 server = "localhost"
 ```
 

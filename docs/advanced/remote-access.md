@@ -1,4 +1,4 @@
-# Remote access
+# Remote Access
 
 It is possible to access a shared library over the internet from a DAAP client
 like iTunes. You must have remote access to the host machine.

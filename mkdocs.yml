@@ -127,31 +127,32 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Documentation:
-    - Getting started: getting-started.md
+    - Getting Started: getting-started.md
     - Installation: installation.md
+    - Configuration: configuration.md
     - Building: building.md
     - Library: library.md
     - Artwork: artwork.md
-    - Playlists & radio: playlists.md
-    - Smart playlists: smart-playlists.md
+    - Playlists and Radio: playlists.md
+    - Smart Playlists: smart-playlists.md
     - Clients:
-      - Supported clients: clients/supported-clients.md
+      - Supported Clients: clients/supported-clients.md
       - Remote: clients/remote.md
-      - Web interface: clients/web-interface.md
-      - MPD clients: clients/mpd.md
-      - CLI: clients/cli.md
+      - Web Interface: clients/web-interface.md
+      - MPD Clients: clients/mpd.md
+      - Command Line: clients/cli.md
     - Outputs:
-      - Local audio: outputs/local-audio.md
-      - Airplay: outputs/airplay.md
+      - Local Audio: outputs/local-audio.md
+      - AirPlay: outputs/airplay.md
       - Chromecast: outputs/chromecast.md
       - Streaming: outputs/streaming.md
-    - Services integration:
+    - Services Integration:
       - Spotify: integrations/spotify.md
       - LastFM: integrations/lastfm.md
-    - Advanced setups:
-      - Alsa: advanced/outputs-alsa.md
-      - Pulse audio: advanced/outputs-pulse.md
-      - Radio streams: advanced/radio-streams.md
-      - Remote access: advanced/remote-access.md
-      - Multiple instances: advanced/multiple-instances.md
+    - Advanced Setup:
+      - ALSA: advanced/outputs-alsa.md
+      - PulseAudio: advanced/outputs-pulse.md
+      - Radio Streams: advanced/radio-streams.md
+      - Remote Access: advanced/remote-access.md
+      - Multiple Instances: advanced/multiple-instances.md
   - JSON API: json-api.md

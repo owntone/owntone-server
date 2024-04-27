@@ -7,8 +7,8 @@ The configuration of OwnTone - usually located in `/etc/owntone.conf` - is split
 - [`audio`](#local-audio-settings) - Settings for the local audio.
 - [`alsa`](#per-alsa-device-settings) - Settings for ALSA devices.
 - [`fifo`](#fifo-settings) - Settings for named pipe.
-- [`airplay_shared`](#shared-airplay-settings) - Settings shared across Airplay devices.
-- [`airplay`](#per-airplay-device-settings) - Settings for a specific Airplay device.
+- [`airplay_shared`](#shared-airplay-settings) - Settings shared across AirPlay devices.
+- [`airplay`](#per-airplay-device-settings) - Settings for a specific AirPlay device.
 - [`chromecast`](#per-chromecast-device-settings) - Settings for a specific Chromecast device.
 - [`spotify`](#spotify-settings) - Settings for the Spotify playback.
 - [`rcp`](#rcp--roku-soundbridge-settings) - Settings for RCP / Roku Soundbridge devices.
@@ -740,7 +740,7 @@ The `audio` section is meant to configure the local audio output. It accepts the
   mixer_device = "<mixer-device>"
   ```
 
-- `sync_disable` - Flag to indicate whether or not audio resampling has to be enabled to keep local audio in sync with, for example, Airplay.
+- `sync_disable` - Flag to indicate whether or not audio resampling has to be enabled to keep local audio in sync with, for example, AirPlay.
 
   **Note:** This feature relies on accurate ALSA measurements of delay, and some devices don't provide that. If that is the case you are better off disabling the feature.
 
@@ -750,7 +750,7 @@ The `audio` section is meant to configure the local audio output. It accepts the
   sync_disable = <true|false>
   ```
 
-- `offset_ms` - Start delay in milliseconds relatively to other speakers, for example Airplay.
+- `offset_ms` - Start delay in milliseconds relatively to other speakers, for example AirPlay.
 
   **Note:** Negative values correspond to moving local audio ahead, positive correspond to delaying it.
 
@@ -808,7 +808,7 @@ Each `alsa` section is meant to configure a named ALSA output: one named section
   mixer_device = "<mixer-device>"
   ```
 
-- `offset_ms` - Start delay in milliseconds relatively to other speakers, for example Airplay.
+- `offset_ms` - Start delay in milliseconds relatively to other speakers, for example AirPlay.
 
   **Note:** Negative values correspond to moving local audio ahead, positive correspond to delaying it.
 
@@ -856,7 +856,7 @@ airplay_shared {
 
 The `airplay_shared` section describes the settings that are shared across all the AirPlay devices.
 
-- `control_port` - Number of the UDP control port used when Airplay devices make connections back to OwnTone.
+- `control_port` - Number of the UDP control port used when AirPlay devices make connections back to OwnTone.
 
   **Note:** Choosing specific ports may be helpful when running OwnTone behind a firewall.
 
@@ -866,7 +866,7 @@ The `airplay_shared` section describes the settings that are shared across all t
   control_port = 0
   ```
 
-- `timing_port` - Number of the UDP timing port used when Airplay devices make connections back to OwnTone.
+- `timing_port` - Number of the UDP timing port used when AirPlay devices make connections back to OwnTone.
 
   **Note:** Choosing specific ports may be helpful when running OwnTone behind a firewall.
 
@@ -876,7 +876,7 @@ The `airplay_shared` section describes the settings that are shared across all t
   timing_port = 0
   ```
 
-- `uncompressed_alac` - Switch Airplay 1 streams to uncompressed ALAC (as opposed to regular, compressed ALAC). Reduces CPU use at the cost of network bandwidth.
+- `uncompressed_alac` - Switch AirPlay 1 streams to uncompressed ALAC (as opposed to regular, compressed ALAC). Reduces CPU use at the cost of network bandwidth.
 
   **Default:** `false`
 
@@ -892,7 +892,7 @@ airplay "<airplay-device>" {
 }
 ```
 
-Each `airplay` section is meant to configure a named Airplay output: one named section per device. It accepts the settings below.
+Each `airplay` section is meant to configure a named AirPlay output: one named section per device. It accepts the settings below.
 
 **Note:** The capitalisation of the device name is relevant.
 

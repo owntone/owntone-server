@@ -1,4 +1,4 @@
-# Playlists and internet radio
+# Playlists and Radio
 
 OwnTone supports M3U and PLS playlists. Just drop your playlist somewhere
 in your library with an .m3u or .pls extension and it will pick it up.
