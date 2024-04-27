@@ -9,7 +9,7 @@ import vue from '@vitejs/plugin-vue'
  *
  * export VITE_OWNTONE_URL=http://owntone.local:3689; npm run serve
  */
-const owntoneUrl = process.env.VITE_OWNTONE_URL ?? 'http://localhost:3689'
+const target = process.env.VITE_OWNTONE_URL ?? 'http://localhost:3689'
 
 export default defineConfig({
   build: {
@@ -31,15 +31,9 @@ export default defineConfig({
   resolve: { alias: { '@': '/src' } },
   server: {
     proxy: {
-      '/api': {
-        target: owntoneUrl
-      },
-      '/artwork': {
-        target: owntoneUrl
-      },
-      '/stream.mp3': {
-        target: owntoneUrl
-      }
+      '/api': { target },
+      '/artwork': { target },
+      '/stream.mp3': { target }
     }
   }
 })
