@@ -18,7 +18,7 @@ const createComparators = (criteria) =>
       case Date:
         return (a, b) => dateComparator(a[field], b[field]) * order
       default:
-        return (a, b) => 0
+        return () => 0
     }
   })
 
@@ -61,7 +61,7 @@ const createIndexer = ({ field, type } = {}) => {
     case 'Digits':
       return (item) => numberIndex(item[field])
     default:
-      return (item) => NO_INDEX
+      return () => NO_INDEX
   }
 }
 

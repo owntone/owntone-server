@@ -29,10 +29,10 @@ export default {
     this.context = new (window.AudioContext || window.webkitAudioContext)()
     const source = this.context.createMediaElementSource(this.audio)
     source.connect(this.context.destination)
-    this.audio.addEventListener('canplaythrough', (event) => {
+    this.audio.addEventListener('canplaythrough', () => {
       this.audio.play()
     })
-    this.audio.addEventListener('canplay', (event) => {
+    this.audio.addEventListener('canplay', () => {
       this.audio.play()
     })
     return this.audio
