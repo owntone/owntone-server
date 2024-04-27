@@ -158,7 +158,7 @@
                   <a href="https://vuejs.org/">Vue.js</a>
                 </template>
                 <template #axios>
-                  <a href="https://github.com/mzabriskie/axios">axios</a>
+                  <a href="https://github.com/axios/axios">axios</a>
                 </template>
                 <template #others>
                   <a
