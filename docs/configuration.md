@@ -49,840 +49,995 @@ section {
 
 ```conf
 general {
-  ...
+  …
 }
 ```
 
 The `general` section accepts the settings below.
 
-- `uid` - Identifier of the user running OwnTone.
+### uid
 
-  **Notes:**
+Identifier of the user running OwnTone.
 
-  - Make sure that this user has read access to the `directories` ([`library`](#library-settings) section) section and write access to the database (`db_path`), log file (`logfile`) and local audio ([`audio`](#local-audio-settings) section).
-  - This setting is mandatory.
+**Notes:**
 
-  **Default:** `"nobody"`
+- Make sure that this user has read access to the `directories` ([`library`](#library-settings) section) section and write access to the database (`db_path`), log file (`logfile`) and local audio ([`audio`](#local-audio-settings) section).
+- This setting is mandatory.
 
-  ```conf
-  uid = "<user-identifier>"
-  ```
+**Default:** `"nobody"`
 
-- `db_path` - Full path to the database file.
+```conf
+uid = "<user-identifier>"
+```
 
-  **Note:** This setting is mandatory.
+### db_path
 
-  **Default:** `"/var/cache/owntone/songs3.db"`
+Full path to the database file.
 
-  ```conf
-  db_path = "<path-to-database-file>"
-  ```
+**Note:** This setting is mandatory.
 
-- `db_backup_path` - Full path to the database file backup.
+**Default:** `"/var/cache/owntone/songs3.db"`
 
-  **Note:** Backups are triggered from an API endpoint.
+```conf
+db_path = "<path-to-database-file>"
+```
 
-  **Default:** unset
+### db_backup_path
 
-  ```conf
-  db_backup_path = "<path-to-database-backup-file>"
-  ```
+Full path to the database file backup.
 
-- `logfile` - Full path to the log file.
+**Note:** Backups are triggered from an API endpoint.
 
-  **Default:** `"/var/log/owntone.log"`
+**Default:** unset
 
-  ```conf
-  logfile = "<path-to-log-file>"
-  ```
+```conf
+db_backup_path = "<path-to-database-backup-file>"
+```
 
-- `loglevel` - Level of verbosity of the logging.
+### logfile
 
-  **Note:** There are 6 levels of verbosity (hereunder from the less verbose to the most verbose). The level `log` is recommended for regular usage.
+Full path to the log file.
 
-  **Valid values:** `fatal`, `log`, `warning`, `info`, `debug`, `spam`
+**Default:** `"/var/log/owntone.log"`
 
-  **Default:** `"log"`
+```conf
+logfile = "<path-to-log-file>"
+```
 
-  ```conf
-  loglevel = "<fatal|log|warning|info|debug|spam>"
-  ```
+### loglevel
 
-- `admin_password` - Password for the web interface.
+Level of verbosity of the logging.
 
-  **Note:** If a user is accessing the web interface from a device located in one of the `trusted_networks`, no password is required.
+**Note:** There are 6 levels of verbosity (hereunder from the less verbose to the most verbose). The level `log` is recommended for regular usage.
 
-  **Default:** unset
+**Valid values:** `fatal`, `log`, `warning`, `info`, `debug`, `spam`
 
-  ```conf
-  admin_password = "<password>"
-  ```
+**Default:** `"log"`
 
-- `websocket_port` - Port number used to answer requests from the web interface.
+```conf
+loglevel = "<fatal|log|warning|info|debug|spam>"
+```
 
-  **Default:** `3688`
+### admin_password
 
-  ```conf
-  websocket_port = <port-number>
-  ```
+Password for the web interface.
 
-- `websocket_interface` - Network interface on which the web socket is listening: e.g., eth0, en0.
+**Note:** If a user is accessing the web interface from a device located in one of the `trusted_networks`, no password is required.
 
-  **Note:** When this setting is unset, it means that the web socket listens on all available interfaces.
+**Default:** unset
 
-  **Default:** unset
+```conf
+admin_password = "<password>"
+```
 
-  ```conf
-  websocket_interface = "<interface>"
-  ```
+### websocket_port
 
-- `trusted_networks` - List of networks considered safe to access OwnTone without authorisation (see also `admin_password`).
+Port number used to answer requests from the web interface.
 
-  **Note:** This applies to these client types: remotes, DAAP clients (e.g., Apple Music, iTunes) and the web interface.
+**Default:** `3688`
 
-  **Valid values:** `any`, `localhost`, or the prefix to one or more IP networks.
+```conf
+websocket_port = <port-number>
+```
 
-  **Default:** `{ "localhost", "192.168", "fd" }`
+### websocket_interface
 
-  ```conf
-  trusted_networks = { <"any"|"localhost"|"ip-range-prefix">, <...> }
-  ```
+Network interface on which the web socket is listening: e.g., eth0, en0.
 
-- `ipv6` - Flag to indicate whether or not IPv6 must used.
+**Note:** When this setting is unset, it means that the web socket listens on all available interfaces.
 
-  **Default:** `true`
+**Default:** unset
 
-  ```conf
-  ipv6 = <true|false>
-  `
-  ```
+```conf
+websocket_interface = "<interface>"
+```
 
-- `bind_address` - Specific IP address to which the server is bound.
+### trusted_networks
 
-  **Note:** It can be an IPv4 or IPv6 address and by default the server listens on all IP addresses.
+List of networks considered safe to access OwnTone without authorisation (see also `admin_password`).
 
-  **Default:** unset
+**Note:** This applies to these client types: remotes, DAAP clients (e.g., Apple Music, iTunes) and the web interface.
 
-  ```conf
-  bind_address = "<ip-address>"
-  ```
+**Valid values:** `any`, `localhost`, or the prefix to one or more IP networks.
 
-- `cache_path` - Full path to the cache database file.
+**Default:** `{ "localhost", "192.168", "fd" }`
 
-  **Default:** unset
+```conf
+trusted_networks = { <"any"|"localhost"|"ip-range-prefix">, <...> }
+```
 
-  ```conf
-  cache_path = "<path-to-database-cache-file>"
-  ```
+### ipv6
 
-- `cache_daap_threshold` - Threshold in milliseconds for DAAP requests.
+Flag to indicate whether or not IPv6 must used.
 
-  **Note:** Set to `0` to disable caching.
+**Default:** `true`
 
-  **Default:** `1000`
+```conf
+ipv6 = <true|false>
+```
 
-  ```conf
-  cache_daap_threshold = <threshold>
-  ```
+### bind_address
 
-- `speaker_autoselect` - Flag to automatically select the speaker when starting the playback if none of the previously selected speakers / outputs are available.
+Specific IP address to which the server is bound.
 
-  **Default:** `false`
+**Note:** It can be an IPv4 or IPv6 address and by default the server listens on all IP addresses.
 
-  ```conf
-  speaker_autoselect = <true|false>
-  ```
+**Default:** unset
 
-- `high_resolution_clock` - Flag to indicate whether or not the high-resolution clock must be set.
+```conf
+bind_address = "<ip-address>"
+```
 
-  **Note:** Most modern operating systems have a high-resolution clock, but if OwnTone is running on an unusual platform and drop-outs are experienced, this setting set to `true`.
+### cache_path
 
-  **Default:** `false` on FreeBSD-based operating systems, `true` otherwise
+Full path to the cache database file.
 
-  ```conf
-  high_resolution_clock = <true|false>
-  ```
+**Default:** unset
+
+```conf
+cache_path = "<path-to-database-cache-file>"
+```
+
+### cache_daap_threshold
+
+Threshold in milliseconds for DAAP requests.
+
+**Note:** Set to `0` to disable caching.
+
+**Default:** `1000`
+
+```conf
+cache_daap_threshold = <threshold>
+```
+
+### speaker_autoselect
+
+Flag to automatically select the speaker when starting the playback if none of the previously selected speakers / outputs are available.
+
+**Default:** `false`
+
+```conf
+speaker_autoselect = <true|false>
+```
+
+### high_resolution_clock
+
+Flag to indicate whether or not the high-resolution clock must be set.
+
+**Note:** Most modern operating systems have a high-resolution clock, but if OwnTone is running on an unusual platform and drop-outs are experienced, this setting set to `true`.
+
+**Default:** `false` on FreeBSD-based operating systems, `true` otherwise
+
+```conf
+high_resolution_clock = <true|false>
+```
 
 ## Library Settings
 
 ```conf
 library {
-  ...
+  …
 }
 ```
 
 The `library` section accepts the settings below.
 
-- `name` - Name of the library as displayed by the clients.
+### name
 
-  **Notes:**
+Name of the library as displayed by the clients.
 
-  - If you change the name after pairing with Remote you may have to redo the pairing.
-  - The place holder `%h` can be used to display the hostname.
+**Notes:**
 
-  **Default:** `"My Music on %h"`
+- If you change the name after pairing with Remote you may have to redo the pairing.
+- The place holder `%h` can be used to display the hostname.
 
-  ```conf
-  name = "<library-name>"
-  `
-  ```
+**Default:** `"My Music on %h"`
 
-- `port` - TCP port to listen on.
+```conf
+name = "<library-name>"
+```
 
-  **Default:** `3689`
+### port
 
-  ```conf
-  port = 3689
-  ```
+TCP port to listen on.
 
-- `password` - Password for the library.
+**Default:** `3689`
 
-  **Default:** unset
+```conf
+port = 3689
+```
 
-  ```conf
-  password = "<password>"
-  ```
+### password
 
-- `directories` - Path to the directories containing the media to index.
+Password for the library.
 
-  **Default:** unset
+**Default:** unset
 
-  ```conf
-  directories = { "<path-to-media>", "<...>" }
-  ```
+```conf
+password = "<password>"
+```
 
-- `follow_symlinks` - Flag to indicate whether or not symbolic links must be followed.
+### directories
 
-  **Default:** `true`.
+Path to the directories containing the media to index.
 
-  ```conf
-  follow_symlinks = <true|false>
-  ```
+**Default:** unset
 
-- `podcasts` - List of directories containing podcasts.
+```conf
+directories = { "<path-to-media>", "<...>" }
+```
 
-  **Note:** For each directory that is indexed, the path is matched against these names. If there is a match, all items in the directory are marked as podcasts. If you index `/srv/music`, and your podcasts are in `/srv/music/Podcasts`, then you can set this to `{ "/Podcasts" }`. Changing this setting only takes effect after a rescan.
+### follow_symlinks
 
-  **Default:** unset
+Flag to indicate whether or not symbolic links must be followed.
 
-  ```conf
-  podcasts = { "<podcast-directory>", "<...>" }
-  ```
+**Default:** `true`.
 
-- `audiobooks` - List of directories containing audiobooks.
+```conf
+follow_symlinks = <true|false>
+```
 
-  **Note:** For each directory that is indexed, the path is matched against these names. If there is a match, all items in the directory are marked as audiobooks. If you index `/srv/music`, and your podcasts are in `/srv/music/Audiobooks`, then you can set this to `{ "/Audiobooks" }`.Changing this setting only takes effect after a rescan.
+### podcasts
 
-  **Default:** unset
+List of directories containing podcasts.
 
-  ```conf
-  audiobooks = { "/Audiobooks" }
-  ```
+**Note:** For each directory that is indexed, the path is matched against these names. If there is a match, all items in the directory are marked as podcasts. If you index `/srv/music`, and your podcasts are in `/srv/music/Podcasts`, then you can set this to `{ "/Podcasts" }`. Changing this setting only takes effect after a rescan.
 
-- `compilations` - List of directories containing compilations: e.g., greatest hits, best of, soundtracks.
+**Default:** unset
 
-  **Note:** For each directory that is indexed, the path is matched against these names. If there is a match, all items in the directory are marked as compilations.Changing this setting only takes effect after a rescan.
+```conf
+podcasts = { "<podcast-directory>", "<...>" }
+```
 
-  **Default:** unset
+### audiobooks
 
-  ```conf
-  compilations = { "/Compilations" }
-  ```
+List of directories containing audiobooks.
 
-- `compilation_artist` - Artist name of compilation albums.
+**Note:** For each directory that is indexed, the path is matched against these names. If there is a match, all items in the directory are marked as audiobooks. If you index `/srv/music`, and your podcasts are in `/srv/music/Audiobooks`, then you can set this to `{ "/Audiobooks" }`.Changing this setting only takes effect after a rescan.
 
-  **Note:** Compilations usually have multiple artists, and sometimes may have no album artist. If you don't want every artist to be listed, you can set a single name which will be used for all compilation tracks without an album artist, and for all tracks in the compilation directories. Changing this setting only takes effect after a rescan.
+**Default:** unset
 
-  **Default:** unset
+```conf
+audiobooks = { "/Audiobooks" }
+```
 
-  ```conf
-  compilation_artist = "<various-artists>"
-  ```
+### compilations
 
-- `hide_singles` - Flag to indicate whether or not single albums must be hidden.
+List of directories containing compilations: e.g., greatest hits, best of, soundtracks.
 
-  **Note:** If your album and artist lists are cluttered, you can choose to hide albums and artists with only one track. The tracks will still be visible in other lists, e.g., tracks and playlists. This setting currently only works with some remotes.
+**Note:** For each directory that is indexed, the path is matched against these names. If there is a match, all items in the directory are marked as compilations.Changing this setting only takes effect after a rescan.
 
-  **Default:** `false`
+**Default:** unset
 
-  ```conf
-  hide_singles = <true|false>
-  `
-  ```
+```conf
+compilations = { "/Compilations" }
+```
 
-- `radio_playlists` - Flag to show internet streams in normal playlists.
+### compilation_artist
 
-  **Note:** By default the internet streams are shown in the "Radio" library, like iTunes does. However, some clients (like TunesRemote+) won't show the "Radio" library.
+Artist name of compilation albums.
 
-  **Default:** `false`
+**Note:** Compilations usually have multiple artists, and sometimes may have no album artist. If you don't want every artist to be listed, you can set a single name which will be used for all compilation tracks without an album artist, and for all tracks in the compilation directories. Changing this setting only takes effect after a rescan.
 
-  ```conf
-  radio_playlists = <true|false>
-  ```
+**Default:** unset
 
-- `name_library` - Name of the default playlist _Library_.
+```conf
+compilation_artist = "<various-artists>"
+```
 
-  **Note:** This is a default playlist, which can be renamed with this setting.
+### hide_singles
 
-  **Default:** `"Library"`
+Flag to indicate whether or not single albums must be hidden.
 
-  ```conf
-  name_library = "<library-playlist-name>"
-  ```
+**Note:** If your album and artist lists are cluttered, you can choose to hide albums and artists with only one track. The tracks will still be visible in other lists, e.g., tracks and playlists. This setting currently only works with some remotes.
 
-- `name_music` - Name of the default playlist _Music_.
+**Default:** `false`
 
-  **Note:** This is a default playlist, which can be renamed with this setting.
+```conf
+hide_singles = <true|false>
+```
 
-  **Default:** `"Music"`
+### radio_playlists
 
-  ```conf
-  name_music = "<music-playlist-name>"
-  ```
+Flag to show internet streams in normal playlists.
 
-- `name_movies` - Name of the default playlist _Movies_.
+**Note:** By default the internet streams are shown in the "Radio" library, like iTunes does. However, some clients (like TunesRemote+) won't show the "Radio" library.
 
-  **Note:** This is a default playlist, which can be renamed with this setting.
+**Default:** `false`
 
-  **Default:** `"Movies"`
+```conf
+radio_playlists = <true|false>
+```
 
-  ```conf
-  name_movies = "<movies-playlist-name>"
-  ```
+### name_library
 
-- `name_tvshows` - Name of the default playlist _TV Shows_.
+Name of the default playlist _Library_.
 
-  **Note:** This is a default playlist, which can be renamed with this setting.
+**Note:** This is a default playlist, which can be renamed with this setting.
 
-  **Default:** `"TV Shows"`
+**Default:** `"Library"`
 
-  ```conf
-  name_tvshows = "<tv-shows-playlist-name>"
-  ```
+```conf
+name_library = "<library-playlist-name>"
+```
 
-- `name_podcasts` - Name of the default playlist _Podcasts_.
+### name_music
 
-  **Note:** This is a default playlist, which can be renamed with this setting.
+Name of the default playlist _Music_.
 
-  **Default:** `"Podcasts"`
+**Note:** This is a default playlist, which can be renamed with this setting.
 
-  ```conf
-  name_podcasts = "<podcasts-playlist-name>"
-  ```
+**Default:** `"Music"`
 
-- `name_audiobooks` - Name of the default playlist _Audiobooks_.
+```conf
+name_music = "<music-playlist-name>"
+```
 
-  **Note:** This is a default playlist, which can be renamed with this setting.
+### name_movies
 
-  **Default:** `"Audiobooks"`
+Name of the default playlist _Movies_.
 
-  ```conf
-  name_audiobooks = "<audiobooks-playlist-name>"
-  ```
+**Note:** This is a default playlist, which can be renamed with this setting.
 
-- `name_radio` - Name of the default playlist _Radio_.
+**Default:** `"Movies"`
 
-  **Note:** This is a default playlist, which can be renamed with this setting.
+```conf
+name_movies = "<movies-playlist-name>"
+```
 
-  **Default:** `"Radio"`
+### name_tvshows
 
-  ```conf
-  name_radio = "<radio-playlist-name>"
-  ```
+Name of the default playlist _TV Shows_.
 
-- `name_unknown_title` - Name of tracks having an undefined title.
+**Note:** This is a default playlist, which can be renamed with this setting.
 
-  **Default:** `"Unknown title"`
+**Default:** `"TV Shows"`
 
-  ```conf
-  name_unknown_title = "<unknown-title-name>"
-  ```
+```conf
+name_tvshows = "<tv-shows-playlist-name>"
+```
 
-- `name_unknown_artist` - Name of artist having an undefined name.
+### name_podcasts
 
-  **Default:** `"Unknown artist"`
+Name of the default playlist _Podcasts_.
 
-  ```conf
-  name_unknown_artist = "<unknown-artist-name>"
-  ```
+**Note:** This is a default playlist, which can be renamed with this setting.
 
-- `name_unknown_album` - Name of album having an undefined title.
+**Default:** `"Podcasts"`
 
-  **Default:** `"Unknown album"`
+```conf
+name_podcasts = "<podcasts-playlist-name>"
+```
 
-  ```conf
-  name_unknown_album = "<unknown-album-name>"
-  ```
+### name_audiobooks
 
-- `name_unknown_genre` - Name of genre having an undefined name.
+Name of the default playlist _Audiobooks_.
 
-  **Default:** `"Unknown genre"`
+**Note:** This is a default playlist, which can be renamed with this setting.
 
-  ```conf
-  name_unknown_genre = "<unknown-genre-name>"
-  ```
+**Default:** `"Audiobooks"`
 
-- `name_unknown_composer` - Name of composer having an undefined name.
+```conf
+name_audiobooks = "<audiobooks-playlist-name>"
+```
 
-  **Default:** `"Unknown composer"`
+### name_radio
 
-  ```conf
-  name_unknown_composer = "<unknown-composer-name>"
-  ```
+Name of the default playlist _Radio_.
 
-- `artwork_basenames` - List of base names for artwork files (file names without extension).
+**Note:** This is a default playlist, which can be renamed with this setting.
 
-  **Note:**
+**Default:** `"Radio"`
 
-  - OwnTone searches for JPEG and PNG files with these base names.
-  - More information regarding artwork can be found [here](artwork.md).
+```conf
+name_radio = "<radio-playlist-name>"
+```
 
-  **Default:** `{ "artwork", "cover", "Folder" }`
+### name_unknown_title
 
-  ```conf
-  artwork_basenames = { "<file-name>", "<...>" }
-  ```
+Name of tracks having an undefined title.
 
-- `artwork_individual` - Flag to indicate whether or not the search for artwork corresponding to each individual media file must be done instead of only looking for the album artwork.
+**Default:** `"Unknown title"`
 
-  **Notes:**
+```conf
+name_unknown_title = "<unknown-title-name>"
+```
 
-  - Disable this setting to reduce cache size.
-  - More information regarding artwork can be found [here](artwork.md).
+### name_unknown_artist
 
-  **Default:** `false`
+Name of artist having an undefined name.
 
-  ```conf
-  artwork_individual = <true|false>
-  ```
+**Default:** `"Unknown artist"`
 
-- `artwork_online_sources` - List of online resources for artwork.
+```conf
+name_unknown_artist = "<unknown-artist-name>"
+```
 
-  **Notes:**
+### name_unknown_album
 
-  - More information regarding artwork can be found [here](artwork.md).
+Name of album having an undefined title.
 
-  **Default:** unset
+**Default:** `"Unknown album"`
 
-  ```conf
-  artwork_online_sources = { "<link-to-source>", "<...>"}
-  ```
+```conf
+name_unknown_album = "<unknown-album-name>"
+```
 
-- `filetypes_ignore` - List of file types ignored by the scanner.
+### name_unknown_genre
 
-  **Note:** Non-audio files will never be added to the database, but here you can prevent the scanner from even probing them. This might reduce scan time.
+Name of genre having an undefined name.
 
-  **Default:** `{ ".db", ".ini", ".db-journal", ".pdf", ".metadata" }`
+**Default:** `"Unknown genre"`
 
-  ```conf
-  filetypes_ignore = { "<extension>", "<...>" }
-  ```
+```conf
+name_unknown_genre = "<unknown-genre-name>"
+```
 
-- `filepath_ignore` - List of paths ignored by the scanner.
+### name_unknown_composer
 
-  **Note:** If you want to exclude files on a more advanced basis you can enter one or more POSIX regular expressions, and any file with a matching path will be ignored.
+Name of composer having an undefined name.
 
-  **Default:** unset
+**Default:** `"Unknown composer"`
 
-  ```conf
-  filepath_ignore = { "<path|regular-expression>" }
-  ```
+```conf
+name_unknown_composer = "<unknown-composer-name>"
+```
 
-- `filescan_disable` - Flag to indicate whether or not the startup file scanning must be disabled.
+### artwork_basenames
 
-  **Note:** When OwnTone starts it will do an initial file scan of the library and then watch it for changes. If you are sure your library never changes while OwnTone is not running, you can disable the initial file scan and save some system ressources. Disabling this scan may lead to OwnTone's database coming out of sync with the library. If that happens read the instructions in the README on how to trigger a rescan.
+List of base names for artwork files (file names without extension).
 
-  **Default:** `false`
+**Note:**
 
-  ```conf
-  filescan_disable = <true|false>
-  ```
+- OwnTone searches for JPEG and PNG files with these base names.
+- More information regarding artwork can be found [here](artwork.md).
 
-- `only_first_genre` - Flag to indicate whether or not the first genre only found in metadata must be displayed.
+**Default:** `{ "artwork", "cover", "Folder" }`
 
-  **Note:** Some tracks have multiple genres separated by semicolon in the same tag, e.g., 'Pop;Rock'. If you don't want them listed like this, you can enable this setting and only the first genre will be used (i.e. 'Pop').
+```conf
+artwork_basenames = { "<file-name>", "<...>" }
+```
 
-  **Default:** `false`
+### artwork_individual
 
-  ```conf
-  only_first_genre = <true|false>
-  ```
+Flag to indicate whether or not the search for artwork corresponding to each individual media file must be done instead of only looking for the album artwork.
 
-- `m3u_overrides` - Flag to indicate whether or not the metadata provided by radio streams must be overridden by metadata from m3u playlists, e.g., artist and title in EXTINF.
+**Notes:**
 
-  **Default:** `false`
+- Disable this setting to reduce cache size.
+- More information regarding artwork can be found [here](artwork.md).
 
-  ```conf
-  m3u_overrides = <true|false>
-  ```
+**Default:** `false`
 
-- `itunes_overrides` - Flag to indicate whether or not the library metadata must be overridden by iTunes metadata.
+```conf
+artwork_individual = <true|false>
+```
 
-  **Default:** `false`
+### artwork_online_sources
 
-  ```conf
-  itunes_overrides = <true|false>
-  ```
+List of online resources for artwork.
 
-- `itunes_smartpl` - Flag to import Should we import the content of iTunes smart playlists.
+**Notes:**
 
-  **Default:** `false`
+- More information regarding artwork can be found [here](artwork.md).
 
-  ```conf
-  itunes_smartpl = <true|false>
-  ```
+**Default:** unset
 
-- `no_decode` - List of formats that are never decoded.
+```conf
+artwork_online_sources = { "<link-to-source>", "<...>"}
+```
 
-  **Note:** Decoding options for DAAP and RSP clients. Since iTunes has native support for mpeg, mp4a, mp4v, alac and wav, such files will be sent as they are. Any other formats will be decoded to raw wav. If OwnTone detects a non-iTunes DAAP client, it is assumed to only support mpeg and wav, other formats will be decoded. Here you can change when to decode. Note that these settings only affect serving media to DAAP and RSP clients, they have no effect on direct AirPlay, Chromecast and local audio playback
+### filetypes_ignore
 
-  **Valid values:** `mp4a`, `mp4v`, `mpeg`, `alac`, `flac`, `mpc`, `ogg`, `wma`, `wmal`, `wmav`, `aif`, `wav`.
+List of file types ignored by the scanner.
 
-  **Default:** unset
+**Note:** Non-audio files will never be added to the database, but here you can prevent the scanner from even probing them. This might reduce scan time.
 
-  ```conf
-  no_decode = { "<format>", "<...>" }
-  ```
+**Default:** `{ ".db", ".ini", ".db-journal", ".pdf", ".metadata" }`
 
-- `force_decode` - List of formats that are always decoded.
+```conf
+filetypes_ignore = { "<extension>", "<...>" }
+```
 
-  **Note:** See note for `no_decode` setting.
+### filepath_ignore
 
-  **Valid values:** `mp4a`, `mp4v`, `mpeg`, `alac`, `flac`, `mpc`, `ogg`, `wma`, `wmal`, `wmav`, `aif`, `wav`.
+List of paths ignored by the scanner.
 
-  **Default:** unset
+**Note:** If you want to exclude files on a more advanced basis you can enter one or more POSIX regular expressions, and any file with a matching path will be ignored.
 
-  ```conf
-  force_decode = { "<format>", "<...>" }
-  ```
+**Default:** unset
 
-- `prefer_format` - Preferred format to be used.
+```conf
+filepath_ignore = { "<path|regular-expression>" }
+```
 
-  **Default:** unset
+### filescan_disable
 
-  ```conf
-  prefer_format = "<format>"
-  ```
+Flag to indicate whether or not the startup file scanning must be disabled.
 
-- `decode_audio_filters` - List of audio filters used at decoding time.
+**Note:** When OwnTone starts it will do an initial file scan of the library and then watch it for changes. If you are sure your library never changes while OwnTone is not running, you can disable the initial file scan and save some system ressources. Disabling this scan may lead to OwnTone's database coming out of sync with the library. If that happens read the instructions in the README on how to trigger a rescan.
 
-  **Note:** These filters are ffmpeg filters: i.e. similar to those specified on the command line `ffmpeg -af <filter>`. Examples: `"volume=replaygain=track"` to use replay gain of the track metadata, or `loudnorm=I=-16:LRA=11:TP=-1.5` to normalise volume.
+**Default:** `false`
 
-  **Default:** unset
+```conf
+filescan_disable = <true|false>
+```
 
-  ```conf
-  decode_audio_filters = { "<filter>" }
-  ```
+### only_first_genre
 
-- `decode_video_filters` - List of video filters used at decoding time.
+Flag to indicate whether or not the first genre only found in metadata must be displayed.
 
-  **Note:** These filters are ffmpeg filters: i.e. similar to those specified on the command line `ffmpeg -vf <filter>`.
+**Note:** Some tracks have multiple genres separated by semicolon in the same tag, e.g., 'Pop;Rock'. If you don't want them listed like this, you can enable this setting and only the first genre will be used (i.e. 'Pop').
 
-  **Default:** unset
+**Default:** `false`
 
-  ```conf
-  decode_video_filters = { "<filter>" }
-  ```
+```conf
+only_first_genre = <true|false>
+```
 
-- `pipe_autostart` - Flag to indicate whether or not named pipes must start automatically when data is provided.
+### m3u_overrides
 
-  **Note:** To exclude specific pipes from watching, consider using the `filepath_ignore` setting.
+Flag to indicate whether or not the metadata provided by radio streams must be overridden by metadata from m3u playlists, e.g., artist and title in EXTINF.
 
-  ```conf
-  pipe_autostart = true
-  ```
+**Default:** `false`
 
-- `pipe_sample_rate` - Sampling rate of the pipe.
+```conf
+m3u_overrides = <true|false>
+```
 
-  **Default:** `44100`.
+### itunes_overrides
 
-  ```conf
-  pipe_sample_rate = <integer>
-  ```
+Flag to indicate whether or not the library metadata must be overridden by iTunes metadata.
 
-- `pipe_bits_per_sample` - Bits per sample of the pipe.
+**Default:** `false`
 
-  **Default:** `16`.
+```conf
+itunes_overrides = <true|false>
+```
 
-  ```conf
-  pipe_bits_per_sample = <integer>
-  ```
+### itunes_smartpl
 
-- `rating_updates` - Flag to indicate whether or not ratings are automatically updated.
+Flag to import Should we import the content of iTunes smart playlists.
 
-  **Note:** When enabled, the rating is automatically updated after a song has either been played or skipped (only skipping to the next song is taken into account). The calculation is taken from the beets plugin "mpdstats" (see [here](https://beets.readthedocs.io/en/latest/plugins/mpdstats.html)). It consists of calculating a stable rating based only on the play and skip count and a rolling rating based on the current rating and the action (played or skipped). Both results are combined with a mix factor of 0.75. **Formula:** new rating = 0.75 × stable rating + 0.25 × rolling rating
+**Default:** `false`
 
-  **Default:** `false`
+```conf
+itunes_smartpl = <true|false>
+```
 
-  ```conf
-  rating_updates = <true|false>
-  ```
+### no_decode
 
-- `read_rating` - Flag to indicate whether or not the rating is read from media file metadata.
+List of formats that are never decoded.
 
-  **Default:** `false`
+**Note:** Decoding options for DAAP and RSP clients. Since iTunes has native support for mpeg, mp4a, mp4v, alac and wav, such files will be sent as they are. Any other formats will be decoded to raw wav. If OwnTone detects a non-iTunes DAAP client, it is assumed to only support mpeg and wav, other formats will be decoded. Here you can change when to decode. Note that these settings only affect serving media to DAAP and RSP clients, they have no effect on direct AirPlay, Chromecast and local audio playback
 
-  ```conf
-  read_rating = <true|false>
-  ```
+**Valid values:** `mp4a`, `mp4v`, `mpeg`, `alac`, `flac`, `mpc`, `ogg`, `wma`, `wmal`, `wmav`, `aif`, `wav`.
 
-- `write_rating` - Flag to indicate whether or not the rating is written back to the file metadata.
+**Default:** unset
 
-  **Note:** By default, ratings are only saved in the database. To avoid excessive writing to the library, automatic rating updates are not written, even with the write_rating setting enabled.
+```conf
+no_decode = { "<format>", "<...>" }
+```
 
-  **Default:** `false`
+### force_decode
 
-  ```conf
-  write_rating = <true|false>
-  ```
+List of formats that are always decoded.
 
-- `max_rating` - Scale used when reading and writing ratings to media files.
+**Note:** See note for `no_decode` setting.
 
-  **Default:** `100`
+**Valid values:** `mp4a`, `mp4v`, `mpeg`, `alac`, `flac`, `mpc`, `ogg`, `wma`, `wmal`, `wmav`, `aif`, `wav`.
 
-  ```conf
-  max_rating = <integer>
-  ```
+**Default:** unset
 
-- `allow_modifying_stored_playlists` - Flag to indicate whether or not M3U playlists can be created, modified, or deleted in the playlist directories.
+```conf
+force_decode = { "<format>", "<...>" }
+```
 
-  **Note:** This setting is only supported through the web interface and some MPD clients.
+### prefer_format
 
-  **Default:** `false`
+Preferred format to be used.
 
-  ```conf
-  allow_modifying_stored_playlists = false
-  ```
+**Default:** unset
 
-- `default_playlist_directory` - Name of the directory in one of the library directories that will be used as the default playlist directory.
+```conf
+prefer_format = "<format>"
+```
 
-  **Note:** OwnTone creates new playlists in this directory. This setting requires `allow_modify_stored_playlists` set to true.
+### decode_audio_filters
 
-  **Default:** unset
+List of audio filters used at decoding time.
 
-  ```conf
-  default_playlist_directory = "<path-to-playlist-directory>"
-  ```
+**Note:** These filters are ffmpeg filters: i.e. similar to those specified on the command line `ffmpeg -af <filter>`. Examples: `"volume=replaygain=track"` to use replay gain of the track metadata, or `loudnorm=I=-16:LRA=11:TP=-1.5` to normalise volume.
 
-- `clear_queue_on_stop_disable` - Flag to indicate whether or not the queue is cleared when the playback is stopped.
+**Default:** unset
 
-  **Note:** By default OwnTone will, like iTunes, clear the play queue if playback stops. Setting clear_queue_on_stop_disable to true will keep the playlist like MPD does. Moreover, some dacp clients do not show the play queue if playback is stopped.
+```conf
+decode_audio_filters = { "<filter>" }
+```
 
-  **Default:** `false`
+### decode_video_filters
 
-  ```conf
-  clear_queue_on_stop_disable = <true|false>
-  ```
+List of video filters used at decoding time.
+
+**Note:** These filters are ffmpeg filters: i.e. similar to those specified on the command line `ffmpeg -vf <filter>`.
+
+**Default:** unset
+
+```conf
+decode_video_filters = { "<filter>" }
+```
+
+### pipe_autostart
+
+Flag to indicate whether or not named pipes must start automatically when data is provided.
+
+**Note:** To exclude specific pipes from watching, consider using the `filepath_ignore` setting.
+
+```conf
+pipe_autostart = true
+```
+
+### pipe_sample_rate
+
+Sampling rate of the pipe.
+
+**Default:** `44100`.
+
+```conf
+pipe_sample_rate = <integer>
+```
+
+### pipe_bits_per_sample
+
+Bits per sample of the pipe.
+
+**Default:** `16`
+
+```conf
+pipe_bits_per_sample = <integer>
+```
+
+### rating_updates
+
+Flag to indicate whether or not ratings are automatically updated.
+
+**Note:** When enabled, the rating is automatically updated after a song has either been played or skipped (only skipping to the next song is taken into account). The calculation is taken from the beets plugin "mpdstats" (see [here](https://beets.readthedocs.io/en/latest/plugins/mpdstats.html)). It consists of calculating a stable rating based only on the play and skip count and a rolling rating based on the current rating and the action (played or skipped). Both results are combined with a mix factor of 0.75. **Formula:** new rating = 0.75 × stable rating + 0.25 × rolling rating
+
+**Default:** `false`
+
+```conf
+rating_updates = <true|false>
+```
+
+### read_rating
+
+Flag to indicate whether or not the rating is read from media file metadata.
+
+**Default:** `false`
+
+```conf
+read_rating = <true|false>
+```
+
+### write_rating
+
+Flag to indicate whether or not the rating is written back to the file metadata.
+
+**Note:** By default, ratings are only saved in the database. To avoid excessive writing to the library, automatic rating updates are not written, even with the write_rating setting enabled.
+
+**Default:** `false`
+
+```conf
+write_rating = <true|false>
+```
+
+### max_rating
+
+Scale used when reading and writing ratings to media files.
+
+**Default:** `100`
+
+```conf
+max_rating = <integer>
+```
+
+### allow_modifying_stored_playlists
+
+Flag to indicate whether or not M3U playlists can be created, modified, or deleted in the playlist directories.
+
+**Note:** This setting is only supported through the web interface and some MPD clients.
+
+**Default:** `false`
+
+```conf
+allow_modifying_stored_playlists = false
+```
+
+### default_playlist_directory
+
+Name of the directory in one of the library directories that will be used as the default playlist directory.
+
+**Note:** OwnTone creates new playlists in this directory. This setting requires `allow_modify_stored_playlists` set to true.
+
+**Default:** unset
+
+```conf
+default_playlist_directory = "<path-to-playlist-directory>"
+```
+
+### clear_queue_on_stop_disable
+
+Flag to indicate whether or not the queue is cleared when the playback is stopped.
+
+**Note:** By default OwnTone will, like iTunes, clear the play queue if playback stops. Setting clear_queue_on_stop_disable to true will keep the playlist like MPD does. Moreover, some dacp clients do not show the play queue if playback is stopped.
+
+**Default:** `false`
+
+```conf
+clear_queue_on_stop_disable = <true|false>
+```
 
 ## Local Audio Settings
 
 ```conf
 audio {
-  ...
+  …
 }
 ```
 
 The `audio` section is meant to configure the local audio output. It accepts the settings below.
 
-- `nickname` - Name appearing in the speaker list.
+### nickname
 
-  **Default:** `"Computer"`
+Name appearing in the speaker list.
 
-  ```conf
-  nickname = "Computer"
-  ```
+**Default:** `"Computer"`
 
-- `type` - Type of the output.
+```conf
+nickname = "Computer"
+```
 
-  **Valid values:** `alsa`, `pulseaudio`, `dummy`, `disabled`
+### type
 
-  **Default:** unset
+Type of the output.
 
-  ```conf
-  type = "<alsa|pulseaudio|dummy|disabled>"
-  ```
+**Valid values:** `alsa`, `pulseaudio`, `dummy`, `disabled`
+
+**Default:** unset
+
+```conf
+type = "<alsa|pulseaudio|dummy|disabled>"
+```
 
 - `server` - For pulseaudio output, an optional server hostname or IP can be specified (e.g. "localhost"). If not set, connection is made via local socket.
 
-  **Default:** unset
+**Default:** unset
 
-  ```conf
-  server = "<hostname|ip-address>"
-  ```
+```conf
+server = "<hostname|ip-address>"
+```
 
 - `card` - Name of the local audio PCM device.
 
-  **Note:** ALSA only.
+**Note:** ALSA only.
 
-  **Default:** `"default"`
+**Default:** `"default"`
 
-  ```conf
-  card = "<device-name>"
-  ```
+```conf
+card = "<device-name>"
+```
 
-- `mixer` - Mixer channel used for volume control.
+### mixer
 
-  **Note:** Usable with ALSA only. If not set, PCM will be used if available, otherwise Master.
+Mixer channel used for volume control.
 
-  **Default:** unset
+**Note:** Usable with ALSA only. If not set, PCM will be used if available, otherwise Master.
 
-  ```conf
-  mixer = "<mixer>"
-  ```
+**Default:** unset
 
-- `mixer_device` - Name of the mixer device to use for volume control.
+```conf
+mixer = "<mixer>"
+```
 
-  **Note:** Usable with ALSA only.
+### mixer_device
 
-  **Default:** unset
+Name of the mixer device to use for volume control.
 
-  ```conf
-  mixer_device = "<mixer-device>"
-  ```
+**Note:** Usable with ALSA only.
 
-- `sync_disable` - Flag to indicate whether or not audio resampling has to be enabled to keep local audio in sync with, for example, AirPlay.
+**Default:** unset
 
-  **Note:** This feature relies on accurate ALSA measurements of delay, and some devices don't provide that. If that is the case you are better off disabling the feature.
+```conf
+mixer_device = "<mixer-device>"
+```
 
-  **Default:** `false`
+### sync_disable
 
-  ```conf
-  sync_disable = <true|false>
-  ```
+Flag to indicate whether or not audio resampling has to be enabled to keep local audio in sync with, for example, AirPlay.
 
-- `offset_ms` - Start delay in milliseconds relatively to other speakers, for example AirPlay.
+**Note:** This feature relies on accurate ALSA measurements of delay, and some devices don't provide that. If that is the case you are better off disabling the feature.
 
-  **Note:** Negative values correspond to moving local audio ahead, positive correspond to delaying it.
+**Default:** `false`
 
-  **Valid values:** -1000 to 1000
+```conf
+sync_disable = <true|false>
+```
 
-  **Default:** `0`
+### offset_ms
 
-  ```conf
-  offset_ms = 0
-  ```
+Start delay in milliseconds relatively to other speakers, for example AirPlay.
 
-- `adjust_period_seconds` - Period in seconds used to collect measurements for drift and latency adjustments.
+**Note:** Negative values correspond to moving local audio ahead, positive correspond to delaying it.
 
-  **Note:** To calculate if resampling is required and if yes what value, local audio delay is measured each second. After a period the collected measurements are used to estimate drift and latency, which determines if corrections are required.
+**Valid values:** -1000 to 1000
 
-  **Default:** `100`
+**Default:** `0`
 
-  ```conf
-  adjust_period_seconds = <integer>
-  ```
+```conf
+offset_ms = 0
+```
+
+### adjust_period_seconds
+
+Period in seconds used to collect measurements for drift and latency adjustments.
+
+**Note:** To calculate if resampling is required and if yes what value, local audio delay is measured each second. After a period the collected measurements are used to estimate drift and latency, which determines if corrections are required.
+
+**Default:** `100`
+
+```conf
+adjust_period_seconds = <integer>
+```
 
 ## Per ALSA Device Settings
 
 ```conf
 alsa "<card-name>" {
-
-  }
+  ….
+}
 ```
 
 Each `alsa` section is meant to configure a named ALSA output: one named section per device. It accepts the settings below.
 
 **Note:** Make sure to set the `"<card-name>"` correctly. Moreover, these settings will override the ALSA settings in the `audio` section above.
 
-- `nickname` - Name appearing in the speaker list.
+### nickname
 
-  **Default:** `"<card-name>"`
+Name appearing in the speaker list.
 
-  ```conf
-  nickname = "<speaker-name>"
-  ```
+**Default:** `"<card-name>"`
 
-- `mixer` - Mixer channel used for volume control.
+```conf
+nickname = "<speaker-name>"
+```
 
-  **Note:** If not set, PCM will be used if available, otherwise Master.
+### mixer
 
-  ```conf
-  mixer = "<mixer>"
-  ```
+Mixer channel used for volume control.
 
-- `mixer_device` - Name of the mixer device to use for volume control.
+**Note:** If not set, PCM will be used if available, otherwise Master.
 
-  **Default:** `"<card-name>"`
+```conf
+mixer = "<mixer>"
+```
 
-  ```conf
-  mixer_device = "<mixer-device>"
-  ```
+### mixer_device
 
-- `offset_ms` - Start delay in milliseconds relatively to other speakers, for example AirPlay.
+Name of the mixer device to use for volume control.
 
-  **Note:** Negative values correspond to moving local audio ahead, positive correspond to delaying it.
+**Default:** `"<card-name>"`
 
-  **Valid values:** -1000 to 1000
+```conf
+mixer_device = "<mixer-device>"
+```
 
-  **Default:** `0`
+### offset_ms
 
-  ```conf
-  offset_ms = 0
-  ```
+Start delay in milliseconds relatively to other speakers, for example AirPlay.
+
+**Note:** Negative values correspond to moving local audio ahead, positive correspond to delaying it.
+
+**Valid values:** -1000 to 1000
+
+**Default:** `0`
+
+```conf
+offset_ms = 0
+```
 
 ## FIFO Settings
 
 ```conf
 fifo {
-  ...
+  
 }
 ```
 
 The `fifo` section, is meant to configure the named pipe audio output. It accepts the settings below.
 
-- `nickname` - The name appearing in the speaker list.
+### nickname
 
-  **Default:** `"fifo"`
+The name appearing in the speaker list.
 
-  ```conf
-  nickname = "<fifo-name>"
-  ```
+**Default:** `"fifo"`
 
-- `path` - Path to the named pipe.
+```conf
+nickname = "<fifo-name>"
+```
 
-  **Default:** unset
+### path
 
-  ```conf
-  path = "<path-to-fifo>"
-  ```
+Path to the named pipe.
+
+**Default:** unset
+
+```conf
+path = "<path-to-fifo>"
+```
 
 ## Shared AirPlay Settings
 
 ```conf
 airplay_shared {
-  ...
+  …
 }
 ```
 
 The `airplay_shared` section describes the settings that are shared across all the AirPlay devices.
 
-- `control_port` - Number of the UDP control port used when AirPlay devices make connections back to OwnTone.
+### control_port
 
-  **Note:** Choosing specific ports may be helpful when running OwnTone behind a firewall.
+Number of the UDP control port used when AirPlay devices make connections back to OwnTone.
 
-  **Default:** `0`
+**Note:** Choosing specific ports may be helpful when running OwnTone behind a firewall.
 
-  ```conf
-  control_port = 0
-  ```
+**Default:** `0`
 
-- `timing_port` - Number of the UDP timing port used when AirPlay devices make connections back to OwnTone.
+```conf
+control_port = 0
+```
 
-  **Note:** Choosing specific ports may be helpful when running OwnTone behind a firewall.
+### timing_port
 
-  **Default:** `0`
+Number of the UDP timing port used when AirPlay devices make connections back to OwnTone.
 
-  ```conf
-  timing_port = 0
-  ```
+**Note:** Choosing specific ports may be helpful when running OwnTone behind a firewall.
 
-- `uncompressed_alac` - Switch AirPlay 1 streams to uncompressed ALAC (as opposed to regular, compressed ALAC). Reduces CPU use at the cost of network bandwidth.
+**Default:** `0`
 
-  **Default:** `false`
+```conf
+timing_port = 0
+```
 
-  ```conf
-  uncompressed_alac = <true|false>
-  ```
+### uncompressed_alac
+
+Switch AirPlay 1 streams to uncompressed ALAC (as opposed to regular, compressed ALAC). Reduces CPU use at the cost of network bandwidth.
+
+**Default:** `false`
+
+```conf
+uncompressed_alac = <true|false>
+```
 
 ## Per AirPlay Device Settings
 
@@ -896,73 +1051,87 @@ Each `airplay` section is meant to configure a named AirPlay output: one named s
 
 **Note:** The capitalisation of the device name is relevant.
 
-- `max_volume` - Maximum value of the volume.
+### max_volume
 
-  **Note:** If that's more than your setup can handle set a lower value.
+Maximum value of the volume.
 
-  **Default:** `11`
+**Note:** If that's more than your setup can handle set a lower value.
 
-  ```conf
-  max_volume = <integer>
-  ```
+**Default:** `11`
 
-- `exclude` - Flag indicating if the device must be excluded from the speaker list.
+```conf
+max_volume = <integer>
+```
 
-  **Default:** `false`
+### exclude
 
-  ```conf
-  exclude = <true|false>
-  ```
+Flag indicating if the device must be excluded from the speaker list.
 
-- `permanent` - Flag to indicate to keep the device in the speaker list and thus ignore mdns notifications about it no longer being present. The speaker will remain until restart of OwnTone.
+**Default:** `false`
 
-  **Default:** `false`
+```conf
+exclude = <true|false>
+```
 
-  ```conf
-  permanent = <true|false>
-  ```
+### permanent
 
-- `reconnect` - Flag to indicate whether or not OwnTone must explicitly reconnect with the device.
+Flag to indicate to keep the device in the speaker list and thus ignore mdns notifications about it no longer being present. The speaker will remain until restart of OwnTone.
 
-  **Note:** Some devices spuriously disconnect during playback, and based on the device type OwnTone may attempt to reconnect.
+**Default:** `false`
 
-  **Default:** `false`
+```conf
+permanent = <true|false>
+```
 
-  ```conf
-  reconnect = <true|false>
-  ```
+### reconnect
 
-- `password`- Password of the device.
+Flag to indicate whether or not OwnTone must explicitly reconnect with the device.
 
-  **Default:** unset
+**Note:** Some devices spuriously disconnect during playback, and based on the device type OwnTone may attempt to reconnect.
 
-  ```conf
-  password = "<password>"
-  ```
+**Default:** `false`
 
-- `raop_disable` - Flag to indicate whether or not AirPlay 1 (RAOP) must be disabled.
+```conf
+reconnect = <true|false>
+```
 
-  **Default:** `false`
+### password
 
-  ```conf
-  raop_disable = <true|false>
-  ```
+- ``- Password of the device.
 
-- `nickname` - Name appearing in the speaker list.
+**Default:** unset
 
-  **Note:** The defined name overrides the name of the device.
+```conf
+password = "<password>"
+```
 
-  **Default:** unset
+### raop_disable
 
-  ```conf
-  nickname = "<speaker-name>"
-  ```
+Flag to indicate whether or not AirPlay 1 (RAOP) must be disabled.
+
+**Default:** `false`
+
+```conf
+raop_disable = <true|false>
+```
+
+### nickname
+
+Name appearing in the speaker list.
+
+**Note:** The defined name overrides the name of the device.
+
+**Default:** unset
+
+```conf
+nickname = "<speaker-name>"
+```
 
 ## Per Chromecast Device Settings
 
 ```conf
 chromecast "<chromecast-device>" {
-  ...
+  …
 }
 ```
 
@@ -970,39 +1139,45 @@ Each `chromecast` section is meant to configure a named Chromecast output: one n
 
 **Note:** The capitalisation of the device name is relevant.
 
-- `max_volume` - Maximum value of the volume.
+### max_volume
 
-  **Note:** If that's more than your setup can handle set a lower value.
+Maximum value of the volume.
 
-  **Default:** `11`
+**Note:** If that's more than your setup can handle set a lower value.
 
-  ```conf
-  max_volume = <integer>
-  ```
+**Default:** `11`
 
-- `exclude` - Flag indicating if the device must be excluded from the speaker list.
+```conf
+max_volume = <integer>
+```
 
-  **Default:** `false`
+### exclude
 
-  ```conf
-  exclude = <true|false>
-  ```
+Flag indicating if the device must be excluded from the speaker list.
 
-- `nickname` - Name appearing in the speaker list.
+**Default:** `false`
 
-  **Note:** The defined name overrides the name of the device.
+```conf
+exclude = <true|false>
+```
 
-  **Default:** unset
+### nickname
 
-  ```conf
-  nickname = "<speaker-name>"
-  ```
+Name appearing in the speaker list.
+
+**Note:** The defined name overrides the name of the device.
+
+**Default:** unset
+
+```conf
+nickname = "<speaker-name>"
+```
 
 ## Spotify Settings
 
 ```conf
 spotify {
-  ...
+  …
 }
 ```
 
@@ -1010,45 +1185,53 @@ The `spotify` section accepts the settings below.
 
 **Note:** These settings only have effect if OwnTone is built with Spotify support.
 
-- `bitrate` - Bit rate of the stream.
+### bitrate
 
-  **Valid values:** `0` (No preference), `1` (96 kb/s), `2` (160 kb/s), `3` (320 kb/s)
+Bit rate of the stream.
 
-  **Default:** `0`
+**Valid values:** `0` (No preference), `1` (96 kb/s), `2` (160 kb/s), `3` (320 kb/s)
 
-  ```conf
-  bitrate = <0|1|2|3>
-  ```
+**Default:** `0`
 
-- `base_playlist_disable` - Flag to indicate whether or not Spotify playlists are placed into the library playlist folder.
+```conf
+bitrate = <0|1|2|3>
+```
 
-  **Note:** Spotify playlists are by default located in a _Spotify_ playlist folder.
+### base_playlist_disable
 
-  **Default:** `false`
+Flag to indicate whether or not Spotify playlists are placed into the library playlist folder.
 
-  ```conf
-  base_playlist_disable = <true|false>
-  ```
+**Note:** Spotify playlists are by default located in a _Spotify_ playlist folder.
 
-- `artist_override` - Flag indicating whether or not the compilation artist must be used as the album artist.
+**Default:** `false`
 
-  **Note:** Spotify playlists usually have many artists, and if you don't want every artist to be listed when artist browsing in Remote, you can set this flag to true.
+```conf
+base_playlist_disable = <true|false>
+```
 
-  **Default:** `false`
+### artist_override
 
-  ```conf
-  artist_override = <true|false>
-  ```
+Flag indicating whether or not the compilation artist must be used as the album artist.
 
-- `album_override` - Flag to indicate to use the playlist name as the album name.
+**Note:** Spotify playlists usually have many artists, and if you don't want every artist to be listed when artist browsing in Remote, you can set this flag to true.
 
-  **Note:** Similar to the different artists in Spotify playlists, the playlist items belong to different albums, and if you do not want every album to be listed when browsing in Remote, you can set the album_override flag to true. Moreover, if an item is in more than one playlist, it will only appear randomly in one album when browsing.
+**Default:** `false`
 
-  **Default:** `false`
+```conf
+artist_override = <true|false>
+```
 
-  ```conf
-  album_override = <true|false>
-  ```
+### album_override
+
+Flag to indicate to use the playlist name as the album name.
+
+**Note:** Similar to the different artists in Spotify playlists, the playlist items belong to different albums, and if you do not want every album to be listed when browsing in Remote, you can set the album_override flag to true. Moreover, if an item is in more than one playlist, it will only appear randomly in one album when browsing.
+
+**Default:** `false`
+
+```conf
+album_override = <true|false>
+```
 
 ## RCP / Roku Soundbridge Settings
 
@@ -1062,29 +1245,33 @@ Each `rcp` section is meant to configure a named RCP output: one named section p
 
 **Note:** The capitalisation of the device name is relevant.
 
-- `exclude` - Enable this option to exclude the device from the speaker list.
+### exclude
 
-  **Default:** `false`
+Enable this option to exclude the device from the speaker list.
 
-  ```conf
-  exclude = <true|false>
-  ```
+**Default:** `false`
 
-- `clear_on_close` - Flag indicating whether or not the power on the device is maintained.
+```conf
+exclude = <true|false>
+```
 
-  **Note:** A Roku / SoundBridge can power up in 2 modes: (default) reconnect to the previously used library (i.e. OwnTone) or in a _cleared library_ mode. The Roku power up behaviour is affected by how OwnTone disconnects from the Roku device. Set to false to maintain the default Roku _power on_ behaviour.
+### clear_on_close
 
-  **Default:** `false`
+Flag indicating whether or not the power on the device is maintained.
 
-  ```conf
-  clear_on_close = false
-  ```
+**Note:** A Roku / SoundBridge can power up in 2 modes: (default) reconnect to the previously used library (i.e. OwnTone) or in a _cleared library_ mode. The Roku power up behaviour is affected by how OwnTone disconnects from the Roku device. Set to false to maintain the default Roku _power on_ behaviour.
+
+**Default:** `false`
+
+```conf
+clear_on_close = false
+```
 
 ## MPD Settings
 
 ```conf
 mpd {
-  ...
+  …
 }
 ```
 
@@ -1092,34 +1279,38 @@ The `mpd` section defines the settings for MPD clients. It accepts the settings 
 
 **Note:** These settings only have effect if OwnTone is built with Spotify support.
 
-- `port` - TCP port to listen for MPD client requests.
+### port
 
-  **Note:** Setting the port to `0` disables the support for MPD.
+TCP port to listen for MPD client requests.
 
-  **Default:** `6600`
+**Note:** Setting the port to `0` disables the support for MPD.
 
-  ```conf
-  port = 6600
-  ```
+**Default:** `6600`
 
-- `http_port` - HTTP port to listen for artwork requests.
+```conf
+port = 6600
+```
 
-  **Notes:**
+### http_port
 
-  - This setting is only supported by some MPD clients and will need additional configuration in the MPD client to work.
-  - Setting the port to `0` disables the serving of artwork.
+HTTP port to listen for artwork requests.
 
-  **Default:** `0`
+**Notes:**
 
-  ```conf
-  http_port = 0
-  ```
+- This setting is only supported by some MPD clients and will need additional configuration in the MPD client to work.
+- Setting the port to `0` disables the serving of artwork.
+
+**Default:** `0`
+
+```conf
+http_port = 0
+```
 
 ## SQLite Settings
 
 ```conf
 sqlite {
-  ...
+  …
 }
 ```
 
@@ -1127,104 +1318,124 @@ The `sqlite` section defines how the SQLite database operates and accepts the se
 
 **Note:** Make sure to read the SQLite documentation for the corresponding PRAGMA statements as changing them from the defaults may increase the possibility of database corruption. By default, the SQLite default values are used.
 
-- `pragma_cache_size_library` - Cache size in number of database pages for the library database.
+### pragma_cache_size_library
 
-  **Note:** SQLite default page size is 1024 bytes and cache size is 2000 pages.
+Cache size in number of database pages for the library database.
 
-  ```conf
-  pragma_cache_size_library = <pages>
-  ```
+**Note:** SQLite default page size is 1024 bytes and cache size is 2000 pages.
 
-- `pragma_cache_size_cache` - Cache size in number of db pages for the cache database.
+```conf
+pragma_cache_size_library = <pages>
+```
 
-  **Note:** SQLite default page size is 1024 bytes and cache size is 2000 pages.
+### pragma_cache_size_cache
 
-  ```conf
-  pragma_cache_size_cache = <pages>
-  ```
+Cache size in number of db pages for the cache database.
 
-- `pragma_journal_mode` - Sets the journal mode for the database. Valid values are: `DELETE`, `TRUNCATE`, `PERSIST`, `MEMORY`, `WAL`, and `OFF`.
+**Note:** SQLite default page size is 1024 bytes and cache size is 2000 pages.
 
-  **Default:** `"DELETE"`
+```conf
+pragma_cache_size_cache = <pages>
+```
 
-  ```conf
-  pragma_journal_mode = "<DELETE|TRUNCATE|PERSIST|MEMORY|WAL|OFF>"
-  ```
+### pragma_journal_mode
 
-- `pragma_synchronous` - Change the setting of the "synchronous" flag.
+Sets the journal mode for the database. Valid values are: `DELETE`, `TRUNCATE`, `PERSIST`, `MEMORY`, `WAL`, and `OFF`.
 
-  **Valid values:** `0` (off), `1` (normal), `2` (full)
+**Default:** `"DELETE"`
 
-  **Default:** `2`
+```conf
+pragma_journal_mode = "<DELETE|TRUNCATE|PERSIST|MEMORY|WAL|OFF>"
+```
 
-  ```conf
-  pragma_synchronous = <0|1|2>
-  ```
+### pragma_synchronous
 
-- `pragma_mmap_size_library` - Number of bytes set aside for memory-mapped I/O for the library database.
+Change the setting of the "synchronous" flag.
 
-  **Notes:** This setting requires SQLite 3.7.17+.
+**Valid values:** `0` (off), `1` (normal), `2` (full)
 
-  **Valid values:** `0` (mmap disabled), `<integer>` (bytes for mmap)
+**Default:** `2`
 
-  **Default:** `0`
+```conf
+pragma_synchronous = <0|1|2>
+```
 
-  ```conf
-  pragma_mmap_size_library = <integer>
-  ```
+### pragma_mmap_size_library
 
-- `pragma_mmap_size_cache` - Number of bytes set aside for memory-mapped I/O for the cache database.
+Number of bytes set aside for memory-mapped I/O for the library database.
 
-  **Note:** This setting requires SQLite 3.7.17+.
+**Notes:** This setting requires SQLite 3.7.17+.
 
-  **Valid values:** `0` (mmap disabled), `<integer>` (bytes for mmap)
+**Valid values:** `0` (mmap disabled), `<integer>` (bytes for mmap)
 
-  ```conf
-  pragma_mmap_size_cache = <integer>
-  ```
+**Default:** `0`
 
-- `vacuum` - Flag indicating whether or not the database must be vacuumed on startup.
+```conf
+pragma_mmap_size_library = <integer>
+```
 
-  **Note:** This setting increases the startup time, but may reduce database size.
+### pragma_mmap_size_cache
 
-  **Default:** `true`
+Number of bytes set aside for memory-mapped I/O for the cache database.
 
-  ```conf
-  vacuum = <true|false>
-  ```
+**Note:** This setting requires SQLite 3.7.17+.
+
+**Valid values:** `0` (mmap disabled), `<integer>` (bytes for mmap)
+
+```conf
+pragma_mmap_size_cache = <integer>
+```
+
+### vacuum
+
+Flag indicating whether or not the database must be vacuumed on startup.
+
+**Note:** This setting increases the startup time, but may reduce database size.
+
+**Default:** `true`
+
+```conf
+vacuum = <true|false>
+```
 
 ## Streaming Settings
 
 ```conf
 streaming {
-  ...
+  …
 }
 ```
 
 The `streaming` section defines the audio settings for the streaming URL (`http://<server-name>:<port-number>/stream.mp3`) and accepts the settings below.
 
-- `sample_rate` - Sampling rate of the stream: e.g., 44100, 48000, etc.
+### sample_rate
 
-  **Default:** `44100`
+Sampling rate of the stream: e.g., 44100, 48000, etc.
 
-  ```conf
-  sample_rate = <integer>
-  ```
+**Default:** `44100`
 
-- `bit_rate` - Bit rate of the stream (in kb/s).
+```conf
+sample_rate = <integer>
+```
 
-  **Valid values:** `64`, `96`, `128`, `192`, and `320`.
+### bit_rate
 
-  **Default:** `192`
+Bit rate of the stream (in kb/s).
 
-  ```conf
-  bit_rate = <64|96|128|192|320>
-  ```
+**Valid values:** `64`, `96`, `128`, `192`, and `320`.
 
-- `icy_metaint` - Number of bytes of media stream data between each metadata chunk.
+**Default:** `192`
 
-  **Default:** `16384`
+```conf
+bit_rate = <64|96|128|192|320>
+```
 
-  ```conf
-  icy_metaint = <integer>
-  ```
+### icy_metaint
+
+Number of bytes of media stream data between each metadata chunk.
+
+**Default:** `16384`
+
+```conf
+icy_metaint = <integer>
+```
