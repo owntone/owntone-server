@@ -57,7 +57,7 @@ export default {
         // Parse the lyrics
         const regex =
           /\[(?<minutes>\d+):(?<seconds>\d+)(?:\.(?<hundredths>\d+))?\] ?(?<text>.*)/u
-        raw.split('\n').forEach((item) => {
+        raw.split('\n').forEach((line) => {
           const { text, minutes, seconds, hundredths } = regex.exec(line).groups
           if (text) {
             const verse = {
