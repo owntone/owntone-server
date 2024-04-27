@@ -300,16 +300,15 @@ export const router = createRouter({
     }
   ],
   scrollBehavior(to, from, savedPosition) {
-    const wait_ms = 0
+    const delay = 0
     if (savedPosition) {
       // Use the saved scroll position (browser back/forward navigation)
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve(savedPosition)
-        }, wait_ms)
+        }, delay)
       })
     }
-
     if (to.path === from.path && to.hash) {
       /*
        * Staying on the same page and jumping to an anchor (e. g. index nav)
@@ -318,16 +317,14 @@ export const router = createRouter({
       const top = to.meta.has_tabs ? TOP_WITH_TABS : TOP_WITHOUT_TABS
       return { behavior: 'smooth', el: to.hash, top }
     }
-
     if (to.hash) {
       // We are navigating to an anchor of a new page, add a timeout to let the transition effect finish before scrolling
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           resolve({ el: to.hash, top: 120 })
-        }, wait_ms)
+        }, delay)
       })
     }
-
     if (to.meta.has_index) {
       /*
        * Navigate to a page with index nav that should be hidden automatically
@@ -337,7 +334,7 @@ export const router = createRouter({
         const top = to.meta.has_tabs ? TOP_WITH_TABS : TOP_WITHOUT_TABS
         setTimeout(() => {
           resolve({ el: '#top', top })
-        }, wait_ms)
+        }, delay)
       })
     }
 
