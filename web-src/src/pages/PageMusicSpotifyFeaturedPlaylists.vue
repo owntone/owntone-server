@@ -9,7 +9,7 @@
         />
       </template>
       <template #content>
-        <list-playlists-spotify :items="featured_playlists" />
+        <list-playlists-spotify :items="playlists" />
       </template>
     </content-with-heading>
   </div>
@@ -35,7 +35,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.featured_playlists = response.playlists.items
+    vm.playlists = response.playlists.items
   }
 }
 
@@ -55,7 +55,7 @@ export default {
 
   data() {
     return {
-      featured_playlists: []
+      playlists: []
     }
   }
 }

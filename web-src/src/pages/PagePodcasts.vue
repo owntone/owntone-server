@@ -1,6 +1,6 @@
 <template>
   <div>
-    <content-with-heading v-if="new_episodes.items.length > 0">
+    <content-with-heading v-if="tracks.items.length > 0">
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.podcasts.new-episodes')" />
       </template>
@@ -14,7 +14,7 @@
       </template>
       <template #content>
         <list-tracks
-          :items="new_episodes"
+          :items="tracks"
           :show_progress="true"
           @play-count-changed="reload_new_episodes"
         />
@@ -75,7 +75,7 @@ const dataObject = {
 
   set(vm, response) {
     vm.albums = new GroupedList(response[0].data)
-    vm.new_episodes = new GroupedList(response[1].data.tracks)
+    vm.tracks = new GroupedList(response[1].data.tracks)
   }
 }
 
@@ -97,8 +97,7 @@ export default {
   data() {
     return {
       albums: [],
-      new_episodes: { items: [] },
-
+      tracks: { items: [] },
       show_url_modal: false
     }
   },
@@ -111,10 +110,10 @@ export default {
 
   methods: {
     mark_all_played() {
-      this.new_episodes.items.forEach((ep) => {
+      this.tracks.items.forEach((ep) => {
         webapi.library_track_update(ep.id, { play_count: 'increment' })
       })
-      this.new_episodes.items = {}
+      this.tracks.items = {}
     },
 
     open_add_podcast_dialog() {
@@ -123,7 +122,7 @@ export default {
 
     reload_new_episodes() {
       webapi.library_podcasts_new_episodes().then(({ data }) => {
-        this.new_episodes = new GroupedList(data.tracks)
+        this.tracks = new GroupedList(data.tracks)
       })
     },
 

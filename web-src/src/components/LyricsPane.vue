@@ -55,31 +55,28 @@ export default {
       const parsed = []
       if (raw) {
         // Parse the lyrics
-        const regex = /(\[(\d+):(\d+)(?:\.\d+)?\] ?)?(.*)/u
-        raw.split('\n').forEach((item, index) => {
-          const matches = regex.exec(item)
-          if (matches && matches[4]) {
+        const regex =
+          /\[(?<minutes>\d+):(?<seconds>\d+)(?:\.(?<hundredths>\d+))?\] ?(?<text>.*)/u
+        raw.split('\n').forEach((line) => {
+          const { text, minutes, seconds, hundredths } = regex.exec(line).groups
+          if (text) {
             const verse = {
-              text: matches[4],
-              time: matches[2] * 60 + Number(matches[3])
+              text,
+              time:
+                minutes * 60 + Number(seconds) + Number(`.${hundredths || 0}`)
             }
             parsed.push(verse)
           }
         })
         // Split the verses into words
         parsed.forEach((verse, index, lyrics) => {
-          const duration =
-            index < lyrics.length - 1 ? lyrics[index + 1].time - verse.time : 3
-          const unitDuration = duration / verse.text.length
+          const unitDuration =
+            (lyrics[index + 1].time - verse.time || 3) / verse.text.length
           let delay = 0
           verse.words = verse.text.match(/\S+\s*/gu).map((text) => {
             const duration = text.length * unitDuration
             delay += duration
-            return {
-              duration,
-              delay,
-              text
-            }
+            return { duration, delay, text }
           })
         })
       }
@@ -117,25 +114,25 @@ export default {
         }
         // Not found, then start a binary search
         let end = la.length - 1,
-          index = 0,
+          index = -1,
           start = 0
         while (start <= end) {
           index = (start + end) >> 1
-          const currentVerse = la[index]
-          const nextVerse = la[index + 1]
+          const currentVerseTime = la[index].time
+          const nextVerseTime = la[index + 1]?.time
           if (
-            currentVerse.time <= currentTime &&
-            (nextVerse?.time > currentTime || !nextVerse)
+            currentVerseTime <= currentTime &&
+            (nextVerseTime > currentTime || !nextVerseTime)
           ) {
-            return index
+            break
           }
-          if (currentVerse.time < currentTime) {
+          if (currentVerseTime < currentTime) {
             start = index + 1
           } else {
             end = index - 1
           }
         }
-        return -1
+        return index
       }
       this.reset_scrolling()
       return -1
@@ -175,13 +172,11 @@ export default {
           pane.scrollTop
       })
     },
-    start_scrolling(e) {
+    start_scrolling(event) {
       // Consider only user events
-      if (e.screenX || e.screenX !== 0 || e.screenY || e.screenY !== 0) {
+      if (event.screenX ?? event.screenY) {
         this.autoScrolling = false
-        if (this.scrollingTimer) {
-          clearTimeout(this.scrollingTimer)
-        }
+        clearTimeout(this.scrollingTimer)
         // Reenable automatic scrolling after 2 seconds
         this.scrollingTimer = setTimeout((this.autoScrolling = true), 2000)
       }

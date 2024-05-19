@@ -54,7 +54,7 @@
               <mdicon class="icon" name="music-box-multiple" size="16" />
               <b v-text="$t('navigation.playlists')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ name: 'music' }" exact>
+            <navbar-item-link :to="{ name: 'music' }">
               <mdicon class="icon" name="music" size="16" />
               <b v-text="$t('navigation.music')" />
             </navbar-item-link>
@@ -138,7 +138,7 @@ export default {
       }
     },
     show_audiobooks() {
-      return this.$store.getters.settings_option(
+      return this.$store.getters.setting(
         'webinterface',
         'show_menu_item_audiobooks'
       ).value
@@ -152,40 +152,34 @@ export default {
       }
     },
     show_files() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_files'
-      ).value
+      return this.$store.getters.setting('webinterface', 'show_menu_item_files')
+        .value
     },
     show_music() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_music'
-      ).value
+      return this.$store.getters.setting('webinterface', 'show_menu_item_music')
+        .value
     },
     show_player_menu() {
       return this.$store.state.show_player_menu
     },
     show_playlists() {
-      return this.$store.getters.settings_option(
+      return this.$store.getters.setting(
         'webinterface',
         'show_menu_item_playlists'
       ).value
     },
     show_podcasts() {
-      return this.$store.getters.settings_option(
+      return this.$store.getters.setting(
         'webinterface',
         'show_menu_item_podcasts'
       ).value
     },
     show_radio() {
-      return this.$store.getters.settings_option(
-        'webinterface',
-        'show_menu_item_radio'
-      ).value
+      return this.$store.getters.setting('webinterface', 'show_menu_item_radio')
+        .value
     },
     show_search() {
-      return this.$store.getters.settings_option(
+      return this.$store.getters.setting(
         'webinterface',
         'show_menu_item_search'
       ).value

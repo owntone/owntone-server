@@ -70,24 +70,24 @@ export default createStore({
 
   getters: {
     now_playing: (state) =>
-      state.queue.items.find((e) => e.id === state.player.item_id) ?? {},
-    settings_option: (state) => (categoryName, optionName) =>
+      state.queue.items.find((item) => item.id === state.player.item_id) ?? {},
+    setting: (state) => (categoryName, optionName) =>
       state.settings.categories
         .find((category) => category.name === categoryName)
         ?.options.find((option) => option.name === optionName) ?? {},
-    settings_option_recently_added_limit: (state, getters) =>
+    setting_recently_added_limit: (state, getters) =>
       getters.settings_webinterface?.options.find(
         (option) => option.name === 'recently_added_limit'
       )?.value ?? 100,
-    settings_option_show_composer_for_genre: (state, getters) =>
+    setting_show_composer_for_genre: (state, getters) =>
       getters.settings_webinterface?.options.find(
         (option) => option.name === 'show_composer_for_genre'
       )?.value ?? null,
-    settings_option_show_composer_now_playing: (state, getters) =>
+    setting_show_composer_now_playing: (state, getters) =>
       getters.settings_webinterface?.options.find(
         (option) => option.name === 'show_composer_now_playing'
       )?.value ?? false,
-    settings_option_show_filepath_now_playing: (state, getters) =>
+    setting_show_filepath_now_playing: (state, getters) =>
       getters.settings_webinterface?.options.find(
         (option) => option.name === 'show_filepath_now_playing'
       )?.value ?? false,
@@ -179,7 +179,7 @@ export default createStore({
   },
 
   actions: {
-    add_notification({ commit, state }, notification) {
+    add_notification({ state }, notification) {
       const newNotification = {
         id: state.notifications.next_id++,
         text: notification.text,
@@ -203,7 +203,7 @@ export default createStore({
         }, notification.timeout)
       }
     },
-    add_recent_search({ commit, state }, query) {
+    add_recent_search({ state }, query) {
       const index = state.recent_searches.indexOf(query)
       if (index !== -1) {
         state.recent_searches.splice(index, 1)
@@ -213,24 +213,24 @@ export default createStore({
         state.recent_searches.pop()
       }
     },
-    delete_notification({ commit, state }, notification) {
+    delete_notification({ state }, notification) {
       const index = state.notifications.list.indexOf(notification)
       if (index !== -1) {
         state.notifications.list.splice(index, 1)
       }
     },
-    remove_recent_search({ commit, state }, query) {
+    remove_recent_search({ state }, query) {
       const index = state.recent_searches.indexOf(query)
       if (index !== -1) {
         state.recent_searches.splice(index, 1)
       }
     },
-    update_settings_option({ commit, state }, option) {
+    update_setting({ state }, option) {
       const settingCategory = state.settings.categories.find(
-          (e) => e.name === option.category
+          (category) => category.name === option.category
         ),
         settingOption = settingCategory.options.find(
-          (e) => e.name === option.name
+          (setting) => setting.name === option.name
         )
       settingOption.value = option.value
     }

@@ -29,10 +29,10 @@ export default {
     this.context = new (window.AudioContext || window.webkitAudioContext)()
     const source = this.context.createMediaElementSource(this.audio)
     source.connect(this.context.destination)
-    this.audio.addEventListener('canplaythrough', (e) => {
+    this.audio.addEventListener('canplaythrough', () => {
       this.audio.play()
     })
-    this.audio.addEventListener('canplay', (e) => {
+    this.audio.addEventListener('canplay', () => {
       this.audio.play()
     })
     return this.audio
@@ -42,17 +42,17 @@ export default {
   stop() {
     try {
       this.audio.pause()
-    } catch (e) {
+    } catch (error) {
       // Continue regardless of error
     }
     try {
       this.audio.stop()
-    } catch (e) {
+    } catch (error) {
       // Continue regardless of error
     }
     try {
       this.audio.close()
-    } catch (e) {
+    } catch (error) {
       // Continue regardless of error
     }
   }

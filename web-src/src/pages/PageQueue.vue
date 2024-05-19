@@ -150,7 +150,7 @@ export default {
       get() {
         return this.$store.state.queue.items
       },
-      set(value) {
+      set() {
         /* Do nothing? Send move request in @end event */
       }
     },
@@ -163,11 +163,11 @@ export default {
   },
 
   methods: {
-    move_item(e) {
+    move_item(event) {
       const oldPosition =
-        e.oldIndex + (this.show_only_next_items && this.current_position)
+        event.oldIndex + (this.show_only_next_items && this.current_position)
       const item = this.queue_items[oldPosition]
-      const newPosition = item.position + (e.newIndex - e.oldIndex)
+      const newPosition = item.position + (event.newIndex - event.oldIndex)
       if (newPosition !== oldPosition) {
         webapi.queue_move(item.id, newPosition)
       }

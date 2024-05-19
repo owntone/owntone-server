@@ -74,8 +74,8 @@ export default {
   data() {
     return {
       disabled: true,
-      playlist_name: '',
-      loading: false
+      loading: false,
+      playlist_name: ''
     }
   },
 

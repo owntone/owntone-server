@@ -6,7 +6,7 @@
         <p class="title is-4" v-text="$t('page.spotify.music.new-releases')" />
       </template>
       <template #content>
-        <list-albums-spotify :items="new_releases" />
+        <list-albums-spotify :items="albums" />
       </template>
     </content-with-heading>
   </div>
@@ -32,7 +32,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.new_releases = response.albums.items
+    vm.albums = response.albums.items
   }
 }
 
@@ -52,7 +52,7 @@ export default {
 
   data() {
     return {
-      new_releases: []
+      albums: []
     }
   }
 }

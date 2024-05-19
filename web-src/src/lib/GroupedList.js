@@ -6,7 +6,7 @@ const NO_INDEX = 'NO_INDEX'
 const numberComparator = (a, b) => a - b
 const stringComparator = (a, b) => a.localeCompare(b, locale.value)
 const dateComparator = (a, b) =>
-  new Date(a) - new Date(b) || (!a ? -1 : !b ? 1 : 0)
+  new Date(a) - new Date(b) || (a ? (b ? 0 : 1) : -1)
 
 const createComparators = (criteria) =>
   criteria.map(({ field, type, order = 1 }) => {
@@ -18,7 +18,7 @@ const createComparators = (criteria) =>
       case Date:
         return (a, b) => dateComparator(a[field], b[field]) * order
       default:
-        return (a, b) => 0
+        return () => 0
     }
   })
 
@@ -61,7 +61,7 @@ const createIndexer = ({ field, type } = {}) => {
     case 'Digits':
       return (item) => numberIndex(item[field])
     default:
-      return (item) => NO_INDEX
+      return () => NO_INDEX
   }
 }
 
@@ -80,7 +80,6 @@ export class GroupedList {
   }
 
   group({ criteria = [], filters = [], index } = {}) {
-    const indexer = createIndexer(index)
     const itemsFiltered = this.items.filter((item) =>
       filters.every((filter) => filter(item))
     )
@@ -94,13 +93,15 @@ export class GroupedList {
       )
     )
     // Group item list
+    const indexer = createIndexer(index)
     this.itemsGrouped = itemsSorted.reduce((map, item) => {
-      const index = indexer(item)
-      map.set(index, [...(map.get(index) || []), item])
+      const key = indexer(item)
+      map.set(key, [...(map.get(key) || []), item])
       return map
     }, new Map())
     // Create index list
     this.indices = Array.from(this.itemsGrouped.keys())
+    return this
   }
 
   *generate() {

@@ -41,8 +41,8 @@
           <div class="column">
             <p class="heading mb-5" v-text="$t('page.artists.sort.title')" />
             <control-dropdown
-              v-model:value="selected_grouping_option_id"
-              :options="grouping_options"
+              v-model:value="selected_grouping_id"
+              :options="groupings"
             />
           </div>
         </div>
@@ -101,7 +101,7 @@ export default {
   data() {
     return {
       artists_list: new GroupedList(),
-      grouping_options: [
+      groupings: [
         {
           id: 1,
           name: this.$t('page.artists.sort.name'),
@@ -122,19 +122,15 @@ export default {
   computed: {
     // Wraps GroupedList and updates it if filter or sort changes
     artists() {
-      if (!this.artists_list) {
-        return []
-      }
-      const grouping = this.grouping_options.find(
-        (o) => o.id === this.selected_grouping_option_id
+      const { options } = this.groupings.find(
+        (grouping) => grouping.id === this.selected_grouping_id
       )
-      grouping.options.filters = [
+      options.filters = [
         (artist) =>
           !this.hide_singles || artist.track_count > artist.album_count * 2,
         (artist) => !this.hide_spotify || artist.data_kind !== 'spotify'
       ]
-      this.artists_list.group(grouping.options)
-      return this.artists_list
+      return this.artists_list.group(options)
     },
     hide_singles: {
       get() {
@@ -152,7 +148,7 @@ export default {
         this.$store.commit(types.HIDE_SPOTIFY, value)
       }
     },
-    selected_grouping_option_id: {
+    selected_grouping_id: {
       get() {
         return this.$store.state.artists_sort
       },

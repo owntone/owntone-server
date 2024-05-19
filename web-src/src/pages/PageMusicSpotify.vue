@@ -1,13 +1,12 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-    <!-- New Releases -->
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.spotify.music.new-releases')" />
       </template>
       <template #content>
-        <list-albums-spotify :items="new_releases" />
+        <list-albums-spotify :items="albums" />
       </template>
       <template #footer>
         <nav class="level">
@@ -22,7 +21,6 @@
         </nav>
       </template>
     </content-with-heading>
-    <!-- Featured Playlists -->
     <content-with-heading>
       <template #heading-left>
         <p
@@ -31,7 +29,7 @@
         />
       </template>
       <template #content>
-        <list-playlists-spotify :items="featured_playlists" />
+        <list-playlists-spotify :items="playlists" />
       </template>
       <template #footer>
         <nav class="level">
@@ -76,8 +74,8 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.new_releases = response[0].albums.items
-    vm.featured_playlists = response[1].playlists.items
+    vm.albums = response[0].albums.items
+    vm.playlists = response[1].playlists.items
   }
 }
 
@@ -98,8 +96,8 @@ export default {
 
   data() {
     return {
-      featured_playlists: [],
-      new_releases: []
+      playlists: [],
+      albums: []
     }
   }
 }

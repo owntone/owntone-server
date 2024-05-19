@@ -9,37 +9,31 @@ import vue from '@vitejs/plugin-vue'
  *
  * export VITE_OWNTONE_URL=http://owntone.local:3689; npm run serve
  */
-const owntoneUrl = process.env.VITE_OWNTONE_URL ?? 'http://localhost:3689'
+const target = process.env.VITE_OWNTONE_URL ?? 'http://localhost:3689'
 
 export default defineConfig({
-  resolve: { alias: { '@': '/src' } },
+  build: {
+    outDir: '../htdocs',
+    rollupOptions: {
+      output: {
+        assetFileNames: `assets/[name].[ext]`,
+        chunkFileNames: `assets/[name].js`,
+        entryFileNames: `assets/[name].js`
+      }
+    }
+  },
   plugins: [
     vue(),
     i18n({
       include: path.resolve(__dirname, './src/i18n/**.json')
     })
   ],
-  build: {
-    outDir: '../htdocs',
-    rollupOptions: {
-      output: {
-        entryFileNames: `assets/[name].js`,
-        chunkFileNames: `assets/[name].js`,
-        assetFileNames: `assets/[name].[ext]`
-      }
-    }
-  },
+  resolve: { alias: { '@': '/src' } },
   server: {
     proxy: {
-      '/api': {
-        target: owntoneUrl
-      },
-      '/artwork': {
-        target: owntoneUrl
-      },
-      '/stream.mp3': {
-        target: owntoneUrl
-      }
+      '/api': { target },
+      '/artwork': { target },
+      '/stream.mp3': { target }
     }
   }
 })

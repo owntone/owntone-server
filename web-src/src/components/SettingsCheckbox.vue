@@ -1,13 +1,13 @@
 <template>
   <div class="field">
     <input
-      :id="option.name"
-      v-model="option.value"
+      :id="setting.name"
+      v-model="setting.value"
       type="checkbox"
       class="switch is-rounded mr-2"
       @change="update_setting"
     />
-    <label class="pt-0" :for="option.name">
+    <label class="pt-0" :for="setting.name">
       <slot name="label" />
     </label>
     <i
@@ -27,8 +27,8 @@ import webapi from '@/webapi'
 export default {
   name: 'SettingsCheckbox',
   props: {
-    category_name: { required: true, type: String },
-    option_name: { required: true, type: String }
+    category: { required: true, type: String },
+    name: { required: true, type: String }
   },
 
   data() {
@@ -54,40 +54,37 @@ export default {
     is_success() {
       return this.statusUpdate === 'success'
     },
-    option() {
-      const option = this.$store.getters.settings_option(
-        this.category_name,
-        this.option_name
-      )
-      if (!option) {
+    setting() {
+      const setting = this.$store.getters.setting(this.category, this.name)
+      if (!setting) {
         return {
-          category: this.category_name,
-          name: this.option_name,
+          category: this.category,
+          name: this.name,
           value: false
         }
       }
-      return option
+      return setting
     }
   },
 
   methods: {
     clear_status() {
       if (this.is_error) {
-        this.option.value = !this.option.value
+        this.setting.value = !this.setting.value
       }
       this.statusUpdate = ''
     },
     update_setting() {
       this.timerId = -1
-      const option = {
-        category: this.category_name,
-        name: this.option_name,
-        value: this.option.value
+      const setting = {
+        category: this.category,
+        name: this.name,
+        value: this.setting.value
       }
       webapi
-        .settings_update(this.category_name, option)
+        .settings_update(this.category, setting)
         .then(() => {
-          this.$store.dispatch('update_settings_option', option)
+          this.$store.dispatch('update_setting', setting)
           this.statusUpdate = 'success'
         })
         .catch(() => {

@@ -26,57 +26,45 @@
           v-text="$t('page.settings.general.navigation-item-selection-info')"
         />
         <settings-checkbox
-          category_name="webinterface"
-          option_name="show_menu_item_playlists"
+          category="webinterface"
+          name="show_menu_item_playlists"
         >
           <template #label>
             <span v-text="$t('page.settings.general.playlists')" />
           </template>
         </settings-checkbox>
-        <settings-checkbox
-          category_name="webinterface"
-          option_name="show_menu_item_music"
-        >
+        <settings-checkbox category="webinterface" name="show_menu_item_music">
           <template #label>
             <span v-text="$t('page.settings.general.music')" />
           </template>
         </settings-checkbox>
         <settings-checkbox
-          category_name="webinterface"
-          option_name="show_menu_item_podcasts"
+          category="webinterface"
+          name="show_menu_item_podcasts"
         >
           <template #label>
             <span v-text="$t('page.settings.general.podcasts')" />
           </template>
         </settings-checkbox>
         <settings-checkbox
-          category_name="webinterface"
-          option_name="show_menu_item_audiobooks"
+          category="webinterface"
+          name="show_menu_item_audiobooks"
         >
           <template #label>
             <span v-text="$t('page.settings.general.audiobooks')" />
           </template>
         </settings-checkbox>
-        <settings-checkbox
-          category_name="webinterface"
-          option_name="show_menu_item_radio"
-        >
+        <settings-checkbox category="webinterface" name="show_menu_item_radio">
           <template #label>
             <span v-text="$t('page.settings.general.radio')" />
           </template>
         </settings-checkbox>
-        <settings-checkbox
-          category_name="webinterface"
-          option_name="show_menu_item_files"
-        >
+        <settings-checkbox category="webinterface" name="show_menu_item_files">
           <template #label>
             <span v-text="$t('page.settings.general.files')" />
           </template>
         </settings-checkbox>
-        <settings-checkbox
-          category_name="webinterface"
-          option_name="show_menu_item_search"
-        >
+        <settings-checkbox category="webinterface" name="show_menu_item_search">
           <template #label>
             <span v-text="$t('page.settings.general.search')" />
           </template>
@@ -92,8 +80,8 @@
       </template>
       <template #content>
         <settings-checkbox
-          category_name="webinterface"
-          option_name="show_cover_artwork_in_album_lists"
+          category="webinterface"
+          name="show_cover_artwork_in_album_lists"
         >
           <template #label>
             <span v-text="$t('page.settings.general.show-coverart')" />
@@ -110,8 +98,8 @@
       </template>
       <template #content>
         <settings-checkbox
-          category_name="webinterface"
-          option_name="show_composer_now_playing"
+          category="webinterface"
+          name="show_composer_now_playing"
         >
           <template #label>
             <span v-text="$t('page.settings.general.show-composer')" />
@@ -121,9 +109,9 @@
           </template>
         </settings-checkbox>
         <settings-textfield
-          category_name="webinterface"
-          option_name="show_composer_for_genre"
-          :disabled="!settings_option_show_composer_now_playing"
+          category="webinterface"
+          name="show_composer_for_genre"
+          :disabled="!setting_show_composer_now_playing"
           :placeholder="$t('page.settings.general.genres')"
         >
           <template #label>
@@ -145,8 +133,8 @@
           </template>
         </settings-textfield>
         <settings-checkbox
-          category_name="webinterface"
-          option_name="show_filepath_now_playing"
+          category="webinterface"
+          name="show_filepath_now_playing"
         >
           <template #label>
             <span v-text="$t('page.settings.general.show-path')" />
@@ -162,10 +150,7 @@
         />
       </template>
       <template #content>
-        <settings-intfield
-          category_name="webinterface"
-          option_name="recently_added_limit"
-        >
+        <settings-intfield category="webinterface" name="recently_added_limit">
           <template #label>
             <span
               v-text="$t('page.settings.general.recently-added-page-info')"
@@ -225,11 +210,11 @@ export default {
         }))
       }
     },
-    settings_option_show_composer_now_playing() {
-      return this.$store.getters.settings_option_show_composer_now_playing
+    setting_show_composer_now_playing() {
+      return this.$store.getters.setting_show_composer_now_playing
     },
-    settings_option_show_filepath_now_playing() {
-      return this.$store.getters.settings_option_show_filepath_now_playing
+    setting_show_filepath_now_playing() {
+      return this.$store.getters.setting_show_filepath_now_playing
     }
   }
 }

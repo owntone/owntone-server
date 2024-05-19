@@ -22,7 +22,7 @@
             <div v-for="query in recent_searches" :key="query" class="control">
               <div class="tags has-addons">
                 <a class="tag" @click="open_search(query)" v-text="query" />
-                <a class="tag is-delete" @click="remove_search(query)"></a>
+                <a class="tag is-delete" @click="remove_search(query)" />
               </div>
             </div>
           </div>
@@ -46,7 +46,9 @@
               </div>
             </div>
           </template>
-          <template #no-more>&nbsp;</template>
+          <template #no-more>
+            <br />
+          </template>
         </VueEternalLoading>
       </template>
       <template v-if="!expanded" #footer>

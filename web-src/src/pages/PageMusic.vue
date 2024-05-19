@@ -1,13 +1,12 @@
 <template>
   <div class="fd-page-with-tabs">
     <tabs-music />
-    <!-- Recently added -->
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.music.recently-added.title')" />
       </template>
       <template #content>
-        <list-albums :items="recently_added" />
+        <list-albums :items="albums" />
       </template>
       <template #footer>
         <nav class="level">
@@ -22,13 +21,12 @@
         </nav>
       </template>
     </content-with-heading>
-    <!-- Recently played -->
     <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.music.recently-played.title')" />
       </template>
       <template #content>
-        <list-tracks :items="recently_played" />
+        <list-tracks :items="tracks" />
       </template>
       <template #footer>
         <nav class="level">
@@ -73,8 +71,8 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.recently_added = new GroupedList(response[0].data.albums)
-    vm.recently_played = new GroupedList(response[1].data.tracks)
+    vm.albums = new GroupedList(response[0].data.albums)
+    vm.tracks = new GroupedList(response[1].data.tracks)
   }
 }
 
@@ -90,8 +88,8 @@ export default {
 
   data() {
     return {
-      recently_added: [],
-      recently_played: { items: [] },
+      albums: [],
+      tracks: { items: [] },
       selected_track: {}
     }
   }

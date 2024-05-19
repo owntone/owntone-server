@@ -31,8 +31,8 @@ export const filters = {
       .setLocale(locale.value)
       .toLocaleString(DateTime.DATETIME_MED)
   },
-  durationInDays(value_ms) {
-    const minutes = Math.floor(value_ms / 60000)
+  durationInDays(value) {
+    const minutes = Math.floor(value / 60000)
     if (minutes > 1440) {
       return Duration.fromObject({ minutes })
         .shiftTo('days', 'hours', 'minutes')
@@ -44,9 +44,9 @@ export const filters = {
     }
     return Duration.fromObject({ minutes }).shiftTo('minutes').toHuman()
   },
-  durationInHours(value_ms) {
-    const format = value_ms >= 3600000 ? 'h:mm:ss' : 'm:ss'
-    return Duration.fromMillis(value_ms).toFormat(format)
+  durationInHours(value) {
+    const format = value >= 3600000 ? 'h:mm:ss' : 'm:ss'
+    return Duration.fromMillis(value).toFormat(format)
   },
   number(value) {
     return value.toLocaleString(locale.value)

@@ -16,8 +16,8 @@
         />
         <settings-checkbox
           v-if="spotify.spotify_logged_in"
-          category_name="artwork"
-          option_name="use_artwork_source_spotify"
+          category="artwork"
+          name="use_artwork_source_spotify"
         >
           <template #label>
             <span v-text="$t('page.settings.artwork.spotify')" />
@@ -26,10 +26,7 @@
             </a>
           </template>
         </settings-checkbox>
-        <settings-checkbox
-          category_name="artwork"
-          option_name="use_artwork_source_discogs"
-        >
+        <settings-checkbox category="artwork" name="use_artwork_source_discogs">
           <template #label>
             <span v-text="$t('page.settings.artwork.discogs')" />
             <a href="https://www.discogs.com/" target="_blank">
@@ -38,8 +35,8 @@
           </template>
         </settings-checkbox>
         <settings-checkbox
-          category_name="artwork"
-          option_name="use_artwork_source_coverartarchive"
+          category="artwork"
+          name="use_artwork_source_coverartarchive"
         >
           <template #label>
             <span v-text="$t('page.settings.artwork.coverartarchive')" />

@@ -4,7 +4,7 @@
       <div class="columns is-centered">
         <div class="column is-four-fifths">
           <section v-if="$slots.options">
-            <div ref="options_ref" style="height: 1px" />
+            <div ref="options" style="height: 1px" />
             <slot name="options" />
             <nav class="buttons is-centered mt-4 mb-2">
               <router-link class="button is-small is-white" :to="position">
@@ -65,12 +65,12 @@ export default {
         rootMargin: '-82px 0px 0px 0px',
         threshold: 1.0
       })
-      this.observer.observe(this.$refs.options_ref)
+      this.observer.observe(this.$refs.options)
     }
   },
   methods: {
     onElementObserved(entries) {
-      entries.forEach(({ target, isIntersecting }) => {
+      entries.forEach(({ isIntersecting }) => {
         this.options_visible = isIntersecting
       })
     },

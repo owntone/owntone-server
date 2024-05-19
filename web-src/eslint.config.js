@@ -25,21 +25,16 @@ export default [
       'max-statements': 'off',
       'no-bitwise': 'off',
       'no-magic-numbers': 'off',
-      'no-negated-condition': 'off',
       'no-nested-ternary': 'off',
       'no-plusplus': 'off',
-      'no-shadow': 'off',
       'no-ternary': 'off',
       'no-undef': 'off',
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
-      'no-useless-assignment': 'off',
       'one-var': 'off',
-      'prefer-named-capture-group': 'off',
       'sort-keys': 'off',
       'vue/html-self-closing': 'off',
       'vue/max-attributes-per-line': 'off',
-      'vue/prop-name-casing': 'off',
-      'vue/singleline-html-element-content-newline': 'off'
+      'vue/prop-name-casing': 'off'
     }
   }
 ]

@@ -6,7 +6,7 @@
         <p class="title is-4" v-text="$t('page.music.recently-added.title')" />
       </template>
       <template #content>
-        <list-albums :items="recently_added" />
+        <list-albums :items="albums" />
       </template>
     </content-with-heading>
   </div>
@@ -22,7 +22,7 @@ import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    const limit = store.getters.settings_option_recently_added_limit
+    const limit = store.getters.setting_recently_added_limit
     return webapi.search({
       expression:
         'media_kind is music having track_count > 3 order by time_added desc',
@@ -32,7 +32,7 @@ const dataObject = {
   },
 
   set(vm, response) {
-    vm.recently_added = new GroupedList(response.data.albums, {
+    vm.albums = new GroupedList(response.data.albums, {
       criteria: [{ field: 'time_added', order: -1, type: Date }],
       index: { field: 'time_added', type: Date }
     })
@@ -51,7 +51,7 @@ export default {
 
   data() {
     return {
-      recently_added: new GroupedList()
+      albums: new GroupedList()
     }
   }
 }

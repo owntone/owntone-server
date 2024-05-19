@@ -22,7 +22,9 @@
                 keypath="page.search.help"
                 scope="global"
               >
-                <template #query><code>query:</code></template>
+                <template #query>
+                  <code>query:</code>
+                </template>
                 <template #help>
                   <a
                     href="https://owntone.github.io/owntone-server/smart-playlists/"
@@ -37,7 +39,7 @@
             <div v-for="query in recent_searches" :key="query" class="control">
               <div class="tags has-addons">
                 <a class="tag" @click="open_search(query)" v-text="query" />
-                <a class="tag is-delete" @click="remove_search(query)"></a>
+                <a class="tag is-delete" @click="remove_search(query)" />
               </div>
             </div>
           </div>
