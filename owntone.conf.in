@@ -45,7 +45,7 @@ general {
 #	trusted_networks = { "localhost", "192.168", "fd" }
 
 	# Enable/disable IPv6
-	ipv6 = yes
+#	ipv6 = no
 
 	# Set this if you want the server to bind to a specific IP address. Can
 	# be ipv6 or ipv4. Default (commented out or "::") is to listen on all
