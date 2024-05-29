@@ -15,19 +15,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- *
- * About pipe.c
- * --------------
- * This module will read a PCM16 stream from a named pipe and write it to the
- * input buffer. The user may start/stop playback from a pipe by selecting it
- * through a client. If the user has configured pipe_autostart, then pipes in
- * the library will also be watched for data, and playback will start/stop
- * automatically.
- *
- * The module will also look for pipes with a .metadata suffix, and if found,
- * the metadata will be parsed and fed to the player. The metadata must be in
- * the format Shairport uses for this purpose.
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -36,162 +23,18 @@
 
 #include <stdio.h> // fopen
 #include <stdarg.h> // va_*
-#include <ctype.h>
+#include <string.h> // strlen
+#include <ctype.h> // isspace
 
-#include <mxml.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h>
 
-typedef mxml_node_t xml_node;
-
-
-/* ---------------- Compability with older versions of mxml ----------------- */
-
-// mxml 2.10 has a memory leak in mxmlDelete, see https://github.com/michaelrsweet/mxml/issues/183
-// - and since this is the version in Ubuntu 18.04 LTS and Raspian Stretch, we
-// fix it by including a fixed mxmlDelete here. It should be removed once the
-// major distros no longer have 2.10. The below code is msweet's fixed mxml.
-#if (MXML_MAJOR_VERSION == 2) && (MXML_MINOR_VERSION <= 10)
-
-#define mxmlDelete compat_mxmlDelete
-
-static void
-compat_mxml_free(mxml_node_t *node)
-{
-  int i;
-
-  switch (node->type)
-  {
-    case MXML_ELEMENT :
-        if (node->value.element.name)
-	  free(node->value.element.name);
-
-	if (node->value.element.num_attrs)
-	{
-	  for (i = 0; i < node->value.element.num_attrs; i ++)
-	  {
-	    if (node->value.element.attrs[i].name)
-	      free(node->value.element.attrs[i].name);
-	    if (node->value.element.attrs[i].value)
-	      free(node->value.element.attrs[i].value);
-	  }
-
-          free(node->value.element.attrs);
-	}
-        break;
-    case MXML_INTEGER :
-        break;
-    case MXML_OPAQUE :
-        if (node->value.opaque)
-	  free(node->value.opaque);
-        break;
-    case MXML_REAL :
-        break;
-    case MXML_TEXT :
-        if (node->value.text.string)
-	  free(node->value.text.string);
-        break;
-    case MXML_CUSTOM :
-        if (node->value.custom.data &&
-	    node->value.custom.destroy)
-	  (*(node->value.custom.destroy))(node->value.custom.data);
-	break;
-    default :
-        break;
-  }
-
-  free(node);
-}
-
-__attribute__((unused)) static void
-compat_mxmlDelete(mxml_node_t *node)
-{
-  mxml_node_t	*current,
-		*next;
-
-  if (!node)
-    return;
-
-  mxmlRemove(node);
-  for (current = node->child; current; current = next)
-  {
-    if ((next = current->child) != NULL)
-    {
-      current->child = NULL;
-      continue;
-    }
-
-    if ((next = current->next) == NULL)
-    {
-      if ((next = current->parent) == node)
-        next = NULL;
-    }
-    compat_mxml_free(current);
-  }
-
-  compat_mxml_free(node);
-}
-#endif
-
-/* For compability with mxml 2.6 */
-#ifndef HAVE_MXMLGETTEXT
-__attribute__((unused)) static const char *			/* O - Text string or NULL */
-mxmlGetText(mxml_node_t *node,		/* I - Node to get */
-            int         *whitespace)	/* O - 1 if string is preceded by whitespace, 0 otherwise */
-{
-  if (node->type == MXML_TEXT)
-    return (node->value.text.string);
-  else if (node->type == MXML_ELEMENT &&
-           node->child &&
-	   node->child->type == MXML_TEXT)
-    return (node->child->value.text.string);
-  else
-    return (NULL);
-}
-#endif
-
-#ifndef HAVE_MXMLGETOPAQUE
-__attribute__((unused)) static const char *			/* O - Opaque string or NULL */
-mxmlGetOpaque(mxml_node_t *node)	/* I - Node to get */
-{
-  if (!node)
-    return (NULL);
-
-  if (node->type == MXML_OPAQUE)
-    return (node->value.opaque);
-  else if (node->type == MXML_ELEMENT &&
-           node->child &&
-	   node->child->type == MXML_OPAQUE)
-    return (node->child->value.opaque);
-  else
-    return (NULL);
-}
-#endif
-
-#ifndef HAVE_MXMLGETFIRSTCHILD
-__attribute__((unused)) static mxml_node_t *			/* O - First child or NULL */
-mxmlGetFirstChild(mxml_node_t *node)	/* I - Node to get */
-{
-  if (!node || node->type != MXML_ELEMENT)
-    return (NULL);
-
-  return (node->child);
-}
-#endif
-
-#ifndef HAVE_MXMLGETTYPE
-__attribute__((unused)) static mxml_type_t			/* O - Type of node */
-mxmlGetType(mxml_node_t *node)		/* I - Node to get */
-{
-  return (node->type);
-}
-#endif
-
+typedef xmlNode xml_node;
 
 /* --------------------------------- Helpers -------------------------------- */
 
-// We get values from mxml via GetOpaque, but that means they can whitespace,
-// thus we trim them. A bit dirty, since the values are in principle const.
-static const char *
-trim(const char *str)
+static char *
+trim(char *str)
 {
   char *term;
 
@@ -205,7 +48,6 @@ trim(const char *str)
   while (term != str && isspace(*(term - 1)))
     term--;
 
-  // Dirty write to the const string from mxml
   *term = '\0';
 
   return str;
@@ -215,9 +57,25 @@ trim(const char *str)
 /* -------------------------- Wrapper implementation ------------------------ */
 
 char *
-xml_to_string(xml_node *top)
+xml_to_string(xml_node *top, const char *xml_declaration)
 {
-  return mxmlSaveAllocString(top, MXML_NO_CALLBACK);
+  xmlBuffer *buf;
+  char *s;
+
+  buf = xmlBufferCreate();
+  if (!buf)
+    return NULL;
+
+  if (xml_declaration)
+    xmlBufferWriteChar(buf, xml_declaration);
+
+  xmlNodeDump(buf, top->doc, top, 0, 0);
+
+  s = strdup((char *)buf->content);
+
+  xmlBufferFree(buf);
+
+  return s;
 }
 
 // This works both for well-formed xml strings (beginning with <?xml..) and for
@@ -225,99 +83,90 @@ xml_to_string(xml_node *top)
 xml_node *
 xml_from_string(const char *string)
 {
-  mxml_node_t *top;
-  mxml_node_t *node;
+  xmlDocPtr doc;
 
-  top = mxmlNewXML("1.0");
-  if (!top)
-    goto error;
+  doc = xmlReadMemory(string, strlen(string), NULL, NULL, XML_PARSE_NOBLANKS | XML_PARSE_NOCDATA | XML_PARSE_NONET);
+  if (!doc)
+    return NULL;
 
-  node = mxmlLoadString(top, string, MXML_OPAQUE_CALLBACK);
-  if (!node)
-    goto error;
-
-  return top;
-
- error:
-  mxmlDelete(top);
-  return NULL;
+  return xmlDocGetRootElement(doc);
 }
 
 xml_node *
 xml_from_file(const char *path)
 {
-  FILE *fp;
-  mxml_node_t *top;
-  mxml_node_t *node;
+  xmlDocPtr doc;
 
-  top = mxmlNewXML("1.0");
-  if (!top)
-    goto error;
+  doc = xmlReadFile(path, NULL, XML_PARSE_NOBLANKS | XML_PARSE_NOCDATA | XML_PARSE_NONET);
+  if (!doc)
+    return NULL;
 
-  fp = fopen(path, "r");
-  node = mxmlLoadFile(top, fp, MXML_OPAQUE_CALLBACK);
-  fclose(fp);
-
-  if (!node)
-    goto error;
-
-  return top;
-
- error:
-  mxmlDelete(top);
-  return NULL;
+  return xmlDocGetRootElement(doc);
 }
 
 void
 xml_free(xml_node *top)
 {
-  mxmlDelete(top);
+  xmlFreeDoc(top->doc);
 }
 
 xml_node *
-xml_get_node(xml_node *top, const char *path)
+xml_get_child(xml_node *top, const char *name)
 {
-  mxml_node_t *node;
-  mxml_type_t type;
+  xml_node *cur;
 
-  // This example shows why we can't just return the result of mxmlFindPath:
-  // <?xml version="1.0""?><rss>
-  //	<channel>
-  //		<title><![CDATA[Tissages]]></title>
-  // mxmlFindPath(top, "rss/channel") will return an OPAQUE node where the
-  // opaque value is just the whitespace. What we want is the ELEMENT parent,
-  // because that's the one we can use to search for children nodes ("title").
-  node = mxmlFindPath(top, path);
-  type = mxmlGetType(node);
-  if (type == MXML_ELEMENT)
-    return node;
+  for (cur = xmlFirstElementChild(top); cur; cur = xmlNextElementSibling(cur))
+    {
+      if (xmlStrEqual(BAD_CAST name, cur->name))
+        break;
+    }
 
-  return mxmlGetParent(node);
+  return cur;
 }
 
 xml_node *
 xml_get_next(xml_node *top, xml_node *node)
 {
-  const char *name;
-  const char *s;
-
-  name = mxmlGetElement(node);
-  if (!name)
-    return NULL;
-
-  while ( (node = mxmlGetNextSibling(node)) )
-    {
-      s = mxmlGetElement(node);
-      if (s && strcmp(s, name) == 0)
-	return node;
-    }
-
-  return NULL;
+  return xmlNextElementSibling(node);
 }
 
-// Walks through the children of the "path" node until it finds one that is
-// not just whitespace and returns a trimmed value (except for CDATA). Means
-// that these variations will all give the same result:
+// We don't use xpath because I couldn't figure how to make it search in a node
+// subtree instead of in the entire xmlDoc + it is more complex than the below.
+// If the XML is <foo><bar>value</bar></foo> then both path = "foo/bar" and path
+// = "bar" (so a path without the top element) will return "value".
+xml_node *
+xml_get_node(xml_node *top, const char *path)
+{
+  xml_node *node = top;
+  char *path_cpy;
+  char *needle;
+  char *ptr;
+
+  if (!top)
+    return NULL;
+  if (!path)
+    return top;
+
+  path_cpy = strdup(path);
+
+  needle = strtok_r(path_cpy, "/", &ptr);
+  if (!needle)
+    node = NULL;
+  else if (xmlStrEqual(BAD_CAST needle, node->name))
+    needle = strtok_r(NULL, "/", &ptr); // Descend one level down the path
+
+  while (node && needle)
+    {
+      node = xml_get_child(node, needle);
+      needle = strtok_r(NULL, "/", &ptr);
+    }
+
+  free(path_cpy);
+
+  return node;
+}
+
+// These variations will all give the same result:
 //
 // <foo>FOO FOO</foo><bar>\nBAR BAR \n</bar>
 // <foo>FOO FOO</foo><bar><![CDATA[BAR BAR]]></bar>
@@ -325,50 +174,69 @@ xml_get_next(xml_node *top, xml_node *node)
 const char *
 xml_get_val(xml_node *top, const char *path)
 {
-  mxml_node_t *parent;
-  mxml_node_t *node;
-  mxml_type_t type;
-  const char *s = "";
+  xml_node *node;
 
-  parent = xml_get_node(top, path);
-  if (!parent)
+  node = xml_get_node(top, path);
+  if (!node || !node->children)
     return NULL;
 
-  for (node = mxmlGetFirstChild(parent); node; node = mxmlGetNextSibling(node))
-    {
-      type = mxmlGetType(node);
-      if (type == MXML_OPAQUE)
-	s = trim(mxmlGetOpaque(node));
-      else if (type == MXML_ELEMENT)
-        s = mxmlGetCDATA(node);
-
-      if (s && *s != '\0')
-	break;
-    }
-
-  return s;
+  return trim((char *)node->children->content);
 }
 
 const char *
 xml_get_attr(xml_node *top, const char *path, const char *name)
 {
-  mxml_node_t *node = mxmlFindPath(top, path);
+  xml_node *node;
+  xmlAttr *prop;
 
-  return mxmlElementGetAttr(node, name);
+  node = xml_get_node(top, path);
+  if (!node)
+    return NULL;
+
+  prop = xmlHasProp(node, BAD_CAST name);
+  if (!prop || !prop->children)
+    return NULL;
+
+  return trim((char *)prop->children->content);
+}
+
+xml_node *
+xml_new(void)
+{
+  xmlDoc *doc;
+
+  doc = xmlNewDoc(BAD_CAST "1.0");
+  if (!doc)
+    return NULL;
+
+  return xmlDocGetRootElement(doc);
 }
 
 xml_node *
 xml_new_node(xml_node *parent, const char *name, const char *val)
 {
-  if (!parent)
-    parent = MXML_NO_PARENT;
+  xml_node *node;
+  xmlDoc *doc = NULL;
 
-  mxml_node_t *node = mxmlNewElement(parent, name);
-  if (!val)
-    return node; // We're done, caller gets an ELEMENT to use as parent
+  doc = parent ? parent->doc : xmlNewDoc(BAD_CAST "1.0");
+  if (!doc)
+    goto error;
 
-  mxmlNewText(node, 0, val);
+  node = xmlNewDocNode(doc, NULL, BAD_CAST name, BAD_CAST val);
+  if (!node)
+    return NULL;
+
+  if (parent)
+    xmlAddChild(parent, node);
+  else
+    xmlDocSetRootElement(doc, node);
+
   return node;
+
+ error:
+  if (!parent)
+    xmlFreeDoc(doc);
+  return NULL;
 }
 
 xml_node *
@@ -376,7 +244,7 @@ xml_new_node_textf(xml_node *parent, const char *name, const char *format, ...)
 {
   char *s = NULL;
   va_list va;
-  mxml_node_t *node;
+  xml_node *node;
   int ret;
 
   va_start(va, format);
@@ -393,8 +261,17 @@ xml_new_node_textf(xml_node *parent, const char *name, const char *format, ...)
   return node;
 }
 
-void
+xml_node *
 xml_new_text(xml_node *parent, const char *val)
 {
-  mxmlNewText(parent, 0, val);
+  xml_node *node;
+
+  if (!parent)
+    return NULL;
+
+  node = xmlNewDocText(parent->doc, BAD_CAST val);
+  if (!node)
+    return NULL;
+
+  return xmlAddChild(parent, node);
 }

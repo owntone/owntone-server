@@ -120,13 +120,7 @@ OWNTONE_MODULES_CHECK([OWNTONE], [ZLIB], [zlib], [deflate], [zlib.h])
 OWNTONE_MODULES_CHECK([OWNTONE], [CONFUSE], [libconfuse >= 3.0], [cfg_init], [confuse.h])
 OWNTONE_MODULES_CHECK([OWNTONE], [LIBCURL], [libcurl], [curl_global_init], [curl/curl.h])
 OWNTONE_MODULES_CHECK([OWNTONE], [LIBSODIUM], [libsodium], [sodium_init], [sodium.h])
-
-OWNTONE_MODULES_CHECK([OWNTONE], [MINIXML], [mxml],
-	[mxmlNewElement], [mxml.h],
-	[
-	 dnl See mxml-compat.h
-	 AC_CHECK_FUNCS([mxmlGetOpaque] [mxmlGetText] [mxmlGetType] [mxmlGetFirstChild])
-	])
+OWNTONE_MODULES_CHECK([OWNTONE], [LIBXML2], [libxml-2.0], [xmlInitParser], [libxml/parser.h])
 
 OWNTONE_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 	[sqlite3_initialize], [sqlite3.h],
