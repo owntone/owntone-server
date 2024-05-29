@@ -38,12 +38,6 @@ jobs:
         sudo ln -s /usr/local/opt/bison/bin/bison /usr/local/bin/bison
         sudo ln -s /usr/local/opt/flex/bin/flex /usr/local/bin/flex
 
-    - name: Install libmxml
-      # Homebrew by default comes with libmxml 4, but it isn't compatible with mxml 3 which we need
-      run: |
-        wget https://raw.githubusercontent.com/Homebrew/homebrew-core/71bfcd3624ee88eee1e2ea6653753dafd48e7fcf/Formula/lib/libmxml.rb
-        brew install --build-from-source libmxml.rb
-
     - name: Install libinotify-kqueue
       # brew does not have libinotify package
       run: |
@@ -76,7 +70,7 @@ jobs:
 
     - name: Install other dependencies
       run: |
-        brew install libunistring confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
+        brew install libxml2 libunistring confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
 
     - name: Configure
       # We configure a non-privileged setup, since how to add a "owntone" system
