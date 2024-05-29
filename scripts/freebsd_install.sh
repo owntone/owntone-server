@@ -20,7 +20,7 @@ if [ "$yn" != "y" ]; then
 fi
 
 DEPS="gmake autoconf automake libtool gettext gperf glib pkgconf wget git \
-     ffmpeg libconfuse libevent mxml libgcrypt libunistring libiconv curl \
+     ffmpeg libconfuse libevent libxml2 libgcrypt libunistring libiconv curl \
      libplist libinotify avahi sqlite3 alsa-lib libsodium json-c libwebsockets
      protobuf-c bison flex"
 echo "The script can install the following dependency packages for you:"

@@ -15,7 +15,7 @@ sudo apt-get install \
   build-essential git autotools-dev autoconf automake libtool gettext gawk \
   gperf bison flex libconfuse-dev libunistring-dev libsqlite3-dev \
   libavcodec-dev libavformat-dev libavfilter-dev libswscale-dev libavutil-dev \
-  libasound2-dev libmxml-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev \
+  libasound2-dev libxml2-dev libgcrypt20-dev libavahi-client-dev zlib1g-dev \
   libevent-dev libplist-dev libsodium-dev libjson-c-dev libwebsockets-dev \
   libcurl4-openssl-dev libprotobuf-c-dev
 ```
@@ -73,7 +73,7 @@ will need ffmpeg. You can google how to do that. Then run:
 ```bash
 sudo dnf install \
   git automake autoconf gettext-devel gperf gawk libtool bison flex \
-  sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
+  sqlite-devel libconfuse-devel libunistring-devel libxml2-devel libevent-devel \
   avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel \
   libplist-devel libsodium-devel json-c-devel libwebsockets-devel \
   libcurl-devel protobuf-c-devel
@@ -137,10 +137,8 @@ Install MacPorts (which requires Xcode): <https://www.macports.org/install.php>
 sudo port install \
   autoconf automake libtool pkgconfig git gperf bison flex libgcrypt \
   libunistring libconfuse ffmpeg libevent json-c libwebsockets curl \
-  libplist libsodium protobuf-c
+  libplist libsodium protobuf-c libxml2
 ```
-
-Download, configure, build, and install the [Mini-XML library](https://www.msweet.org/mxml/)
 
 Download, configure, build and install the [libinotify-kqueue library](https://github.com/libinotify-kqueue/libinotify-kqueue)
 
@@ -226,7 +224,7 @@ Libraries:
 - [FFmpeg](https://ffmpeg.org/)
 - [libconfuse](https://github.com/libconfuse/libconfuse)  
 - [libevent](https://libevent.org/) 2.1.4+
-- [Mini-XML](https://www.msweet.org/mxml/) (aka mxml or libmxml)  
+- [libxml2](https://gitlab.gnome.org/GNOME/libxml2)  
 - [Libgcrypt](https://gnupg.org/software/libgcrypt/) 1.2.0+  
 - [zlib](https://zlib.net/)
 - [libunistring](https://www.gnu.org/software/libunistring/) 0.9.3+
