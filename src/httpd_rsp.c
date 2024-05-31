@@ -40,7 +40,7 @@
 #include "parsers/rsp_parser.h"
 
 #define RSP_VERSION "1.0"
-#define RSP_XML_ROOT "?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?"
+#define RSP_XML_DECLARATION "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>"
 
 #define F_FULL     (1 << 0)
 #define F_BROWSE   (1 << 1)
@@ -124,7 +124,7 @@ xml_to_evbuf(struct evbuffer *evbuf, xml_node *tree)
   char *xml;
   int ret;
 
-  xml = xml_to_string(tree);
+  xml = xml_to_string(tree, RSP_XML_DECLARATION);
   if (!xml)
     {
       DPRINTF(E_LOG, L_RSP, "Could not finalize RSP reply\n");
@@ -142,44 +142,53 @@ xml_to_evbuf(struct evbuffer *evbuf, xml_node *tree)
   return 0;
 }
 
-static void
-rsp_xml_response_new(xml_node **xml_ptr, xml_node **response_ptr, int errorcode, const char *errorstring, int records, int totalrecords)
+static int
+rsp_xml_response_new(xml_node **response_ptr, int errorcode, const char *errorstring, int records, int totalrecords)
 {
-  xml_node *xml = xml_new_node(NULL, RSP_XML_ROOT, NULL);
-  xml_node *response = xml_new_node(xml, "response", NULL);
+  xml_node *node;
+  xml_node *response = xml_new_node(NULL, "response", NULL);
   xml_node *status = xml_new_node(response, "status", NULL);
 
+  if (!response || !status)
+    return -1;
+
   xml_new_node_textf(status, "errorcode", "%d", errorcode);
-  xml_new_node(status, "errorstring", errorstring);
+  node = xml_new_node(status, "errorstring", errorstring);
+  if (errorstring && *errorstring == '\0')
+    xml_new_text(node, ""); // Prevents sending <errorstring/> which the Soundbridge may not understand
+
   xml_new_node_textf(status, "records", "%d", records);
   xml_new_node_textf(status, "totalrecords", "%d", totalrecords);
 
   if (response_ptr)
     *response_ptr = response;
-  if (xml_ptr)
-    *xml_ptr = xml;
+
+  return 0;
 }
 
 static void
 rsp_send_error(struct httpd_request *hreq, char *errmsg)
 {
-  xml_node *xml;
+  xml_node *response = NULL;
   int ret;
 
-  rsp_xml_response_new(&xml, NULL, 1, errmsg, 0, 0);
-  ret = xml_to_evbuf(hreq->out_body, xml);
-  xml_free(xml);
+  CHECK_ERR(L_RSP, rsp_xml_response_new(&response, 1, errmsg, 0, 0));
 
+  ret = xml_to_evbuf(hreq->out_body, response);
   if (ret < 0)
-    {
-      httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
-      return;
-    }
+    goto error;
 
   httpd_header_add(hreq->out_headers, "Content-Type", "text/xml; charset=utf-8");
   httpd_header_add(hreq->out_headers, "Connection", "close");
 
   httpd_send_reply(hreq, HTTP_OK, "OK", HTTPD_SEND_NO_GZIP);
+
+  xml_free(response);
+  return;
+
+ error:
+  httpd_send_error(hreq, HTTP_SERVUNAVAIL, "Internal Server Error");
+  xml_free(response);
 }
 
 static int
@@ -305,7 +314,6 @@ rsp_request_authorize(struct httpd_request *hreq)
 static int
 rsp_reply_info(struct httpd_request *hreq)
 {
-  xml_node *xml;
   xml_node *response;
   xml_node *info;
   cfg_t *lib;
@@ -317,7 +325,7 @@ rsp_reply_info(struct httpd_request *hreq)
   lib = cfg_getsec(cfg, "library");
   library = cfg_getstr(lib, "name");
 
-  rsp_xml_response_new(&xml, &response, 0, "", 0, 0);
+  CHECK_ERR(L_RSP, rsp_xml_response_new(&response, 0, "", 0, 0));
 
   info = xml_new_node(response, "info", NULL);
 
@@ -326,7 +334,7 @@ rsp_reply_info(struct httpd_request *hreq)
   xml_new_node(info, "server-version", VERSION);
   xml_new_node(info, "name", library);
 
-  rsp_send_reply(hreq, xml);
+  rsp_send_reply(hreq, response);
   return 0;
 }
 
@@ -336,7 +344,6 @@ rsp_reply_db(struct httpd_request *hreq)
   struct query_params qp;
   struct db_playlist_info dbpli;
   char **strval;
-  xml_node *xml;
   xml_node *response;
   xml_node *pls;
   xml_node *pl;
@@ -357,7 +364,7 @@ rsp_reply_db(struct httpd_request *hreq)
       return -1;
     }
 
-  rsp_xml_response_new(&xml, &response, 0, "", qp.results, qp.results);
+  CHECK_ERR(L_RSP, rsp_xml_response_new(&response, 0, "", qp.results, qp.results));
 
   pls = xml_new_node(response, "playlists", NULL);
 
@@ -386,7 +393,7 @@ rsp_reply_db(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
-      xml_free(xml);
+      xml_free(response);
       db_query_end(&qp);
       rsp_send_error(hreq, "Error fetching query results");
       return -1;
@@ -394,7 +401,7 @@ rsp_reply_db(struct httpd_request *hreq)
 
   /* HACK
    * Add a dummy empty string to the playlists element if there is no data
-   * to return - this prevents mxml from sending out an empty <playlists/>
+   * to return - this prevents us from sending out an empty <playlists/>
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
   if (qp.results == 0)
@@ -402,7 +409,7 @@ rsp_reply_db(struct httpd_request *hreq)
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq, xml);
+  rsp_send_reply(hreq, response);
 
   return 0;
 }
@@ -473,7 +480,6 @@ rsp_reply_playlist(struct httpd_request *hreq)
   struct query_params qp;
   const char *param;
   const char *client_codecs;
-  xml_node *xml;
   xml_node *response;
   xml_node *items;
   int mode;
@@ -538,7 +544,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
   if (qp.limit && (records > qp.limit))
     records = qp.limit;
 
-  rsp_xml_response_new(&xml, &response, 0, "", records, qp.results);
+  CHECK_ERR(L_RSP, rsp_xml_response_new(&response, 0, "", records, qp.results));
 
   // Add a parent items block (all items), and then one item per file
   items = xml_new_node(response, "items", NULL);
@@ -554,7 +560,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
-      xml_free(xml);
+      xml_free(response);
       db_query_end(&qp);
       rsp_send_error(hreq, "Error fetching query results");
       return -1;
@@ -562,7 +568,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
 
   /* HACK
    * Add a dummy empty string to the items element if there is no data
-   * to return - this prevents mxml from sending out an empty <items/>
+   * to return - this prevents us from sending out an empty <items/>
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
   if (qp.results == 0)
@@ -570,7 +576,7 @@ rsp_reply_playlist(struct httpd_request *hreq)
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq, xml);
+  rsp_send_reply(hreq, response);
 
   return 0;
 }
@@ -580,7 +586,6 @@ rsp_reply_browse(struct httpd_request *hreq)
 {
   struct query_params qp;
   char *browse_item;
-  xml_node *xml;
   xml_node *response;
   xml_node *items;
   int records;
@@ -643,7 +648,7 @@ rsp_reply_browse(struct httpd_request *hreq)
   if (qp.limit && (records > qp.limit))
     records = qp.limit;
 
-  rsp_xml_response_new(&xml, &response, 0, "", records, qp.results);
+  CHECK_ERR(L_RSP, rsp_xml_response_new(&response, 0, "", records, qp.results));
 
   items = xml_new_node(response, "items", NULL);
 
@@ -660,7 +665,7 @@ rsp_reply_browse(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
-      xml_free(xml);
+      xml_free(response);
       db_query_end(&qp);
       rsp_send_error(hreq, "Error fetching query results");
       return -1;
@@ -668,7 +673,7 @@ rsp_reply_browse(struct httpd_request *hreq)
 
   /* HACK
    * Add a dummy empty string to the items element if there is no data
-   * to return - this prevents mxml from sending out an empty <items/>
+   * to return - this prevents us from sending out an empty <items/>
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
   if (qp.results == 0)
@@ -676,7 +681,7 @@ rsp_reply_browse(struct httpd_request *hreq)
 
   db_query_end(&qp);
 
-  rsp_send_reply(hreq, xml);
+  rsp_send_reply(hreq, response);
 
   return 0;
 }
