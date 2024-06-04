@@ -414,37 +414,36 @@ is_v6ll(const AvahiIPv6Address *addr)
 }
 
 static int
-avahi_address_make(AvahiAddress *addr, AvahiProtocol proto, const void *rdata, size_t size)
+avahi_address_from_record(AvahiAddress *addr, uint16_t record_type, const void *record_data, size_t record_size)
 {
   memset(addr, 0, sizeof(AvahiAddress));
 
-  addr->proto = proto;
-
-  if (proto == AVAHI_PROTO_INET)
+  if (record_type == AVAHI_DNS_TYPE_A)
     {
-      if (size != sizeof(AvahiIPv4Address))
+      if (record_size != sizeof(AvahiIPv4Address))
 	{
-	  DPRINTF(E_LOG, L_MDNS, "Got RR type A size %zu (should be %zu)\n", size, sizeof(AvahiIPv4Address));
+	  printf("Got RR type A size %zu (should be %zu)\n", record_size, sizeof(AvahiIPv4Address));
 	  return -1;
 	}
 
-      memcpy(&addr->data.ipv4.address, rdata, size);
+      addr->proto = AVAHI_PROTO_INET;
+      memcpy(&addr->data.ipv4.address, record_data, record_size);
       return 0;
     }
-
-  if (proto == AVAHI_PROTO_INET6)
+  else if (record_type == AVAHI_DNS_TYPE_AAAA)
     {
-      if (size != sizeof(AvahiIPv6Address))
+      if (record_size != sizeof(AvahiIPv6Address))
 	{
-	  DPRINTF(E_LOG, L_MDNS, "Got RR type AAAA size %zu (should be %zu)\n", size, sizeof(AvahiIPv6Address));
+	  printf("Got RR type AAAA size %zu (should be %zu)\n", record_size, sizeof(AvahiIPv6Address));
 	  return -1;
 	}
 
-      memcpy(&addr->data.ipv6.address, rdata, size);
+      addr->proto = AVAHI_PROTO_INET6;
+      memcpy(&addr->data.ipv6.address, record_data, record_size);
       return 0;
     }
 
-  DPRINTF(E_LOG, L_MDNS, "Error: Unknown protocol\n");
+  printf("Error: Unknown record type\n");
   return -1;
 }
 
@@ -726,8 +725,8 @@ address_check(const char *hostname, const AvahiAddress *addr, int port, enum mdn
 
 static void
 browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol proto,
-                       AvahiBrowserEvent event, const char *hostname, uint16_t clazz, uint16_t type,
-                       const void *rdata, size_t size, AvahiLookupResultFlags flags, void *userdata)
+                       AvahiBrowserEvent event, const char *hostname, uint16_t clazz, uint16_t rtype,
+                       const void *rdata, size_t rsize, AvahiLookupResultFlags flags, void *userdata)
 {
   struct mdns_record_browser *rb_data;
   AvahiAddress addr;
@@ -749,11 +748,9 @@ browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol p
   if (event != AVAHI_BROWSER_NEW)
     goto out_free_record_browser;
 
-  ret = avahi_address_make(&addr, proto, rdata, size); // Not an avahi function despite the name
+  ret = avahi_address_from_record(&addr, rtype, rdata, rsize); // Not an avahi function despite the name
   if (ret < 0)
     return;
-
-  family = avahi_proto_to_af(proto);
 
   CHECK_NULL(L_MDNS, avahi_address_snprint(address, sizeof(address), &addr));
 
@@ -764,6 +761,7 @@ browse_record_callback(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol p
     return;
 
   // Execute callback (mb->cb) with all the data
+  family = avahi_proto_to_af(addr.proto);
   rb_data->mb->cb(rb_data->name, rb_data->mb->type, rb_data->domain, hostname, family, address, rb_data->port, rb_data->txt_kv);
 
   // Stop record browser, we found an address (or there was an error)
@@ -857,7 +855,11 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       rb_data->port = port;
       rb_data->txt_kv = txt_kv;
 
-      if (addr->proto == AVAHI_PROTO_INET6)
+      // We test proto and not addr->proto here, because addr might be e.g. an
+      // ipv6 link-local that failed the check. The device might have a valid
+      // ipv4, so we don't want to limit the record browser to AAAA records just
+      // because addr was ipv6.
+      if (proto == AVAHI_PROTO_INET6)
 	dns_type = AVAHI_DNS_TYPE_AAAA;
       else
 	dns_type = AVAHI_DNS_TYPE_A;
