@@ -1,0 +1,90 @@
+name: MacOS 12
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-12
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install build tools
+      run: brew install automake autoconf libtool pkg-config
+
+    - name: Install gperf, bison and flex
+      # MacOS comes with an ancient bison, we need a newer version. Homebrew's
+      # bison and flex are keg-only, which means they are not symlinked into
+      # /usr/local because macOS already provides this software. Homebrew tells
+      # you to adjust the $PATH, but I couldn't make that work, and I think
+      # symlinking is a better solution for simple binaries.
+      run: |
+        brew install gperf bison flex
+        sudo ln -s /usr/local/opt/bison/bin/bison /usr/local/bin/bison
+        sudo ln -s /usr/local/opt/flex/bin/flex /usr/local/bin/flex
+
+    - name: Install libinotify-kqueue
+      # brew does not have libinotify package
+      run: |
+        git clone https://github.com/libinotify-kqueue/libinotify-kqueue
+        cd libinotify-kqueue
+        autoreconf -fvi
+        ./configure
+        make
+        sudo make install
+        cd ..
+
+    - name: Install sqlite
+      # When GH actions has 3.43.0_1+, which has unlock-notify, then this can be
+      # removed and we can just install brew's sqlite
+      run: |
+        wget https://www.sqlite.org/2020/sqlite-autoconf-3310100.tar.gz
+        tar xzf sqlite-autoconf-3310100.tar.gz
+        cd sqlite-autoconf-3310100
+        export CFLAGS='-DSQLITE_ENABLE_UNLOCK_NOTIFY=1'
+        ./configure
+        make
+        sudo make install
+        cd ..
+
+    - name: Install ffmpeg
+      # The libbluray ffmpeg dependency fails without the chown (source: stackoverflow)
+      run: |
+        sudo chown -R $(whoami) $(brew --prefix)/*
+        brew install ffmpeg
+
+    - name: Install other dependencies
+      run: |
+        brew install libxml2 libunistring confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl
+
+    - name: Configure
+      # We configure a non-privileged setup, since how to add a "owntone" system
+      # user in MacOS isn't clear to me (useradd etc. isn't available)
+      run: |
+        autoreconf -fi
+        ./configure --prefix=$HOME/owntone_data/usr --sysconfdir=$HOME/owntone_data/etc --localstatedir=$HOME/owntone_data/var --enable-chromecast --with-pulseaudio
+
+    - name: Build
+      run: |
+        # Without setting these env vars the build fails with e.g. "fatal error: 'openssl/ssl.h' file not found"
+        # (Solution taken from https://github.com/libimobiledevice/libimobiledevice/issues/389#issuecomment-289284190)
+        export LD_LIBRARY_PATH=$(brew --prefix openssl)/lib
+        export CPATH=$(brew --prefix openssl)/include
+        export PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig
+        make
+
+    - name: Install
+      run: |
+        make install
+
+    - name: Prepare test run
+      run: |
+        mkdir -p $HOME/owntone_data/media
+        sed -i '' 's/uid = "owntone"/uid = ${USER}/g' $HOME/owntone_data/etc/owntone.conf
+        sed -i '' 's/loglevel = log/loglevel = debug/g' $HOME/owntone_data/etc/owntone.conf
+        sed -i '' 's/directories = { "\/srv\/music" }/directories = { "${HOME}\/owntone_data\/media" }/g' $HOME/owntone_data/etc/owntone.conf
+
+    - name: Test run
+      run: |
+        $HOME/owntone_data/usr/sbin/owntone -f -t
