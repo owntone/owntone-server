@@ -1,4 +1,4 @@
-name: MacOS
+name: macOS
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
       run: brew install automake autoconf libtool pkg-config
 
     - name: Install gperf, bison and flex
-      # Mac OS has ancient versions of bison and flex, so we need a newer from
+      # macOS has ancient versions of bison and flex, so we need a newer from
       # Homebrew. The new versions are installed keg-only, so we must tell
       # configure/make where to look. Adjusting $PATH doesn't work (maybe
       # because make invokes the two via ylwrap), so instead symlink the two
@@ -50,13 +50,13 @@ jobs:
         cd ..
 
     - name: Install other dependencies
-      # libxml2 is included with Mac OS
+      # libxml2 is included with macOS
       run: |
         brew install libunistring confuse libplist libwebsockets libevent libgcrypt json-c protobuf-c libsodium gnutls pulseaudio openssl ffmpeg sqlite
 
     - name: Configure
       # We configure a non-privileged setup, since how to add a "owntone" system
-      # user in MacOS isn't clear to me (useradd etc. isn't available)
+      # user in macOS isn't clear to me (useradd etc. isn't available)
       run: |
         export CFLAGS="-I$(brew --prefix)/include -I$(brew --prefix sqlite)/include"
         export LDFLAGS="-L$(brew --prefix)/lib -L$(brew --prefix sqlite)/lib"

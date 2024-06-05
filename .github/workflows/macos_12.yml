@@ -1,4 +1,4 @@
-name: MacOS 12
+name: macOS 12
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
       run: brew install automake autoconf libtool pkg-config
 
     - name: Install gperf, bison and flex
-      # MacOS comes with an ancient bison, we need a newer version. Homebrew's
+      # macOS comes with an ancient bison, we need a newer version. Homebrew's
       # bison and flex are keg-only, which means they are not symlinked into
       # /usr/local because macOS already provides this software. Homebrew tells
       # you to adjust the $PATH, but I couldn't make that work, and I think
@@ -60,7 +60,7 @@ jobs:
 
     - name: Configure
       # We configure a non-privileged setup, since how to add a "owntone" system
-      # user in MacOS isn't clear to me (useradd etc. isn't available)
+      # user in macOS isn't clear to me (useradd etc. isn't available)
       run: |
         autoreconf -fi
         ./configure --prefix=$HOME/owntone_data/usr --sysconfdir=$HOME/owntone_data/etc --localstatedir=$HOME/owntone_data/var --enable-chromecast --with-pulseaudio
