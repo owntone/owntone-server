@@ -224,7 +224,6 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
     {
       switch (df->type)
 	{
-	  case DMAP_TYPE_DATE:
 	  case DMAP_TYPE_UBYTE:
 	  case DMAP_TYPE_USHORT:
 	  case DMAP_TYPE_UINT:
@@ -247,6 +246,7 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
 	      val.v_u64 = 0;
 	    break;
 
+	  case DMAP_TYPE_DATE:
 	  case DMAP_TYPE_LONG:
 	    ret = safe_atoi64(strval, &val.v_i64);
 	    if (ret < 0)
