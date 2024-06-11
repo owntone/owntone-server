@@ -371,6 +371,7 @@ static int
 playlist_prepare(const char *path, time_t mtime)
 {
   struct playlist_info *pli;
+  char *old_title;
   int pl_id;
 
   pli = db_pl_fetch_bypath(path);
@@ -389,7 +390,16 @@ playlist_prepare(const char *path, time_t mtime)
       return pl_id;
     }
 
-  db_pl_ping(pli->id);
+  // So we already have the playlist, but maybe it has been renamed
+  old_title = pli->title;
+  pli->title = title_from_path(path);
+
+  if (strcasecmp(old_title, pli->title) != 0)
+    db_pl_update(pli);
+  else
+    db_pl_ping(pli->id);
+
+  free(old_title);
 
   // mtime == db_timestamp is also treated as a modification because some editors do
   // stuff like 1) close the file with no changes (leading us to update db_timestamp),
