@@ -33,13 +33,14 @@ scan_itunes_itml(const char *file, time_t mtime, int dir_id);
 const char *
 filename_from_path(const char *path);
 
-/* Returns path without file extension. Caller must free result.
+/* Sets a title (=filename without extension and path) from a path. Caller must
+ * free the result.
  *
  * @in path        the complete path
- * @return         modified path
+ * @return         allocated title
  */
 char *
-strip_extension(const char *path);
+title_from_path(const char *path);
 
 /* Iterate up a file path.
  *

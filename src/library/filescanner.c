@@ -166,6 +166,20 @@ filescanner_fullrescan();
 
 /* ----------------------- Internal utility functions --------------------- */
 
+static char *
+strip_extension(const char *path)
+{
+  char *ptr;
+  char *result;
+
+  result = strdup(path);
+  ptr = strrchr(result, '.');
+  if (ptr)
+    *ptr = '\0';
+
+  return result;
+}
+
 static int
 virtual_path_make(char *virtual_path, int virtual_path_len, const char *path)
 {
@@ -388,17 +402,13 @@ filename_from_path(const char *path)
 }
 
 char *
-strip_extension(const char *path)
+title_from_path(const char *path)
 {
-  char *ptr;
-  char *result;
+  const char *filename;
 
-  result = strdup(path);
-  ptr = strrchr(result, '.');
-  if (ptr)
-    *ptr = '\0';
+  filename = filename_from_path(path);
 
-  return result;
+  return strip_extension(filename);
 }
 
 int
@@ -425,11 +435,8 @@ parent_dir(const char **current, const char *path)
 int
 playlist_fill(struct playlist_info *pli, const char *path)
 {
-  const char *filename;
   char virtual_path[PATH_MAX];
   int ret;
-
-  filename = filename_from_path(path);
 
   ret = virtual_path_make(virtual_path, sizeof(virtual_path), path);
   if (ret < 0)
@@ -439,7 +446,7 @@ playlist_fill(struct playlist_info *pli, const char *path)
 
   pli->type  = PL_PLAIN;
   pli->path  = strdup(path);
-  pli->title = strip_extension(filename); // Will alloc
+  pli->title = title_from_path(path); // Will alloc
   pli->virtual_path = strip_extension(virtual_path); // Will alloc
   pli->scan_kind = SCAN_KIND_FILES;
 
