@@ -693,7 +693,7 @@ daap_request_authorize(struct httpd_request *hreq)
   char *passwd;
   int ret;
 
-  if (net_peer_address_is_trusted(hreq->peer_address))
+  if (httpd_request_is_trusted(hreq))
     return 0;
 
   // Regular DAAP clients like iTunes will login with /login, and we will reply
@@ -898,7 +898,7 @@ daap_reply_login(struct httpd_request *hreq)
   CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 32));
 
   param = httpd_query_value_find(hreq->query, "pairing-guid");
-  if (param && !net_peer_address_is_trusted(hreq->peer_address))
+  if (param && !httpd_request_is_trusted(hreq))
     {
       if (strlen(param) < 3)
 	{

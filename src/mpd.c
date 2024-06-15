@@ -4479,31 +4479,6 @@ mpd_input_filter(struct evbuffer *src, struct evbuffer *dst, ev_ssize_t lim, enu
   return BEV_OK;
 }
 
-static const char *
-sockaddr_to_string(const struct sockaddr *address, char *addr_str, int addr_str_len)
-{
-  struct sockaddr_in *addr;
-  struct sockaddr_in6 *addr6;
-  const char *ret;
-
-  if (address->sa_family == AF_INET)
-    {
-      addr = (struct sockaddr_in *)address;
-      ret = evutil_inet_ntop(AF_INET, &addr->sin_addr, addr_str, addr_str_len);
-    }
-  else if (address->sa_family == AF_INET6)
-    {
-      addr6 = (struct sockaddr_in6 *)address;
-      ret = evutil_inet_ntop(AF_INET6, &addr6->sin6_addr, addr_str, addr_str_len);
-    }
-  else
-    {
-      ret = NULL;
-    }
-
-  return ret;
-}
-
 /*
  * The connection listener callback function is invoked when a new connection was received.
  *
@@ -4525,7 +4500,6 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
    */
   struct event_base *base = evconnlistener_get_base(listener);
   struct bufferevent *bev = bufferevent_socket_new(base, sock, BEV_OPT_CLOSE_ON_FREE);
-  char addr_str[INET6_ADDRSTRLEN];
   struct mpd_client_ctx *client_ctx = calloc(1, sizeof(struct mpd_client_ctx));
 
   if (!client_ctx)
@@ -4538,8 +4512,7 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
   client_ctx->authenticated = !cfg_getstr(cfg_getsec(cfg, "library"), "password");
   if (!client_ctx->authenticated)
     {
-      sockaddr_to_string(address, addr_str, sizeof(addr_str));
-      client_ctx->authenticated = net_peer_address_is_trusted(addr_str);
+      client_ctx->authenticated = net_peer_address_is_trusted((union net_sockaddr *)address);
     }
 
   client_ctx->next = mpd_clients;

@@ -25,7 +25,7 @@ union net_sockaddr
 
 // Checks if the address is in a network that is configured as trusted
 bool
-net_peer_address_is_trusted(const char *addr);
+net_peer_address_is_trusted(union net_sockaddr *naddr);
 
 int
 net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr);

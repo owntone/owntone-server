@@ -537,6 +537,22 @@ httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend
   return 0;
 }
 
+bool
+httpd_backend_peer_is_trusted(httpd_backend *backend)
+{
+  const struct sockaddr *addr;
+
+  httpd_connection *conn = evhttp_request_get_connection(backend);
+  if (!conn)
+    return false;
+
+  addr = evhttp_connection_get_addr(conn);
+  if (!addr)
+    return false;
+
+  return net_peer_address_is_trusted((union net_sockaddr *)addr);
+}
+
 int
 httpd_backend_method_get(enum httpd_methods *method, httpd_backend *backend)
 {

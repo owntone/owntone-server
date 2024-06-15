@@ -288,7 +288,7 @@ rsp_request_authorize(struct httpd_request *hreq)
   char *passwd;
   int ret;
 
-  if (net_peer_address_is_trusted(hreq->peer_address))
+  if (httpd_request_is_trusted(hreq))
     return 0;
 
   passwd = cfg_getstr(cfg_getsec(cfg, "library"), "password");

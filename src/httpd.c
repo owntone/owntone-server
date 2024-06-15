@@ -463,8 +463,7 @@ serve_file(struct httpd_request *hreq)
   bool slashed;
   int ret;
 
-  /* Check authentication */
-  if (!httpd_admin_check_auth(hreq))
+  if (!httpd_request_is_authorized(hreq))
     return;
 
   ret = snprintf(path, sizeof(path), "%s%s", webroot_directory, hreq->path);
@@ -1264,12 +1263,18 @@ httpd_send_error(struct httpd_request *hreq, int error, const char *reason)
 }
 
 bool
-httpd_admin_check_auth(struct httpd_request *hreq)
+httpd_request_is_trusted(struct httpd_request *hreq)
+{
+  return httpd_backend_peer_is_trusted(hreq->backend);
+}
+
+bool
+httpd_request_is_authorized(struct httpd_request *hreq)
 {
   const char *passwd;
   int ret;
 
-  if (net_peer_address_is_trusted(hreq->peer_address))
+  if (httpd_request_is_trusted(hreq))
     return true;
 
   passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");

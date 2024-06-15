@@ -600,7 +600,7 @@ dacp_request_authorize(struct httpd_request *hreq)
   int32_t id;
   int ret;
 
-  if (net_peer_address_is_trusted(hreq->peer_address))
+  if (httpd_request_is_trusted(hreq))
     return 0;
 
   param = httpd_query_value_find(hreq->query, "session-id");

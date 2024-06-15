@@ -124,19 +124,113 @@ static char *buildopts[] =
 
 /* ------------------------ Network utility functions ----------------------- */
 
+static bool
+prefix_is_equal(uint8_t *addr1, uint8_t *addr2, uint8_t *mask, size_t len)
+{
+  int i;
+
+  for (i = 0; i < len; i++)
+    {
+      if ((addr1[i] & mask[i]) != (addr2[i] & mask[i]))
+	return false;
+    }
+
+  return true;
+}
+
+// Checks if the address is in any of the interface subnets
+static bool
+net_address_is_local(union net_sockaddr *naddr)
+{
+  struct ifaddrs *ifaddrs;
+  struct ifaddrs *iap;
+  void *if_addr;
+  void *if_netmask;
+  void *addr;
+  int addr_len;
+  sa_family_t addr_family;
+  bool is_local = false;
+
+  // Point addr to the actual address data
+  if (naddr->sa.sa_family == AF_INET6 && IN6_IS_ADDR_V4MAPPED(&naddr->sin6.sin6_addr))
+    {
+      addr = naddr->sin6.sin6_addr.s6_addr + 12; // ipv4 over ipv6 prefix is 12 bytes
+      addr_len = sizeof(struct in6_addr) - 12;
+      addr_family = AF_INET;
+    }
+  else if (naddr->sa.sa_family == AF_INET6)
+    {
+      addr = naddr->sin6.sin6_addr.s6_addr;
+      addr_len = sizeof(struct in6_addr);
+      addr_family = AF_INET6;
+    }
+  else if (naddr->sa.sa_family == AF_INET)
+    {
+      addr = &naddr->sin.sin_addr.s_addr;
+      addr_len = sizeof(struct in_addr);
+      addr_family = AF_INET;
+    }
+  else
+    {
+      return false;
+    }
+
+  getifaddrs(&ifaddrs);
+
+  for (iap = ifaddrs; iap && !is_local; iap = iap->ifa_next)
+    {
+      if (!iap->ifa_addr || !iap->ifa_netmask)
+	continue;
+      if (iap->ifa_addr->sa_family != addr_family || iap->ifa_netmask->sa_family != addr_family)
+	continue;
+
+      if (addr_family == AF_INET6)
+	{
+	  if_addr = ((struct sockaddr_in6 *)iap->ifa_addr)->sin6_addr.s6_addr;
+	  if_netmask = ((struct sockaddr_in6 *)iap->ifa_netmask)->sin6_addr.s6_addr;
+	}
+      else
+	{
+	  if_addr = &((struct sockaddr_in *)iap->ifa_addr)->sin_addr.s_addr;
+	  if_netmask = &((struct sockaddr_in *)iap->ifa_netmask)->sin_addr.s_addr;
+	}
+
+      is_local = prefix_is_equal(addr, if_addr, if_netmask, addr_len);
+    }
+
+  freeifaddrs(ifaddrs);
+
+  return is_local;
+}
+
+static bool
+net_address_has_prefix(union net_sockaddr *naddr, const char *prefix)
+{
+  char buf[64];
+  const char *addr = buf;
+
+  if (net_address_get(buf, sizeof(buf), naddr) < 0)
+    return false;
+
+  if (naddr->sa.sa_family == AF_INET6 && IN6_IS_ADDR_V4MAPPED(&naddr->sin6.sin6_addr))
+    addr += strlen("::ffff:");
+
+  if (strncmp(addr, prefix, strlen(prefix)) == 0)
+    return true;
+
+  return false;
+}
+
 bool
-net_peer_address_is_trusted(const char *addr)
+net_peer_address_is_trusted(union net_sockaddr *naddr)
 {
   cfg_t *section;
   const char *network;
   int i;
   int n;
 
-  if (!addr)
+  if (!naddr)
     return false;
-
-  if (strncmp(addr, "::ffff:", strlen("::ffff:")) == 0)
-    addr += strlen("::ffff:");
 
   section = cfg_getsec(cfg, "general");
 
@@ -148,13 +242,16 @@ net_peer_address_is_trusted(const char *addr)
       if (!network || network[0] == '\0')
 	return false;
 
-      if (strncmp(network, addr, strlen(network)) == 0)
-	return true;
-
-      if ((strcmp(network, "localhost") == 0) && (strcmp(addr, "127.0.0.1") == 0 || strcmp(addr, "::1") == 0))
-	return true;
-
       if (strcmp(network, "any") == 0)
+	return true;
+
+      if (strcmp(network, "lan") == 0 && net_address_is_local(naddr))
+	return true;
+
+      if (strcmp(network, "localhost"))
+	network = (naddr->sa.sa_family == AF_INET6) ? "::1" : "127.0.0.1";
+
+      if (net_address_has_prefix(naddr, network))
 	return true;
     }
 

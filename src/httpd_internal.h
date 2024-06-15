@@ -266,8 +266,15 @@ httpd_send_error(struct httpd_request *hreq, int error, const char *reason);
 void
 httpd_redirect_to(struct httpd_request *hreq, const char *path);
 
+/*
+ * The request either came from a trusted peer (based on ip address) checked by
+ * httpd_request_is_trusted() or was WWW-authenticated via httpd_basic_auth()
+ */
 bool
-httpd_admin_check_auth(struct httpd_request *hreq);
+httpd_request_is_authorized(struct httpd_request *hreq);
+
+bool
+httpd_request_is_trusted(struct httpd_request *hreq);
 
 int
 httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passwd, const char *realm);
@@ -347,6 +354,9 @@ httpd_backend_input_buffer_get(httpd_backend *backend);
 
 int
 httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend, httpd_backend_data *backend_data);
+
+bool
+httpd_backend_peer_is_trusted(httpd_backend *backend);
 
 int
 httpd_backend_method_get(enum httpd_methods *method, httpd_backend *backend);

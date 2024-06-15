@@ -4644,7 +4644,7 @@ jsonapi_request(struct httpd_request *hreq)
 {
   int status_code;
 
-  if (!httpd_admin_check_auth(hreq))
+  if (!httpd_request_is_authorized(hreq))
     {
       return;
     }
