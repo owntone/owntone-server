@@ -1146,12 +1146,13 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   const struct dmap_field **meta = NULL;
   struct sort_ctx *sctx;
   const char *param;
-  const char *client_codecs;
+  const char *accept_codecs;
   const char *tag;
   size_t len;
+  enum transcode_profile spk_profile;
   enum transcode_profile profile;
   struct transcode_metadata_string xcode_metadata;
-  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, HTTPD_STREAM_BIT_RATE };
+  struct media_quality quality = { 0 };
   uint32_t len_ms;
   int nmeta = 0;
   int sort_headers;
@@ -1216,11 +1217,13 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
       goto error;
     }
 
-  client_codecs = NULL;
+  accept_codecs = NULL;
   if (!s->is_remote && hreq->in_headers)
     {
-      client_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
+      accept_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
     }
+
+  spk_profile = httpd_xcode_profile_get(hreq);
 
   nsongs = 0;
   while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
@@ -1229,15 +1232,23 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 
       // Not sure if the is_remote path is really needed. Note that if you
       // change the below you might need to do the same in rsp_reply_playlist()
-      profile = s->is_remote ? XCODE_WAV : transcode_needed(hreq->user_agent, client_codecs, dbmfi.codectype);
+      profile = s->is_remote ? XCODE_WAV : transcode_needed(hreq->user_agent, accept_codecs, dbmfi.codectype);
       if (profile == XCODE_UNKNOWN)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Cannot transcode '%s', codec type is unknown\n", dbmfi.fname);
 	}
       else if (profile != XCODE_NONE)
 	{
+	  if (spk_profile != XCODE_NONE)
+	    profile = spk_profile;
+
 	  if (safe_atou32(dbmfi.song_length, &len_ms) < 0)
 	    len_ms = 3 * 60 * 1000; // just a fallback default
+
+	  safe_atoi32(dbmfi.samplerate, &quality.sample_rate);
+	  safe_atoi32(dbmfi.bits_per_sample, &quality.bits_per_sample);
+	  safe_atoi32(dbmfi.channels, &quality.channels);
+	  quality.bit_rate = cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
 
 	  transcode_metadata_strings_set(&xcode_metadata, profile, &quality, len_ms);
 	  dbmfi.type        = xcode_metadata.type;
@@ -2271,7 +2282,7 @@ daap_request(struct httpd_request *hreq)
 
   DPRINTF(E_DBG, L_DAAP, "DAAP request handled in %d milliseconds\n", msec);
 
-  if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold() && hreq->user_agent)
+  if (ret == DAAP_REPLY_OK && msec > cache_daap_threshold_get() && hreq->user_agent)
     cache_daap_add(hreq->uri, hreq->user_agent, ((struct daap_session *)hreq->extra_data)->is_remote, msec);
 
   daap_reply_send(hreq, ret); // hreq is deallocted

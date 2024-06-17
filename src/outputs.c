@@ -280,8 +280,8 @@ quality_to_xcode(struct media_quality *quality)
 static int
 encoding_reset(struct media_quality *quality)
 {
+  struct transcode_encode_setup_args encode_args = { 0 };
   struct output_quality_subscription *subscription;
-  struct decode_ctx *decode_ctx;
   enum transcode_profile profile;
   int i;
 
@@ -293,8 +293,8 @@ encoding_reset(struct media_quality *quality)
       return -1;
     }
 
-  decode_ctx = transcode_decode_setup_raw(profile, quality);
-  if (!decode_ctx)
+  encode_args.src_ctx = transcode_decode_setup_raw(profile, quality);
+  if (!encode_args.src_ctx)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create subscription decoding context (profile %d)\n", profile);
       return -1;
@@ -309,15 +309,16 @@ encoding_reset(struct media_quality *quality)
       if (quality_is_equal(quality, &subscription->quality))
 	continue; // No resampling required
 
-      profile = quality_to_xcode(&subscription->quality);
-      if (profile != XCODE_UNKNOWN)
-	subscription->encode_ctx = transcode_encode_setup(profile, &subscription->quality, decode_ctx, 0, 0);
+      encode_args.profile = quality_to_xcode(&subscription->quality);
+      encode_args.quality = &subscription->quality;
+      if (encode_args.profile != XCODE_UNKNOWN)
+	subscription->encode_ctx = transcode_encode_setup(encode_args);
       else
 	DPRINTF(E_LOG, L_PLAYER, "Could not setup resampling to %d/%d/%d for output\n",
 	  subscription->quality.sample_rate, subscription->quality.bits_per_sample, subscription->quality.channels);
     }
 
-  transcode_decode_cleanup(&decode_ctx);
+  transcode_decode_cleanup(&encode_args.src_ctx);
 
   return 0;
 }

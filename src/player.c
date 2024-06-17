@@ -152,7 +152,7 @@ struct speaker_attr_param
   bool busy;
 
   struct media_quality quality;
-  enum player_format format;
+  enum media_format format;
 
   int audio_fd;
   int metadata_fd;
@@ -164,6 +164,7 @@ struct speaker_get_param
 {
   uint64_t spk_id;
   uint32_t active_remote;
+  const char *address;
   struct player_speaker_info *spk_info;
 };
 
@@ -2527,6 +2528,15 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->relvol = device->relvol;
   spk->absvol = device->volume;
 
+  spk->supported_formats = device->supported_formats;
+  // Devices supporting more than one format should at least have default_format set
+  if (device->selected_format != MEDIA_FORMAT_UNKNOWN)
+    spk->format = device->selected_format;
+  else if (device->default_format != MEDIA_FORMAT_UNKNOWN)
+    spk->format = device->default_format;
+  else
+    spk->format = device->supported_formats;
+
   spk->selected = OUTPUTS_DEVICE_DISPLAY_SELECTED(device);
 
   spk->has_password = device->has_password;
@@ -2585,6 +2595,31 @@ speaker_get_byactiveremote(void *arg, int *retval)
   for (device = outputs_list(); device; device = device->next)
     {
       if ((uint32_t)device->id == spk_param->active_remote)
+	{
+	  device_to_speaker_info(spk_param->spk_info, device);
+	  *retval = 0;
+	  return COMMAND_END;
+	}
+    }
+
+  // No output device found with matching id
+  *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_get_byaddress(void *arg, int *retval)
+{
+  struct speaker_get_param *spk_param = arg;
+  struct output_device *device;
+  bool match_v4;
+  bool match_v6;
+
+  for (device = outputs_list(); device; device = device->next)
+    {
+      match_v4 = device->v4_address && (strcmp(spk_param->address, device->v4_address) == 0);
+      match_v6 = device->v6_address && (strcmp(spk_param->address, device->v6_address) == 0);
+      if (match_v4 || match_v6)
 	{
 	  device_to_speaker_info(spk_param->spk_info, device);
 	  *retval = 0;
@@ -2730,6 +2765,8 @@ speaker_prevent_playback_set(void *arg, int *retval)
   struct speaker_attr_param *param = arg;
   struct output_device *device;
 
+  *retval = -1;
+
   device = outputs_device_get(param->spk_id);
   if (!device)
     return COMMAND_END;
@@ -2778,6 +2815,8 @@ speaker_busy_set(void *arg, int *retval)
   struct speaker_attr_param *param = arg;
   struct output_device *device;
 
+  *retval = -1;
+
   device = outputs_device_get(param->spk_id);
   if (!device)
     return COMMAND_END;
@@ -2800,6 +2839,33 @@ speaker_busy_set(void *arg, int *retval)
   if (*retval > 0)
     return COMMAND_PENDING; // async
 
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_format_set(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  if (param->format == MEDIA_FORMAT_UNKNOWN)
+    goto error;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    goto error;
+
+  if (!(param->format & device->supported_formats))
+    goto error;
+
+  device->selected_format = param->format;
+
+  *retval = 0;
+  return COMMAND_END;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Error setting format '%s', device unknown or format unsupported\n", media_format_to_string(param->format));
+  *retval = -1;
   return COMMAND_END;
 }
 
@@ -2907,7 +2973,7 @@ streaming_register(void *arg, int *retval)
     .type_name = "streaming",
     .name = "streaming",
     .quality = param->quality,
-    .format = param->format,
+    .selected_format = param->format,
   };
 
   *retval = outputs_device_start(&device, NULL, false);
@@ -3405,6 +3471,19 @@ player_speaker_get_byactiveremote(struct player_speaker_info *spk, uint32_t acti
 }
 
 int
+player_speaker_get_byaddress(struct player_speaker_info *spk, const char *address)
+{
+  struct speaker_get_param param;
+  int ret;
+
+  param.address = address;
+  param.spk_info = spk;
+
+  ret = commands_exec_sync(cmdbase, speaker_get_byaddress, NULL, &param);
+  return ret;
+}
+
+int
 player_speaker_enable(uint64_t id)
 {
   int ret;
@@ -3466,18 +3545,26 @@ int
 player_speaker_authorize(uint64_t id, const char *pin)
 {
   struct speaker_attr_param param;
-  int ret;
 
   param.spk_id = id;
   param.pin = pin;
 
-  ret = commands_exec_sync(cmdbase, speaker_authorize, speaker_generic_bh, &param);
-
-  return ret;
+  return commands_exec_sync(cmdbase, speaker_authorize, speaker_generic_bh, &param);
 }
 
 int
-player_streaming_register(int *audio_fd, int *metadata_fd, enum player_format format, struct media_quality quality)
+player_speaker_format_set(uint64_t id, enum media_format format)
+{
+  struct speaker_attr_param param;
+
+  param.spk_id = id;
+  param.format = format;
+
+  return commands_exec_sync(cmdbase, speaker_format_set, speaker_generic_bh, &param);
+}
+
+int
+player_streaming_register(int *audio_fd, int *metadata_fd, enum media_format format, struct media_quality quality)
 {
   struct speaker_attr_param param;
   int ret;

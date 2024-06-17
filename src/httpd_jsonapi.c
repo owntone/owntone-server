@@ -1526,9 +1526,18 @@ static json_object *
 speaker_to_json(struct player_speaker_info *spk)
 {
   json_object *output;
+  json_object *supported_formats;
   char output_id[21];
+  enum media_format format;
 
   output = json_object_new_object();
+
+  supported_formats = json_object_new_array();
+  for (format = MEDIA_FORMAT_FIRST; format <= MEDIA_FORMAT_LAST; format = MEDIA_FORMAT_NEXT(format))
+    {
+      if (format & spk->supported_formats)
+	json_object_array_add(supported_formats, json_object_new_string(media_format_to_string(format)));
+    }
 
   snprintf(output_id, sizeof(output_id), "%" PRIu64, spk->id);
   json_object_object_add(output, "id", json_object_new_string(output_id));
@@ -1539,6 +1548,8 @@ speaker_to_json(struct player_speaker_info *spk)
   json_object_object_add(output, "requires_auth", json_object_new_boolean(spk->requires_auth));
   json_object_object_add(output, "needs_auth_key", json_object_new_boolean(spk->needs_auth_key));
   json_object_object_add(output, "volume", json_object_new_int(spk->absvol));
+  json_object_object_add(output, "format", json_object_new_string(media_format_to_string(spk->format)));
+  json_object_object_add(output, "supported_formats", supported_formats);
 
   return output;
 }
@@ -1602,6 +1613,7 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
   bool selected;
   int volume;
   const char *pin;
+  const char *format;
   int ret;
 
   ret = safe_atou64(hreq->path_parts[2], &output_id);
@@ -1644,10 +1656,17 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
 	ret = player_speaker_authorize(output_id, pin);
     }
 
+  if (ret == 0 && jparse_contains_key(request, "format", json_type_string))
+    {
+      format = jparse_str_from_obj(request, "format");
+      if (format)
+	ret = player_speaker_format_set(output_id, media_format_from_string(format));
+    }
+
   jparse_free(request);
 
   if (ret < 0)
-    return HTTP_INTERNAL;
+    return HTTP_BADREQUEST;
 
   return HTTP_NOCONTENT;
 }

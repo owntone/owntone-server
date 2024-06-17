@@ -1295,6 +1295,8 @@ rcp_mdns_device_cb(const char *name, const char *type, const char *domain, const
   device->name = strdup(name);
   device->type = OUTPUT_TYPE_RCP;
   device->type_name = outputs_name(device->type);
+  device->default_format = MEDIA_FORMAT_WAV;
+  device->supported_formats = MEDIA_FORMAT_WAV | MEDIA_FORMAT_MP3 | MEDIA_FORMAT_ALAC;
 
   if (port < 0 || !address)
     {

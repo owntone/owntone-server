@@ -48,6 +48,9 @@
 #include "httpd.h"
 #include "httpd_internal.h"
 #include "transcode.h"
+#include "cache.h"
+#include "listener.h"
+#include "player.h"
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
@@ -105,18 +108,19 @@ struct stream_ctx {
 
 static const struct content_type_map ext2ctype[] =
   {
-    { ".html", XCODE_NONE, "text/html; charset=utf-8" },
-    { ".xml",  XCODE_NONE, "text/xml; charset=utf-8" },
-    { ".css",  XCODE_NONE, "text/css; charset=utf-8" },
-    { ".txt",  XCODE_NONE, "text/plain; charset=utf-8" },
-    { ".js",   XCODE_NONE, "application/javascript; charset=utf-8" },
-    { ".gif",  XCODE_NONE, "image/gif" },
-    { ".ico",  XCODE_NONE, "image/x-ico" },
-    { ".png",  XCODE_PNG,  "image/png" },
-    { ".jpg",  XCODE_JPEG, "image/jpeg" },
-    { ".mp3",  XCODE_MP3,  "audio/mpeg" },
-    { ".wav",  XCODE_WAV,  "audio/wav" },
-    { NULL,    XCODE_NONE, NULL }
+    { ".html", XCODE_NONE,      "text/html; charset=utf-8" },
+    { ".xml",  XCODE_NONE,      "text/xml; charset=utf-8" },
+    { ".css",  XCODE_NONE,      "text/css; charset=utf-8" },
+    { ".txt",  XCODE_NONE,      "text/plain; charset=utf-8" },
+    { ".js",   XCODE_NONE,      "application/javascript; charset=utf-8" },
+    { ".gif",  XCODE_NONE,      "image/gif" },
+    { ".ico",  XCODE_NONE,      "image/x-ico" },
+    { ".png",  XCODE_PNG,       "image/png" },
+    { ".jpg",  XCODE_JPEG,      "image/jpeg" },
+    { ".mp3",  XCODE_MP3,       "audio/mpeg" },
+    { ".m4a",  XCODE_MP4_ALAC,  "audio/mp4" },
+    { ".wav",  XCODE_WAV,       "audio/wav" },
+    { NULL,    XCODE_NONE,      NULL }
   };
 
 static char webroot_directory[PATH_MAX];
@@ -672,8 +676,16 @@ static struct stream_ctx *
 stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile, struct httpd_request *hreq,
                      int64_t offset, int64_t end_offset, event_callback_fn stream_cb)
 {
+  struct transcode_decode_setup_args decode_args = { 0 };
+  struct transcode_encode_setup_args encode_args = { 0 };
+  struct media_quality quality = { 0 };
+  struct evbuffer *prepared_header = NULL;
   struct stream_ctx *st;
-  struct media_quality quality = { HTTPD_STREAM_SAMPLE_RATE, HTTPD_STREAM_BPS, HTTPD_STREAM_CHANNELS, HTTPD_STREAM_BIT_RATE };
+  int cached;
+  int ret;
+
+  // We use source sample rate etc, but for MP3 we must set a bit rate
+  quality.bit_rate = 1000 * cfg_getint(cfg_getsec(cfg, "streaming"), "bit_rate");
 
   st = stream_new(mfi, hreq, stream_cb);
   if (!st)
@@ -681,7 +693,27 @@ stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile
       goto error;
     }
 
-  st->xcode = transcode_setup(profile, &quality, mfi->data_kind, mfi->path, mfi->song_length);
+  if (profile == XCODE_MP4_ALAC)
+    {
+      CHECK_NULL(L_HTTPD, prepared_header = evbuffer_new());
+
+      ret = cache_xcode_header_get(prepared_header, &cached, mfi->id, "mp4");
+      if (ret < 0 || !cached) // Error or not found
+	{
+	  evbuffer_free(prepared_header);
+	  prepared_header = NULL;
+	}
+    }
+
+  decode_args.profile = profile;
+  decode_args.is_http = (mfi->data_kind == DATA_KIND_HTTP);
+  decode_args.path    = mfi->path;
+  decode_args.len_ms  = mfi->song_length;
+  encode_args.profile = profile;
+  encode_args.quality = &quality;
+  encode_args.prepared_header = prepared_header;
+
+  st->xcode = transcode_setup(decode_args, encode_args);
   if (!st->xcode)
     {
       DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");
@@ -705,9 +737,13 @@ stream_new_transcode(struct media_file_info *mfi, enum transcode_profile profile
 
   st->start_offset = offset;
 
+  if (prepared_header)
+    evbuffer_free(prepared_header);
   return st;
 
  error:
+  if (prepared_header)
+    evbuffer_free(prepared_header);
   stream_free(st);
   return NULL;
 }
@@ -871,6 +907,39 @@ stream_fail_cb(void *arg)
 }
 
 
+/* -------------------------- SPEAKER/CACHE HANDLING ------------------------ */
+
+// Thread: player (must not block)
+static void
+speaker_enum_cb(struct player_speaker_info *spk, void *arg)
+{
+  bool *want_mp4 = arg;
+
+  *want_mp4 = *want_mp4 || (spk->format == MEDIA_FORMAT_ALAC && strcmp(spk->output_type, "RCP/SoundBridge") == 0);
+}
+
+// Thread: worker
+static void
+speaker_update_handler_cb(void *arg)
+{
+  const char *prefer_format = cfg_getstr(cfg_getsec(cfg, "library"), "prefer_format");
+  bool want_mp4;
+
+  want_mp4 = (prefer_format && (strcmp(prefer_format, "alac") == 0));
+  if (!want_mp4)
+    player_speaker_enumerate(speaker_enum_cb, &want_mp4);
+
+  cache_xcode_toggle(want_mp4);
+}
+
+// Thread: player (must not block)
+static void
+httpd_speaker_update_handler(short event_mask)
+{
+  worker_execute(speaker_update_handler_cb, NULL, 0, 0);
+}
+
+
 /* ---------------------------- REQUEST CALLBACKS --------------------------- */
 
 // Worker thread, invoked by request_cb() below
@@ -940,6 +1009,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   struct media_file_info *mfi = NULL;
   struct stream_ctx *st = NULL;
   enum transcode_profile profile;
+  enum transcode_profile spk_profile;
   const char *param;
   const char *param_end;
   const char *ctype;
@@ -1012,6 +1082,10 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   if (profile != XCODE_NONE)
     {
       DPRINTF(E_INFO, L_HTTPD, "Preparing to transcode %s\n", mfi->path);
+
+      spk_profile = httpd_xcode_profile_get(hreq);
+      if (spk_profile != XCODE_NONE)
+	profile = spk_profile;
 
       st = stream_new_transcode(mfi, profile, hreq, offset, end_offset, stream_chunk_xcode_cb);
       if (!st)
@@ -1119,6 +1193,32 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   free_mfi(mfi, 0);
 }
 
+// Returns enum transcode_profile, but is just declared with int so we don't
+// need to include transcode.h in httpd_internal.h
+int
+httpd_xcode_profile_get(struct httpd_request *hreq)
+{
+  struct player_speaker_info spk;
+  int ret;
+
+  DPRINTF(E_DBG, L_HTTPD, "Checking if client '%s' is a speaker\n", hreq->peer_address);
+
+  // A Roku Soundbridge may also be RCP device/speaker for which the user may
+  // have set a prefered streaming format
+  ret = player_speaker_get_byaddress(&spk, hreq->peer_address);
+  if (ret < 0)
+    return XCODE_NONE;
+
+  if (spk.format == MEDIA_FORMAT_WAV)
+    return XCODE_WAV;
+  if (spk.format == MEDIA_FORMAT_MP3)
+    return XCODE_MP3;
+  if (spk.format == MEDIA_FORMAT_ALAC)
+    return XCODE_MP4_ALAC;
+
+  return XCODE_NONE;
+}
+
 struct evbuffer *
 httpd_gzip_deflate(struct evbuffer *in)
 {
@@ -1185,7 +1285,6 @@ httpd_gzip_deflate(struct evbuffer *in)
 
   return NULL;
 }
-
 
 // The httpd_send functions below can be called from a worker thread (with
 // hreq->is_async) or directly from the httpd thread. In the former case, they
@@ -1501,6 +1600,10 @@ httpd_init(const char *webroot)
       goto error;
     }
 
+  // We need to know about speaker format changes so we can ask the cache to
+  // start preparing headers for mp4/alac if selected
+  listener_add(httpd_speaker_update_handler, LISTENER_SPEAKER);
+
   return 0;
 
  error:
@@ -1512,6 +1615,8 @@ httpd_init(const char *webroot)
 void
 httpd_deinit(void)
 {
+  listener_remove(httpd_speaker_update_handler);
+
   // Give modules a chance to hang up connections nicely
   modules_deinit();
 

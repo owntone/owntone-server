@@ -436,6 +436,7 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *info, int eol, void *userdata)
   device->type = OUTPUT_TYPE_PULSE;
   device->type_name = outputs_name(device->type);
   device->extra_device_info = strdup(info->name);
+  device->supported_formats = MEDIA_FORMAT_PCM;
 
   player_device_add(device);
 }

@@ -55,7 +55,7 @@ static cfg_opt_t sec_general[] =
     CFG_STR_LIST("trusted_networks", "{lan}", CFGF_NONE),
     CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
     CFG_STR("bind_address", NULL, CFGF_NONE),
-    CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
+    CFG_STR("cache_dir", STATEDIR "/cache/" PACKAGE, CFGF_NONE),
     CFG_INT("cache_daap_threshold", 1000, CFGF_NONE),
     CFG_BOOL("speaker_autoselect", cfg_false, CFGF_NONE),
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
@@ -67,6 +67,9 @@ static cfg_opt_t sec_general[] =
     CFG_INT("db_pragma_cache_size", -1, CFGF_NONE),
     CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
     CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
+    CFG_STR("cache_daap_filename", "daap.db", CFGF_NONE),
+    CFG_STR("cache_artwork_filename", "artwork.db", CFGF_NONE),
+    CFG_STR("cache_xcode_filename", "xcode.db", CFGF_NONE),
     CFG_STR("allow_origin", "*", CFGF_NONE),
     CFG_STR("user_agent", PACKAGE_NAME "/" PACKAGE_VERSION, CFGF_NONE),
     CFG_BOOL("ssl_verifypeer", cfg_true, CFGF_NONE),
@@ -312,6 +315,31 @@ cb_loglevel(cfg_t *config, cfg_opt_t *opt, const char *value, void *result)
   return 0;
 }
 
+// Makes sure cache_dir ends with a slash
+static int
+sanitize_cache_dir(cfg_t *general)
+{
+  char *dir;
+  const char *s;
+  char *appended;
+  size_t len;
+
+  dir = cfg_getstr(general, "cache_dir");
+  len = strlen(dir);
+
+  s = strrchr(dir, '/');
+  if (s && (s + 1 == dir + len))
+    return 0;
+
+  appended = safe_asprintf("%s/", dir);
+
+  cfg_setstr(general, "cache_dir", appended);
+
+  free(appended);
+
+  return 0;
+}
+
 static int
 conffile_expand_libname(cfg_t *lib)
 {
@@ -425,7 +453,6 @@ conffile_expand_libname(cfg_t *lib)
   return 0;
 }
 
-
 int
 conffile_load(char *file)
 {
@@ -465,6 +492,14 @@ conffile_load(char *file)
 
   runas_uid = pw->pw_uid;
   runas_gid = pw->pw_gid;
+
+  ret = sanitize_cache_dir(cfg_getsec(cfg, "general"));
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_CONF, "Invalid configuration of cache_dir\n");
+
+      goto out_fail;
+    }
 
   lib = cfg_getsec(cfg, "library");
 

@@ -1731,6 +1731,40 @@ quality_is_equal(struct media_quality *a, struct media_quality *b)
   return (a->sample_rate == b->sample_rate && a->bits_per_sample == b->bits_per_sample && a->channels == b->channels && a->bit_rate == b->bit_rate);
 }
 
+enum media_format
+media_format_from_string(const char *s)
+{
+  if (strcmp(s, "pcm") == 0)
+    return MEDIA_FORMAT_PCM;
+  if (strcmp(s, "wav") == 0)
+    return MEDIA_FORMAT_WAV;
+  if (strcmp(s, "mp3") == 0)
+    return MEDIA_FORMAT_MP3;
+  if (strcmp(s, "alac") == 0)
+    return MEDIA_FORMAT_ALAC;
+  if (strcmp(s, "opus") == 0)
+    return MEDIA_FORMAT_OPUS;
+
+  return MEDIA_FORMAT_UNKNOWN;
+}
+
+const char *
+media_format_to_string(enum media_format format)
+{
+  if (format == MEDIA_FORMAT_PCM)
+    return "pcm";
+  if (format == MEDIA_FORMAT_WAV)
+    return "wav";
+  if (format == MEDIA_FORMAT_MP3)
+    return "mp3";
+  if (format == MEDIA_FORMAT_ALAC)
+    return "alac";
+  if (format == MEDIA_FORMAT_OPUS)
+    return "opus";
+
+  return "unknown";
+}
+
 
 /* -------------------------- Misc utility functions ------------------------ */
 

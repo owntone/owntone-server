@@ -134,7 +134,11 @@ struct output_device
 
   // Quality of audio output
   struct media_quality quality;
-  int format;
+
+  // selected_format only set (not UNKNOWN) in case of active user selection
+  enum media_format selected_format;
+  enum media_format default_format;
+  uint32_t supported_formats;
 
   // Address
   char *v4_address;

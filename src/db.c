@@ -4787,10 +4787,10 @@ db_admin_delete(const char *key)
 int
 db_speaker_save(struct output_device *device)
 {
-#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name, auth_key) VALUES (%" PRIi64 ", %d, %d, %Q, %Q);"
+#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name, auth_key, format) VALUES (%" PRIi64 ", %d, %d, %Q, %Q, %d);"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, device->id, device->selected, device->volume, device->name, device->auth_key);
+  query = sqlite3_mprintf(Q_TMPL, device->id, device->selected, device->volume, device->name, device->auth_key, device->selected_format);
 
   return db_query_run(query, 1, 0);
 #undef Q_TMPL
@@ -4799,7 +4799,7 @@ db_speaker_save(struct output_device *device)
 int
 db_speaker_get(struct output_device *device, uint64_t id)
 {
-#define Q_TMPL "SELECT s.selected, s.volume, s.name, s.auth_key FROM speakers s WHERE s.id = %" PRIi64 ";"
+#define Q_TMPL "SELECT s.selected, s.volume, s.name, s.auth_key, s.format FROM speakers s WHERE s.id = %" PRIi64 ";"
   sqlite3_stmt *stmt;
   char *query;
   int ret;
@@ -4840,6 +4840,8 @@ db_speaker_get(struct output_device *device, uint64_t id)
 
   free(device->auth_key);
   device->auth_key = safe_strdup((char *)sqlite3_column_text(stmt, 3));
+
+  device->selected_format = sqlite3_column_int(stmt, 4);
 
 #ifdef DB_PROFILE
   while (db_blocking_step(stmt) == SQLITE_ROW)
@@ -6892,9 +6894,6 @@ db_open(void)
   int synchronous;
   int mmap_size;
 
-  if (!db_path)
-    return -1;
-
   ret = sqlite3_open(db_path, &hdl);
   if (ret != SQLITE_OK)
     {
@@ -7343,35 +7342,35 @@ db_init(void)
   db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
   db_rating_updates = cfg_getbool(cfg_getsec(cfg, "library"), "rating_updates");
 
-  DPRINTF(E_LOG, L_DB, "Configured to use database file '%s'\n", db_path);
+  DPRINTF(E_INFO, L_DB, "Configured to use database file '%s'\n", db_path);
 
   ret = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "Could not switch SQLite3 to multithread mode\n");
       DPRINTF(E_FATAL, L_DB, "Check that SQLite3 has been configured for thread-safe operations\n");
-      return -1;
+      goto error;
     }
 
   ret = sqlite3_enable_shared_cache(1);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "Could not enable SQLite3 shared-cache mode\n");
-      return -1;
+      goto error;
     }
 
   ret = sqlite3_initialize();
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "SQLite3 failed to initialize\n");
-      return -1;
+      goto error;
     }
 
   ret = db_open();
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_DB, "Could not open database\n");
-      return -1;
+      goto error;
     }
 
   ret = db_check_version();
@@ -7380,7 +7379,7 @@ db_init(void)
       DPRINTF(E_FATAL, L_DB, "Database version check errored out, incompatible database\n");
 
       db_perthread_deinit();
-      return -1;
+      goto error;
     }
   else if (ret > 0)
     {
@@ -7391,7 +7390,7 @@ db_init(void)
 	{
 	  DPRINTF(E_FATAL, L_DB, "Could not create tables\n");
 	  db_perthread_deinit();
-	  return -1;
+	  goto error;
 	}
     }
 
@@ -7409,6 +7408,9 @@ db_init(void)
   rng_init(&shuffle_rng);
 
   return 0;
+
+ error:
+  return -1;
 }
 
 void

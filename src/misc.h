@@ -59,6 +59,18 @@ net_is_http_or_https(const char *url);
 
 /* ----------------------- Conversion/hashing/sanitizers -------------------- */
 
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif defined(HAVE_SYS_ENDIAN_H)
+# include <sys/endian.h>
+#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
+#include <libkern/OSByteOrder.h>
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#endif
+
 // Samples to bytes, bytes to samples
 #define STOB(s, bits, c) ((s) * (c) * (bits) / 8)
 #define BTOS(b, bits, c) ((b) / ((c) * (bits) / 8))
@@ -260,6 +272,21 @@ timespec_reltoabs(struct timespec relative);
 
 /* ------------------------------- Media quality ---------------------------- */
 
+// Bit flags for the sake of outputs announcing what they support
+enum media_format {
+  MEDIA_FORMAT_UNKNOWN = 0,
+  MEDIA_FORMAT_PCM     = (1 << 0),
+  MEDIA_FORMAT_WAV     = (1 << 1),
+  MEDIA_FORMAT_MP3     = (1 << 2),
+  MEDIA_FORMAT_ALAC    = (1 << 3),
+  MEDIA_FORMAT_OPUS    = (1 << 4),
+};
+
+// For iteration
+#define MEDIA_FORMAT_FIRST MEDIA_FORMAT_PCM
+#define MEDIA_FORMAT_LAST MEDIA_FORMAT_OPUS
+#define MEDIA_FORMAT_NEXT(f) (f << 1)
+
 // Remember to adjust quality_is_equal() if adding elements
 struct media_quality {
   int sample_rate;
@@ -270,6 +297,12 @@ struct media_quality {
 
 bool
 quality_is_equal(struct media_quality *a, struct media_quality *b);
+
+enum media_format
+media_format_from_string(const char *s);
+
+const char *
+media_format_to_string(enum media_format format);
 
 
 /* -------------------------- Misc utility functions ------------------------ */

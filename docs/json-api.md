@@ -341,6 +341,8 @@ GET /api/outputs
 | requires_auth   | boolean  | `true` if output requires authentication |
 | needs_auth_key  | boolean  | `true` if output requires an authorization key (device verification) |
 | volume          | integer  | Volume in percent (0 - 100)               |
+| format          | string   | Stream format                             |
+| supported_formats | array  | Array of formats supported by output      |
 
 **Example**
 
@@ -359,7 +361,9 @@ curl -X GET "http://localhost:3689/api/outputs"
       "has_password": false,
       "requires_auth": false,
       "needs_auth_key": false,
-      "volume": 0
+      "volume": 0,
+      "format": "alac",
+      "supported_formats": [ "alac" ]
     },
     {
       "id": "0",
@@ -369,7 +373,9 @@ curl -X GET "http://localhost:3689/api/outputs"
       "has_password": false,
       "requires_auth": false,
       "needs_auth_key": false,
-      "volume": 19
+      "volume": 19,
+      "format": "pcm",
+      "supported_formats": [ "pcm" ]
     },
     {
       "id": "100",
@@ -379,7 +385,9 @@ curl -X GET "http://localhost:3689/api/outputs"
       "has_password": false,
       "requires_auth": false,
       "needs_auth_key": false,
-      "volume": 0
+      "volume": 0,
+      "format": "pcm",
+      "supported_formats": [ "pcm" ]
     }
   ]
 }
@@ -448,6 +456,8 @@ curl -X GET "http://localhost:3689/api/outputs/0"
   "requires_auth": false,
   "needs_auth_key": false,
   "volume": 3
+  "format": "pcm",
+  "supported_formats": [ "pcm" ]
 }
 ```
 
@@ -474,6 +484,7 @@ PUT /api/outputs/{id}
 | selected        | boolean   | *(Optional)* `true` to enable and `false` to disable the output |
 | volume          | integer   | *(Optional)* Volume in percent (0 - 100)  |
 | pin             | string    | *(Optional)* PIN for device verification  |
+| format          | string    | *(Optional)* Stream format                |
 
 **Response**
 

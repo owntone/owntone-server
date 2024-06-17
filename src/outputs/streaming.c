@@ -65,7 +65,7 @@ struct streaming_wanted
   struct pipepair audio[WANTED_PIPES_MAX];
   struct pipepair metadata[WANTED_PIPES_MAX];
 
-  enum player_format format;
+  enum media_format format;
   struct media_quality quality;
 
   struct evbuffer *audio_in;
@@ -113,27 +113,27 @@ extern struct event_base *evbase_player;
 /* ------------------------------- Helpers ---------------------------------- */
 
 static struct encode_ctx *
-encoder_setup(enum player_format format, struct media_quality *quality)
+encoder_setup(enum media_format format, struct media_quality *quality)
 {
-  struct decode_ctx *decode_ctx = NULL;
+  struct transcode_encode_setup_args encode_args = { .profile = XCODE_MP3, .quality = quality };
   struct encode_ctx *encode_ctx = NULL;
 
   if (quality->bits_per_sample == 16)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
+    encode_args.src_ctx = transcode_decode_setup_raw(XCODE_PCM16, quality);
   else if (quality->bits_per_sample == 24)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM24, quality);
+    encode_args.src_ctx = transcode_decode_setup_raw(XCODE_PCM24, quality);
   else if (quality->bits_per_sample == 32)
-    decode_ctx = transcode_decode_setup_raw(XCODE_PCM32, quality);
+    encode_args.src_ctx = transcode_decode_setup_raw(XCODE_PCM32, quality);
 
-  if (!decode_ctx)
+  if (!encode_args.src_ctx)
     {
       DPRINTF(E_LOG, L_STREAMING, "Error setting up decoder for quality sr %d, bps %d, ch %d, cannot encode\n",
 	quality->sample_rate, quality->bits_per_sample, quality->channels);
       goto out;
     }
 
-  if (format == PLAYER_FORMAT_MP3)
-    encode_ctx = transcode_encode_setup(XCODE_MP3, quality, decode_ctx, 0, 0);
+  if (format == MEDIA_FORMAT_MP3)
+    encode_ctx = transcode_encode_setup(encode_args);
 
   if (!encode_ctx)
     {
@@ -143,7 +143,7 @@ encoder_setup(enum player_format format, struct media_quality *quality)
     }
 
  out:
-  transcode_decode_cleanup(&decode_ctx);
+  transcode_decode_cleanup(&encode_args.src_ctx);
   return encode_ctx;
 }
 
@@ -217,7 +217,7 @@ pipe_index_find_byreadfd(struct pipepair *p, int readfd)
 }
 
 static struct streaming_wanted *
-wanted_new(enum player_format format, struct media_quality quality)
+wanted_new(enum media_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
@@ -277,7 +277,7 @@ wanted_remove(struct streaming_wanted **wanted, struct streaming_wanted *remove)
 }
 
 static struct streaming_wanted *
-wanted_add(struct streaming_wanted **wanted, enum player_format format, struct media_quality quality)
+wanted_add(struct streaming_wanted **wanted, enum media_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
@@ -289,7 +289,7 @@ wanted_add(struct streaming_wanted **wanted, enum player_format format, struct m
 }
 
 static struct streaming_wanted *
-wanted_find_byformat(struct streaming_wanted *wanted, enum player_format format, struct media_quality quality)
+wanted_find_byformat(struct streaming_wanted *wanted, enum media_format format, struct media_quality quality)
 {
   struct streaming_wanted *w;
 
@@ -623,9 +623,9 @@ streaming_start(struct output_device *device, int callback_id)
   int ret;
 
   pthread_mutex_lock(&streaming_wanted_lck);
-  w = wanted_find_byformat(streaming.wanted, device->format, device->quality);
+  w = wanted_find_byformat(streaming.wanted, device->selected_format, device->quality);
   if (!w)
-    w = wanted_add(&streaming.wanted, device->format, device->quality);
+    w = wanted_add(&streaming.wanted, device->selected_format, device->quality);
   ret = wanted_session_add(&device->audio_fd, &device->metadata_fd, w);
   if (ret < 0)
     goto error;

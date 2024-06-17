@@ -36,11 +36,6 @@
 #define HTTP_BADGATEWAY        502	/**< received an invalid response from the upstream */
 #define HTTP_SERVUNAVAIL       503	/**< the server is not available */
 
-#define HTTPD_STREAM_SAMPLE_RATE 44100
-#define HTTPD_STREAM_BPS         16
-#define HTTPD_STREAM_CHANNELS    2
-#define HTTPD_STREAM_BIT_RATE    320000
-
 
 struct httpd_request;
 
@@ -210,6 +205,9 @@ struct httpd_request {
 
 void
 httpd_stream_file(struct httpd_request *hreq, int id);
+
+int
+httpd_xcode_profile_get(struct httpd_request *hreq);
 
 void
 httpd_request_handler_set(struct httpd_request *hreq);

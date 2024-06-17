@@ -28,10 +28,6 @@ enum player_seek_mode {
   PLAYER_SEEK_RELATIVE = 2,
 };
 
-enum player_format {
-  PLAYER_FORMAT_MP3,
-};
-
 struct player_speaker_info {
   uint64_t id;
   uint32_t active_remote;
@@ -39,6 +35,9 @@ struct player_speaker_info {
   char output_type[50];
   int relvol;
   int absvol;
+
+  enum media_format format;
+  uint32_t supported_formats;
 
   bool selected;
   bool has_password;
@@ -105,6 +104,9 @@ int
 player_speaker_get_byactiveremote(struct player_speaker_info *spk, uint32_t active_remote);
 
 int
+player_speaker_get_byaddress(struct player_speaker_info *spk, const char *address);
+
+int
 player_speaker_enable(uint64_t id);
 
 int
@@ -123,7 +125,10 @@ int
 player_speaker_authorize(uint64_t id, const char *pin);
 
 int
-player_streaming_register(int *audio_fd, int *metadata_fd, enum player_format format, struct media_quality quality);
+player_speaker_format_set(uint64_t id, enum media_format format);
+
+int
+player_streaming_register(int *audio_fd, int *metadata_fd, enum media_format format, struct media_quality quality);
 
 int
 player_streaming_deregister(int id);

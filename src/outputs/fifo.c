@@ -491,6 +491,7 @@ fifo_init(void)
   device->type_name = outputs_name(device->type);
   device->has_video = 0;
   device->extra_device_info = path;
+  device->supported_formats = MEDIA_FORMAT_PCM;
   DPRINTF(E_INFO, L_FIFO, "Adding fifo output device '%s' with path '%s'\n", nickname, path);
 
   player_device_add(device);

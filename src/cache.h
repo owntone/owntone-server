@@ -4,7 +4,7 @@
 
 #include <event2/buffer.h>
 
-/* ---------------------------- DAAP cache API  --------------------------- */
+/* ----------------------------- DAAP cache API  ---------------------------- */
 
 void
 cache_daap_suspend(void);
@@ -19,10 +19,19 @@ void
 cache_daap_add(const char *query, const char *ua, int is_remote, int msec);
 
 int
-cache_daap_threshold(void);
+cache_daap_threshold_get(void);
 
 
-/* ---------------------------- Artwork cache API  --------------------------- */
+/* --------------------------- Transcode cache API  ------------------------- */
+
+int
+cache_xcode_header_get(struct evbuffer *evbuf, int *cached, uint32_t id, const char *format);
+
+int
+cache_xcode_toggle(bool enable);
+
+
+/* ---------------------------- Artwork cache API  -------------------------- */
 
 #define CACHE_ARTWORK_GROUP 0
 #define CACHE_ARTWORK_INDIVIDUAL 1
@@ -48,7 +57,7 @@ cache_artwork_stash(struct evbuffer *evbuf, const char *path, int format);
 int
 cache_artwork_read(struct evbuffer *evbuf, const char *path, int *format);
 
-/* ---------------------------- Cache API  --------------------------- */
+/* ------------------------------- Cache API  ------------------------------- */
 
 int
 cache_init(void);

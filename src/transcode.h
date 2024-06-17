@@ -3,7 +3,6 @@
 #define __TRANSCODE_H__
 
 #include <event2/buffer.h>
-#include "db.h"
 #include "http.h"
 #include "misc.h"
 
@@ -23,10 +22,14 @@ enum transcode_profile
   XCODE_PCM32,
   // Transcodes the best audio stream to MP3
   XCODE_MP3,
-  // Transcodes the best audio stream to OPUS
+  // Transcodes the best audio stream to raw OPUS (no container)
   XCODE_OPUS,
-  // Transcodes the best audio stream to ALAC
+  // Transcodes the best audio stream to raw ALAC (no container)
   XCODE_ALAC,
+  // Transcodes the best audio stream to ALAC in a MP4 container
+  XCODE_MP4_ALAC,
+  // Produces just the header for a MP4 container with ALAC
+  XCODE_MP4_ALAC_HEADER,
   // Transcodes the best audio stream from OGG
   XCODE_OGG,
   // Transcodes the best video stream to JPEG/PNG/VP8
@@ -62,6 +65,29 @@ struct transcode_evbuf_io
   void *seekfn_arg;
 };
 
+struct transcode_decode_setup_args
+{
+  enum transcode_profile profile;
+  struct media_quality *quality;
+  bool is_http;
+  uint32_t len_ms;
+
+  // Source must be either of these
+  const char *path;
+  struct transcode_evbuf_io *evbuf_io;
+};
+
+struct transcode_encode_setup_args
+{
+  enum transcode_profile profile;
+  struct media_quality *quality;
+  struct decode_ctx *src_ctx;
+  struct transcode_evbuf_io *evbuf_io;
+  struct evbuffer *prepared_header;
+  int width;
+  int height;
+};
+
 struct transcode_metadata_string
 {
   char *type;
@@ -74,19 +100,19 @@ struct transcode_metadata_string
 
 // Setting up
 struct decode_ctx *
-transcode_decode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, struct transcode_evbuf_io *evbuf_io, uint32_t len_ms);
+transcode_decode_setup(struct transcode_decode_setup_args args);
 
 struct encode_ctx *
-transcode_encode_setup(enum transcode_profile profile, struct media_quality *quality, struct decode_ctx *src_ctx, int width, int height);
+transcode_encode_setup(struct transcode_encode_setup_args args);
 
 struct transcode_ctx *
-transcode_setup(enum transcode_profile profile, struct media_quality *quality, enum data_kind data_kind, const char *path, uint32_t len_ms);
+transcode_setup(struct transcode_decode_setup_args decode_args, struct transcode_encode_setup_args encode_args);
 
 struct decode_ctx *
 transcode_decode_setup_raw(enum transcode_profile profile, struct media_quality *quality);
 
 enum transcode_profile
-transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype);
+transcode_needed(const char *user_agent, const char *client_codecs, const char *file_codectype);
 
 // Cleaning up
 void
@@ -182,10 +208,27 @@ transcode_encode_query(struct encode_ctx *ctx, const char *query);
 struct http_icy_metadata *
 transcode_metadata(struct transcode_ctx *ctx, int *changed);
 
-// When transcoding, we are in essence serving a different source file than the
-// original to the client. So we can't serve some of the file metadata from the
-// filescanner. This function creates strings to be used for override.
+/* When transcoding, we are in essence serving a different source file than the
+ * original to the client. So we can't serve some of the file metadata from the
+ * filescanner. This function creates strings to be used for override.
+ *
+ * @out s          Structure with (non-allocated) strings
+ * @in  profile    Transcoding profile
+ * @in  q          Transcoding quality
+ * @in  len_ms     Length of source track
+ */
 void
 transcode_metadata_strings_set(struct transcode_metadata_string *s, enum transcode_profile profile, struct media_quality *q, uint32_t len_ms);
+
+/* Creates a header for later transcoding of a source file. This header can be
+ * given to transcode_encode_setup which in some cases will make it faster (MP4)
+ *
+ * @out header     An evbuffer with the header
+ * @in  profile    Transcoding profile
+ * @in  path       Path to the source file
+ * @return         Negative if error, otherwise zero
+ */
+int
+transcode_prepare_header(struct evbuffer **header, enum transcode_profile profile, const char *path);
 
 #endif /* !__TRANSCODE_H__ */

@@ -391,21 +391,18 @@ download_seek(void *arg, int64_t offset, enum transcode_seek_type type)
 static int
 download_xcode_setup(struct download_ctx *download)
 {
-  struct transcode_ctx *xcode;
+  struct transcode_decode_setup_args decode_args = { .profile = XCODE_OGG, .len_ms = download->len_ms };
+  struct transcode_encode_setup_args encode_args = { .profile = XCODE_PCM16, };
   struct transcode_evbuf_io xcode_evbuf_io = { 0 };
-
-  CHECK_NULL(L_SPOTIFY, xcode = malloc(sizeof(struct transcode_ctx)));
+  struct transcode_ctx *xcode;
 
   xcode_evbuf_io.evbuf = download->read_buf;
   xcode_evbuf_io.seekfn = download_seek;
   xcode_evbuf_io.seekfn_arg = download;
+  decode_args.evbuf_io = &xcode_evbuf_io;
 
-  xcode->decode_ctx = transcode_decode_setup(XCODE_OGG, NULL, DATA_KIND_SPOTIFY, NULL, &xcode_evbuf_io, download->len_ms);
-  if (!xcode->decode_ctx)
-    goto error;
-
-  xcode->encode_ctx = transcode_encode_setup(XCODE_PCM16, NULL, xcode->decode_ctx, 0, 0);
-  if (!xcode->encode_ctx)
+  xcode = transcode_setup(decode_args, encode_args);
+  if (!xcode)
     goto error;
 
   download->xcode = xcode;

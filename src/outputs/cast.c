@@ -32,15 +32,7 @@
 #include <ifaddrs.h>
 #include <unistd.h>
 #include <fcntl.h>
-#ifdef HAVE_ENDIAN_H
-# include <endian.h>
-#elif defined(HAVE_SYS_ENDIAN_H)
-# include <sys/endian.h>
-#elif defined(HAVE_LIBKERN_OSBYTEORDER_H)
-#include <libkern/OSByteOrder.h>
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#define be32toh(x) OSSwapBigToHostInt32(x)
-#endif
+
 #include <gnutls/gnutls.h>
 #include <event2/event.h>
 #include <json.h>
@@ -55,6 +47,7 @@
 #include "outputs.h"
 #include "db.h"
 #include "artwork.h"
+#include "misc.h"
 
 #ifdef HAVE_PROTOBUF_OLD
 #include "cast_channel.v0.pb-c.h"
@@ -1785,6 +1778,7 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
   device->name = strdup(name);
   device->type = OUTPUT_TYPE_CAST;
   device->type_name = outputs_name(device->type);
+  device->supported_formats = MEDIA_FORMAT_OPUS;
 
   if (port < 0)
     {
@@ -2369,7 +2363,7 @@ cast_metadata_send(struct output_metadata *metadata)
 static int
 cast_init(void)
 {
-  struct decode_ctx *decode_ctx;
+  struct transcode_encode_setup_args encode_args = { .profile = XCODE_OPUS, .quality = &cast_quality_default };
   int i;
   int ret;
 
@@ -2393,15 +2387,15 @@ cast_init(void)
       return -1;
     }
 
-  decode_ctx = transcode_decode_setup_raw(XCODE_PCM16, &cast_quality_default);
-  if (!decode_ctx)
+  encode_args.src_ctx = transcode_decode_setup_raw(XCODE_PCM16, &cast_quality_default);
+  if (!encode_args.src_ctx)
     {
       DPRINTF(E_LOG, L_CAST, "Could not create decoding context\n");
       goto out_tls_deinit;
     }
 
-  cast_encode_ctx = transcode_encode_setup(XCODE_OPUS, &cast_quality_default, decode_ctx, 0, 0);
-  transcode_decode_cleanup(&decode_ctx);
+  cast_encode_ctx = transcode_encode_setup(encode_args);
+  transcode_decode_cleanup(&encode_args.src_ctx);
   if (!cast_encode_ctx)
     {
       DPRINTF(E_LOG, L_CAST, "Will not be able to stream Chromecast, libav does not support Opus encoding\n");

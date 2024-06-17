@@ -151,8 +151,9 @@
   "   id             INTEGER PRIMARY KEY NOT NULL,"	\
   "   selected       INTEGER NOT NULL,"			\
   "   volume         INTEGER NOT NULL,"			\
-  "   name           VARCHAR(255) DEFAULT NULL,"        \
-  "   auth_key       VARCHAR(2048) DEFAULT NULL"        \
+  "   name           VARCHAR(255) DEFAULT NULL,"       \
+  "   auth_key       VARCHAR(2048) DEFAULT NULL,"      \
+  "   format         INTEGER DEFAULT 0"                \
   ");"
 
 #define T_INOTIFY					\

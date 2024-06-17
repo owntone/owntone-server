@@ -1246,6 +1246,24 @@ static const struct db_upgrade_query db_upgrade_v2201_queries[] =
   };
 
 
+/* ---------------------------- 22.01 -> 22.02 ------------------------------ */
+
+#define U_v2202_ALTER_SPEAKERS_ADD_FORMAT \
+  "ALTER TABLE speakers ADD COLUMN format INTEGER DEFAULT 0;"
+
+#define U_v2202_SCVER_MAJOR                    \
+  "UPDATE admin SET value = '22' WHERE key = 'schema_version_major';"
+#define U_v2202_SCVER_MINOR                    \
+  "UPDATE admin SET value = '02' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2202_queries[] =
+  {
+    { U_v2202_ALTER_SPEAKERS_ADD_FORMAT, "alter table speakers add column format" },
+
+    { U_v2202_SCVER_MAJOR,    "set schema_version_major to 22" },
+    { U_v2202_SCVER_MINOR,    "set schema_version_minor to 02" },
+  };
+
 
 /* -------------------------- Main upgrade handler -------------------------- */
 
@@ -1461,6 +1479,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 2200:
       ret = db_generic_upgrade(hdl, db_upgrade_v2201_queries, ARRAY_SIZE(db_upgrade_v2201_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2201:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2202_queries, ARRAY_SIZE(db_upgrade_v2202_queries));
       if (ret < 0)
 	return -1;
 
