@@ -56,6 +56,7 @@ static cfg_opt_t sec_general[] =
     CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
     CFG_STR("bind_address", NULL, CFGF_NONE),
     CFG_STR("cache_dir", STATEDIR "/cache/" PACKAGE, CFGF_NONE),
+    CFG_STR("cache_path", NULL, CFGF_DEPRECATED),
     CFG_INT("cache_daap_threshold", 1000, CFGF_NONE),
     CFG_BOOL("speaker_autoselect", cfg_false, CFGF_NONE),
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
