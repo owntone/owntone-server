@@ -248,7 +248,7 @@ net_peer_address_is_trusted(union net_sockaddr *naddr)
       if (strcmp(network, "lan") == 0 && net_address_is_local(naddr))
 	return true;
 
-      if (strcmp(network, "localhost"))
+      if (strcmp(network, "localhost") == 0)
 	network = (naddr->sa.sa_family == AF_INET6) ? "::1" : "127.0.0.1";
 
       if (net_address_has_prefix(naddr, network))
