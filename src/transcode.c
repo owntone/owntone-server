@@ -562,26 +562,22 @@ dummy_seek(void *arg, int64_t offset, enum transcode_seek_type type)
 }
 
 static off_t
-size_estimate(enum transcode_profile profile, int bit_rate, int sample_rate, int bytes_per_sample, int channels, int len_ms)
+size_estimate(enum transcode_profile profile, uint32_t bit_rate, uint32_t sample_rate, uint16_t bytes_per_sample, uint16_t channels, uint32_t len_ms)
 {
-  off_t bytes;
+  off_t bytes = 0;
+  uint64_t nsamples;
 
-  // If the source has a number of samples that doesn't match an even len_ms
-  // then the length may have been rounded up. We prefer an estimate that is on
-  // the low side, otherwise ffprobe won't trust the length from our wav header.
-  if (len_ms > 0)
-    len_ms -= 1;
-  else
+  if (len_ms == 0)
     len_ms = 3 * 60 * 1000;
 
+  nsamples = (uint64_t)sample_rate * (uint64_t)len_ms / 1000 + 1; // The +1 is to round up
+
   if (profile == XCODE_WAV)
-    bytes = (int64_t)len_ms * channels * bytes_per_sample * sample_rate / 1000 + WAV_HEADER_LEN;
+    bytes = nsamples * channels * bytes_per_sample + WAV_HEADER_LEN;
   else if (profile == XCODE_MP3)
-    bytes = (int64_t)len_ms * bit_rate / 8000;
+    bytes = (uint64_t)len_ms * (uint64_t)bit_rate / 8000;
   else if (profile == XCODE_MP4_ALAC)
-    bytes = (int64_t)len_ms * channels * bytes_per_sample * sample_rate / 1000 / 2; // FIXME
-  else
-    bytes = -1;
+    bytes = nsamples * channels * bytes_per_sample / 2; // FIXME
 
   return bytes;
 }
@@ -1095,24 +1091,22 @@ avio_evbuffer_close(AVIOContext *s)
 /* ----------------------- CUSTOM HEADER GENERATION ------------------------ */
 
 static int
-make_wav_header(struct evbuffer **wav_header, int sample_rate, int bytes_per_sample, int channels, off_t bytes_total)
+make_wav_header(struct evbuffer **wav_header, uint32_t sample_rate, uint16_t bytes_per_sample, uint16_t channels, uint32_t bytes_total)
 {
   uint8_t header[WAV_HEADER_LEN];
 
-  uint32_t wav_size = bytes_total - WAV_HEADER_LEN;
-
   memcpy(header, "RIFF", 4);
-  add_le32(header + 4, 36 + wav_size);
+  add_le32(header + 4, bytes_total - 8); // Total file size - 8 bytes as defined by the format
   memcpy(header + 8, "WAVEfmt ", 8);
   add_le32(header + 16, 16);
-  add_le16(header + 20, 1);
+  add_le16(header + 20, 1); // AudioFormat (PCM)
   add_le16(header + 22, channels);     /* channels */
   add_le32(header + 24, sample_rate);  /* samplerate */
   add_le32(header + 28, sample_rate * channels * bytes_per_sample); /* byte rate */
   add_le16(header + 32, channels * bytes_per_sample);               /* block align */
   add_le16(header + 34, 8 * bytes_per_sample);                      /* bits per sample */
   memcpy(header + 36, "data", 4);
-  add_le32(header + 40, wav_size);
+  add_le32(header + 40, bytes_total - WAV_HEADER_LEN);
 
   *wav_header = evbuffer_new();
   evbuffer_add(*wav_header, header, sizeof(header));
