@@ -1069,6 +1069,9 @@ xcode_sync_with_files(sqlite3 *hdl)
   if (ret < 0)
     goto error;
 
+  // Silence false maybe-uninitialized warning
+  rowB = NULL;
+
   // Loop while either list ("A" files list, "B" cache list) has remaining items
   for(i = 0, cmp = 0;;)
     {
