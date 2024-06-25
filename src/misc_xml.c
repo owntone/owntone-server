@@ -21,6 +21,7 @@
 # include <config.h>
 #endif
 
+#include <stdlib.h>
 #include <stdio.h> // fopen
 #include <stdarg.h> // va_*
 #include <string.h> // strlen
