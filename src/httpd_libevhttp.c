@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h> // listen()
+#include <arpa/inet.h> // inet_pton()
 
 #include <event2/http.h>
 #include <event2/http_struct.h> // flags in struct evhttp
@@ -543,6 +544,29 @@ httpd_backend_peer_get(const char **addr, uint16_t *port, httpd_backend *backend
   return 0;
 }
 
+// When removing this workaround then also remove the include of arpa/inet.h
+static bool
+address_is_trusted_workaround(httpd_backend *backend)
+{
+  union net_sockaddr naddr = { 0 };
+  const char *saddr;
+  uint16_t port;
+
+  DPRINTF(E_DBG, L_HTTPD, "Detected libevent version with buggy evhttp_connection_get_addr()\n");
+
+  if (httpd_backend_peer_get(&saddr, &port, backend, NULL) < 0)
+    return false;
+
+  if (inet_pton(AF_INET, saddr, &naddr.sin.sin_addr) == 1)
+    naddr.sa.sa_family = AF_INET;
+  else if (inet_pton(AF_INET6, saddr, &naddr.sin6.sin6_addr) == 1)
+    naddr.sa.sa_family = AF_INET6;
+  else
+    return false;
+
+  return net_peer_address_is_trusted(&naddr);
+}
+
 bool
 httpd_backend_peer_is_trusted(httpd_backend *backend)
 {
@@ -555,6 +579,10 @@ httpd_backend_peer_is_trusted(httpd_backend *backend)
   addr = evhttp_connection_get_addr(conn);
   if (!addr)
     return false;
+
+  // Workaround for bug in libevent 2.1.6 and .8, see #1775
+  if (addr->sa_family == AF_UNSPEC)
+    return address_is_trusted_workaround(backend);
 
   return net_peer_address_is_trusted((union net_sockaddr *)addr);
 }
