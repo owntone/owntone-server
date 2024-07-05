@@ -239,7 +239,7 @@ net_peer_address_is_trusted(union net_sockaddr *naddr)
     {
       network = cfg_getnstr(section, "trusted_networks", i);
 
-      if (!network || network[0] == '\0')
+      if (!network || network[0] == '\0' || strcmp(network, "none") == 0)
 	return false;
 
       if (strcmp(network, "any") == 0)

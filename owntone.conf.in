@@ -40,8 +40,8 @@ general {
 
 	# Sets who is allowed to connect without authorisation. This applies to
 	# client types like Remotes, DAAP clients (iTunes) and to the web
-	# interface. Options are "any", "lan", "localhost" or the prefix to one
-	# or more ipv4/6 networks. The default is { "lan" }
+	# interface. Options are "any", "lan", "localhost", "none" or the prefix
+	# to one or more ipv4/6 networks. The default is { "lan" }
 #	trusted_networks = { "lan" }
 
 	# Enable/disable IPv6
