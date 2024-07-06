@@ -2607,6 +2607,70 @@ mpd_command_save(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 }
 
 static int
+mpd_command_albumart(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
+{
+  struct evbuffer *evbuffer;
+  const char *type = NULL;
+  size_t size;
+  int itemid;
+  int format;
+
+  if (argc < 2)
+    {
+      *errmsg = safe_asprintf("Missing argument(s) for command 'albumart'");
+      return ACK_ERROR_ARG;
+    }
+
+  itemid = db_file_id_byvirtualpath_match(argv[1]);
+  if (!itemid)
+    {
+      DPRINTF(E_WARN, L_MPD, "No item found for path '%s'\n", argv[1]);
+      *errmsg = safe_asprintf("Document was not found");
+      return ACK_ERROR_ARG;
+    }
+
+  evbuffer = evbuffer_new();
+  if (!evbuffer)
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not allocate an evbuffer for artwork request\n");
+      *errmsg = safe_asprintf("Document was not found");
+      return ACK_ERROR_ARG;
+    }
+
+  format = artwork_get_item(evbuffer, itemid,
+  			    ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
+  if (format < 0)
+    {
+      *errmsg = safe_asprintf("Document was not found");
+      evbuffer_free(evbuffer);
+      return ACK_ERROR_ARG;
+    }
+
+  switch (format)
+    {
+      case ART_FMT_PNG:
+      	type = "image/png";
+      	break;
+
+      default:
+      	type = "image/jpeg";
+      	break;
+    }
+
+  size = evbuffer_get_length(evbuffer);
+  evbuffer_add_printf(evbuf,
+      "size: %zu\n"
+      "type: %s\n"
+      "binary: %zu\n",
+      size, type, size);
+  evbuffer_add_buffer(evbuf, evbuffer);
+  evbuffer_add(evbuf, "\n", 1);
+
+  evbuffer_free(evbuffer);
+  return 0;
+}
+
+static int
 mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct query_params qp;
@@ -3119,6 +3183,8 @@ mpd_command_listfiles(struct evbuffer *evbuf, int argc, char **argv, char **errm
 {
   return mpd_command_lsinfo(evbuf, argc, argv, errmsg, ctx);
 }
+
+#define mpd_command_readpicture mpd_command_albumart
 
 /*
  * Command handler function for 'search'
@@ -4142,6 +4208,7 @@ static struct mpd_command mpd_handlers[] =
     { "save",                       mpd_command_save,                        2 },
 
     // The music database
+    { "albumart",                   mpd_command_albumart,                    2 },
     { "count",                      mpd_command_count,                      -1 },
     { "find",                       mpd_command_find,                       -1 },
     { "findadd",                    mpd_command_findadd,                    -1 },
@@ -4151,6 +4218,7 @@ static struct mpd_command mpd_handlers[] =
     { "listfiles",                  mpd_command_listfiles,                  -1 },
     { "lsinfo",                     mpd_command_lsinfo,                     -1 },
 //    { "readcomments",               mpd_command_readcomments,               -1 },
+    { "readpicture",                mpd_command_readpicture,                 2 },
     { "search",                     mpd_command_search,                     -1 },
     { "searchadd",                  mpd_command_searchadd,                  -1 },
 //    { "searchaddpl",                mpd_command_searchaddpl,                -1 },
