@@ -1,8 +1,7 @@
 # Streaming
 
 The streaming option is useful when you want to listen to audio played by
-OwnTone in a browser or a media player of your choice (see note [^1] and
-[^3]).
+OwnTone in a browser or a media player of your choice [^1],[^3].
 
 Moreover, Apple Remote or the web interface can be used to control the
 playback.
@@ -15,7 +14,7 @@ steps:
 1. Start playing audio in OwnTone.
 2. In the web interface, activate the stream in the output menu by clicking
    on the icon :material-broadcast: next to HTTP Stream.
-   After a few seconds, the audio should play in the background (see note [^2]).
+   After a few seconds, the audio should play in the background [^2].
 
 ## Listening to Audio in a Media Player
 
