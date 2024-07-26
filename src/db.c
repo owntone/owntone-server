@@ -7055,7 +7055,10 @@ db_statements_prepare_ping(const char *table)
   sqlite3_stmt *stmt;
   int ret;
 
-  CHECK_NULL(L_DB, query = db_mprintf("UPDATE %s SET db_timestamp = ?, disabled = 0 WHERE path = ? AND db_timestamp >= ?;", table));
+  // The last param will be the file mtime. We must not update if the mtime is
+  // newer or equal than the current db_timestamp, since the file may have been
+  // modified and must be rescanned.
+  CHECK_NULL(L_DB, query = db_mprintf("UPDATE %s SET db_timestamp = ?, disabled = 0 WHERE path = ? AND db_timestamp > ?;", table));
 
   ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)

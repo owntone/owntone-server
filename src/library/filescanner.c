@@ -572,10 +572,12 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
   char virtual_path[PATH_MAX];
   int ret;
 
-  // Will return 0 if file is not in library or if file mtime is newer than library timestamp
-  // - note if mtime is 0 then we always scan the file
   if (!(flags & F_SCAN_METARESCAN))
     {
+      // Will return 0 if file is not in library or if file mtime is not older
+      // than the library timestamp. If mtime is equal we must rescan, since a
+      // fast update may have been made, see issue #1782. If mtime is 0 then we
+      // always scan.
       ret = db_file_ping_bypath(file, sb->st_mtime);
       if ((sb->st_mtime != 0) && (ret != 0))
         return;
