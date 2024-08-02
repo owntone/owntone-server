@@ -207,6 +207,40 @@ content_type_from_profile(enum transcode_profile profile)
   return NULL;
 }
 
+static int
+basic_auth_cred_extract(char **user, char **pwd, const char *auth)
+{
+  char *decoded = NULL;
+  regex_t preg = { 0 };
+  regmatch_t matchptr[3]; // Room for entire string, username substring and password substring
+  int ret;
+
+  decoded = (char *)b64_decode(NULL, auth);
+  if (!decoded)
+    goto error;
+
+  // Apple Music gives is "(dt:1):password", which we need to support even if it
+  // isn't according to the basic auth RFC that says the username cannot include
+  // a colon
+  ret = regcomp(&preg, "(\\(.*?\\)|[^:]*):(.*)", REG_EXTENDED);
+  if (ret != 0)
+    goto error;
+
+  ret = regexec(&preg, decoded, ARRAY_SIZE(matchptr), matchptr, 0);
+  if (ret != 0 || matchptr[1].rm_so == -1 || matchptr[2].rm_so == -1)
+    goto error;
+
+  *user = strndup(decoded + matchptr[1].rm_so, matchptr[1].rm_eo - matchptr[1].rm_so);
+  *pwd = strndup(decoded + matchptr[2].rm_so, matchptr[2].rm_eo - matchptr[2].rm_so);
+
+  free(decoded);
+  return 0;
+
+ error:
+  free(decoded);
+  return -1;
+}
+
 
 /* --------------------------- MODULES INTERFACE ---------------------------- */
 
@@ -1432,25 +1466,13 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
 
   auth += strlen("Basic ");
 
-  authuser = (char *)b64_decode(NULL, auth);
-  if (!authuser)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not decode Authentication header\n");
-
-      goto need_auth;
-    }
-
-  authpwd = strchr(authuser, ':');
-  if (!authpwd)
+  ret = basic_auth_cred_extract(&authuser, &authpwd, auth);
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Malformed Authentication header\n");
 
-      free(authuser);
       goto need_auth;
     }
-
-  *authpwd = '\0';
-  authpwd++;
 
   if (user)
     {
@@ -1459,6 +1481,7 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
 	  DPRINTF(E_LOG, L_HTTPD, "Username mismatch\n");
 
 	  free(authuser);
+	  free(authpwd);
 	  goto need_auth;
 	}
     }
@@ -1468,11 +1491,12 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
       DPRINTF(E_LOG, L_HTTPD, "Bad password\n");
 
       free(authuser);
+      free(authpwd);
       goto need_auth;
     }
 
   free(authuser);
-
+  free(authpwd);
   return 0;
 
  need_auth:
