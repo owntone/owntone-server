@@ -28,7 +28,7 @@
     },
     "album": {
       "add-next": "插播",
-      "add": "最后播放",
+      "add": "添加",
       "added-on": "添加时间",
       "artist": "专辑艺人",
       "duration": "时长",
@@ -42,7 +42,7 @@
     },
     "artist": {
       "add-next": "插播",
-      "add": "最后播放",
+      "add": "添加",
       "added-on": "添加时间",
       "albums": "张专辑",
       "play": "播放",
@@ -51,7 +51,7 @@
     },
     "composer": {
       "add-next": "插播",
-      "add": "最后播放",
+      "add": "添加",
       "albums": "张专辑",
       "duration": "时长",
       "play": "播放",
@@ -59,12 +59,12 @@
     },
     "directory": {
       "add-next": "插播",
-      "add": "最后播放",
+      "add": "添加",
       "play": "播放"
     },
     "genre": {
       "add-next": "插播",
-      "add": "最后播放",
+      "add": "添加",
       "albums": "张专辑",
       "duration": "时长",
       "play": "播放",
@@ -72,7 +72,7 @@
     },
     "playlist": {
       "add-next": "插播",
-      "add": "最后播放",
+      "add": "添加",
       "play": "播放",
       "path": "路径",
       "tracks": "只曲目",
@@ -113,7 +113,7 @@
     "spotify": {
       "album": {
         "add-next": "插播",
-        "add": "最后播放",
+        "add": "添加",
         "album-artist": "专辑艺人",
         "play": "播放",
         "release-date": "发行日期",
@@ -121,14 +121,14 @@
       },
       "artist": {
         "add-next": "插播",
-        "add": "最后播放",
+        "add": "添加",
         "genres": "流派",
         "play": "播放",
         "popularity": "流行度 / 粉丝数"
       },
       "playlist": {
         "add-next": "插播",
-        "add": "最后播放",
+        "add": "添加",
         "owner": "所有者",
         "path": "路径",
         "play": "播放",
@@ -136,7 +136,7 @@
       },
       "track": {
         "add-next": "插播",
-        "add": "最后播放",
+        "add": "添加",
         "album-artist": "专辑艺人",
         "album": "专辑",
         "duration": "时长",
@@ -148,7 +148,7 @@
     },
     "track": {
       "add-next": "插播",
-      "add": "最后播放",
+      "add": "添加",
       "added-on": "添加时间",
       "album-artist": "专辑艺人",
       "album": "专辑",
@@ -393,7 +393,7 @@
       "track-count": "{count} 只曲目|{count} 只曲目"
     },
     "podcasts": {
-      "add": "最后播放",
+      "add": "添加",
       "count": "{count} 个播客|{count} 个播客",
       "mark-all-played": "全部标记为已播放",
       "new-episodes": "最新单集",
