@@ -190,7 +190,8 @@
     "de": "German (Deutsch)",
     "en": "English",
     "fr": "French (Français)",
-    "zh": "Chinese (中文)"
+    "zh-CN": "Simplified Chinese (簡體中文)",
+    "zh-TW": "Traditional Chinese (繁體中文)"
   },
   "list": {
     "albums": {
