@@ -1,0 +1,597 @@
+{
+    "data": {
+      "kind": {
+        "file": "文件",
+        "url": "鏈接",
+        "spotify": "Spotify",
+        "pipe": "串流"
+      }
+    },
+    "dialog": {
+      "add": {
+        "rss": {
+          "add": "新增",
+          "cancel": "取消",
+          "help": "新增一個可生成播放列表的Podcast RSS鏈接，這將允許OwnTone管理訂閱",
+          "placeholder": "https://url-to-rss",
+          "processing": "處理中…",
+          "title": "新增Podcast"
+        },
+        "stream": {
+          "add": "新增",
+          "cancel": "取消",
+          "loading": "載入中…",
+          "placeholder": "https://url-to-stream",
+          "play": "播放",
+          "title": "新增串流"
+        }
+      },
+      "album": {
+        "add-next": "插播",
+        "add": "新增",
+        "added-on": "新增時間",
+        "artist": "專輯藝人",
+        "duration": "時長",
+        "mark-as-played": "標記為已播",
+        "play": "播放",
+        "release-date": "發行日期",
+        "remove-podcast": "移除Podcast",
+        "tracks": "首曲目",
+        "type": "類型",
+        "year": "年份"
+      },
+      "artist": {
+        "add-next": "插播",
+        "add": "新增",
+        "added-on": "新增時間",
+        "albums": "張專輯",
+        "play": "播放",
+        "tracks": "首曲目",
+        "type": "類型"
+      },
+      "composer": {
+        "add-next": "插播",
+        "add": "新增",
+        "albums": "張專輯",
+        "duration": "時長",
+        "play": "播放",
+        "tracks": "首曲目"
+      },
+      "directory": {
+        "add-next": "插播",
+        "add": "新增",
+        "play": "播放"
+      },
+      "genre": {
+        "add-next": "插播",
+        "add": "新增",
+        "albums": "張專輯",
+        "duration": "時長",
+        "play": "播放",
+        "tracks": "首曲目"
+      },
+      "playlist": {
+        "add-next": "插播",
+        "add": "新增",
+        "play": "播放",
+        "path": "路徑",
+        "tracks": "首曲目",
+        "type": "類型",
+        "save": {
+          "cancel": "取消",
+          "playlist-name": "播放列表名稱",
+          "save": "儲存",
+          "saving": "儲存中…",
+          "title": "儲存播放清單到列表"
+        }
+      },
+      "queue-item": {
+        "album-artist": "專輯藝人",
+        "album": "專輯",
+        "bitrate": " {'|'} {rate} kbit/s",
+        "channels": " {'|'} {channels}",
+        "composer": "作曲",
+        "duration": "時長",
+        "genre": "音樂類型",
+        "path": "路徑",
+        "play": "播放",
+        "position": "盤符 / 曲目",
+        "quality": "品質",
+        "remove": "移除",
+        "samplerate": " {'|'} {rate} Hz",
+        "spotify-album": "專輯",
+        "spotify-artist": "藝人",
+        "type": "類型",
+        "year": "年份"
+      },
+      "remote-pairing": {
+        "cancel": "取消",
+        "pair": "遙控配對",
+        "pairing-code": "配對碼",
+        "title": "請求遙控配對"
+      },
+      "spotify": {
+        "album": {
+          "add-next": "插播",
+          "add": "新增",
+          "album-artist": "專輯藝人",
+          "play": "播放",
+          "release-date": "發行日期",
+          "type": "類型"
+        },
+        "artist": {
+          "add-next": "插播",
+          "add": "新增",
+          "genres": "音樂類型",
+          "play": "播放",
+          "popularity": "流行度 / 粉絲數"
+        },
+        "playlist": {
+          "add-next": "插播",
+          "add": "新增",
+          "owner": "所有者",
+          "path": "路徑",
+          "play": "播放",
+          "tracks": "曲目"
+        },
+        "track": {
+          "add-next": "插播",
+          "add": "新增",
+          "album-artist": "專輯藝人",
+          "album": "專輯",
+          "duration": "時長",
+          "path": "路徑",
+          "play": "播放",
+          "position": "盤符 / 曲目",
+          "release-date": "發行日期"
+        }
+      },
+      "track": {
+        "add-next": "插播",
+        "add": "新增",
+        "added-on": "新增時間",
+        "album-artist": "專輯藝人",
+        "album": "專輯",
+        "bitrate": " {'|'} {rate} kbit/s",
+        "channels": " {'|'} {channels}",
+        "comment": "評論",
+        "composer": "作曲家",
+        "duration": "時長",
+        "genre": "音樂類型",
+        "mark-as-new": "標記為最新",
+        "mark-as-played": "標記為已播放",
+        "path": "路徑",
+        "play": "播放",
+        "position": "盤符 / 曲目",
+        "quality": "品質",
+        "rating-value": "{rating} / 10",
+        "rating": "評級",
+        "release-date": "發行日期",
+        "samplerate": " {'|'} {rate} Hz",
+        "spotify-album": "專輯",
+        "spotify-artist": "藝人",
+        "type": "類型",
+        "year": "年份"
+      },
+      "update": {
+        "all": "更新所有內容",
+        "cancel": "取消",
+        "feeds": "僅更新RSS訂閱內容",
+        "info": "掃描新的、刪除的和修改的文件",
+        "local": "僅更新本地資料庫",
+        "progress": "正在更新本地資料庫…",
+        "rescan-metadata": "重新掃描未修改文件的中繼資料",
+        "rescan": "重新掃描",
+        "spotify": "僅更新Spotify",
+        "title": "更新資料庫"
+      }
+    },
+    "language": {
+      "de": "德語 (Deutsch)",
+      "en": "英語 (English)",
+      "fr": "法語 (Français)",
+      "zh-CN": "簡體中文",
+      "zh-TW": "繁體中文"
+    },
+    "list": {
+      "albums": {
+        "info-1": "從資料庫中永久移除該Podcast嗎？",
+        "info-2": "這也將移除RSS播放列表 ",
+        "remove": "移除",
+        "remove-podcast": "移除Podcast"
+      },
+      "spotify": {
+        "not-playable-track": "曲目無法播放",
+        "restriction-reason": "，被限制原因：{reason}"
+      }
+    },
+    "media": {
+      "kind": {
+        "album": "專輯",
+        "audiobook": "有聲書",
+        "music": "音樂",
+        "podcast": "Podcast"
+      }
+    },
+    "navigation": {
+      "about": "關於",
+      "albums": "專輯",
+      "artists": "藝人",
+      "audiobooks": "有聲書",
+      "now-playing": " - {album}",
+      "stream-error": "HTTP串流錯誤：串流載入失敗或者由於網絡原因無法載入",
+      "stream": "HTTP串流",
+      "volume": "音量",
+      "files": "文件",
+      "genres": "音樂類型",
+      "music": "音樂",
+      "playlists": "播放列表",
+      "podcasts": "Podcast",
+      "radio": "電台",
+      "search": "搜尋",
+      "settings": "設定",
+      "spotify": "Spotify",
+      "update-library": "更新資料庫"
+    },
+    "page": {
+      "about": {
+        "albums": "專輯",
+        "artists": "藝人",
+        "built-with": "界面貢獻者包括 {bulma}，{mdi}，{vuejs}，{axios} 和 {others}",
+        "compiled-with": "編譯支持來自於 {options}",
+        "library": "資料庫",
+        "more": "更多",
+        "total-playtime": "總播放時長",
+        "tracks": "曲目總數",
+        "update": "更新",
+        "updated-on": "{time} 前",
+        "updated": "更新於",
+        "uptime": "運行時長",
+        "version": "版本 {version}"
+      },
+      "album": {
+        "shuffle": "隨機播放",
+        "track-count": "{count} 首曲目|{count} 首曲目"
+      },
+      "albums": {
+        "count": "{count} 張專輯|{count} 張專輯",
+        "filter": "篩選",
+        "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
+        "hide-singles": "隱藏單曲",
+        "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
+        "hide-spotify": "隱藏來自Spotify的專輯",
+        "title": "專輯",
+        "sort": {
+          "artist-name": "藝人 › 名稱",
+          "artist-date": "藝人 › 發行日期",
+          "title": "分類",
+          "name": "名稱",
+          "recently-added": "最近新增",
+          "recently-released": "最近發行"
+        }
+      },
+      "artist": {
+        "album-count": "{count} 張專輯|{count} 張專輯",
+        "filter": "篩選",
+        "hide-spotify-help": "如果啓用，將隱藏只出現在Spotify庫中的內容",
+        "hide-spotify": "隱藏來自Spotify的內容",
+        "shuffle": "隨機播放",
+        "track-count": "{count} 首曲目|{count} 首曲目",
+        "sort": {
+          "title": "分類",
+          "name": "名稱",
+          "rating": "評級",
+          "release-date": "發行日期"
+        }
+      },
+      "artists": {
+        "count": "{count} 位藝人|{count} 位藝人",
+        "filter": "篩選",
+        "sort": {
+          "title": "分類",
+          "name": "名稱",
+          "recently-added": "最近新增"
+        },
+        "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
+        "hide-singles": "隱藏單曲",
+        "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
+        "hide-spotify": "隱藏來自Spotify的藝人",
+        "title": "藝人"
+      },
+      "audiobooks": {
+        "album": {
+          "play": "播放",
+          "track-count": "{count} 首曲目|{count} 首曲目"
+        },
+        "albums": {
+          "count": "{count} 個有聲書|{count} 個有聲書",
+          "title": "有聲書"
+        },
+        "artist": {
+          "album-count": "{count} 張專輯|{count} 張專輯",
+          "play": "播放"
+        },
+        "artists": {
+          "count": "{count} 位作者|{count} 位作者",
+          "title": "作者"
+        },
+        "tabs": {
+          "authors": "作者",
+          "audiobooks": "有聲書",
+          "genres": "音樂類型"
+        }
+      },
+      "composer": {
+        "album-count": "{count} 張專輯|{count} 張專輯",
+        "shuffle": "隨機播放",
+        "track-count": "{count} 首曲目|{count} 首曲目",
+        "sort": {
+          "title": "分類",
+          "name": "名稱",
+          "rating": "評級"
+        }
+      },
+      "composers": {
+        "count": "{count} 位作曲家|{count} 位作曲家",
+        "title": "作曲家"
+      },
+      "files": {
+        "play": "播放",
+        "title": "文件"
+      },
+      "genre": {
+        "album-count": "{count} 張專輯|{count} 張專輯",
+        "shuffle": "隨機播放",
+        "track-count": "{count} 首曲目|{count} 首曲目",
+        "sort": {
+          "title": "分類",
+          "name": "名稱",
+          "rating": "評級"
+        }
+      },
+      "genres": {
+        "count": "{count} 個音樂類型|{count} 個音樂類型",
+        "title": "音樂類型"
+      },
+      "music": {
+        "show-more": "顯示更多",
+        "recently-added": {
+          "title": "最近新增"
+        },
+        "recently-played": {
+          "title": "最近播放"
+        },
+        "tabs": {
+          "albums": "專輯",
+          "artists": "藝人",
+          "composers": "作曲家",
+          "genres": "音樂類型",
+          "history": "歷史",
+          "spotify": "Spotify"
+        }
+      },
+      "now-playing": {
+        "info": "瀏覽資料庫新增曲目",
+        "live": "直播",
+        "title": "播放清單是空的"
+      },
+      "playlist": {
+        "length": "{length} 曲目",
+        "shuffle": "隨機播放",
+        "track-count": "{count} 首曲目|{count} 首曲目"
+      },
+      "playlists": {
+        "title": "播放列表",
+        "count": "{count} 個播放列表|{count} 個播放列表"
+      },
+      "podcast": {
+        "cancel": "取消",
+        "play": "播放",
+        "remove": "移除",
+        "remove-info-1": "從資料庫中永久移除該Podcast？",
+        "remove-info-2": "這也將移除該PodcastRSS列表 ",
+        "remove-podcast": "移除Podcast",
+        "track-count": "{count} 首曲目|{count} 首曲目"
+      },
+      "podcasts": {
+        "add": "新增",
+        "count": "{count} 個Podcast|{count} 個Podcast",
+        "mark-all-played": "全部標記為已播放",
+        "new-episodes": "最新單集",
+        "title": "Podcast",
+        "update": "更新"
+      },
+      "queue": {
+        "add-stream": "新增串流",
+        "clear": "清除",
+        "count": "{count} 首曲目|{count} 首曲目",
+        "edit": "編輯",
+        "hide-previous": "隱藏歷史",
+        "title": "清單",
+        "save": "儲存"
+      },
+      "radio": {
+        "count": "{count} 個電台|{count} 個電台",
+        "title": "電台"
+      },
+      "search": {
+        "albums": "專輯",
+        "artists": "藝人",
+        "audiobooks": "有聲書",
+        "composers": "作曲家",
+        "expression": "表達式",
+        "help": "提示：如果您使用 {query} 前綴，則可以通過智能播放列表查詢語言 {help} 進行搜尋",
+        "no-results": "未找到結果",
+        "placeholder": "搜尋",
+        "playlists": "播放列表",
+        "podcasts": "Podcast",
+        "show-albums": "顯示專輯|顯示所有 {count} 個專輯",
+        "show-artists": "顯示藝人|顯示所有 {count} 位藝人",
+        "show-audiobooks": "顯示有聲書|顯示所有 {count} 本有聲書",
+        "show-composers": "顯示作曲家|顯示所有 {count} 位作曲家",
+        "show-playlists": "顯示播放列表|顯示所有 {count} 個播放列表",
+        "show-podcasts": "顯示Podcast|顯示所有 {count} 個Podcast",
+        "show-tracks": "顯示曲目|顯示所有 {count} 首曲目",
+        "tracks": "曲目",
+        "tabs": {
+          "library": "資料庫",
+          "spotify": "Spotify"
+        }
+      },
+      "settings": {
+        "artwork": {
+          "artwork": "封面",
+          "coverartarchive": "Cover Art Archive",
+          "discogs": "Discogs",
+          "explanation-1": "OwnTone支持PNG和 JPEG封面，這些封面可以作為單獨的圖像文件放置在庫中或嵌入到媒體文件中，也可以通過電台在線提供",
+          "explanation-2": "除此之外，您還可以從以下素材提供者獲取封面:",
+          "spotify": "Spotify"
+        },
+        "devices": {
+          "no-active-pairing": "沒有活躍的配對請求",
+          "pairing-code": "配對代碼",
+          "pairing-request": "遠程配對請求來自於 ",
+          "pairing": "遙控配對",
+          "send": "發送",
+          "speaker-pairing-info": "如果您的揚聲器需要配對，請在下面輸入它顯示的 PIN以啓用",
+          "speaker-pairing": "揚聲器配對和設備驗證",
+          "verification-code": "驗證碼",
+          "verify": "驗證"
+        },
+        "general": {
+          "album-lists": "專輯列表",
+          "audiobooks": "有聲書",
+          "files": "文件",
+          "genres": "音樂類型",
+          "language": "語言",
+          "music": "音樂",
+          "navigation-item-selection-info": "如果您選擇的項目多於屏幕上可以顯示的項目，則側邊欄菜單將會消失",
+          "navigation-item-selection": "選擇頂部導航欄菜單項",
+          "navigation-items": "導航條",
+          "now-playing-page": "“正在播放”頁面",
+          "playlists": "播放列表",
+          "podcasts": "Podcast",
+          "radio": "電台",
+          "recently-added-page-info": "限制“最近新增”頁面上顯示的專輯數量",
+          "recently-added-page": "“最近新增”頁面",
+          "search": "搜尋",
+          "show-composer-genres-info-1": "以逗號分隔音樂類型，作曲家會在“正在播放的頁面”上顯示",
+          "show-composer-genres-info-2": "留空以始終顯示作曲家",
+          "show-composer-genres-info-3": "通過檢查是否包含定義的音樂類型之一來匹配當前曲目的音樂類型標籤。例如，設定為“古典、原聲帶”將顯示音樂類型標籤為“當代古典”的曲目的作曲家",
+          "show-composer-genres": "僅顯示列出的音樂類型的作曲家",
+          "show-composer-info": "如果啓用，當前播放曲目的作曲家將顯示在“正在播放頁面”上",
+          "show-composer": "顯示作曲家",
+          "show-coverart": "在專輯列表中顯示封面藝術作品",
+          "show-path": "在“正在播放”頁面顯示文件路徑"
+        },
+        "services": {
+          "lastfm": {
+            "grant-access": "使用您的 Last.fm 用戶名和密碼登入以啓用記錄功能",
+            "info": "OwnTone不會存儲您的 Last.fm 用戶名/密碼，僅存儲會話密鑰。會話密鑰不會過期",
+            "title": "Last.fm",
+            "no-support": "OwnTone並無Last.fm的官方支持"
+          },
+          "spotify": {
+            "no-support": "OwnTone並無 Spotify 官方的支持，也未安裝 libspotify",
+            "logged-as": "登入為 ",
+            "requirements": "您必須擁有 Spotify付費帳戶",
+            "scopes": "訪問 Spotify Web API 可以掃描您的 Spotify庫。所需範圍是：",
+            "user": "授予訪問權限",
+            "authorize": "授權 Web API 訪問",
+            "grant-access": "授予對 Spotify Web API 的訪問權限",
+            "reauthorize": "請重新授權 Web API 訪問權限，以授予 OwnTone 以下附加訪問權限：",
+            "title": "Spotify"
+          },
+          "login": "登入",
+          "logout": "退出",
+          "password": "密碼",
+          "username": "用戶名"
+        },
+        "tabs": {
+          "artwork": "封面",
+          "general": "概覽",
+          "online-services": "在線服務",
+          "remotes-and-outputs": "遙控和輸出"
+        }
+      },
+      "spotify": {
+        "album": {
+          "shuffle": "隨機播放",
+          "track-count": "{count} 首曲目|{count} 首曲目"
+        },
+        "artist": {
+          "album-count": "{count} 張專輯|{count} 張專輯",
+          "shuffle": "隨機播放"
+        },
+        "music": {
+          "featured-playlists": "特色列表",
+          "new-releases": "最新發行",
+          "show-more": "顯示更多"
+        },
+        "playlist": {
+          "count": "{count} 首曲目|{count} 首曲目",
+          "shuffle": "隨機播放"
+        },
+        "search": {
+          "albums": "專輯",
+          "artists": "藝人",
+          "no-results": "未找到結果",
+          "placeholder": "搜尋",
+          "playlists": "播放列表",
+          "show-albums": "顯示專輯|顯示所有 {count} 個專輯",
+          "show-artists": "顯示藝人|顯示所有 {count} 位藝人",
+          "show-playlists": "顯示播放列表|顯示所有 {count} 個播放列表",
+          "show-tracks": "顯示曲目|顯示所有 {count} 首曲目",
+          "tracks": "曲目"
+        }
+      }
+    },
+    "playlist": {
+      "type": {
+        "folder": "檔案夾",
+        "plain": "簡單",
+        "smart": "智能"
+      }
+    },
+    "player": {
+      "button": {
+        "consume": "清除歷史",
+        "pause": "暫停",
+        "play": "播放",
+        "repeat": "重復播放所有曲目",
+        "repeat-off": "所有曲目僅播放一遍",
+        "repeat-once": "重復當前曲目",
+        "seek-backward": "在當前曲目後退",
+        "seek-forward": "在當前曲目前進",
+        "shuffle": "隨機播放曲目",
+        "shuffle-disabled": "按順序播放曲目",
+        "skip-backward": "播放上一首",
+        "skip-forward": "播放下一首",
+        "stop": "停止",
+        "toggle-lyrics": "顯示/隱藏歌詞"
+      }
+    },
+    "setting": {
+      "not-saved": " (設定儲存錯誤)",
+      "saved": " (設定已儲存)"
+    },
+    "server": {
+      "connection-failed": "無法連接到 OwnTone 伺服器",
+      "missing-port": "缺少 websocket 端口",
+      "request-failed": "請求失敗 (狀態：{status} {cause} {url})",
+      "queue-saved": "清單以新增到播放列表 {name}",
+      "appended-tracks": "已附加到隊列的 {count} 首曲目|已附加到隊列的 {count} 首曲目",
+      "empty-queue": "清單是空的"
+    },
+    "grouped-list": {
+      "today": "今日",
+      "last-week": "上周",
+      "last-month": "上月",
+      "undefined": "未定義"
+    },
+    "filter": {
+      "mono": "單聲道",
+      "stereo": "立體聲",
+      "channels": "{count} 信道|{count} 信道"
+    }
+  }
