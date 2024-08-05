@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <errno.h>
@@ -3734,22 +3735,39 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
  * Example output:
  *   outputid: 0
  *   outputname: Computer
+ *   plugin: alsa
  *   outputenabled: 1
  *   outputvolume: 50
+ * https://mpd.readthedocs.io/en/latest/protocol.html#audio-output-devices
  */
 static void
 speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 {
   struct output_outputs_param *param = arg;
   struct evbuffer *evbuf = param->buf;
+  char plugin[sizeof(spk->output_type)];
+  char *p;
+  char *q;
+
+  /* MPD outputs lowercase plugin (audio_output:type) so convert to
+   * lowercase, convert spaces to underscores to make it a single word */
+  for (p = spk->output_type, q = plugin; *p != '\0'; p++, q++)
+    {
+      *q = tolower(*p);
+      if (*q == ' ')
+      	*q = '_';
+    }
+  *q = '\0';
 
   evbuffer_add_printf(evbuf,
 		      "outputid: %u\n"
 		      "outputname: %s\n"
+		      "plugin: %s\n"
 		      "outputenabled: %d\n"
 		      "outputvolume: %d\n",
 		      param->nextid,
 		      spk->name,
+		      plugin,
 		      spk->selected,
 		      spk->absvol);
   param->nextid++;
