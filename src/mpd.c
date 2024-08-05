@@ -1214,7 +1214,8 @@ mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 
 /*
  * Command handler function for 'single'
- * Sets the repeat mode, expects argument argv[1] to be an integer.
+ * Sets the repeat mode, expects argument argv[1] to be an integer or
+ * "oneshot" for 0.21 protocol.
  * The server only allows single-mode in combination with repeat, therefore
  * the command single translates (depending on the current repeat mode) into:
  * a) if repeat off:
@@ -1226,6 +1227,7 @@ mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
  * c) if repeat song:
  *   0 = repeat all
  *   1 = repeat song
+ * Thus "oneshot" is accepted, but ignored under all circumstances.
  */
 static int
 mpd_command_single(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
@@ -1237,6 +1239,9 @@ mpd_command_single(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   ret = safe_atoi32(argv[1], &enable);
   if (ret < 0)
     {
+      /* 0.21 protocol: accept "oneshot" mode */
+      if (strcmp(argv[1], "oneshot") == 0)
+      	return 0;
       *errmsg = safe_asprintf("Argument doesn't convert to integer: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
