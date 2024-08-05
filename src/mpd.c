@@ -281,8 +281,15 @@ struct output
 
 struct output_get_param
 {
+  unsigned short curid;
   unsigned short shortid;
   struct output *output;
+};
+
+struct output_outputs_param
+{
+  unsigned short nextid;
+  struct evbuffer *buf;
 };
 
 static void
@@ -3586,14 +3593,16 @@ output_get_cb(struct player_speaker_info *spk, void *arg)
   struct output_get_param *param = arg;
 
   if (!param->output
-      && param->shortid == (unsigned short) spk->id)
+      && param->shortid == param->curid)
     {
       CHECK_NULL(L_MPD, param->output = calloc(1, sizeof(struct output)));
 
       param->output->id = spk->id;
-      param->output->shortid = (unsigned short) spk->id;
+      param->output->shortid = param->shortid;
       param->output->name = strdup(spk->name);
       param->output->selected = spk->selected;
+
+      param->curid++;
 
       DPRINTF(E_DBG, L_MPD, "Output found: shortid %d, id %" PRIu64 ", name '%s', selected %d\n",
 	param->output->shortid, param->output->id, param->output->name, param->output->selected);
@@ -3731,19 +3740,19 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
 static void
 speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 {
-  struct evbuffer *evbuf;
-
-  evbuf = (struct evbuffer *)arg;
+  struct output_outputs_param *param = arg;
+  struct evbuffer *evbuf = param->buf;
 
   evbuffer_add_printf(evbuf,
-		      "outputid: %d\n"
+		      "outputid: %u\n"
 		      "outputname: %s\n"
 		      "outputenabled: %d\n"
 		      "outputvolume: %d\n",
-		      (unsigned short) spk->id,
+		      param->nextid,
 		      spk->name,
 		      spk->selected,
 		      spk->absvol);
+  param->nextid++;
 }
 
 /*
@@ -3753,7 +3762,17 @@ speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 static int
 mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  player_speaker_enumerate(speaker_enum_cb, evbuf);
+  struct output_outputs_param param;
+
+  /* Reference:
+   * https://mpd.readthedocs.io/en/latest/protocol.html#audio-output-devices
+   * the ID returned by mpd may change between excutions, so what we do
+   * is simply enumerate the speakers, and for get/set commands we count
+   * ID times to the output referenced. */
+  memset(&param, 0, sizeof(param));
+  param.buf = evbuf;
+
+  player_speaker_enumerate(speaker_enum_cb, &param);
 
   return 0;
 }
