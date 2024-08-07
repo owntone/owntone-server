@@ -1298,18 +1298,17 @@ rcp_mdns_device_cb(const char *name, const char *type, const char *domain, const
   device->default_format = MEDIA_FORMAT_WAV;
   device->supported_formats = MEDIA_FORMAT_WAV | MEDIA_FORMAT_MP3 | MEDIA_FORMAT_ALAC;
 
+  // RCP/Roku Soundbridges only support ipv4
+  device->v4_address = safe_strdup(address);
+  device->v4_port = port; // -1 if we are removing
+
   if (port < 0 || !address)
     {
       ret = player_device_remove(device);
     }
   else
     {
-      // RCP/Roku Soundbridges only support ipv4
-      device->v4_address = strdup(address);
-      device->v4_port = port;
-
       DPRINTF(E_INFO, L_RCP, "Adding RCP output device '%s' at '%s'\n", name, address);
-
       ret = player_device_add(device);
     }
 
