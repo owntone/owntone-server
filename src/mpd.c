@@ -77,6 +77,7 @@ static struct evhttp *evhttpd;
 static struct evconnlistener *mpd_listener;
 static int mpd_sockfd;
 
+static bool mpd_plugin_httpd;
 
 // Virtual path to the default playlist directory
 static char *default_pl_dir;
@@ -4858,6 +4859,8 @@ mpd_init(void)
   pl_dir = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
   if (pl_dir)
     default_pl_dir = safe_asprintf("/file:%s", pl_dir);
+
+  mpd_plugin_httpd = cfg_getbool(cfg_getsec(cfg, "mpd"), "enable_httpd_plugin");
 
   /* Handle deprecated config options */
   if (0 < cfg_opt_size(cfg_getopt(cfg_getsec(cfg, "mpd"), "allow_modifying_stored_playlists")))

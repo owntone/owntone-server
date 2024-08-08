@@ -437,6 +437,10 @@ mpd {
 	# clients and will need additional configuration in the MPD client to
 	# work). Set to 0 to disable serving artwork over http.
 #	http_port = 0
+
+	# Whether to emit an output with plugin type "httpd" to tell clients
+	# that a stream is available for local playback.
+#	enable_httpd_plugin = false
 }
 
 # SQLite configuration (allows to modify the operation of the SQLite databases)
