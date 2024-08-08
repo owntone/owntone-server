@@ -65,6 +65,8 @@ enum mpd_type {
 
 #define MPD_ALL_IDLE_LISTENER_EVENTS (LISTENER_PLAYER | LISTENER_QUEUE | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS | LISTENER_DATABASE | LISTENER_UPDATE | LISTENER_STORED_PLAYLIST | LISTENER_RATING)
 #define MPD_RATING_FACTOR 10.0
+#define MPD_BINARY_SIZE 8192  /* MPD MAX_BINARY_SIZE */
+#define MPD_BINARY_SIZE_MIN 64  /* min size from MPD ClientCommands.cxx */
 
 static pthread_t tid_mpd;
 
@@ -228,6 +230,9 @@ struct mpd_client_ctx
 
   // The events the client is waiting for (set by the idle command)
   short idle_events;
+
+  // The current binary limit size
+  unsigned int binarylimit;
 
   // The output buffer for the client (used to send data to the client)
   struct evbuffer *evbuffer;
@@ -3589,6 +3594,30 @@ mpd_command_password(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return ACK_ERROR_PASSWORD;
 }
 
+static int
+mpd_command_binarylimit(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
+{
+  unsigned int size;
+
+  if (safe_atou32(argv[1], &size) < 0)
+    {
+      DPRINTF(E_DBG, L_MPD,
+      	      "Argument %s to binarylimit is not a number\n",
+      	      argv[1]);
+      return ACK_ERROR_ARG;
+    }
+
+  if (size < MPD_BINARY_SIZE_MIN)
+    {
+      *errmsg = safe_asprintf("Value too small");
+      return ACK_ERROR_ARG;
+    }
+
+  ctx->binarylimit = size;
+
+  return 0;
+}
+
 /*
  * Callback function for the 'player_speaker_enumerate' function.
  * Expect a struct output_get_param as argument and allocates a struct output if
@@ -4227,6 +4256,8 @@ static struct mpd_command mpd_handlers[] =
 //    { "kill",                       mpd_command_kill,                       -1 },
     { "password",                   mpd_command_password,                   -1 },
     { "ping",                       mpd_command_ignore,                     -1 },
+    { "binarylimit",                mpd_command_binarylimit,                 2 },
+    /* missing: tagtypes */
 
     // Audio output devices
     { "disableoutput",              mpd_command_disableoutput,               2 },
@@ -4570,6 +4601,8 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
     {
       client_ctx->authenticated = net_peer_address_is_trusted((union net_sockaddr *)address);
     }
+
+  client_ctx->binarylimit = MPD_BINARY_SIZE;
 
   client_ctx->next = mpd_clients;
   mpd_clients = client_ctx;
