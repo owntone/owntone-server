@@ -839,15 +839,14 @@ filter_encode_write(struct encode_ctx *ctx, struct stream_ctx *s, AVFrame *frame
 {
   int ret;
 
-  // Push the decoded frame into the filtergraph
-  if (frame)
+  // Push the decoded frame into the filtergraph. If frame is NULL then it
+  // signals EOF to ffmpeg which is necessary to make av_buffersink_get_frame
+  // return the last frames (see issue #1787)
+  ret = av_buffersrc_add_frame(s->buffersrc_ctx, frame);
+  if (ret < 0)
     {
-      ret = av_buffersrc_add_frame(s->buffersrc_ctx, frame);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph: %s\n", err2str(ret));
-	  return -1;
-	}
+      DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph: %s\n", err2str(ret));
+      return -1;
     }
 
   // Pull filtered frames from the filtergraph and pass to encoder
