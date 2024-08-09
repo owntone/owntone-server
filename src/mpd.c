@@ -3793,6 +3793,19 @@ mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   player_speaker_enumerate(speaker_enum_cb, &param);
 
+  /* streaming output is not in the speaker list, so add it as pseudo
+   * element when configured to do so */
+  if (mpd_plugin_httpd)
+    {
+      evbuffer_add_printf(evbuf,
+		      	  "outputid: %u\n"
+		      	  "outputname: MP3 stream\n"
+		      	  "plugin: httpd\n"
+		      	  "outputenabled: 1\n",
+		      	  param.nextid);
+      param.nextid++;
+    }
+
   return 0;
 }
 
