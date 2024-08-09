@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <errno.h>
@@ -76,6 +77,7 @@ static struct evhttp *evhttpd;
 static struct evconnlistener *mpd_listener;
 static int mpd_sockfd;
 
+static bool mpd_plugin_httpd;
 
 // Virtual path to the default playlist directory
 static char *default_pl_dir;
@@ -281,8 +283,15 @@ struct output
 
 struct output_get_param
 {
+  unsigned short curid;
   unsigned short shortid;
   struct output *output;
+};
+
+struct output_outputs_param
+{
+  unsigned short nextid;
+  struct evbuffer *buf;
 };
 
 static void
@@ -3586,14 +3595,16 @@ output_get_cb(struct player_speaker_info *spk, void *arg)
   struct output_get_param *param = arg;
 
   if (!param->output
-      && param->shortid == (unsigned short) spk->id)
+      && param->shortid == param->curid)
     {
       CHECK_NULL(L_MPD, param->output = calloc(1, sizeof(struct output)));
 
       param->output->id = spk->id;
-      param->output->shortid = (unsigned short) spk->id;
+      param->output->shortid = param->shortid;
       param->output->name = strdup(spk->name);
       param->output->selected = spk->selected;
+
+      param->curid++;
 
       DPRINTF(E_DBG, L_MPD, "Output found: shortid %d, id %" PRIu64 ", name '%s', selected %d\n",
 	param->output->shortid, param->output->id, param->output->name, param->output->selected);
@@ -3657,6 +3668,7 @@ mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
     }
 
   memset(&param, 0, sizeof(struct output_get_param));
+  param.curid = 0;
   param.shortid = num;
 
   player_speaker_enumerate(output_get_cb, &param);
@@ -3695,6 +3707,7 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
     }
 
   memset(&param, 0, sizeof(struct output_get_param));
+  param.curid = 0;
   param.shortid = num;
 
   player_speaker_enumerate(output_get_cb, &param);
@@ -3725,25 +3738,42 @@ mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **e
  * Example output:
  *   outputid: 0
  *   outputname: Computer
+ *   plugin: alsa
  *   outputenabled: 1
  *   outputvolume: 50
+ * https://mpd.readthedocs.io/en/latest/protocol.html#audio-output-devices
  */
 static void
 speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 {
-  struct evbuffer *evbuf;
+  struct output_outputs_param *param = arg;
+  struct evbuffer *evbuf = param->buf;
+  char plugin[sizeof(spk->output_type)];
+  char *p;
+  char *q;
 
-  evbuf = (struct evbuffer *)arg;
+  /* MPD outputs lowercase plugin (audio_output:type) so convert to
+   * lowercase, convert spaces to underscores to make it a single word */
+  for (p = spk->output_type, q = plugin; *p != '\0'; p++, q++)
+    {
+      *q = tolower(*p);
+      if (*q == ' ')
+      	*q = '_';
+    }
+  *q = '\0';
 
   evbuffer_add_printf(evbuf,
-		      "outputid: %d\n"
+		      "outputid: %u\n"
 		      "outputname: %s\n"
+		      "plugin: %s\n"
 		      "outputenabled: %d\n"
 		      "outputvolume: %d\n",
-		      (unsigned short) spk->id,
+		      param->nextid,
 		      spk->name,
+		      plugin,
 		      spk->selected,
 		      spk->absvol);
+  param->nextid++;
 }
 
 /*
@@ -3753,7 +3783,30 @@ speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 static int
 mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  player_speaker_enumerate(speaker_enum_cb, evbuf);
+  struct output_outputs_param param;
+
+  /* Reference:
+   * https://mpd.readthedocs.io/en/latest/protocol.html#audio-output-devices
+   * the ID returned by mpd may change between excutions, so what we do
+   * is simply enumerate the speakers, and for get/set commands we count
+   * ID times to the output referenced. */
+  memset(&param, 0, sizeof(param));
+  param.buf = evbuf;
+
+  player_speaker_enumerate(speaker_enum_cb, &param);
+
+  /* streaming output is not in the speaker list, so add it as pseudo
+   * element when configured to do so */
+  if (mpd_plugin_httpd)
+    {
+      evbuffer_add_printf(evbuf,
+		      	  "outputid: %u\n"
+		      	  "outputname: MP3 stream\n"
+		      	  "plugin: httpd\n"
+		      	  "outputenabled: 1\n",
+		      	  param.nextid);
+      param.nextid++;
+    }
 
   return 0;
 }
@@ -4821,6 +4874,8 @@ mpd_init(void)
   pl_dir = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
   if (pl_dir)
     default_pl_dir = safe_asprintf("/file:%s", pl_dir);
+
+  mpd_plugin_httpd = cfg_getbool(cfg_getsec(cfg, "mpd"), "enable_httpd_plugin");
 
   /* Handle deprecated config options */
   if (0 < cfg_opt_size(cfg_getopt(cfg_getsec(cfg, "mpd"), "allow_modifying_stored_playlists")))
