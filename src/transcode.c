@@ -741,7 +741,7 @@ read_packet(enum AVMediaType *type, struct decode_ctx *dec_ctx)
   int ret;
 
   // We just seeked, so transcode_seek() will have found a new ctx->packet and
-  // we should just use start with that (if the stream is one are ok with)
+  // we should start with that
   if (dec_ctx->resume)
     {
       dec_ctx->resume = 0;
