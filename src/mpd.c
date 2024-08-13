@@ -113,6 +113,13 @@ enum command_list_type
   COMMAND_LIST_NONE = 4
 };
 
+enum position_type
+{
+  POSITION_ABSOLUTE = 1,
+  POSITION_RELATIVE_BEFORE,
+  POSITION_RELATIVE_AFTER
+};
+
 /**
  * This lists for ffmpeg suffixes and mime types are taken from the ffmpeg decoder plugin from mpd
  * (FfmpegDecoderPlugin.cxx, git revision 9fb351a139a56fc7b1ece549894f8fc31fa887cd).
@@ -680,8 +687,57 @@ append_string(char **a, const char *b, const char *separator)
 }
 
 /*
+ * Computes the absolute position of a relative position.  This is a
+ * feature introduced since MPD 0.23 where + or - for position can be
+ * used to indicate relative to the currently selected (playing/paused)
+ * song.
+ * This feature does the necessary lookups to resolve the current song
+ * and calculate the absolute position.  When ptype is POSITION_ABSOLUTE
+ * this function acts as a noop and simply returns position.
+ */
+static int
+mpd_get_relative_queue_pos(enum position_type ptype, int position)
+{
+  struct player_status status;
+  struct db_queue_item *queue_item;
+  uint32_t curpos;
+
+  /* shortcut absolute case */
+  if (ptype == POSITION_ABSOLUTE)
+    return position;
+
+  player_get_status(&status);
+
+  curpos = 0;
+  if (status.status != PLAY_STOPPED)
+    {
+      queue_item = db_queue_fetch_byitemid(status.item_id);
+      if (queue_item != NULL)
+  	{
+  	  if (queue_item->id > 0)
+    	    curpos = queue_item->pos;
+
+  	  free_queue_item(queue_item, 0);
+  	}
+    }
+
+  /* +0 inserts right after the current song */
+  if (ptype == POSITION_RELATIVE_AFTER)
+    position = curpos + position + 1;
+  else if (ptype == POSITION_RELATIVE_BEFORE)
+    position = curpos - position;
+
+  DPRINTF(E_DBG, L_MPD,
+      	  "current song: %d->%d, relative new position: %d\n",
+      	  status.item_id, curpos, position);
+
+  return position;
+}
+
+/*
  * Sets the filter (where clause) and the window (limit clause) in the given query_params
- * based on the given arguments
+ * based on the given arguments, returns position if requested and
+ * present
  *
  * @param argc Number of arguments in argv
  * @param argv Pointer to the first filter parameter
@@ -689,7 +745,7 @@ append_string(char **a, const char *b, const char *separator)
  * @param qp Query parameters
  */
 static int
-parse_filter_window_params(int argc, char **argv, bool exact_match, struct query_params *qp)
+parse_filter_window_params(int argc, char **argv, bool exact_match, struct query_params *qp, int *pos)
 {
   struct mpd_tagtype *tagtype;
   char *c1;
@@ -698,14 +754,110 @@ parse_filter_window_params(int argc, char **argv, bool exact_match, struct query
   int i;
   uint32_t num;
   int ret;
+  bool infilters = true;
+  enum param_cmd { CMD_UNSET, CMD_WINDOW, CMD_GROUP, CMD_POSITION } cmd;
 
   c1 = NULL;
 
+  /* loop over key-value pairs, first search for filter conditions,
+   * process, window/group/position args afterwards */
   for (i = 0; i < argc; i += 2)
     {
-      // End of filter key/value pairs reached, if keywords "window" or "group" found
-      if (0 == strcasecmp(argv[i], "window") || 0 == strcasecmp(argv[i], "group"))
-	break;
+      cmd = CMD_UNSET;
+      if (strcasecmp(argv[i], "window") == 0)
+      	{
+      	  infilters = false;
+      	  cmd = CMD_WINDOW;
+      	}
+      else if (strcasecmp(argv[i], "group") == 0)
+      	{
+      	  infilters = false;
+      	  cmd = CMD_GROUP;
+      	}
+      else if (strcasecmp(argv[i], "position") == 0)
+    	{
+      	  infilters = false;
+      	  cmd = CMD_POSITION;
+      	}
+
+      /* handle post-filter arguments */
+      if (!infilters)
+      	{
+      	  if (i + 1 >= argc && cmd != CMD_UNSET)
+      	    {
+	      DPRINTF(E_WARN, L_MPD,
+	  	      "Missing mandatory argument to Parameter '%s'\n",
+	  	      argv[i]);
+	      /* be lenient, this whole function seems to ignore
+	       * problems, possibly on purpose */
+      	      continue;
+      	    }
+      	  
+      	  switch (cmd)
+      	    {
+      	    case CMD_UNSET:
+      	      	{
+	    	  DPRINTF(E_WARN, L_MPD,
+	  	    	  "Parameter '%s' is not supported and "
+	  	    	  "will be ignored\n", argv[i]);
+      	    	  continue;
+      	      	}
+      	    case CMD_GROUP:
+      	      /* GROUP isn't implemented, it should impose a grouping by
+      	       * tag (more like an order) */
+      	      break;
+      	    case CMD_WINDOW:
+      	      	{
+      		  ret = mpd_pars_range_arg(argv[i + 1], &start_pos, &end_pos);
+      		  if (ret == 0)
+        	    {
+	  	      qp->idx_type = I_SUB;
+	  	      qp->limit = end_pos - start_pos;
+	  	      qp->offset = start_pos;
+		    }
+      		  else
+        	    {
+	  	      DPRINTF(E_LOG, L_MPD,
+	  	      	      "Window argument doesn't convert "
+	  	      	      "to integer or range: '%s'\n", argv[i + 1]);
+		    }
+		  break;
+      	      	}
+      	    case CMD_POSITION:
+      	      	{
+      		  enum position_type ptype = POSITION_ABSOLUTE;
+      		  char *p = argv[i + 1];
+      		  int to_pos;
+
+      	      	  /* don't bother if not requested */
+      	      	  if (pos == NULL)
+      	      	    break;
+
+      		  if (*p == '-')
+      		    {
+      	  	      ptype = POSITION_RELATIVE_BEFORE;
+      	  	      p++;
+      		    }
+      		  else if (*p == '+')
+      		    {
+      	  	      ptype = POSITION_RELATIVE_AFTER;
+      	  	      p++;
+      		    }
+
+      		  ret = safe_atoi32(p, &to_pos);
+      		  if (ret < 0)
+		    DPRINTF(E_LOG, L_MPD,
+		    	    "Argument doesn't convert to integer: '%s'\n", p);
+      		  else
+      		    *pos = mpd_get_relative_queue_pos(ptype, to_pos);
+
+      		  break;
+      	      	}
+      	    }
+
+      	  /* look at next parameter */
+      	  continue;
+      	}
 
       // Process filter key/value pair
       if ((i + 1) < argc)
@@ -780,21 +932,6 @@ parse_filter_window_params(int argc, char **argv, bool exact_match, struct query
 
 	  free(c1);
 	  c1 = NULL;
-	}
-    }
-
-  if ((i + 1) < argc && 0 == strcasecmp(argv[i], "window"))
-    {
-      ret = mpd_pars_range_arg(argv[i + 1], &start_pos, &end_pos);
-      if (ret == 0)
-        {
-	  qp->idx_type = I_SUB;
-	  qp->limit = end_pos - start_pos;
-	  qp->offset = start_pos;
-	}
-      else
-        {
-	  DPRINTF(E_LOG, L_MPD, "Window argument doesn't convert to integer or range: '%s'\n", argv[i + 1]);
 	}
     }
 
@@ -1773,7 +1910,10 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, st
  * Command handler function for 'addid'
  * Adds the song under the given path to the end or to the given position of the playqueue.
  * Expects argument argv[1] to be a path to a single file. argv[2] is optional, if present
- * it must be an integer representing the position in the playqueue.
+ * it must be an integer representing the position in the playqueue.  If
+ * the parameter starts with + or -, it is relative to the current song,
+ * with +0 being right after the current song, and -0 before the current
+ * song.
  */
 static int
 mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
@@ -1781,15 +1921,32 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
   struct player_status status;
   int to_pos = -1;
   int ret;
+  enum position_type ptype = POSITION_ABSOLUTE;
 
   if (argc > 2)
     {
-      ret = safe_atoi32(argv[2], &to_pos);
+      char *p = argv[2];
+
+      if (*p == '+')
+      	{
+      	  ptype = POSITION_RELATIVE_AFTER;
+      	  p++;
+      	}
+      else if (*p == '-')
+      	{
+      	  ptype = POSITION_RELATIVE_BEFORE;
+      	  p++;
+      	}
+
+      ret = safe_atoi32(p, &to_pos);
       if (ret < 0)
 	{
-	  *errmsg = safe_asprintf("Argument doesn't convert to integer: '%s'", argv[2]);
+	  *errmsg = safe_asprintf("Argument doesn't convert "
+	  			  "to integer: '%s'", argv[2]);
 	  return ACK_ERROR_ARG;
 	}
+
+      to_pos = mpd_get_relative_queue_pos(ptype, to_pos);
     }
 
   ret = mpd_queue_add(argv[1], true, to_pos);
@@ -1802,7 +1959,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       ret = library_queue_item_add(argv[1], to_pos, status.shuffle, status.item_id, NULL, NULL);
       if (ret != LIBRARY_OK)
 	{
-	  *errmsg = safe_asprintf("Failed to add song '%s' to playlist (unkown path)", argv[1]);
+	  *errmsg = safe_asprintf("Failed to add song '%s' to playlist (unknown path)", argv[1]);
 	  return ACK_ERROR_UNKNOWN;
 	}
     }
@@ -2114,7 +2271,7 @@ mpd_command_playlistfind(struct evbuffer *evbuf, int argc, char **argv, char **e
       return ACK_ERROR_ARG;
     }
 
-  parse_filter_window_params(argc - 1, argv + 1, true, &query_params);
+  parse_filter_window_params(argc - 1, argv + 1, true, &query_params, NULL);
 
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
@@ -2158,7 +2315,7 @@ mpd_command_playlistsearch(struct evbuffer *evbuf, int argc, char **argv, char *
       return ACK_ERROR_ARG;
     }
 
-  parse_filter_window_params(argc - 1, argv + 1, false, &query_params);
+  parse_filter_window_params(argc - 1, argv + 1, false, &query_params, NULL);
 
   ret = db_queue_enum_start(&query_params);
   if (ret < 0)
@@ -2661,7 +2818,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
 
   memset(&qp, 0, sizeof(struct query_params));
   qp.type = Q_COUNT_ITEMS;
-  parse_filter_window_params(argc - 1, argv + 1, true, &qp);
+  parse_filter_window_params(argc - 1, argv + 1, true, &qp, NULL);
 
   ret = db_filecount_get(&fci, &qp);
   if (ret < 0)
@@ -2703,7 +2860,7 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   qp.sort = S_NAME;
   qp.idx_type = I_NONE;
 
-  parse_filter_window_params(argc - 1, argv + 1, true, &qp);
+  parse_filter_window_params(argc - 1, argv + 1, true, &qp, NULL);
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -2736,6 +2893,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   struct query_params qp;
   struct player_status status;
   int ret;
+  int pos = -1;
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
@@ -2749,11 +2907,11 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
 
-  parse_filter_window_params(argc - 1, argv + 1, true, &qp);
+  parse_filter_window_params(argc - 1, argv + 1, true, &qp, &pos);
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, -1, NULL, NULL);
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, pos, NULL, NULL);
   free(qp.filter);
   if (ret < 0)
     {
@@ -2822,7 +2980,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 
   if (argc > 2)
     {
-      parse_filter_window_params(argc - 2, argv + 2, true, &qp);
+      parse_filter_window_params(argc - 2, argv + 2, true, &qp, NULL);
     }
 
   group = NULL;
@@ -3193,7 +3351,7 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
   qp.sort = S_NAME;
   qp.idx_type = I_NONE;
 
-  parse_filter_window_params(argc - 1, argv + 1, false, &qp);
+  parse_filter_window_params(argc - 1, argv + 1, false, &qp, NULL);
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -3226,6 +3384,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
   struct query_params qp;
   struct player_status status;
   int ret;
+  int pos = -1;
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
@@ -3239,11 +3398,11 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
   qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
 
-  parse_filter_window_params(argc - 1, argv + 1, false, &qp);
+  parse_filter_window_params(argc - 1, argv + 1, false, &qp, &pos);
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, -1, NULL, NULL);
+  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, pos, NULL, NULL);
   free(qp.filter);
   if (ret < 0)
     {
