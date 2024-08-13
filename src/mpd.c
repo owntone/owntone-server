@@ -1218,6 +1218,27 @@ mpd_command_setvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 }
 
 /*
+ * Command handler function for 'getvol' (since MPD 0.23)
+ * Gets the volume, expects no arguments
+ */
+static int
+mpd_command_getvol(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
+{
+  int volume;
+
+  volume = outputs_volume_get();
+
+  if (volume >= 0)
+    evbuffer_add_printf(evbuf,
+		      	"volume: %d\n",
+		      	volume);
+
+  /* doc says: "If there is no mixer, MPD will emit an empty response",
+   * so it's ok to return nothing if volume < 0 */
+  return 0;
+}
+
+/*
  * Command handler function for 'single'
  * Sets the repeat mode, expects argument argv[1] to be an integer or
  * "oneshot" for 0.21 protocol.
@@ -4173,6 +4194,7 @@ static struct mpd_command mpd_handlers[] =
     { "random",                     mpd_command_random,                      2 },
     { "repeat",                     mpd_command_repeat,                      2 },
     { "setvol",                     mpd_command_setvol,                      2 },
+    { "getvol",                     mpd_command_getvol,                     -1 },
     { "single",                     mpd_command_single,                      2 },
     { "replay_gain_mode",           mpd_command_ignore,                     -1 },
     { "replay_gain_status",         mpd_command_replay_gain_status,         -1 },
