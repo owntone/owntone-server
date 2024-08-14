@@ -4929,7 +4929,7 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
    * According to the mpd protocol send "OK MPD <version>\n" to the client, where version is the version
    * of the supported mpd protocol and not the server version.
    */
-  evbuffer_add(bufferevent_get_output(bev), "OK MPD 0.22.4\n", 14);
+  evbuffer_add(bufferevent_get_output(bev), "OK MPD 0.23.0\n", 14);
   client_ctx->evbuffer = bufferevent_get_output(bev);
 
   DPRINTF(E_INFO, L_MPD, "New mpd client connection accepted\n");
