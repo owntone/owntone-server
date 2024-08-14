@@ -516,6 +516,7 @@ websocket_init(void)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to initialize mutex: %s\n", strerror(ret));
       lws_context_destroy(context);
+      context = NULL;
       return -1;
     }
 
@@ -525,6 +526,7 @@ websocket_init(void)
       DPRINTF(E_LOG, L_WEB, "Could not spawn websocket thread (%d): %s\n", ret, strerror(ret));
       pthread_mutex_destroy(&websocket_write_event_lock);
       lws_context_destroy(context);
+      context = NULL;
       return -1;
     }
 
@@ -542,11 +544,15 @@ websocket_deinit(void)
     return;
 
   websocket_exit = true;
-  lws_cancel_service(context);
-  ret = pthread_join(tid_websocket, NULL);
-  if (ret < 0)
-    DPRINTF(E_LOG, L_WEB, "Error joining websocket thread (%d): %s\n", ret, strerror(ret));
+  if (context != NULL)
+    {
+      lws_cancel_service(context);
+      ret = pthread_join(tid_websocket, NULL);
+      if (ret < 0)
+      	DPRINTF(E_LOG, L_WEB, "Error joining websocket thread (%d): %s\n",
+      		ret, strerror(ret));
 
-  lws_context_destroy(context);
-  pthread_mutex_destroy(&websocket_write_event_lock);
+      lws_context_destroy(context);
+      pthread_mutex_destroy(&websocket_write_event_lock);
+    }
 }
