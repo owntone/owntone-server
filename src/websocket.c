@@ -34,7 +34,8 @@
 #include "misc.h"
 
 
-static struct lws_context *context;
+static struct lws_context *websocket_context;
+static bool websocket_is_initialized;
 static pthread_t tid_websocket;
 
 static const char *websocket_interface;
@@ -55,7 +56,7 @@ listener_cb(short event_mask)
   websocket_write_events |= event_mask;
   pthread_mutex_unlock(&websocket_write_event_lock);
 
-  lws_cancel_service(context);
+  lws_cancel_service(websocket_context);
 }
 
 /*
@@ -420,12 +421,12 @@ websocket(void *arg)
   while(!websocket_exit)
   {
 #if LWS_LIBRARY_VERSION_MAJOR >= 3
-    if (lws_service(context, 0))
+    if (lws_service(websocket_context, 0))
       websocket_exit = true;
 #else
-    lws_service(context, 10000);
+    lws_service(websocket_context, 10000);
     if (websocket_write_events)
-      lws_callback_on_writable_all_protocol(context, &protocols[WS_PROTOCOL_NOTIFY]);
+      lws_callback_on_writable_all_protocol(websocket_context, &protocols[WS_PROTOCOL_NOTIFY]);
 #endif
   }
 
@@ -504,8 +505,8 @@ websocket_init(void)
   lws_set_log_level(LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_INFO | LLL_DEBUG,
                     logger_libwebsockets);
 
-  context = lws_create_context(&info);
-  if (context == NULL)
+  websocket_context = lws_create_context(&info);
+  if (websocket_context == NULL)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to create websocket context\n");
       return -1;
@@ -515,7 +516,7 @@ websocket_init(void)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to initialize mutex: %s\n", strerror(ret));
-      lws_context_destroy(context);
+      lws_context_destroy(websocket_context);
       return -1;
     }
 
@@ -524,11 +525,13 @@ websocket_init(void)
     {
       DPRINTF(E_LOG, L_WEB, "Could not spawn websocket thread (%d): %s\n", ret, strerror(ret));
       pthread_mutex_destroy(&websocket_write_event_lock);
-      lws_context_destroy(context);
+      lws_context_destroy(websocket_context);
       return -1;
     }
 
   thread_setname(tid_websocket, "websocket");
+
+  websocket_is_initialized = true;
 
   return 0;
 }
@@ -538,15 +541,16 @@ websocket_deinit(void)
 {
   int ret;
 
-  if (websocket_port <= 0)
+  if (!websocket_is_initialized)
     return;
 
+  websocket_is_initialized = false;
   websocket_exit = true;
-  lws_cancel_service(context);
+  lws_cancel_service(websocket_context);
   ret = pthread_join(tid_websocket, NULL);
   if (ret < 0)
     DPRINTF(E_LOG, L_WEB, "Error joining websocket thread (%d): %s\n", ret, strerror(ret));
 
-  lws_context_destroy(context);
+  lws_context_destroy(websocket_context);
   pthread_mutex_destroy(&websocket_write_event_lock);
 }
