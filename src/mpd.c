@@ -734,254 +734,359 @@ mpd_get_relative_queue_pos(enum position_type ptype, int position)
   return position;
 }
 
-/*
- * Sets the filter (where clause) and the window (limit clause) in the given query_params
- * based on the given arguments, returns position if requested and
- * present
+struct mpd_cmd_params {
+    int params_allow;
+    int params_set;
+    struct query_params qp;
+    struct mpd_tagtype **groups;
+    int groupssize;
+    int groupslen;
+    bool addgroupfilter;
+    bool exactmatch;
+    int pos;
+};
+
+enum mpd_param_cmd {
+    CMD_UNSET    = 0 << 0,
+    CMD_WINDOW   = 1 << 0,
+    CMD_GROUP    = 1 << 1,
+    CMD_POSITION = 1 << 2,
+    CMD_SORT     = 1 << 3,
+    CMD_FILTER   = 1 << 4
+};
+
+/**
+ * {START:END}
  *
- * @param argc Number of arguments in argv
- * @param argv Pointer to the first filter parameter
- * @param exact_match If true, creates filter for exact matches (e. g. find command) otherwise matches substrings (e. g. search command)
- * @param qp Query parameters
+ * parse START and END as integer numbers and store in query_params as
+ * limit and offset
  */
 static int
-parse_filter_window_params(int argc, char **argv, bool exact_match, struct query_params *qp, int *pos)
+mpd_parse_cmd_window(char *arg, struct mpd_cmd_params *param)
 {
-  struct mpd_tagtype *tagtype;
-  char *c1;
+  struct query_params *qp = &param->qp;
   int start_pos;
   int end_pos;
-  int i;
-  uint32_t num;
   int ret;
-  bool infilters = true;
-  enum param_cmd { CMD_UNSET, CMD_WINDOW, CMD_GROUP, CMD_POSITION } cmd;
 
-  c1 = NULL;
-
-  /* loop over key-value pairs, first search for filter conditions,
-   * process, window/group/position args afterwards */
-  for (i = 0; i < argc; i += 2)
+  ret = mpd_pars_range_arg(arg, &start_pos, &end_pos);
+  if (ret == 0 && qp != NULL)
     {
-      cmd = CMD_UNSET;
-      if (strcasecmp(argv[i], "window") == 0)
-      	{
-      	  infilters = false;
-      	  cmd = CMD_WINDOW;
-      	}
-      else if (strcasecmp(argv[i], "group") == 0)
-      	{
-      	  infilters = false;
-      	  cmd = CMD_GROUP;
-      	}
-      else if (strcasecmp(argv[i], "position") == 0)
-    	{
-      	  infilters = false;
-      	  cmd = CMD_POSITION;
-      	}
+      qp->idx_type = I_SUB;
+      qp->limit = end_pos - start_pos;
+      qp->offset = start_pos;
 
-      /* handle post-filter arguments */
-      if (!infilters)
-      	{
-      	  if (i + 1 >= argc && cmd != CMD_UNSET)
-      	    {
-	      DPRINTF(E_WARN, L_MPD,
-	  	      "Missing mandatory argument to Parameter '%s'\n",
-	  	      argv[i]);
-	      /* be lenient, this whole function seems to ignore
-	       * problems, possibly on purpose */
-      	      continue;
-      	    }
-      	  
-      	  switch (cmd)
-      	    {
-      	    case CMD_UNSET:
-      	      	{
-	    	  DPRINTF(E_WARN, L_MPD,
-	  	    	  "Parameter '%s' is not supported and "
-	  	    	  "will be ignored\n", argv[i]);
-      	    	  continue;
-      	      	}
-      	    case CMD_GROUP:
-      	      /* GROUP isn't implemented, it should impose a grouping by
-      	       * tag (more like an order) */
-      	      break;
-      	    case CMD_WINDOW:
-      	      	{
-      		  ret = mpd_pars_range_arg(argv[i + 1], &start_pos, &end_pos);
-      		  if (ret == 0)
-        	    {
-	  	      qp->idx_type = I_SUB;
-	  	      qp->limit = end_pos - start_pos;
-	  	      qp->offset = start_pos;
-		    }
-      		  else
-        	    {
-	  	      DPRINTF(E_LOG, L_MPD,
-	  	      	      "Window argument doesn't convert "
-	  	      	      "to integer or range: '%s'\n", argv[i + 1]);
-		    }
-		  break;
-      	      	}
-      	    case CMD_POSITION:
-      	      	{
-      		  enum position_type ptype = POSITION_ABSOLUTE;
-      		  char *p = argv[i + 1];
-      		  int to_pos;
-
-      	      	  /* don't bother if not requested */
-      	      	  if (pos == NULL)
-      	      	    break;
-
-      		  if (*p == '-')
-      		    {
-      	  	      ptype = POSITION_RELATIVE_BEFORE;
-      	  	      p++;
-      		    }
-      		  else if (*p == '+')
-      		    {
-      	  	      ptype = POSITION_RELATIVE_AFTER;
-      	  	      p++;
-      		    }
-
-      		  ret = safe_atoi32(p, &to_pos);
-      		  if (ret < 0)
-		    DPRINTF(E_LOG, L_MPD,
-		    	    "Argument doesn't convert to integer: '%s'\n", p);
-      		  else
-      		    *pos = mpd_get_relative_queue_pos(ptype, to_pos);
-
-      		  break;
-      	      	}
-      	    }
-
-      	  /* look at next parameter */
-      	  continue;
-      	}
-
-      // Process filter key/value pair
-      if ((i + 1) < argc)
-        {
-	  tagtype = find_tagtype(argv[i]);
-
-	  if (!tagtype)
-	    {
-	      DPRINTF(E_WARN, L_MPD, "Parameter '%s' is not supported and will be ignored\n", argv[i]);
-	      continue;
-	    }
-
-	  if (tagtype->type == MPD_TYPE_STRING)
-	    {
-	      if (exact_match)
-		c1 = db_mprintf("(%s = '%q')", tagtype->field, argv[i + 1]);
-	      else
-		c1 = db_mprintf("(%s LIKE '%%%q%%')", tagtype->field, argv[i + 1]);
-	    }
-	  else if (tagtype->type == MPD_TYPE_INT)
-	    {
-	      ret = safe_atou32(argv[i + 1], &num);
-	      if (ret < 0)
-		DPRINTF(E_WARN, L_MPD, "%s parameter '%s' is not an integer and will be ignored\n", tagtype->tag, argv[i + 1]);
-	      else
-		c1 = db_mprintf("(%s = %d)", tagtype->field, num);
-	    }
-	  else if (tagtype->type == MPD_TYPE_SPECIAL)
-	    {
-	      if (0 == strcasecmp(tagtype->tag, "any"))
-	        {
-		  c1 = db_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
-		}
-	      else if (0 == strcasecmp(tagtype->tag, "file"))
-	        {
-		  if (exact_match)
-		    c1 = db_mprintf("(f.virtual_path = '/%q')", argv[i + 1]);
-		  else
-		    c1 = db_mprintf("(f.virtual_path LIKE '%%%q%%')", argv[i + 1]);
-		}
-	      else if (0 == strcasecmp(tagtype->tag, "base"))
-	        {
-		  c1 = db_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
-		}
-	      else if (0 == strcasecmp(tagtype->tag, "modified-since"))
-	        {
-		  // according to the mpd protocol specification the value can be a unix timestamp or ISO 8601
-		  if (strchr(argv[i + 1], '-') == NULL)
-		    c1 = db_mprintf("(f.time_modified > strftime('%%s', datetime('%q', 'unixepoch')))", argv[i + 1]);
-		  else
-		    c1 = db_mprintf("(f.time_modified > strftime('%%s', datetime('%q', 'utc')))", argv[i + 1]);
-		}
-	      else
-	        {
-		  DPRINTF(E_WARN, L_MPD, "Unknown special parameter '%s' will be ignored\n", tagtype->tag);
-		}
-	    }
-	}
-      else if (i == 0 && argc == 1)
-        {
-	  // Special case: a single token is allowed if listing albums for an artist
-	  c1 = db_mprintf("(f.album_artist = '%q')", argv[i]);
-	}
-      else
-        {
-	  DPRINTF(E_WARN, L_MPD, "Missing value for parameter '%s', ignoring '%s'\n", argv[i], argv[i]);
-	}
-
-      if (c1)
-        {
-	  append_string(&qp->filter, c1, " AND ");
-
-	  free(c1);
-	  c1 = NULL;
-	}
+      param->params_set |= CMD_WINDOW;
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_MPD,
+	      "Window argument doesn't convert "
+	      "to integer or range: '%s'\n", arg);
+      return 1;
     }
 
   return 0;
 }
 
+/**
+ * {GROUPTYPE}
+ *
+ * parse GROUPTYPE as tagtype (album, artist, etc) and store in groups
+ * and increment groupslen.  It is the callers responsibility to ensure
+ * groups is allocated and has sufficient space, else results are
+ * silently dropped.  If addgroupfilter is requested, the group argument
+ * will be appended to (with comma-space separation) for e.g. ORDER BY use.
+ */
 static int
-parse_group_params(int argc, char **argv, bool group_in_listcommand, struct query_params *qp, struct mpd_tagtype ***group, int *groupsize)
+mpd_parse_cmd_group(char *arg, struct mpd_cmd_params *param)
 {
-  int first_group;
-  int i;
-  int j;
-  struct mpd_tagtype *tagtype;
+  struct query_params *qp = &param->qp;
+  struct mpd_tagtype *tagtype = find_tagtype(arg);
 
-  *groupsize = 0;
-  *group = NULL;
-
-  // Iterate through arguments to the first "group" argument
-  for (first_group = 0; first_group < argc; first_group++)
+  if (tagtype != NULL && tagtype->type != MPD_TYPE_SPECIAL)
     {
-      if (0 == strcasecmp(argv[first_group], "group"))
-	break;
-    }
+      if (param->addgroupfilter)
+    	append_string(&qp->group, tagtype->group_field, ", ");
 
-  // Early return if no group keyword in arguments (or group keyword not followed by field argument)
-  if ((first_group + 1) >= argc || (argc - first_group) % 2 != 0)
-    return 0;
+      /* caller should ensure sufficient memory was allocated */
+      if (param->groupslen < param->groupssize)
+      	{
+      	  param->groups[param->groupslen] = tagtype;
+      	  param->groupslen++;
+      	}
 
-  *groupsize = (argc - first_group) / 2;
-
-  CHECK_NULL(L_MPD, *group = calloc(*groupsize, sizeof(struct mpd_tagtype *)));
-
-  // Now process all group/field arguments
-  for (j = 0; j < (*groupsize); j++)
-    {
-      i = first_group + (j * 2);
-
-      if ((i + 1) < argc && 0 == strcasecmp(argv[i], "group"))
-        {
-	  tagtype = find_tagtype(argv[i + 1]);
-	  if (tagtype && tagtype->type != MPD_TYPE_SPECIAL)
-	    {
-	      if (group_in_listcommand)
-		append_string(&qp->group, tagtype->group_field, ", ");
-	      (*group)[j] = tagtype;
-	    }
-	}
+      param->params_set |= CMD_GROUP;
     }
 
   return 0;
+}
+
+/**
+ * {POSITION}
+ *
+ * parse POSITION as an integer number and store the result in pos from
+ * mpd_cmd_params.  If POSITION starts with '+' or '-', the number
+ * following the sign is considered relative to the current song.  As
+ * such, its value is resolved and stored in pos instead.
+ */
+static int
+mpd_parse_cmd_position(char *arg, struct mpd_cmd_params *param)
+{
+  enum position_type ptype = POSITION_ABSOLUTE;
+  int to_pos;
+  int ret;
+
+  if (*arg == '-')
+    {
+      ptype = POSITION_RELATIVE_BEFORE;
+      arg++;
+    }
+  else if (*arg == '+')
+    {
+      ptype = POSITION_RELATIVE_AFTER;
+      arg++;
+    }
+
+  ret = safe_atoi32(arg, &to_pos);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD,
+	      "Argument doesn't convert to integer: '%s'\n", arg);
+      return 1;
+    }
+  else
+    {
+      param->pos = mpd_get_relative_queue_pos(ptype, to_pos);
+      param->params_set |= CMD_POSITION;
+    }
+
+  return 0;
+}
+
+/**
+ * {(THING EXPR VALUE)}
+ *
+ * parse filter expression on THING being VALUE in relation to EXPR.
+ * The possible expressions can be found at:
+ * https://mpd.readthedocs.io/en/latest/protocol.html#filter-syntax
+ * The result is stored in filter member from query_params, and appended
+ * to create one compound SQL WHERE-condition.
+ *
+ * NOTE: this command differs from the others in that it isn't prefixed
+ * by some tag to indicate what the type is and that there are
+ * single-argument filters (as opposed to key/value), thus the filter
+ * command is run for as long as no other known tag is found.
+ */
+static int
+mpd_parse_cmd_filter(char *arg, char *narg, struct mpd_cmd_params *param)
+{
+  char *condition = NULL;
+  bool exact_match = param->exactmatch;
+
+  if (narg != NULL)
+    {
+      struct mpd_tagtype *tagtype = find_tagtype(arg);
+
+      if (!tagtype)
+	{
+	  DPRINTF(E_WARN, L_MPD,
+	  	  "Parameter '%s' is not supported and will be ignored\n",
+	  	  arg);
+	  return 1;
+	}
+
+      if (tagtype->type == MPD_TYPE_STRING)
+	{
+	  if (exact_match)
+	    condition = db_mprintf("(%s = '%q')", tagtype->field, narg);
+	  else
+	    condition = db_mprintf("(%s LIKE '%%%q%%')", tagtype->field, narg);
+	}
+      else if (tagtype->type == MPD_TYPE_INT)
+	{
+	  uint32_t num;
+	  int ret = safe_atou32(narg, &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD,
+	    	    "%s parameter '%s' is not an integer and "
+	    	    "will be ignored\n", tagtype->tag, narg);
+	  else
+	    condition = db_mprintf("(%s = %u)", tagtype->field, num);
+	}
+      else if (tagtype->type == MPD_TYPE_SPECIAL)
+	{
+	  if (strcasecmp(tagtype->tag, "any") == 0)
+	    {
+	      condition = db_mprintf("(f.artist LIKE '%%%q%%' OR "
+	      			     " f.album  LIKE '%%%q%%' OR "
+	      			     " f.title  LIKE '%%%q%%')",
+	      			     narg, narg, narg);
+	    }
+	  else if (strcasecmp(tagtype->tag, "file") == 0)
+	    {
+	      if (exact_match)
+		condition = db_mprintf("(f.virtual_path = '/%q')", narg);
+	      else
+		condition = db_mprintf("(f.virtual_path LIKE '%%%q%%')", narg);
+	    }
+	  else if (strcasecmp(tagtype->tag, "base") == 0)
+	    {
+	      condition = db_mprintf("(f.virtual_path LIKE '/%q%%')", narg);
+	    }
+	  else if (strcasecmp(tagtype->tag, "modified-since") == 0)
+	    {
+	      char *datefmt;
+
+	      /* according to the mpd protocol specification the value
+	       * can be a unix timestamp or ISO 8601 */
+	      if (strchr(narg, '-') == NULL)
+	      	datefmt = "unixepoch";
+	      else
+	      	datefmt = "utc";
+
+	      condition =
+		db_mprintf("(f.time_modified > strftime('%%s', "
+			   "datetime('%q', '%s')))", narg, datefmt);
+	    }
+	  else
+	    {
+	      DPRINTF(E_WARN, L_MPD,
+	      	      "Unknown special parameter '%s' will be ignored\n",
+	      	      tagtype->tag);
+	      return 1;
+	    }
+	}
+    }
+  else
+    {
+      /* Special case: a single token is allowed if listing albums for
+       * an artist */
+      condition = db_mprintf("(f.album_artist = '%q')", narg);
+    }
+
+  if (condition != NULL)
+    {
+      struct query_params *qp = &param->qp;
+
+      append_string(&qp->filter, condition, " AND ");
+
+      free(condition);
+
+      param->params_set |= CMD_FILTER;
+    }
+
+  return 0;
+}
+
+/**
+ * Parse command arguments as instructed via param.  Populates param
+ * with the found arguments.  The caller is expected to setup
+ * param->params_allow to indicate what it expects to be parsed.  Any
+ * parameter not matching are ignored.
+ * NOTE: param is an in/out structure, config is read, parsed results
+ * are stored in it.
+ *
+ * Examples of the commands that are processed are:
+ * - playlistfind {FILTER} [sort {TYPE}] [window {START:END}]
+ * - searchadd {FILTER} [sort {TYPE}] [window {START:END}] [position POS]
+ * - searchcount {FILTER} [group {GROUPTYPE}]
+ * In each of these, a call is made using argv positioned at FILTER to
+ * this function, which then tries to handle any FILTER commands as long
+ * as it doesn't find a tag like sort, window, position or group.
+ * For instance, the searchadd call will have to be setup that
+ * param->params_allow contains (CMD_FILTER | CMD_SORT | CMD_WINDOW |
+ * CMD_POSITION).  Since sort, window and position are optional, after
+ * the call param->params_set can be queried to check what commands were
+ * found in the input in order to handle the arguments.
+ */
+static int
+mpd_parse_cmd_params(int argc, char **argv, struct mpd_cmd_params *param)
+{
+  bool dofilters;
+  enum mpd_param_cmd cmd;
+  int ret = 0;
+  int i;
+
+  if (param == NULL)
+    return 1;
+
+  /* only do filter processing if requested */
+  dofilters = param->params_allow & CMD_FILTER;
+
+  /* loop over arguments, detecting parameters and process them
+   * accordingly -- arguments prior known parameters are assumed to be
+   * filter arguments */
+  for (i = 0; i < argc; i += 2)
+    {
+      cmd = dofilters ? CMD_FILTER : CMD_UNSET;
+      if (strcasecmp(argv[i], "window") == 0)
+      	cmd = CMD_WINDOW;
+      else if (strcasecmp(argv[i], "group") == 0)
+      	cmd = CMD_GROUP;
+      else if (strcasecmp(argv[i], "position") == 0)
+      	cmd = CMD_POSITION;
+      else if (strcasecmp(argv[i], "sort") == 0)
+      	cmd = CMD_SORT;
+
+      /* filters stop after the first command is seen */
+      if (cmd != CMD_FILTER)
+      	dofilters = false;
+
+      /* ignore this command if not requested */
+      if ((param->params_allow & cmd) == CMD_UNSET)
+      	continue;
+
+      /* currently all commands need a single argument */
+      if (cmd != CMD_FILTER && i + 1 >= argc)
+      	{
+	  DPRINTF(E_WARN, L_MPD,
+	  	  "Missing mandatory argument to Parameter '%s'\n",
+	  	  argv[i]);
+	  /* be lenient, historically thus functionality ignored
+	   * problems, possibly on purpose for forwards compatibility */
+      	  ret = 1;
+      	  break;
+      	}
+
+      switch (cmd)
+      	{
+      	case CMD_WINDOW:
+      	  ret |= mpd_parse_cmd_window(argv[i + 1], param);
+      	  break;
+      	case CMD_GROUP:
+      	  /* need to allocate space if we haven't, group command can be
+      	   * repeated, so take worst case and assume all remaining
+      	   * commands are repetitions */
+      	  if (param->groups == NULL)
+      	    {
+      	      param->groupssize = (argc - i) / 2;
+      	      CHECK_NULL(L_MPD,
+      	      		 param->groups = calloc(param->groupssize,
+      	  					sizeof(param->groups[0])));
+      	    }
+      	  ret |= mpd_parse_cmd_group(argv[i + 1], param);
+      	  break;
+      	case CMD_POSITION:
+      	  ret |= mpd_parse_cmd_position(argv[i + 1], param);
+      	  break;
+      	case CMD_SORT:
+      	  /* currently unhandled, ignore */
+      	  break;
+      	case CMD_FILTER:
+      	    {
+      	      char *nextarg = NULL;
+      	      if (i + 1 < argc)
+      	      	nextarg = argv[i + 1];
+      	      ret |= mpd_parse_cmd_filter(argv[i], nextarg, param);
+      	      break;
+      	    }
+      	case CMD_UNSET:
+      	  break;
+      	}
+    }
+
+  return ret;
 }
 
 /*
@@ -2256,14 +2361,14 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   return 0;
 }
 
+/* https://mpd.readthedocs.io/en/latest/protocol.html#command-playlistfind */
 static int
 mpd_command_playlistfind(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct query_params query_params;
+  struct mpd_cmd_params params;
+  struct query_params *query_params;
   struct db_queue_item queue_item;
   int ret;
-
-  memset(&query_params, 0, sizeof(struct query_params));
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
@@ -2271,43 +2376,48 @@ mpd_command_playlistfind(struct evbuffer *evbuf, int argc, char **argv, char **e
       return ACK_ERROR_ARG;
     }
 
-  parse_filter_window_params(argc - 1, argv + 1, true, &query_params, NULL);
+  memset(&params, 0, sizeof(params));
+  params.exactmatch = true;
+  query_params = &params.qp;
 
-  ret = db_queue_enum_start(&query_params);
+  params.params_allow = CMD_FILTER | CMD_SORT | CMD_WINDOW;
+  mpd_parse_cmd_params(argc - 1, argv + 1, &params);
+
+  ret = db_queue_enum_start(query_params);
   if (ret < 0)
     {
-      free(query_params.filter);
+      free(query_params->filter);
       *errmsg = safe_asprintf("Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
+  while ((ret = db_queue_enum_fetch(query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
 	{
 	  *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
 
-	  db_queue_enum_end(&query_params);
-	  free(query_params.filter);
+	  db_queue_enum_end(query_params);
+	  free(query_params->filter);
 	  return ACK_ERROR_UNKNOWN;
 	}
     }
 
-  db_queue_enum_end(&query_params);
-  free(query_params.filter);
+  db_queue_enum_end(query_params);
+  free(query_params->filter);
 
   return 0;
 }
 
+/* https://mpd.readthedocs.io/en/latest/protocol.html#command-playlistsearch */
 static int
 mpd_command_playlistsearch(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct query_params query_params;
+  struct mpd_cmd_params params;
+  struct query_params *query_params;
   struct db_queue_item queue_item;
   int ret;
-
-  memset(&query_params, 0, sizeof(struct query_params));
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
     {
@@ -2315,31 +2425,35 @@ mpd_command_playlistsearch(struct evbuffer *evbuf, int argc, char **argv, char *
       return ACK_ERROR_ARG;
     }
 
-  parse_filter_window_params(argc - 1, argv + 1, false, &query_params, NULL);
+  memset(&params, 0, sizeof(params));
+  query_params = &params.qp;
 
-  ret = db_queue_enum_start(&query_params);
+  params.params_allow = CMD_FILTER | CMD_SORT | CMD_WINDOW;
+  mpd_parse_cmd_params(argc - 1, argv + 1, &params);
+
+  ret = db_queue_enum_start(query_params);
   if (ret < 0)
     {
-      free(query_params.filter);
+      free(query_params->filter);
       *errmsg = safe_asprintf("Failed to start queue enum for command playlistinfo: '%s'", argv[1]);
       return ACK_ERROR_ARG;
     }
 
-  while ((ret = db_queue_enum_fetch(&query_params, &queue_item)) == 0 && queue_item.id > 0)
+  while ((ret = db_queue_enum_fetch(query_params, &queue_item)) == 0 && queue_item.id > 0)
     {
       ret = mpd_add_db_queue_item(evbuf, &queue_item);
       if (ret < 0)
 	{
 	  *errmsg = safe_asprintf("Error adding media info for file with id: %d", queue_item.file_id);
 
-	  db_queue_enum_end(&query_params);
-	  free(query_params.filter);
+	  db_queue_enum_end(query_params);
+	  free(query_params->filter);
 	  return ACK_ERROR_UNKNOWN;
 	}
     }
 
-  db_queue_enum_end(&query_params);
-  free(query_params.filter);
+  db_queue_enum_end(query_params);
+  free(query_params->filter);
 
   return 0;
 }
@@ -2803,10 +2917,12 @@ mpd_command_save(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
   return 0;
 }
 
+/* https://mpd.readthedocs.io/en/latest/protocol.html#command-count */
 static int
 mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct query_params qp;
+  struct mpd_cmd_params params;
+  struct query_params *qp;
   struct filecount_info fci;
   int ret;
 
@@ -2816,14 +2932,18 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       return ACK_ERROR_ARG;
     }
 
-  memset(&qp, 0, sizeof(struct query_params));
-  qp.type = Q_COUNT_ITEMS;
-  parse_filter_window_params(argc - 1, argv + 1, true, &qp, NULL);
+  memset(&params, 0, sizeof(params));
+  params.exactmatch = true;
+  qp = &params.qp;
+  qp->type = Q_COUNT_ITEMS;
 
-  ret = db_filecount_get(&fci, &qp);
+  params.params_allow = CMD_FILTER | CMD_GROUP;
+  mpd_parse_cmd_params(argc - 1, argv + 1, &params);
+
+  ret = db_filecount_get(&fci, qp);
   if (ret < 0)
     {
-      free(qp.filter);
+      free(qp->filter);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
@@ -2835,16 +2955,18 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, 
       fci.count,
       (fci.length / 1000));
 
-  db_query_end(&qp);
-  free(qp.filter);
+  db_query_end(qp);
+  free(qp->filter);
 
   return 0;
 }
 
+/* https://mpd.readthedocs.io/en/latest/protocol.html#command-find */
 static int
 mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct query_params qp;
+  struct mpd_cmd_params params;
+  struct query_params *qp;
   struct db_media_file_info dbmfi;
   int ret;
 
@@ -2854,25 +2976,28 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       return ACK_ERROR_ARG;
     }
 
-  memset(&qp, 0, sizeof(struct query_params));
+  memset(&params, 0, sizeof(params));
+  params.exactmatch = true;
+  qp = &params.qp;
 
-  qp.type = Q_ITEMS;
-  qp.sort = S_NAME;
-  qp.idx_type = I_NONE;
+  qp->type = Q_ITEMS;
+  qp->sort = S_NAME;
+  qp->idx_type = I_NONE;
 
-  parse_filter_window_params(argc - 1, argv + 1, true, &qp, NULL);
+  params.params_allow = CMD_FILTER | CMD_SORT | CMD_WINDOW;
+  mpd_parse_cmd_params(argc - 1, argv + 1, &params);
 
-  ret = db_query_start(&qp);
+  ret = db_query_start(qp);
   if (ret < 0)
     {
-      db_query_end(&qp);
-      free(qp.filter);
+      db_query_end(qp);
+      free(qp->filter);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, qp)) == 0)
     {
       ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
       if (ret < 0)
@@ -2881,16 +3006,18 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 	}
     }
 
-  db_query_end(&qp);
-  free(qp.filter);
+  db_query_end(qp);
+  free(qp->filter);
 
   return 0;
 }
 
+/* https://mpd.readthedocs.io/en/latest/protocol.html#command-findadd */
 static int
 mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct query_params qp;
+  struct mpd_cmd_params params;
+  struct query_params *qp;
   struct player_status status;
   int ret;
   int pos = -1;
@@ -2901,18 +3028,21 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
       return ACK_ERROR_ARG;
     }
 
-  memset(&qp, 0, sizeof(struct query_params));
+  memset(&params, 0, sizeof(params));
+  params.exactmatch = true;
+  qp = &params.qp;
 
-  qp.type = Q_ITEMS;
-  qp.sort = S_ARTIST;
-  qp.idx_type = I_NONE;
+  qp->type = Q_ITEMS;
+  qp->sort = S_ARTIST;
+  qp->idx_type = I_NONE;
 
-  parse_filter_window_params(argc - 1, argv + 1, true, &qp, &pos);
+  params.params_allow = CMD_FILTER | CMD_SORT | CMD_WINDOW | CMD_POSITION;
+  mpd_parse_cmd_params(argc - 1, argv + 1, &params);
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, pos, NULL, NULL);
-  free(qp.filter);
+  ret = db_queue_add_by_query(qp, status.shuffle, status.item_id, pos, NULL, NULL);
+  free(qp->filter);
   if (ret < 0)
     {
       *errmsg = safe_asprintf("Failed to add songs to playlist");
@@ -2943,13 +3073,13 @@ sanitize_value(char **strval)
   }
 }
 
+/* https://mpd.readthedocs.io/en/latest/protocol.html#command-list */
 static int
 mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
   struct mpd_tagtype *tagtype;
-  struct query_params qp;
-  struct mpd_tagtype **group;
-  int groupsize;
+  struct mpd_cmd_params params;
+  struct query_params *qp;
   struct db_media_file_info dbmfi;
   char **strval;
   int i;
@@ -2972,34 +3102,30 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
       return 0;
     }
 
-  memset(&qp, 0, sizeof(struct query_params));
-  qp.type = Q_ITEMS;
-  qp.idx_type = I_NONE;
-  qp.order = tagtype->sort_field;
-  qp.group = strdup(tagtype->group_field);
+  memset(&params, 0, sizeof(params));
+  qp = &params.qp;
+  qp->type = Q_ITEMS;
+  qp->idx_type = I_NONE;
+  qp->order = tagtype->sort_field;
+  qp->group = strdup(tagtype->group_field);
+  params.addgroupfilter = tagtype->group_in_listcommand;
 
-  if (argc > 2)
-    {
-      parse_filter_window_params(argc - 2, argv + 2, true, &qp, NULL);
-    }
+  params.params_allow = CMD_FILTER | CMD_GROUP;
+  mpd_parse_cmd_params(argc - 2, argv + 2, &params);
 
-  group = NULL;
-  groupsize = 0;
-  parse_group_params(argc - 2, argv + 2, tagtype->group_in_listcommand, &qp, &group, &groupsize);
-
-  ret = db_query_start(&qp);
+  ret = db_query_start(qp);
   if (ret < 0)
     {
-      db_query_end(&qp);
-      free(qp.filter);
-      free(qp.group);
-      free(group);
+      db_query_end(qp);
+      free(qp->filter);
+      free(qp->group);
+      free(params.groups);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, qp)) == 0)
     {
       strval = (char **) ((char *)&dbmfi + tagtype->mfi_offset);
 
@@ -3012,30 +3138,30 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 			  tagtype->tag,
 			  *strval);
 
-      if (group && groupsize > 0)
+      if (params.groups && params.groupslen > 0)
 	{
-	  for (i = 0; i < groupsize; i++)
+	  for (i = 0; i < params.groupslen; i++)
 	    {
-	      if (!group[i])
+	      if (!params.groups[i])
 		continue;
 
-	      strval = (char **) ((char *)&dbmfi + group[i]->mfi_offset);
+	      strval = (char **)((char *)&dbmfi + params.groups[i]->mfi_offset);
 
 	      if (!(*strval) || (**strval == '\0'))
 		continue;
 
 	      evbuffer_add_printf(evbuf,
 	      			  "%s: %s\n",
-				  group[i]->tag,
+				  params.groups[i]->tag,
 	      			  *strval);
 	    }
 	}
     }
 
-  db_query_end(&qp);
-  free(qp.filter);
-  free(qp.group);
-  free(group);
+  db_query_end(qp);
+  free(qp->filter);
+  free(qp->group);
+  free(params.groups);
 
   return 0;
 }
@@ -3318,7 +3444,7 @@ mpd_command_listfiles(struct evbuffer *evbuf, int argc, char **argv, char **errm
   return mpd_command_lsinfo(evbuf, argc, argv, errmsg, ctx);
 }
 
-/*
+/* https://mpd.readthedocs.io/en/latest/protocol.html#command-search
  * Command handler function for 'search'
  * Lists any song that matches the given list of arguments. Arguments are pairs of TYPE and WHAT, where
  * TYPE is the tag that contains WHAT (case insensitiv).
@@ -3335,7 +3461,8 @@ mpd_command_listfiles(struct evbuffer *evbuf, int argc, char **argv, char **errm
 static int
 mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct query_params qp;
+  struct mpd_cmd_params params;
+  struct query_params *qp;
   struct db_media_file_info dbmfi;
   int ret;
 
@@ -3345,25 +3472,27 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
       return ACK_ERROR_ARG;
     }
 
-  memset(&qp, 0, sizeof(struct query_params));
+  memset(&params, 0, sizeof(params));
+  qp = &params.qp;
 
-  qp.type = Q_ITEMS;
-  qp.sort = S_NAME;
-  qp.idx_type = I_NONE;
+  qp->type = Q_ITEMS;
+  qp->sort = S_NAME;
+  qp->idx_type = I_NONE;
 
-  parse_filter_window_params(argc - 1, argv + 1, false, &qp, NULL);
+  params.params_allow = CMD_FILTER | CMD_SORT | CMD_WINDOW;
+  mpd_parse_cmd_params(argc - 1, argv + 1, &params);
 
-  ret = db_query_start(&qp);
+  ret = db_query_start(qp);
   if (ret < 0)
     {
-      db_query_end(&qp);
-      free(qp.filter);
+      db_query_end(qp);
+      free(qp->filter);
 
       *errmsg = safe_asprintf("Could not start query");
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
+  while ((ret = db_query_fetch_file(&dbmfi, qp)) == 0)
     {
       ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
       if (ret < 0)
@@ -3372,16 +3501,18 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg,
 	}
     }
 
-  db_query_end(&qp);
-  free(qp.filter);
+  db_query_end(qp);
+  free(qp->filter);
 
   return 0;
 }
 
+/* https://mpd.readthedocs.io/en/latest/protocol.html#command-searchadd */
 static int
 mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  struct query_params qp;
+  struct mpd_cmd_params params;
+  struct query_params *qp;
   struct player_status status;
   int ret;
   int pos = -1;
@@ -3392,18 +3523,20 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
       return ACK_ERROR_ARG;
     }
 
-  memset(&qp, 0, sizeof(struct query_params));
+  memset(&params, 0, sizeof(params));
+  qp = &params.qp;
 
-  qp.type = Q_ITEMS;
-  qp.sort = S_ARTIST;
-  qp.idx_type = I_NONE;
+  qp->type = Q_ITEMS;
+  qp->sort = S_ARTIST;
+  qp->idx_type = I_NONE;
 
-  parse_filter_window_params(argc - 1, argv + 1, false, &qp, &pos);
+  params.params_allow = CMD_FILTER | CMD_SORT | CMD_WINDOW | CMD_POSITION;
+  mpd_parse_cmd_params(argc - 1, argv + 1, &params);
 
   player_get_status(&status);
 
-  ret = db_queue_add_by_query(&qp, status.shuffle, status.item_id, pos, NULL, NULL);
-  free(qp.filter);
+  ret = db_queue_add_by_query(qp, status.shuffle, status.item_id, pos, NULL, NULL);
+  free(qp->filter);
   if (ret < 0)
     {
       *errmsg = safe_asprintf("Failed to add songs to playlist");
