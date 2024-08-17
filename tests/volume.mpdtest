@@ -1,0 +1,8 @@
+status
+setvol 0
+status
+setvol 100
+status
+setvol 42
+status
+getvol

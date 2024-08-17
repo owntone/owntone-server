@@ -1,0 +1,45 @@
+OK MPD 0.22.4
+volume: 50
+repeat: 0
+random: 0
+single: 0
+consume: 0
+playlist: 1
+playlistlength: 0
+mixrampdb: 0.000000
+state: stop
+OK
+OK
+volume: 0
+repeat: 0
+random: 0
+single: 0
+consume: 0
+playlist: 1
+playlistlength: 0
+mixrampdb: 0.000000
+state: stop
+OK
+OK
+volume: 100
+repeat: 0
+random: 0
+single: 0
+consume: 0
+playlist: 1
+playlistlength: 0
+mixrampdb: 0.000000
+state: stop
+OK
+OK
+volume: 42
+repeat: 0
+random: 0
+single: 0
+consume: 0
+playlist: 1
+playlistlength: 0
+mixrampdb: 0.000000
+state: stop
+OK
+ACK [5@7] {getvol} Unsupported command 'getvol'
