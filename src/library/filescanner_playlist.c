@@ -490,11 +490,7 @@ scan_playlist(const char *file, time_t mtime, int dir_id)
       else if (pl_format == PLAYLIST_M3U)
 	path = buf;
 
-      if (!path)
-	continue;
-
-      // Check that first char is sane for a path
-      if ((!isalnum(path[0])) && (path[0] != '/') && (path[0] != '.'))
+      if (!path || path[0] == '\0' || path[0] == '#')
 	continue;
 
       // URLs and playlists will be added to library, tracks should already be there
