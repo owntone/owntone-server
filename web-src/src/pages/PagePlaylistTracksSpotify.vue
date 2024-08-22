@@ -67,7 +67,7 @@ const dataObject = {
       spotifyApi.getPlaylist(to.params.id),
       spotifyApi.getPlaylistTracks(to.params.id, {
         limit: PAGE_SIZE,
-        market: useServicesStore().state.spotify.webapi_country,
+        market: useServicesStore().$state.spotify.webapi_country,
         offset: 0
       })
     ])
