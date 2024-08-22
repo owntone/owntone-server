@@ -419,18 +419,22 @@ input[type='range'].slider {
   @include mobile {
     --th: calc(var(--sh) * 5);
   }
-  --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
-  -webkit-appearance: none;
-  min-width: 250px;
-  height: calc(var(--sh) * 5);
-  width: 100% !important;
-  cursor: grab;
+  & {
+    --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
+    -webkit-appearance: none;
+    min-width: 250px;
+    height: calc(var(--sh) * 5);
+    width: 100% !important;
+    cursor: grab;
+  }
   &:active {
     cursor: grabbing;
   }
   &::-webkit-slider-thumb {
     @include thumb;
-    margin-top: calc((var(--th) - var(--sh)) / -2);
+    & {
+      margin-top: calc((var(--th) - var(--sh)) / -2);
+    }
   }
   &::-moz-range-thumb {
     @include thumb;
