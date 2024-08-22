@@ -35,6 +35,9 @@
           <template #no-more>
             <br />
           </template>
+          <template #no-results>
+            <br />
+          </template>
         </VueEternalLoading>
         <modal-dialog-artist-spotify
           :item="artist"
