@@ -24,6 +24,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListPlaylists from '@/components/ListPlaylists.vue'
+import { useConfigurationStore } from '@/stores/configuration'
 import webapi from '@/webapi'
 
 const dataObject = {
@@ -57,6 +58,12 @@ export default {
     })
   },
 
+  setup() {
+    return {
+      configurationStore: useConfigurationStore()
+    }
+  },
+
   data() {
     return {
       playlist: {},
@@ -77,7 +84,7 @@ export default {
       })
     },
     radio_playlists() {
-      return this.$store.state.config.radio_playlists
+      return this.configurationStore.radio_playlists
     }
   }
 }

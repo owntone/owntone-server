@@ -79,7 +79,6 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
@@ -88,6 +87,7 @@ import ListComposers from '@/components/ListComposers.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import TabsSearch from '@/components/TabsSearch.vue'
+import { useSearchStore } from '@/stores/search'
 import webapi from '@/webapi'
 
 const PAGE_SIZE = 3,
@@ -113,6 +113,10 @@ export default {
     TabsSearch
   },
 
+  setup() {
+    return { searchStore: useSearchStore() }
+  },
+
   data() {
     return {
       components: {
@@ -136,26 +140,26 @@ export default {
       return this.search_types.length === 1
     },
     recent_searches() {
-      return this.$store.state.recent_searches
+      return this.searchStore.recent_searches
     }
   },
 
   watch: {
     search_query() {
-      this.$store.commit(types.SEARCH_QUERY, this.search_query)
+      this.searchStore.search_query = this.search_query
     }
   },
 
   mounted() {
-    this.$store.commit(types.SEARCH_SOURCE, this.$route.name)
-    this.search_query = this.$store.state.search_query
+    this.searchStore.search_source = this.$route.name
+    this.search_query = this.searchStore.search_query
     this.search_limit = PAGE_SIZE
     this.search()
   },
 
   methods: {
     expand(type) {
-      this.search_query = this.$store.state.search_query
+      this.search_query = this.searchStore.search_query
       this.search_types = [type]
       this.search_limit = -1
       this.search()
@@ -167,7 +171,7 @@ export default {
       this.search()
     },
     remove_search(query) {
-      this.$store.dispatch('remove_recent_search', query)
+      this.searchStore.remove(query)
     },
     reset() {
       this.results.clear()
@@ -189,7 +193,7 @@ export default {
       this.search_types.forEach((type) => {
         this.search_items(type)
       })
-      this.$store.dispatch('add_recent_search', this.search_query)
+      this.searchStore.add(this.search_query)
     },
     search_items(type) {
       const music = type !== 'audiobook' && type !== 'podcast'

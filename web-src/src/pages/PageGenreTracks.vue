@@ -55,13 +55,13 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
+import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
 const dataObject = {
@@ -94,6 +94,10 @@ export default {
     })
   },
 
+  setup() {
+    return { uiStore: useUIStore() }
+  },
+
   data() {
     return {
       genre: {},
@@ -124,10 +128,10 @@ export default {
     },
     selected_grouping_id: {
       get() {
-        return this.$store.state.genre_tracks_sort
+        return this.uiStore.genre_tracks_sort
       },
       set(value) {
-        this.$store.commit(types.GENRE_TRACKS_SORT, value)
+        this.uiStore.genre_tracks_sort = value
       }
     },
     tracks() {

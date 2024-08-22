@@ -60,13 +60,13 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
+import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
 const dataObject = {
@@ -99,6 +99,10 @@ export default {
     })
   },
 
+  setup() {
+    return { uiStore: useUIStore() }
+  },
+
   data() {
     return {
       composer: {},
@@ -128,10 +132,10 @@ export default {
     },
     selected_grouping_id: {
       get() {
-        return this.$store.state.composer_tracks_sort
+        return this.uiStore.composer_tracks_sort
       },
       set(value) {
-        this.$store.commit(types.COMPOSER_TRACKS_SORT, value)
+        this.uiStore.composer_tracks_sort = value
       }
     },
     tracks() {

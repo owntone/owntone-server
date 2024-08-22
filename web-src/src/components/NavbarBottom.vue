@@ -113,12 +113,12 @@
         class="is-expanded is-clipped is-size-7"
       >
         <div class="fd-is-text-clipped">
-          <strong v-text="now_playing.title" />
+          <strong v-text="current.title" />
           <br />
-          <span v-text="now_playing.artist" />
+          <span v-text="current.artist" />
           <span
-            v-if="now_playing.album"
-            v-text="$t('navigation.now-playing', { album: now_playing.album })"
+            v-if="current.album"
+            v-text="$t('navigation.now-playing', { album: current.album })"
           />
         </div>
       </navbar-item-link>
@@ -255,7 +255,6 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ControlSlider from '@/components/ControlSlider.vue'
 import NavbarItemLink from '@/components/NavbarItemLink.vue'
 import NavbarItemOutput from '@/components/NavbarItemOutput.vue'
@@ -270,6 +269,11 @@ import PlayerButtonSeekForward from '@/components/PlayerButtonSeekForward.vue'
 import PlayerButtonShuffle from '@/components/PlayerButtonShuffle.vue'
 import audio from '@/lib/Audio'
 import { mdiCancel } from '@mdi/js'
+import { useNotificationsStore } from '@/stores/notifications'
+import { useOutputsStore } from '@/stores/outputs'
+import { usePlayerStore } from '@/stores/player'
+import { useQueueStore } from '@/stores/queue'
+import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
 export default {
@@ -289,6 +293,16 @@ export default {
     PlayerButtonShuffle
   },
 
+  setup() {
+    return {
+      notificationsStore: useNotificationsStore(),
+      outputsStore: useOutputsStore(),
+      playerStore: usePlayerStore(),
+      queueStore: useQueueStore(),
+      uiStore: useUIStore()
+    }
+  },
+
   data() {
     return {
       cursor: mdiCancel,
@@ -302,33 +316,30 @@ export default {
   },
 
   computed: {
-    config() {
-      return this.$store.state.config
-    },
     is_now_playing_page() {
       return this.$route.name === 'now-playing'
     },
-    now_playing() {
-      return this.$store.getters.now_playing
+    current() {
+      return this.queueStore.current
     },
     outputs() {
-      return this.$store.state.outputs
+      return this.outputsStore.outputs
     },
     player() {
-      return this.$store.state.player
+      return this.playerStore
     },
     show_player_menu: {
       get() {
-        return this.$store.state.show_player_menu
+        return this.uiStore.show_player_menu
       },
       set(value) {
-        this.$store.commit(types.SHOW_PLAYER_MENU, value)
+        this.uiStore.show_player_menu = value
       }
     }
   },
 
   watch: {
-    '$store.state.player.volume'() {
+    'playerStore.volume'() {
       if (this.player.volume > 0) {
         this.old_volume = this.player.volume
       }
@@ -383,7 +394,7 @@ export default {
       })
       a.addEventListener('error', () => {
         this.closeAudio()
-        this.$store.dispatch('add_notification', {
+        this.notificationsStore.add({
           text: this.$t('navigation.stream-error'),
           type: 'danger'
         })

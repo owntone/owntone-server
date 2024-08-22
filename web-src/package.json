@@ -20,6 +20,7 @@
     "bulma-switch": "^2.0.4",
     "luxon": "^3.4.4",
     "mdi-vue": "^3.0.13",
+    "pinia": "^2.1.7",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.5.2",
     "vue": "^3.4.23",
@@ -27,8 +28,7 @@
     "vue-router": "^4.3.2",
     "vue3-click-away": "^1.2.4",
     "vue3-lazyload": "^0.3.8",
-    "vuedraggable": "^4.1.0",
-    "vuex": "^4.1.0"
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@intlify/unplugin-vue-i18n": "^4.0.0",

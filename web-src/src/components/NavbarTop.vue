@@ -6,25 +6,46 @@
     aria-label="main navigation"
   >
     <div class="navbar-brand">
-      <navbar-item-link v-if="show_playlists" :to="{ name: 'playlists' }">
+      <navbar-item-link
+        v-if="settingsStore.show_menu_item_playlists"
+        :to="{ name: 'playlists' }"
+      >
         <mdicon class="icon" name="music-box-multiple" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="show_music" :to="{ name: 'music' }">
+      <navbar-item-link
+        v-if="settingsStore.show_menu_item_music"
+        :to="{ name: 'music' }"
+      >
         <mdicon class="icon" name="music" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="show_podcasts" :to="{ name: 'podcasts' }">
+      <navbar-item-link
+        v-if="settingsStore.show_menu_item_podcasts"
+        :to="{ name: 'podcasts' }"
+      >
         <mdicon class="icon" name="microphone" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="show_audiobooks" :to="{ name: 'audiobooks' }">
+      <navbar-item-link
+        v-if="settingsStore.show_menu_item_audiobooks"
+        :to="{ name: 'audiobooks' }"
+      >
         <mdicon class="icon" name="book-open-variant" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="show_radio" :to="{ name: 'radio' }">
+      <navbar-item-link
+        v-if="settingsStore.show_menu_item_radio"
+        :to="{ name: 'radio' }"
+      >
         <mdicon class="icon" name="radio" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="show_files" :to="{ name: 'files' }">
+      <navbar-item-link
+        v-if="settingsStore.show_menu_item_files"
+        :to="{ name: 'files' }"
+      >
         <mdicon class="icon" name="folder-open" size="16" />
       </navbar-item-link>
-      <navbar-item-link v-if="show_search" :to="{ name: search_name }">
+      <navbar-item-link
+        v-if="settingsStore.show_menu_item_search"
+        :to="{ name: searchStore.search_source }"
+      >
         <mdicon class="icon" name="magnify" size="16" />
       </navbar-item-link>
       <div
@@ -89,7 +110,7 @@
               <mdicon class="icon" name="folder-open" size="16" />
               <b v-text="$t('navigation.files')" />
             </navbar-item-link>
-            <navbar-item-link :to="{ name: search_name }">
+            <navbar-item-link :to="{ name: searchStore.search_source }">
               <mdicon class="icon" name="magnify" size="16" />
               <b v-text="$t('navigation.search')" />
             </navbar-item-link>
@@ -118,12 +139,24 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import NavbarItemLink from '@/components/NavbarItemLink.vue'
+import { useSearchStore } from '@/stores/search'
+import { useServicesStore } from '@/stores/services'
+import { useSettingsStore } from '@/stores/settings'
+import { useUIStore } from '@/stores/ui'
 
 export default {
   name: 'NavbarTop',
   components: { NavbarItemLink },
+
+  setup() {
+    return {
+      searchStore: useSearchStore(),
+      servicesStore: useServicesStore(),
+      settingsStore: useSettingsStore(),
+      uiStore: useUIStore()
+    }
+  },
 
   data() {
     return {
@@ -132,71 +165,27 @@ export default {
   },
 
   computed: {
-    search_name: {
-      get() {
-        return this.$store.state.search_source
-      }
-    },
-    show_audiobooks() {
-      return this.$store.getters.setting(
-        'webinterface',
-        'show_menu_item_audiobooks'
-      ).value
-    },
     show_burger_menu: {
       get() {
-        return this.$store.state.show_burger_menu
+        return this.uiStore.show_burger_menu
       },
       set(value) {
-        this.$store.commit(types.SHOW_BURGER_MENU, value)
+        this.uiStore.show_burger_menu = value
       }
-    },
-    show_files() {
-      return this.$store.getters.setting('webinterface', 'show_menu_item_files')
-        .value
-    },
-    show_music() {
-      return this.$store.getters.setting('webinterface', 'show_menu_item_music')
-        .value
-    },
-    show_player_menu() {
-      return this.$store.state.show_player_menu
-    },
-    show_playlists() {
-      return this.$store.getters.setting(
-        'webinterface',
-        'show_menu_item_playlists'
-      ).value
-    },
-    show_podcasts() {
-      return this.$store.getters.setting(
-        'webinterface',
-        'show_menu_item_podcasts'
-      ).value
-    },
-    show_radio() {
-      return this.$store.getters.setting('webinterface', 'show_menu_item_radio')
-        .value
-    },
-    show_search() {
-      return this.$store.getters.setting(
-        'webinterface',
-        'show_menu_item_search'
-      ).value
     },
     show_update_dialog: {
       get() {
-        return this.$store.state.show_update_dialog
+        return this.uiStore.show_update_dialog
       },
       set(value) {
-        this.$store.commit(types.SHOW_UPDATE_DIALOG, value)
+        this.uiStore.show_update_dialog = value
       }
     },
     spotify_enabled() {
-      return this.$store.state.spotify.webapi_token_valid
+      return this.servicesStore.spotify.webapi_token_valid
     },
     zindex() {
-      if (this.show_player_menu) {
+      if (this.uiStore.show_player_menu) {
         return 'z-index: 21'
       }
       return ''

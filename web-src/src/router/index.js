@@ -1,4 +1,3 @@
-import * as types from '@/store/mutation_types'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import PageAbout from '@/pages/PageAbout.vue'
 import PageAlbum from '@/pages/PageAlbum.vue'
@@ -40,7 +39,7 @@ import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
 import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
 import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
-import store from '@/store'
+import { useUIStore } from '@/stores/ui'
 
 const TOP_WITH_TABS = 140
 const TOP_WITHOUT_TABS = 110
@@ -343,13 +342,14 @@ export const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  if (store.state.show_burger_menu) {
-    store.commit(types.SHOW_BURGER_MENU, false)
+  const uiStore = useUIStore()
+  if (uiStore.show_burger_menu) {
+    uiStore.show_burger_menu = false
     next(false)
     return
   }
-  if (store.state.show_player_menu) {
-    store.commit(types.SHOW_PLAYER_MENU, false)
+  if (uiStore.show_player_menu) {
+    uiStore.show_player_menu = false
     next(false)
     return
   }

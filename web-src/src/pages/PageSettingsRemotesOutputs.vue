@@ -95,11 +95,17 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
+import { useOutputsStore } from '@/stores/outputs'
+import { useRemotesStore } from '@/stores/remotes'
 import webapi from '@/webapi'
 
 export default {
   name: 'PageSettingsRemotesOutputs',
   components: { ContentWithHeading, TabsSettings },
+
+  setup() {
+    return { outputsStore: useOutputsStore(), remotesStore: useRemotesStore() }
+  },
 
   data() {
     return {
@@ -110,10 +116,10 @@ export default {
 
   computed: {
     outputs() {
-      return this.$store.state.outputs
+      return this.outputsStore.outputs
     },
     pairing() {
-      return this.$store.state.pairing
+      return this.remotesStore.pairing
     }
   },
 

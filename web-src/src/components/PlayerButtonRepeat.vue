@@ -10,12 +10,19 @@
 </template>
 
 <script>
+import { usePlayerStore } from '@/stores/player'
 import webapi from '@/webapi'
 
 export default {
   name: 'PlayerButtonRepeat',
   props: {
     icon_size: { default: 16, type: Number }
+  },
+
+  setup() {
+    return {
+      playerStore: usePlayerStore()
+    }
   },
 
   computed: {
@@ -28,13 +35,13 @@ export default {
       return 'repeat-off'
     },
     is_repeat_all() {
-      return this.$store.state.player.repeat === 'all'
+      return this.playerStore.repeat === 'all'
     },
     is_repeat_off() {
       return !this.is_repeat_all && !this.is_repeat_single
     },
     is_repeat_single() {
-      return this.$store.state.player.repeat === 'single'
+      return this.playerStore.repeat === 'single'
     }
   },
 

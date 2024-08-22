@@ -4,7 +4,7 @@
       <div class="container">
         <div class="columns is-centered">
           <div class="column is-four-fifths has-text-centered-mobile">
-            <h1 class="title is-4" v-text="config.library_name" />
+            <h1 class="title is-4" v-text="configuration.library_name" />
           </div>
         </div>
       </div>
@@ -130,13 +130,15 @@
             <div class="content has-text-centered-mobile">
               <p
                 class="is-size-7"
-                v-text="$t('page.about.version', { version: config.version })"
+                v-text="
+                  $t('page.about.version', { version: configuration.version })
+                "
               />
               <p
                 class="is-size-7"
                 v-text="
                   $t('page.about.compiled-with', {
-                    options: config.buildoptions.join(', ')
+                    options: configuration.buildoptions.join(', ')
                   })
                 "
               />
@@ -176,23 +178,33 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
+import { useConfigurationStore } from '@/stores/configuration'
+import { useLibraryStore } from '@/stores/library'
+import { useUIStore } from '@/stores/ui'
 
 export default {
   name: 'PageAbout',
 
+  setup() {
+    return {
+      configurationStore: useConfigurationStore(),
+      libraryStore: useLibraryStore(),
+      uiStore: useUIStore()
+    }
+  },
+
   computed: {
-    config() {
-      return this.$store.state.config
+    configuration() {
+      return this.configurationStore.$state
     },
     library() {
-      return this.$store.state.library
+      return this.libraryStore.$state
     }
   },
 
   methods: {
     showUpdateDialog() {
-      this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
+      this.uiStore.show_update_dialog = true
     }
   }
 }

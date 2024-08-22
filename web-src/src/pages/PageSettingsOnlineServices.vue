@@ -131,11 +131,16 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
+import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'PageSettingsOnlineServices',
   components: { ContentWithHeading, TabsSettings },
+
+  setup() {
+    return { servicesStore: useServicesStore() }
+  },
 
   data() {
     return {
@@ -149,10 +154,10 @@ export default {
 
   computed: {
     lastfm() {
-      return this.$store.state.lastfm
+      return this.servicesStore.lastfm
     },
     spotify() {
-      return this.$store.state.spotify
+      return this.servicesStore.spotify
     },
     spotify_missing_scope() {
       if (

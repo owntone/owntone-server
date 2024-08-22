@@ -74,7 +74,6 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
@@ -83,6 +82,7 @@ import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsSearch from '@/components/TabsSearch.vue'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
+import { useSearchStore } from '@/stores/search'
 import webapi from '@/webapi'
 
 const PAGE_SIZE = 3,
@@ -99,6 +99,10 @@ export default {
     ListTracksSpotify,
     TabsSearch,
     VueEternalLoading
+  },
+
+  setup() {
+    return { searchStore: useSearchStore() }
   },
 
   data() {
@@ -121,7 +125,7 @@ export default {
       return this.search_types.length === 1
     },
     recent_searches() {
-      return this.$store.state.recent_searches.filter(
+      return this.searchStore.recent_searches.filter(
         (query) => !query.startsWith('query:')
       )
     }
@@ -129,20 +133,20 @@ export default {
 
   watch: {
     search_query() {
-      this.$store.commit(types.SEARCH_QUERY, this.search_query)
+      this.searchStore.search_query = this.search_query
     }
   },
 
   mounted() {
-    this.$store.commit(types.SEARCH_SOURCE, this.$route.name)
-    this.search_query = this.$store.state.search_query
+    this.searchStore.search_source = this.$route.name
+    this.search_query = this.searchStore.search_query
     this.search_parameters.limit = PAGE_SIZE
     this.search()
   },
 
   methods: {
     expand(type) {
-      this.search_query = this.$store.state.search_query
+      this.search_query = this.searchStore.search_query
       this.search_types = [type]
       this.search_parameters.limit = PAGE_SIZE_EXPANDED
       this.search_parameters.offset = 0
@@ -156,7 +160,7 @@ export default {
       this.search()
     },
     remove_search(query) {
-      this.$store.dispatch('remove_recent_search', query)
+      this.searchStore.remove(query)
     },
     reset() {
       this.results.clear()
@@ -180,7 +184,7 @@ export default {
           this.results.set(type, data[`${type}s`])
         })
       })
-      this.$store.dispatch('add_recent_search', this.search_query)
+      this.searchStore.add(this.search_query)
     },
     search_items() {
       return webapi.spotify().then(({ data }) => {

@@ -27,6 +27,7 @@
 </template>
 
 <script>
+import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 export default {
@@ -36,6 +37,12 @@ export default {
     disabled: Boolean,
     name: { required: true, type: String },
     placeholder: { default: '', type: String }
+  },
+
+  setup() {
+    return {
+      settingsStore: useSettingsStore()
+    }
   },
 
   data() {
@@ -62,7 +69,7 @@ export default {
       return this.statusUpdate === 'success'
     },
     setting() {
-      return this.$store.getters.setting(this.category, this.name)
+      return this.settingsStore.setting(this.category, this.name)
     }
   },
 
@@ -96,7 +103,7 @@ export default {
       webapi
         .settings_update(this.category, setting)
         .then(() => {
-          this.$store.dispatch('update_setting', setting)
+          this.settingsStore.update(setting)
           this.statusUpdate = 'success'
         })
         .catch(() => {

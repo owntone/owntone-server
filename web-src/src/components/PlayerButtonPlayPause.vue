@@ -9,6 +9,9 @@
 </template>
 
 <script>
+import { useNotificationsStore } from '@/stores/notifications'
+import { usePlayerStore } from '@/stores/player'
+import { useQueueStore } from '@/stores/queue'
 import webapi from '@/webapi'
 
 export default {
@@ -18,9 +21,17 @@ export default {
     show_disabled_message: Boolean
   },
 
+  setup() {
+    return {
+      notificationsStore: useNotificationsStore(),
+      playerStore: usePlayerStore(),
+      queueStore: useQueueStore()
+    }
+  },
+
   computed: {
     disabled() {
-      return !this.$store.state.queue || this.$store.state.queue.count <= 0
+      return this.queueStore?.count <= 0
     },
     icon_name() {
       if (!this.is_playing) {
@@ -31,13 +42,11 @@ export default {
       return 'stop'
     },
     is_pause_allowed() {
-      return (
-        this.$store.getters.now_playing &&
-        this.$store.getters.now_playing.data_kind !== 'pipe'
-      )
+      const { current } = this.queueStore
+      return current && current.data_kind !== 'pipe'
     },
     is_playing() {
-      return this.$store.state.player.state === 'play'
+      return this.playerStore.state === 'play'
     }
   },
 
@@ -45,7 +54,7 @@ export default {
     toggle_play_pause() {
       if (this.disabled) {
         if (this.show_disabled_message) {
-          this.$store.dispatch('add_notification', {
+          this.notificationsStore.add({
             text: this.$t('server.empty-queue'),
             timeout: 2000,
             topic: 'connection',
@@ -54,7 +63,6 @@ export default {
         }
         return
       }
-
       if (this.is_playing && this.is_pause_allowed) {
         webapi.player_pause()
       } else if (this.is_playing && !this.is_pause_allowed) {

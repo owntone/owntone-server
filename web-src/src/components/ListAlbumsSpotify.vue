@@ -1,7 +1,10 @@
 <template>
   <template v-for="item in items" :key="item.id">
     <div class="media is-align-items-center" @click="open(item)">
-      <div v-if="show_artwork" class="media-left is-clickable">
+      <div
+        v-if="settingsStore.show_cover_artwork_in_album_lists"
+        class="media-left is-clickable"
+      >
         <cover-artwork
           :url="artwork_url(item)"
           :artist="item.artist"
@@ -41,23 +44,19 @@
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
+import { useSettingsStore } from '@/stores/settings'
 
 export default {
   name: 'ListAlbumsSpotify',
   components: { CoverArtwork, ModalDialogAlbumSpotify },
   props: { items: { required: true, type: Object } },
 
-  data() {
-    return { selected_item: {}, show_details_modal: false }
+  setup() {
+    return { settingsStore: useSettingsStore() }
   },
 
-  computed: {
-    show_artwork() {
-      return this.$store.getters.setting(
-        'webinterface',
-        'show_cover_artwork_in_album_lists'
-      ).value
-    }
+  data() {
+    return { selected_item: {}, show_details_modal: false }
   },
 
   methods: {

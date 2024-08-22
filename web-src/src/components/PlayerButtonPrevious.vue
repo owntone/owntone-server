@@ -9,6 +9,7 @@
 </template>
 
 <script>
+import { useQueueStore } from '@/stores/queue'
 import webapi from '@/webapi'
 
 export default {
@@ -17,9 +18,15 @@ export default {
     icon_size: { default: 16, type: Number }
   },
 
+  setup() {
+    return {
+      queueStore: useQueueStore()
+    }
+  },
+
   computed: {
     disabled() {
-      return !this.$store.state.queue || this.$store.state.queue.count <= 0
+      return this.queueStore.count <= 0
     }
   },
 
@@ -28,7 +35,6 @@ export default {
       if (this.disabled) {
         return
       }
-
       webapi.player_previous()
     }
   }

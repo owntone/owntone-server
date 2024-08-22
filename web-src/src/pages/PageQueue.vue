@@ -74,7 +74,7 @@
                   />
                 </a>
                 <a
-                  v-if="element.id !== state.item_id && edit_mode"
+                  v-if="element.id !== player.item_id && edit_mode"
                   @click.prevent.stop="remove(element)"
                 >
                   <mdicon class="icon has-text-grey" name="delete" size="18" />
@@ -103,13 +103,16 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
 import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import draggable from 'vuedraggable'
+import { useConfigurationStore } from '@/stores/configuration'
+import { usePlayerStore } from '@/stores/player'
+import { useQueueStore } from '@/stores/queue'
+import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
 export default {
@@ -121,6 +124,15 @@ export default {
     ModalDialogPlaylistSave,
     ModalDialogQueueItem,
     draggable
+  },
+
+  setup() {
+    return {
+      configurationStore: useConfigurationStore(),
+      playerStore: usePlayerStore(),
+      queueStore: useQueueStore(),
+      uiStore: useUIStore()
+    }
   },
 
   data() {
@@ -135,30 +147,30 @@ export default {
 
   computed: {
     current_position() {
-      return this.$store.getters.now_playing?.position ?? -1
+      return this.queue.current?.position ?? -1
     },
     is_queue_save_allowed() {
       return (
-        this.$store.state.config.allow_modifying_stored_playlists &&
-        this.$store.state.config.default_playlist_directory
+        this.configurationStore.allow_modifying_stored_playlists &&
+        this.configurationStore.default_playlist_directory
       )
     },
     queue() {
-      return this.$store.state.queue
+      return this.queueStore
     },
     queue_items: {
       get() {
-        return this.$store.state.queue.items
+        return this.queue.items
       },
       set() {
         /* Do nothing? Send move request in @end event */
       }
     },
     show_only_next_items() {
-      return this.$store.state.show_only_next_items
+      return this.uiStore.show_only_next_items
     },
-    state() {
-      return this.$store.state.player
+    player() {
+      return this.playerStore
     }
   },
 
@@ -191,7 +203,7 @@ export default {
       }
     },
     update_show_next_items() {
-      this.$store.commit(types.SHOW_ONLY_NEXT_ITEMS, !this.show_only_next_items)
+      this.uiStore.show_only_next_items = !this.uiStore.show_only_next_items
     }
   }
 }

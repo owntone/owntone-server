@@ -172,12 +172,17 @@
 
 <script>
 import SpotifyWebApi from 'spotify-web-api-js'
+import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrack',
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close', 'play-count-changed'],
+
+  setup() {
+    return { servicesStore: useServicesStore() }
+  },
 
   data() {
     return {
@@ -193,7 +198,7 @@ export default {
         this.item.media_kind !== 'podcast'
       ) {
         const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
+        spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
         spotifyApi
           .getTrack(this.item.path.slice(this.item.path.lastIndexOf(':') + 1))
           .then((response) => {

@@ -25,13 +25,23 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing.vue'
 import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
 import NavbarBottom from '@/components/NavbarBottom.vue'
 import NavbarTop from '@/components/NavbarTop.vue'
 import NotificationList from '@/components/NotificationList.vue'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
+import { useConfigurationStore } from '@/stores/configuration'
+import { useLibraryStore } from '@/stores/library'
+import { useLyricsStore } from '@/stores/lyrics'
+import { useNotificationsStore } from '@/stores/notifications'
+import { useOutputsStore } from './stores/outputs'
+import { usePlayerStore } from '@/stores/player'
+import { useQueueStore } from '@/stores/queue'
+import { useRemotesStore } from './stores/remotes'
+import { useServicesStore } from '@/stores/services'
+import { useSettingsStore } from '@/stores/settings'
+import { useUIStore } from './stores/ui'
 import webapi from '@/webapi'
 
 export default {
@@ -42,6 +52,22 @@ export default {
     NavbarBottom,
     NavbarTop,
     NotificationList
+  },
+
+  setup() {
+    return {
+      configurationStore: useConfigurationStore(),
+      libraryStore: useLibraryStore(),
+      lyricsStore: useLyricsStore(),
+      notificationsStore: useNotificationsStore(),
+      outputsStore: useOutputsStore(),
+      playerStore: usePlayerStore(),
+      queueStore: useQueueStore(),
+      remotesStore: useRemotesStore(),
+      servicesStore: useServicesStore(),
+      settingsStore: useSettingsStore(),
+      uiStore: useUIStore()
+    }
   },
 
   data() {
@@ -55,26 +81,26 @@ export default {
   computed: {
     show_burger_menu: {
       get() {
-        return this.$store.state.show_burger_menu
+        return this.uiStore.show_burger_menu
       },
       set(value) {
-        this.$store.commit(types.SHOW_BURGER_MENU, value)
+        this.uiStore.show_burger_menu = value
       }
     },
     show_player_menu: {
       get() {
-        return this.$store.state.show_player_menu
+        return this.uiStore.show_player_menu
       },
       set(value) {
-        this.$store.commit(types.SHOW_PLAYER_MENU, value)
+        this.uiStore.show_player_menu = value
       }
     },
     show_update_dialog: {
       get() {
-        return this.$store.state.show_update_dialog
+        return this.uiStore.show_update_dialog
       },
       set(value) {
-        this.$store.commit(types.SHOW_UPDATE_DIALOG, value)
+        this.uiStore.show_update_dialog = value
       }
     }
   },
@@ -115,15 +141,14 @@ export default {
       webapi
         .config()
         .then(({ data }) => {
-          this.$store.commit(types.UPDATE_CONFIG, data)
-          this.$store.commit(types.HIDE_SINGLES, data.hide_singles)
+          this.configurationStore.$state = data
+          this.uiStore.hide_singles = data.hide_singles
           document.title = data.library_name
-
           this.open_ws()
           this.$Progress.finish()
         })
         .catch(() => {
-          this.$store.dispatch('add_notification', {
+          this.notificationsStore.add({
             text: this.$t('server.connection-failed'),
             topic: 'connection',
             type: 'danger'
@@ -131,8 +156,8 @@ export default {
         })
     },
     open_ws() {
-      if (this.$store.state.config.websocket_port <= 0) {
-        this.$store.dispatch('add_notification', {
+      if (this.configurationStore.websocket_port <= 0) {
+        this.notificationsStore.add({
           text: this.$t('server.missing-port'),
           type: 'danger'
         })
@@ -144,7 +169,7 @@ export default {
         protocol = 'wss://'
       }
 
-      let wsUrl = `${protocol}${window.location.hostname}:${this.$store.state.config.websocket_port}`
+      let wsUrl = `${protocol}${window.location.hostname}:${this.configurationStore.websocket_port}`
 
       if (import.meta.env.DEV && import.meta.env.VITE_OWNTONE_URL) {
         /*
@@ -152,7 +177,7 @@ export default {
          * url from the host of the environment variable VITE_OWNTONE_URL
          */
         const url = new URL(import.meta.env.VITE_OWNTONE_URL)
-        wsUrl = `${protocol}${url.hostname}:${this.$store.state.config.websocket_port}`
+        wsUrl = `${protocol}${url.hostname}:${this.configurationStore.websocket_port}`
       }
 
       const socket = new ReconnectingWebSocket(wsUrl, 'notify', {
@@ -267,59 +292,58 @@ export default {
     },
     update_lastfm() {
       webapi.lastfm().then(({ data }) => {
-        this.$store.commit(types.UPDATE_LASTFM, data)
+        this.servicesStore.lastfm = data
       })
     },
     update_library_stats() {
       webapi.library_stats().then(({ data }) => {
-        this.$store.commit(types.UPDATE_LIBRARY_STATS, data)
+        this.libraryStore.$state = data
       })
       webapi.library_count('scan_kind is rss').then(({ data }) => {
-        this.$store.commit(types.UPDATE_LIBRARY_RSS_COUNT, data)
+        this.libraryStore.rss = data
       })
     },
     update_lyrics() {
-      const track = this.$store.getters.now_playing
-      if (track && track.track_id) {
+      const track = this.queueStore.current
+      if (track?.track_id) {
         webapi.library_track(track.track_id).then(({ data }) => {
-          this.$store.commit(types.UPDATE_LYRICS, data.lyrics)
+          this.lyricsStore.lyrics = data.lyrics
         })
       } else {
-        this.$store.commit(types.UPDATE_LYRICS)
+        this.lyricsStore.$reset()
       }
     },
     update_outputs() {
       webapi.outputs().then(({ data }) => {
-        this.$store.commit(types.UPDATE_OUTPUTS, data.outputs)
+        this.outputsStore.outputs = data.outputs
       })
     },
     update_pairing() {
       webapi.pairing().then(({ data }) => {
-        this.$store.commit(types.UPDATE_PAIRING, data)
+        this.remotesStore.$state = data
         this.pairing_active = data.active
       })
     },
     update_player_status() {
       webapi.player_status().then(({ data }) => {
-        this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
+        this.playerStore.$state = data
         this.update_lyrics()
       })
     },
     update_queue() {
       webapi.queue().then(({ data }) => {
-        this.$store.commit(types.UPDATE_QUEUE, data)
+        this.queueStore.$state = data
         this.update_lyrics()
       })
     },
     update_settings() {
       webapi.settings().then(({ data }) => {
-        this.$store.commit(types.UPDATE_SETTINGS, data)
+        this.settingsStore.$state = data
       })
     },
     update_spotify() {
       webapi.spotify().then(({ data }) => {
-        this.$store.commit(types.UPDATE_SPOTIFY, data)
-
+        this.servicesStore.spotify = data
         if (this.token_timer_id > 0) {
           window.clearTimeout(this.token_timer_id)
           this.token_timer_id = 0

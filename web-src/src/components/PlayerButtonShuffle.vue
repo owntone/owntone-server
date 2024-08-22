@@ -10,6 +10,7 @@
 </template>
 
 <script>
+import { usePlayerStore } from '@/stores/player'
 import webapi from '@/webapi'
 
 export default {
@@ -17,6 +18,12 @@ export default {
 
   props: {
     icon_size: { default: 16, type: Number }
+  },
+
+  setup() {
+    return {
+      playerStore: usePlayerStore()
+    }
   },
 
   computed: {
@@ -27,7 +34,7 @@ export default {
       return 'shuffle-disabled'
     },
     is_shuffle() {
-      return this.$store.state.player.shuffle
+      return this.playerStore.shuffle
     }
   },
 

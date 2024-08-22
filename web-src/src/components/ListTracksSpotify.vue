@@ -26,7 +26,7 @@
         <h2 v-if="!item.is_playable" class="subtitle is-7">
           (<span v-text="$t('list.spotify.not-playable-track')" />
           <span
-            v-if="item.restrictions && item.restrictions.reason"
+            v-if="item.restrictions?.reason"
             v-text="
               $t('list.spotify.restriction-reason', {
                 reason: item.restrictions.reason

@@ -7,10 +7,10 @@
           :artist="track.artist"
           :album="track.album"
           class="is-clickable fd-has-shadow fd-cover-big-image"
-          :class="{ 'is-masked': lyrics_visible }"
+          :class="{ 'is-masked': lyricsStore.pane }"
           @click="open_dialog(track)"
         />
-        <lyrics-pane v-if="lyrics_visible" />
+        <lyrics-pane v-if="lyricsStore.pane" />
         <control-slider
           v-model:value="track_progress"
           class="mt-5"
@@ -34,9 +34,9 @@
         />
         <p v-if="track.album" class="subtitle is-6" v-text="track.album" />
         <p
-          v-if="filepath"
+          v-if="settingsStore.show_filepath_now_playing"
           class="subtitle is-6 has-text-grey"
-          v-text="filepath"
+          v-text="track.path"
         />
       </div>
     </div>
@@ -55,12 +55,15 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ControlSlider from '@/components/ControlSlider.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import LyricsPane from '@/components/LyricsPane.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import { mdiCancel } from '@mdi/js'
+import { useLyricsStore } from '@/stores/lyrics'
+import { usePlayerStore } from '@/stores/player'
+import { useQueueStore } from '@/stores/queue'
+import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 const INTERVAL = 1000
@@ -72,6 +75,15 @@ export default {
     CoverArtwork,
     LyricsPane,
     ModalDialogQueueItem
+  },
+
+  setup() {
+    return {
+      lyricsStore: useLyricsStore(),
+      playerStore: usePlayerStore(),
+      queueStore: useQueueStore(),
+      settingsStore: useSettingsStore()
+    }
   },
 
   data() {
@@ -87,11 +99,12 @@ export default {
 
   computed: {
     composer() {
-      if (this.setting_show_composer_now_playing) {
+      if (this.settingsStore.show_composer_now_playing) {
+        const genres = this.settingsStore.show_composer_for_genre
         if (
-          !this.setting_show_composer_for_genre ||
+          !genres ||
           (this.track.genre &&
-            this.setting_show_composer_for_genre
+            genres
               .toLowerCase()
               .split(',')
               .findIndex(
@@ -104,42 +117,21 @@ export default {
       }
       return null
     },
-    filepath() {
-      if (this.setting_show_filepath_now_playing) {
-        return this.track.path
-      }
-      return null
-    },
     is_live() {
       return this.track.length_ms === 0
     },
-    lyrics_visible() {
-      return this.$store.state.lyrics.pane
-    },
-    player() {
-      return this.$store.state.player
-    },
-    setting_show_composer_for_genre() {
-      return this.$store.getters.setting_show_composer_for_genre
-    },
-    setting_show_composer_now_playing() {
-      return this.$store.getters.setting_show_composer_now_playing
-    },
-    setting_show_filepath_now_playing() {
-      return this.$store.getters.setting_show_filepath_now_playing
-    },
     track() {
-      return this.$store.getters.now_playing
+      return this.queueStore.current
     },
     track_elapsed_time() {
       return this.$filters.durationInHours(this.track_progress * INTERVAL)
     },
     track_progress: {
       get() {
-        return Math.floor(this.player.item_progress_ms / INTERVAL)
+        return Math.floor(this.playerStore.item_progress_ms / INTERVAL)
       },
       set(value) {
-        this.player.item_progress_ms = value * INTERVAL
+        this.playerStore.item_progress_ms = value * INTERVAL
       }
     },
     track_progress_max() {
@@ -153,12 +145,12 @@ export default {
   },
 
   watch: {
-    player() {
+    playerStore() {
       if (this.interval_id > 0) {
         window.clearTimeout(this.interval_id)
         this.interval_id = 0
       }
-      if (this.player.state === 'play') {
+      if (this.playerStore.state === 'play') {
         this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
     }
@@ -166,8 +158,8 @@ export default {
 
   created() {
     webapi.player_status().then(({ data }) => {
-      this.$store.commit(types.UPDATE_PLAYER_STATUS, data)
-      if (this.player.state === 'play') {
+      this.playerStore.$state = data
+      if (this.playerStore.state === 'play') {
         this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
     })

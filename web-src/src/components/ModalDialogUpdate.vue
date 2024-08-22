@@ -48,8 +48,9 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ModalDialog from '@/components/ModalDialog.vue'
+import { useLibraryStore } from '@/stores/library'
+import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
@@ -57,6 +58,13 @@ export default {
   components: { ModalDialog },
   props: { show: Boolean },
   emits: ['close'],
+
+  setup() {
+    return {
+      libraryStore: useLibraryStore(),
+      servicesStore: useServicesStore()
+    }
+  },
 
   data() {
     return {
@@ -66,23 +74,23 @@ export default {
 
   computed: {
     library() {
-      return this.$store.state.library
+      return this.libraryStore.$state
     },
 
     rss() {
-      return this.$store.state.rss_count
+      return this.libraryStore.rss
     },
 
     spotify_enabled() {
-      return this.$store.state.spotify.webapi_token_valid
+      return this.servicesStore.spotify.webapi_token_valid
     },
 
     update_dialog_scan_kind: {
       get() {
-        return this.$store.state.update_dialog_scan_kind
+        return this.library.update_dialog_scan_kind
       },
       set(value) {
-        this.$store.commit(types.UPDATE_DIALOG_SCAN_KIND, value)
+        this.library.update_dialog_scan_kind = value
       }
     }
   },

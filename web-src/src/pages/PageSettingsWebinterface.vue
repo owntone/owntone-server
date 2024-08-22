@@ -111,7 +111,7 @@
         <settings-textfield
           category="webinterface"
           name="show_composer_for_genre"
-          :disabled="!setting_show_composer_now_playing"
+          :disabled="!settingsStore.show_composer_now_playing"
           :placeholder="$t('page.settings.general.genres')"
         >
           <template #label>
@@ -169,6 +169,7 @@ import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
 import SettingsIntfield from '@/components/SettingsIntfield.vue'
 import SettingsTextfield from '@/components/SettingsTextfield.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
+import { useSettingsStore } from '@/stores/settings'
 
 export default {
   name: 'PageSettingsWebinterface',
@@ -179,6 +180,10 @@ export default {
     SettingsIntfield,
     SettingsTextfield,
     TabsSettings
+  },
+
+  setup() {
+    return { settingsStore: useSettingsStore() }
   },
 
   computed: {
@@ -209,12 +214,6 @@ export default {
           name: this.$t(`language.${item}`)
         }))
       }
-    },
-    setting_show_composer_now_playing() {
-      return this.$store.getters.setting_show_composer_now_playing
-    },
-    setting_show_filepath_now_playing() {
-      return this.$store.getters.setting_show_filepath_now_playing
     }
   }
 }

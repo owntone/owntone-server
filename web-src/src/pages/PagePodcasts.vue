@@ -57,12 +57,13 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
+import { useLibraryStore } from '@/stores/library'
+import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
 const dataObject = {
@@ -94,6 +95,10 @@ export default {
     })
   },
 
+  setup() {
+    return { libraryStore: useLibraryStore(), uiStore: useUIStore() }
+  },
+
   data() {
     return {
       albums: [],
@@ -104,7 +109,7 @@ export default {
 
   computed: {
     rss() {
-      return this.$store.state.rss_count
+      return this.libraryStore.rss
     }
   },
 
@@ -134,8 +139,8 @@ export default {
     },
 
     update_rss() {
-      this.$store.commit(types.UPDATE_DIALOG_SCAN_KIND, 'rss')
-      this.$store.commit(types.SHOW_UPDATE_DIALOG, true)
+      this.libraryStore.update_dialog_scan_kind = 'rss'
+      this.uiStore.show_update_dialog = true
     }
   }
 }

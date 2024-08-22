@@ -9,6 +9,7 @@
 </template>
 
 <script>
+import { useQueueStore } from '@/stores/queue'
 import webapi from '@/webapi'
 
 export default {
@@ -19,7 +20,7 @@ export default {
 
   computed: {
     disabled() {
-      return !this.$store.state.queue || this.$store.state.queue.count <= 0
+      return useQueueStore()?.count <= 0
     }
   },
 

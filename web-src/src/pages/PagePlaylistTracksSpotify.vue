@@ -54,7 +54,7 @@ import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
-import store from '@/store'
+import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
@@ -62,12 +62,12 @@ const PAGE_SIZE = 50
 const dataObject = {
   load(to) {
     const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(store.state.spotify.webapi_token)
+    spotifyApi.setAccessToken(useServicesStore().spotify.webapi_token)
     return Promise.all([
       spotifyApi.getPlaylist(to.params.id),
       spotifyApi.getPlaylistTracks(to.params.id, {
         limit: PAGE_SIZE,
-        market: store.state.spotify.webapi_country,
+        market: useServicesStore().state.spotify.webapi_country,
         offset: 0
       })
     ])
@@ -95,6 +95,10 @@ export default {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
+  },
+
+  setup() {
+    return { servicesStore: useServicesStore() }
   },
 
   data() {
@@ -128,11 +132,11 @@ export default {
     },
     load_next({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
+      spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
       spotifyApi
         .getPlaylistTracks(this.playlist.id, {
           limit: PAGE_SIZE,
-          market: store.state.spotify.webapi_country,
+          market: this.servicesStore.spotify.webapi_country,
           offset: this.offset
         })
         .then((data) => {

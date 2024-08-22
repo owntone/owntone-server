@@ -10,6 +10,7 @@
 </template>
 
 <script>
+import { usePlayerStore } from '@/stores/player'
 import webapi from '@/webapi'
 
 export default {
@@ -18,9 +19,15 @@ export default {
     icon_size: { default: 16, type: Number }
   },
 
+  setup() {
+    return {
+      playerStore: usePlayerStore()
+    }
+  },
+
   computed: {
     is_consume() {
-      return this.$store.state.player.consume
+      return this.playerStore.consume
     }
   },
 

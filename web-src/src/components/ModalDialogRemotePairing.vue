@@ -53,12 +53,17 @@
 </template>
 
 <script>
+import { useRemotesStore } from '@/stores/remotes'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogRemotePairing',
   props: { show: Boolean },
   emits: ['close'],
+
+  setup() {
+    return { remoteStore: useRemotesStore() }
+  },
 
   data() {
     return {
@@ -68,7 +73,7 @@ export default {
 
   computed: {
     pairing() {
-      return this.$store.state.pairing
+      return this.remoteStore.pairing
     }
   },
 

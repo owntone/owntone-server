@@ -5,12 +5,16 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
+import { useUIStore } from '@/stores/ui'
 
 export default {
   name: 'NavbarItemLink',
   props: {
     to: { required: true, type: Object }
+  },
+
+  setup() {
+    return { uiStore: useUIStore() }
   },
 
   computed: {
@@ -21,11 +25,11 @@ export default {
 
   methods: {
     open() {
-      if (this.$store.state.show_burger_menu) {
-        this.$store.commit(types.SHOW_BURGER_MENU, false)
+      if (this.uiStore.show_burger_menu) {
+        this.uiStore.show_burger_menu = false
       }
-      if (this.$store.state.show_player_menu) {
-        this.$store.commit(types.SHOW_PLAYER_MENU, false)
+      if (this.uiStore.show_player_menu) {
+        this.uiStore.show_player_menu = false
       }
       this.$router.push(this.to)
     }

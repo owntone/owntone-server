@@ -10,10 +10,18 @@
 </template>
 
 <script>
+import { useLyricsStore } from '@/stores/lyrics'
+
 export default {
   name: 'PlayerButtonLyrics',
   props: {
     icon_size: { default: 16, type: Number }
+  },
+
+  setup() {
+    return {
+      lyricsStore: useLyricsStore()
+    }
   },
 
   computed: {
@@ -21,13 +29,13 @@ export default {
       return this.is_active ? 'script-text-play' : 'script-text-outline'
     },
     is_active() {
-      return this.$store.state.lyrics.pane
+      return this.lyricsStore.pane
     }
   },
 
   methods: {
     toggle_lyrics() {
-      this.$store.state.lyrics.pane = !this.$store.state.lyrics.pane
+      this.lyricsStore.pane = !this.lyricsStore.pane
     }
   }
 }

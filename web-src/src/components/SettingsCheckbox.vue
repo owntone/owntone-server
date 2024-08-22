@@ -22,6 +22,7 @@
 </template>
 
 <script>
+import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 export default {
@@ -29,6 +30,12 @@ export default {
   props: {
     category: { required: true, type: String },
     name: { required: true, type: String }
+  },
+
+  setup() {
+    return {
+      settingsStore: useSettingsStore()
+    }
   },
 
   data() {
@@ -55,7 +62,7 @@ export default {
       return this.statusUpdate === 'success'
     },
     setting() {
-      const setting = this.$store.getters.setting(this.category, this.name)
+      const setting = this.settingsStore.setting(this.category, this.name)
       if (!setting) {
         return {
           category: this.category,
@@ -84,7 +91,7 @@ export default {
       webapi
         .settings_update(this.category, setting)
         .then(() => {
-          this.$store.dispatch('update_setting', setting)
+          this.settingsStore.update(setting)
           this.statusUpdate = 'success'
         })
         .catch(() => {

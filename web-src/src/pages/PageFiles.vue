@@ -43,6 +43,7 @@ import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
+import { useConfigurationStore } from '@/stores/configuration'
 import webapi from '@/webapi'
 
 const dataObject = {
@@ -57,8 +58,8 @@ const dataObject = {
       vm.directories = response.data.directories.map((directory) =>
         vm.transform(directory.path)
       )
-    } else if (vm.$store.state.config.directories) {
-      vm.directories = vm.$store.state.config.directories.map((path) =>
+    } else if (useConfigurationStore().directories) {
+      vm.directories = useConfigurationStore().directories.map((path) =>
         vm.transform(path)
       )
     } else {
@@ -94,6 +95,12 @@ export default {
       dataObject.set(this, response)
       next()
     })
+  },
+
+  setup() {
+    return {
+      configurationStore: useConfigurationStore()
+    }
   },
 
   data() {

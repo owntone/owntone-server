@@ -9,6 +9,8 @@
 </template>
 
 <script>
+import { usePlayerStore } from '@/stores/player'
+import { useQueueStore } from '@/stores/queue'
 import webapi from '@/webapi'
 
 export default {
@@ -18,23 +20,32 @@ export default {
     seek_ms: { required: true, type: Number }
   },
 
+  setup() {
+    return {
+      playerStore: usePlayerStore(),
+      queueStore: useQueueStore()
+    }
+  },
+
   computed: {
     disabled() {
       return (
-        !this.$store.state.queue ||
-        this.$store.state.queue.count <= 0 ||
+        this.queueStore?.count <= 0 ||
         this.is_stopped ||
-        this.now_playing.data_kind === 'pipe'
+        this.current.data_kind === 'pipe'
       )
     },
     is_stopped() {
-      return this.$store.state.player.state === 'stop'
+      return this.player.state === 'stop'
     },
-    now_playing() {
-      return this.$store.getters.now_playing
+    current() {
+      return this.queueStore.current
+    },
+    player() {
+      return this.playerStore
     },
     visible() {
-      return ['podcast', 'audiobook'].includes(this.now_playing.media_kind)
+      return ['podcast', 'audiobook'].includes(this.current.media_kind)
     }
   },
 

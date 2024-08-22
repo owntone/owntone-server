@@ -54,14 +54,19 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
+import { useServicesStore } from '@/stores/services'
 
 export default {
   name: 'PageSettingsArtwork',
   components: { ContentWithHeading, SettingsCheckbox, TabsSettings },
 
+  setup() {
+    return { servicesStore: useServicesStore() }
+  },
+
   computed: {
     spotify() {
-      return this.$store.state.spotify
+      return this.servicesStore.spotify
     }
   }
 }

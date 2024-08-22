@@ -56,15 +56,15 @@ import CoverArtwork from '@/components/CoverArtwork.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
-import store from '@/store'
+import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
     const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(store.state.spotify.webapi_token)
+    spotifyApi.setAccessToken(useServicesStore().spotify.webapi_token)
     return spotifyApi.getAlbum(to.params.id, {
-      market: store.state.spotify.webapi_country
+      market: useServicesStore().spotify.webapi_country
     })
   },
 
@@ -86,6 +86,12 @@ export default {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
+  },
+
+  setup() {
+    return {
+      servicesStore: useServicesStore()
+    }
   },
 
   data() {

@@ -14,7 +14,7 @@
       <h1
         class="title is-6"
         :class="{
-          'has-text-primary': item.id === state.item_id,
+          'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next
         }"
         v-text="item.title"
@@ -22,18 +22,18 @@
       <h2
         class="subtitle is-7 has-text-weight-bold"
         :class="{
-          'has-text-primary': item.id === state.item_id,
+          'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next,
-          'has-text-grey': is_next && item.id !== state.item_id
+          'has-text-grey': is_next && item.id !== player.item_id
         }"
         v-text="item.artist"
       />
       <h2
         class="subtitle is-7"
         :class="{
-          'has-text-primary': item.id === state.item_id,
+          'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next,
-          'has-text-grey': is_next && item.id !== state.item_id
+          'has-text-grey': is_next && item.id !== player.item_id
         }"
         v-text="item.album"
       />
@@ -45,6 +45,7 @@
 </template>
 
 <script>
+import { usePlayerStore } from '@/stores/player'
 import webapi from '@/webapi'
 
 export default {
@@ -57,12 +58,18 @@ export default {
     show_only_next_items: Boolean
   },
 
+  setup() {
+    return {
+      playerStore: usePlayerStore()
+    }
+  },
+
   computed: {
     is_next() {
       return this.current_position < 0 || this.position >= this.current_position
     },
-    state() {
-      return this.$store.state.player
+    player() {
+      return this.playerStore
     }
   },
 

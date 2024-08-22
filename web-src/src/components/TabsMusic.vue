@@ -113,12 +113,18 @@
 </template>
 
 <script>
+import { useServicesStore } from '@/stores/services'
+
 export default {
   name: 'TabsMusic',
 
+  setup() {
+    return { servicesStore: useServicesStore() }
+  },
+
   computed: {
     spotify_enabled() {
-      return this.$store.state.spotify.webapi_token_valid
+      return this.servicesStore.spotify.webapi_token_valid
     }
   }
 }

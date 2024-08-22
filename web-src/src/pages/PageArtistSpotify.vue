@@ -52,7 +52,7 @@ import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
-import store from '@/store'
+import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
@@ -60,13 +60,13 @@ const PAGE_SIZE = 50
 const dataObject = {
   load(to) {
     const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(store.state.spotify.webapi_token)
+    spotifyApi.setAccessToken(useServicesStore().spotify.webapi_token)
     return Promise.all([
       spotifyApi.getArtist(to.params.id),
       spotifyApi.getArtistAlbums(to.params.id, {
         include_groups: 'album,single',
         limit: PAGE_SIZE,
-        market: store.state.spotify.webapi_country,
+        market: useServicesStore().spotify.webapi_country,
         offset: 0
       })
     ])
@@ -96,6 +96,10 @@ export default {
     })
   },
 
+  setup() {
+    return { servicesStore: useServicesStore() }
+  },
+
   data() {
     return {
       albums: [],
@@ -114,7 +118,7 @@ export default {
     },
     load_next({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(this.$store.state.spotify.webapi_token)
+      spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
       spotifyApi
         .getArtistAlbums(this.artist.id, {
           include_groups: 'album,single',

@@ -17,18 +17,26 @@
 </template>
 
 <script>
+import { useNotificationsStore } from '@/stores/notifications'
+
 export default {
   name: 'NotificationList',
 
+  setup() {
+    return {
+      notificationsStore: useNotificationsStore()
+    }
+  },
+
   computed: {
     notifications() {
-      return this.$store.state.notifications.list
+      return this.notificationsStore.list
     }
   },
 
   methods: {
     remove(notification) {
-      this.$store.dispatch('delete_notification', notification)
+      this.notificationsStore.remove(notification)
     }
   }
 }

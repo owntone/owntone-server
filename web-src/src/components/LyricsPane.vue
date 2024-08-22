@@ -31,8 +31,16 @@
 </template>
 
 <script>
+import { useLyricsStore } from '@/stores/lyrics'
+import { usePlayerStore } from '@/stores/player'
+
 export default {
   name: 'LyricsPane',
+
+  setup() {
+    return { lyricsStore: useLyricsStore(), playerStore: usePlayerStore() }
+  },
+
   data() {
     /*
      * Non reactive. Used as a cache to speed up the finding of lyrics
@@ -46,14 +54,15 @@ export default {
       autoScrolling: true
     }
   },
+
   computed: {
     is_playing() {
-      return this.player.state === 'play'
+      return this.playerStore.state === 'play'
     },
     lyrics() {
-      const raw = this.$store.state.lyrics.content
+      const raw = this.lyricsStore.content
       const parsed = []
-      if (raw) {
+      if (raw.length > 0) {
         // Parse the lyrics
         const regex =
           /\[(?<minutes>\d+):(?<seconds>\d+)(?:\.(?<hundredths>\d+))?\] ?(?<text>.*)/u
@@ -82,14 +91,11 @@ export default {
       }
       return parsed
     },
-    player() {
-      return this.$store.state.player
-    },
     verse_index() {
       if (this.lyrics.length && this.lyrics[0].time) {
-        const currentTime = this.player.item_progress_ms / 1000,
+        const currentTime = this.playerStore.item_progress_ms / 1000,
           la = this.lyrics,
-          trackChanged = this.player.item_id !== this.lastItemId,
+          trackChanged = this.playerStore.item_id !== this.lastItemId,
           trackSeeked =
             this.lastIndex >= 0 &&
             this.lastIndex < la.length &&
@@ -149,10 +155,10 @@ export default {
   methods: {
     reset_scrolling() {
       // Scroll to the start of the lyrics in all cases
-      if (this.player.item_id !== this.lastItemId && this.$refs.lyrics) {
+      if (this.playerStore.item_id !== this.lastItemId && this.$refs.lyrics) {
         this.$refs.lyrics.scrollTo(0, 0)
       }
-      this.lastItemId = this.player.item_id
+      this.lastItemId = this.playerStore.item_id
       this.lastIndex = -1
     },
     scroll_to_verse() {

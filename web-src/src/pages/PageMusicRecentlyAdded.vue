@@ -17,12 +17,12 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
-import store from '@/store'
+import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    const limit = store.getters.setting_recently_added_limit
+    const limit = useSettingsStore().recently_added_limit
     return webapi.search({
       expression:
         'media_kind is music having track_count > 3 order by time_added desc',
@@ -47,6 +47,12 @@ export default {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
+  },
+
+  setup() {
+    return {
+      settingsStore: useSettingsStore()
+    }
   },
 
   data() {

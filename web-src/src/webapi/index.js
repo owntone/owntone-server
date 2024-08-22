@@ -1,6 +1,7 @@
 import axios from 'axios'
 import i18n from '@/i18n'
-import store from '@/store'
+import { useNotificationsStore } from '@/stores/notifications'
+import { useQueueStore } from '@/stores/queue'
 
 const { t } = i18n.global
 
@@ -8,7 +9,7 @@ axios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.request.status && error.request.responseURL) {
-      store.dispatch('add_notification', {
+      useNotificationsStore().add({
         text: t('server.request-failed', {
           cause: error.request.statusText,
           status: error.request.status,
@@ -316,7 +317,7 @@ export default {
 
   queue_add(uri) {
     return axios.post(`./api/queue/items/add?uris=${uri}`).then((response) => {
-      store.dispatch('add_notification', {
+      useNotificationsStore().add({
         text: t('server.appended-tracks', { count: response.data.count }),
         timeout: 2000,
         type: 'info'
@@ -327,16 +328,15 @@ export default {
 
   queue_add_next(uri) {
     let position = 0
-    if (store.getters.now_playing && store.getters.now_playing.id) {
-      position = store.getters.now_playing.position + 1
+    const { current } = useQueueStore()
+    if (current?.id) {
+      position = current.position + 1
     }
     return axios
       .post(`./api/queue/items/add?uris=${uri}&position=${position}`)
       .then((response) => {
-        store.dispatch('add_notification', {
-          text: t('server.appended-tracks', {
-            count: response.data.count
-          }),
+        useNotificationsStore().add({
+          text: t('server.appended-tracks', { count: response.data.count }),
           timeout: 2000,
           type: 'info'
         })
@@ -352,10 +352,8 @@ export default {
     return axios
       .post('./api/queue/items/add', null, { params: { expression } })
       .then((response) => {
-        store.dispatch('add_notification', {
-          text: t('server.appended-tracks', {
-            count: response.data.count
-          }),
+        useNotificationsStore().add({
+          text: t('server.appended-tracks', { count: response.data.count }),
           timeout: 2000,
           type: 'info'
         })
@@ -367,16 +365,15 @@ export default {
     const params = {}
     params.expression = expression
     params.position = 0
-    if (store.getters.now_playing && store.getters.now_playing.id) {
-      params.position = store.getters.now_playing.position + 1
+    const { current } = useQueueStore()
+    if (current?.id) {
+      params.position = current.position + 1
     }
     return axios
       .post('./api/queue/items/add', null, { params })
       .then((response) => {
-        store.dispatch('add_notification', {
-          text: t('server.appended-tracks', {
-            count: response.data.count
-          }),
+        useNotificationsStore().add({
+          text: t('server.appended-tracks', { count: response.data.count }),
           timeout: 2000,
           type: 'info'
         })
@@ -396,7 +393,7 @@ export default {
     return axios
       .post('./api/queue/save', null, { params: { name } })
       .then((response) => {
-        store.dispatch('add_notification', {
+        useNotificationsStore().add({
           text: t('server.queue-saved', { name }),
           timeout: 2000,
           type: 'info'

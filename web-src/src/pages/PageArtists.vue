@@ -63,13 +63,14 @@
 </template>
 
 <script>
-import * as types from '@/store/mutation_types'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
+import { useServicesStore } from '@/stores/services'
+import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
 const dataObject = {
@@ -96,6 +97,10 @@ export default {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
+  },
+
+  setup() {
+    return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
 
   data() {
@@ -134,30 +139,30 @@ export default {
     },
     hide_singles: {
       get() {
-        return this.$store.state.hide_singles
+        return this.uiStore.hide_singles
       },
       set(value) {
-        this.$store.commit(types.HIDE_SINGLES, value)
+        this.uiStore.hide_singles = value
       }
     },
     hide_spotify: {
       get() {
-        return this.$store.state.hide_spotify
+        return this.uiStore.hide_spotify
       },
       set(value) {
-        this.$store.commit(types.HIDE_SPOTIFY, value)
+        this.uiStore.hide_spotify = value
       }
     },
     selected_grouping_id: {
       get() {
-        return this.$store.state.artists_sort
+        return this.uiStore.artists_sort
       },
       set(value) {
-        this.$store.commit(types.ARTISTS_SORT, value)
+        this.uiStore.artists_sort = value
       }
     },
     spotify_enabled() {
-      return this.$store.state.spotify.webapi_token_valid
+      return this.servicesStore.spotify.webapi_token_valid
     }
   }
 }

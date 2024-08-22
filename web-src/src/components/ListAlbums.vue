@@ -8,7 +8,10 @@
       />
     </div>
     <div v-else class="media is-align-items-center" @click="open(item.item)">
-      <div v-if="show_artwork" class="media-left">
+      <div
+        v-if="settingsStore.show_cover_artwork_in_album_lists"
+        class="media-left"
+      >
         <cover-artwork
           :url="item.item.artwork_url"
           :artist="item.item.artist"
@@ -69,6 +72,7 @@
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 export default {
@@ -79,6 +83,10 @@ export default {
     media_kind: { default: '', type: String }
   },
   emits: ['play-count-changed', 'podcast-deleted'],
+
+  setup() {
+    return { settingsStore: useSettingsStore() }
+  },
 
   data() {
     return {
@@ -92,12 +100,6 @@ export default {
   computed: {
     media_kind_resolved() {
       return this.media_kind || this.selected_item.media_kind
-    },
-    show_artwork() {
-      return this.$store.getters.setting(
-        'webinterface',
-        'show_cover_artwork_in_album_lists'
-      ).value
     }
   },
 
