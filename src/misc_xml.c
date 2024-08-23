@@ -223,7 +223,7 @@ xml_new_node(xml_node *parent, const char *name, const char *val)
   if (!doc)
     goto error;
 
-  node = xmlNewDocNode(doc, NULL, BAD_CAST name, BAD_CAST val);
+  node = xmlNewDocRawNode(doc, NULL, BAD_CAST name, BAD_CAST val);
   if (!node)
     return NULL;
 
