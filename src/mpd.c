@@ -476,14 +476,14 @@ mpd_pars_quoted(char **input)
  * @param argv the array containing the found arguments
  */
 static int
-mpd_parse_args(char *args, int *argc, char **argv)
+mpd_parse_args(char *args, int *argc, char **argv, int argvsz)
 {
   char *input;
 
   input = args;
   *argc = 0;
 
-  while (*input != 0)
+  while (*input != 0 && *argc < argvsz)
     {
       // Ignore whitespace characters
       if (*input == ' ')
@@ -4368,7 +4368,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
       DPRINTF(E_DBG, L_MPD, "MPD message: %s\n", line);
 
       // Split the read line into command name and arguments
-      ret = mpd_parse_args(line, &argc, argv);
+      ret = mpd_parse_args(line, &argc, argv, COMMAND_ARGV_MAX);
       if (ret != 0 || argc <= 0)
 	{
 	  // Error handling for argument parsing error
