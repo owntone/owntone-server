@@ -1340,36 +1340,35 @@ mpd_command_next(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, s
 static int
 mpd_command_pause(struct evbuffer *evbuf, int argc, char **argv, char **errmsg, struct mpd_client_ctx *ctx)
 {
-  int pause;
+  int pause = -1;
   struct player_status status;
   int ret;
 
-  pause = 1;
   if (argc > 1)
     {
       ret = safe_atoi32(argv[1], &pause);
-      if (ret < 0)
+      if (ret < 0 || pause > 1 || pause < 0)
 	{
-	  *errmsg = safe_asprintf("Argument doesn't convert to integer: '%s'", argv[1]);
+	  *errmsg = safe_asprintf("Argument doesn't convert "
+	  			  "to integer or has unsupported value: '%s'",
+	  			  argv[1]);
 	  return ACK_ERROR_ARG;
 	}
     }
-  else
-    {
-      player_get_status(&status);
 
-      if (status.status != PLAY_PLAYING)
-	pause = 0;
-    }
-
-  if (pause == 1)
+  /* ignore pause when in stopped state or when explicit request matches
+   * current state, like MPD */
+  player_get_status(&status);
+  if (status.status == PLAY_PAUSED && pause <= 0)
+    ret = player_playback_start();
+  else if (status.status == PLAY_PLAYING && (pause < 0 || pause == 1))
     ret = player_playback_pause();
   else
-    ret = player_playback_start();
+    ret = 0;
 
   if (ret < 0)
     {
-      *errmsg = safe_asprintf("Failed to pause playback");
+      *errmsg = safe_asprintf("Failed to pause/resume playback");
       return ACK_ERROR_UNKNOWN;
     }
 
