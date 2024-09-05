@@ -3214,8 +3214,7 @@ mpd_command_toggleoutput(struct mpd_command_output *out, struct mpd_command_inpu
  *   outputname: Computer
  *   plugin: alsa
  *   outputenabled: 1
- *   outputvolume: 50
- * https://mpd.readthedocs.io/en/latest/protocol.html#audio-output-devices
+ * https://mpd.readthedocs.io/en/latest/protocol.html#command-outputs
  */
 static void
 speaker_enum_cb(struct player_speaker_info *spk, void *arg)
@@ -3240,13 +3239,11 @@ speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 		      "outputid: %u\n"
 		      "outputname: %s\n"
 		      "plugin: %s\n"
-		      "outputenabled: %d\n"
-		      "outputvolume: %d\n",
+		      "outputenabled: %d\n",
 		      param->nextid,
 		      spk->name,
 		      plugin,
-		      spk->selected,
-		      spk->absvol);
+		      spk->selected);
   param->nextid++;
 }
 
