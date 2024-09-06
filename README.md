@@ -1,11 +1,5 @@
 # OwnTone
 
----
-The Spotify integration is currently broken due to protocol changes at Spotify.
-Only workaround right now is use the dev branch of librespot and pipe the audio
-to OwnTone. 
----
-
 OwnTone is a media server that lets you play audio sources such as local files,
 Spotify, pipe input or internet radio to AirPlay 1 and 2 receivers, Chromecast
 receivers, Roku Soundbridge, a browser or the server’s own sound system. Or you
