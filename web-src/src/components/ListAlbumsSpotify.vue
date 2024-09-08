@@ -1,24 +1,24 @@
 <template>
   <template v-for="item in items" :key="item.id">
-    <div class="media is-align-items-center" @click="open(item)">
+    <div class="media is-align-items-center is-clickable" @click="open(item)">
       <div
         v-if="settingsStore.show_cover_artwork_in_album_lists"
-        class="media-left is-clickable"
+        class="media-left"
       >
         <cover-artwork
           :url="artwork_url(item)"
           :artist="item.artist"
           :album="item.name"
-          class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
+          class="fd-has-shadow fd-cover fd-cover-small-image"
         />
       </div>
-      <div class="media-content is-clickable is-clipped">
-        <h1 class="title is-6" v-text="item.name" />
-        <h2
+      <div class="media-content is-clipped">
+        <p class="title is-6" v-text="item.name" />
+        <p
           class="subtitle is-7 has-text-grey has-text-weight-bold"
           v-text="item.artists[0]?.name"
         />
-        <h2
+        <p
           class="subtitle is-7 has-text-grey"
           v-text="
             [item.album_type, $filters.date(item.release_date)].join(', ')
@@ -76,5 +76,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

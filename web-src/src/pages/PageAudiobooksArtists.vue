@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-audiobooks />
     <content-with-heading>
       <template #options>
@@ -12,7 +12,6 @@
           v-text="$t('page.audiobooks.artists.count', { count: artists.count })"
         />
       </template>
-      <template #heading-right />
       <template #content>
         <list-artists :items="artists" />
       </template>
@@ -62,5 +61,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

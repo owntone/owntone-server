@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
@@ -60,5 +60,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

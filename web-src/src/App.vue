@@ -360,5 +360,3 @@ export default {
   template: '<App/>'
 }
 </script>
-
-<style></style>

@@ -1,9 +1,9 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.general.language')" />
+        <p class="title is-4" v-text="$t('page.settings.general.language')" />
       </template>
       <template #content>
         <control-dropdown v-model:value="locale" :options="locales" />
@@ -11,8 +11,8 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
-          class="title is-4"
+        <p
+          class="title is-4 is-spaced"
           v-text="$t('page.settings.general.navigation-items')"
         />
       </template>
@@ -73,7 +73,7 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
+        <p
           class="title is-4"
           v-text="$t('page.settings.general.album-lists')"
         />
@@ -91,7 +91,7 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
+        <p
           class="title is-4"
           v-text="$t('page.settings.general.now-playing-page')"
         />
@@ -144,7 +144,7 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
+        <p
           class="title is-4"
           v-text="$t('page.settings.general.recently-added-page')"
         />
@@ -218,5 +218,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

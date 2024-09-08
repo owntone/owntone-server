@@ -32,7 +32,7 @@
   </section>
   <tabs-search @search-library="search_library" @search-spotify="search" />
   <template v-for="[type, items] in results" :key="type">
-    <content-with-heading class="pt-0">
+    <content-with-heading>
       <template #heading-left>
         <p class="title is-4" v-text="$t(`page.spotify.search.${type}s`)" />
       </template>
@@ -227,5 +227,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

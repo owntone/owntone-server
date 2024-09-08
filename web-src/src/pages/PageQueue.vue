@@ -51,12 +51,7 @@
         </div>
       </template>
       <template #content>
-        <draggable
-          v-model="queue_items"
-          handle=".handle"
-          item-key="id"
-          @end="move_item"
-        >
+        <draggable v-model="queue_items" item-key="id" @end="move_item">
           <template #item="{ element, index }">
             <list-item-queue-item
               :item="element"
@@ -208,5 +203,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

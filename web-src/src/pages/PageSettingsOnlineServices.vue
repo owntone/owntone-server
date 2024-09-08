@@ -1,9 +1,9 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div
+        <p
           class="title is-4"
           v-text="$t('page.settings.services.spotify.title')"
         />
@@ -62,7 +62,7 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
+        <p
           class="title is-4"
           v-text="$t('page.settings.services.lastfm.title')"
         />
@@ -204,5 +204,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

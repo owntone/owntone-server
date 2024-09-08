@@ -9,7 +9,7 @@
               :url="artwork_url(item)"
               :artist="item.artist"
               :album="item.name"
-              class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
+              class="fd-has-shadow fd-cover fd-cover-normal-image"
               @load="artwork_loaded"
               @error="artwork_error"
             />
@@ -133,5 +133,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

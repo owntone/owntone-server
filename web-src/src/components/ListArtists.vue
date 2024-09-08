@@ -1,7 +1,7 @@
 <template>
   <template v-for="item in items" :key="item.itemId">
-    <div v-if="!item.isItem" class="mt-6 mb-5 py-2">
-      <div class="media-content is-clipped">
+    <div v-if="!item.isItem" class="py-5">
+      <div class="media-content">
         <span
           :id="`index_${item.index}`"
           class="tag is-info is-light is-small has-text-weight-bold"
@@ -11,7 +11,7 @@
     </div>
     <div v-else class="media is-align-items-center" @click="open(item.item)">
       <div class="media-content is-clickable is-clipped">
-        <h1 class="title is-6" v-text="item.item.name" />
+        <p class="title is-6" v-text="item.item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item.item)">
@@ -60,5 +60,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

@@ -2,7 +2,7 @@
   <template v-for="item in items" :key="item.id">
     <div class="media is-align-items-center">
       <div class="media-content is-clickable is-clipped" @click="open(item)">
-        <h1 class="title is-6" v-text="item.name" />
+        <p class="title is-6" v-text="item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">
@@ -45,5 +45,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

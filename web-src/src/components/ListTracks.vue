@@ -1,6 +1,6 @@
 <template>
   <template v-for="item in items" :key="item.itemId">
-    <div v-if="!item.isItem" class="mt-6 mb-5 py-2">
+    <div v-if="!item.isItem" class="py-5">
       <span
         :id="`index_${item.index}`"
         class="tag is-info is-light is-small has-text-weight-bold"
@@ -13,11 +13,13 @@
       :class="{ 'with-progress': show_progress }"
       @click="play(item.item)"
     >
-      <figure v-if="show_icon" class="media-left is-clickable">
-        <mdicon class="icon" name="file-outline" size="16" />
-      </figure>
-      <div class="media-content is-clickable is-clipped">
-        <h1
+      <mdicon
+        v-if="show_icon"
+        class="media-left icon is-clickable"
+        name="file-outline"
+      />
+      <div class="media-content is-clipped">
+        <p
           class="title is-6"
           :class="{
             'has-text-grey':
@@ -25,11 +27,11 @@
           }"
           v-text="item.item.title"
         />
-        <h2
+        <p
           class="subtitle is-7 has-text-grey has-text-weight-bold"
           v-text="item.item.artist"
         />
-        <h2 class="subtitle is-7 has-text-grey" v-text="item.item.album" />
+        <p class="subtitle is-7 has-text-grey" v-text="item.item.album" />
         <progress
           v-if="show_progress && item.item.seek_ms > 0"
           class="progress is-info"
@@ -102,5 +104,9 @@ export default {
 <style scoped>
 .progress {
   height: 0.25rem;
+}
+
+.media.with-progress {
+  margin-top: 0.375rem;
 }
 </style>

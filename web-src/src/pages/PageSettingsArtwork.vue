@@ -1,9 +1,9 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.artwork.artwork')" />
+        <p class="title is-4" v-text="$t('page.settings.artwork.artwork')" />
       </template>
       <template #content>
         <div
@@ -71,5 +71,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

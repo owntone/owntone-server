@@ -3,12 +3,11 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <section v-if="$slots.options">
-            <div ref="options" style="height: 1px" />
+          <section v-if="$slots.options" ref="options">
             <slot name="options" />
-            <nav class="buttons is-centered mt-4 mb-2">
+            <nav class="buttons is-centered">
               <router-link class="button is-small is-white" :to="position">
-                <mdicon class="icon is-small" :name="icon_name" size="16" />
+                <mdicon class="icon" :name="icon" size="16" />
               </router-link>
             </nav>
           </section>
@@ -49,7 +48,7 @@ export default {
     }
   },
   computed: {
-    icon_name() {
+    icon() {
       return this.options_visible ? 'chevron-up' : 'chevron-down'
     },
     position() {
@@ -80,5 +79,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

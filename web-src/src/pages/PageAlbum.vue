@@ -2,10 +2,10 @@
   <div>
     <content-with-hero>
       <template #heading-left>
-        <h1 class="title is-5" v-text="album.name" />
-        <h2 class="subtitle is-6 has-text-link">
+        <p class="title is-5" v-text="album.name" />
+        <p class="subtitle is-6 has-text-link">
           <a class="has-text-link" @click="open_artist" v-text="album.artist" />
-        </h2>
+        </p>
         <div class="buttons fd-is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
@@ -104,5 +104,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

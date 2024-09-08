@@ -5,13 +5,13 @@
   >
     <div v-if="edit_mode" class="media-left">
       <mdicon
-        class="icon has-text-grey fd-is-movable handle"
+        class="icon has-text-grey fd-is-movable"
         name="drag-horizontal"
-        size="16"
+        size="18"
       />
     </div>
     <div class="media-content is-clickable is-clipped" @click="play">
-      <h1
+      <p
         class="title is-6"
         :class="{
           'has-text-primary': item.id === player.item_id,
@@ -19,7 +19,7 @@
         }"
         v-text="item.title"
       />
-      <h2
+      <p
         class="subtitle is-7 has-text-weight-bold"
         :class="{
           'has-text-primary': item.id === player.item_id,
@@ -28,7 +28,7 @@
         }"
         v-text="item.artist"
       />
-      <h2
+      <p
         class="subtitle is-7"
         :class="{
           'has-text-primary': item.id === player.item_id,
@@ -80,5 +80,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

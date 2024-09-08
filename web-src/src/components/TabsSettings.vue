@@ -64,5 +64,3 @@ export default {
   name: 'TabsSettings'
 }
 </script>
-
-<style></style>

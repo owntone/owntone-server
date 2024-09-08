@@ -1,9 +1,11 @@
 <template>
   <div v-if="$route.query.directory" class="media is-align-items-center">
-    <figure class="media-left is-clickable" @click="open_parent">
-      <mdicon class="icon" name="chevron-left" size="16" />
-    </figure>
-    <div class="media-content is-clipped">
+    <mdicon
+      class="icon media-left is-clickable"
+      name="chevron-left"
+      @click="open_parent"
+    />
+    <div class="media-content">
       <nav class="breadcrumb">
         <ul>
           <li v-for="directory in directories" :key="directory.index">
@@ -20,11 +22,9 @@
   </div>
   <template v-for="item in items" :key="item.path">
     <div class="media is-align-items-center" @click="open(item)">
-      <figure class="media-left is-clickable">
-        <mdicon class="icon" name="folder" size="16" />
-      </figure>
+      <mdicon class="media-left is-clickable icon" name="folder" />
       <div class="media-content is-clickable is-clipped">
-        <h1 class="title is-6" v-text="item.name" />
+        <p class="title is-6" v-text="item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">
@@ -90,5 +90,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

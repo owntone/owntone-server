@@ -67,5 +67,3 @@ export default {
   name: 'TabsAudiobooks'
 }
 </script>
-
-<style></style>

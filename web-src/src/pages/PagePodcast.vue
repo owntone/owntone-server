@@ -2,10 +2,10 @@
   <div>
     <content-with-hero>
       <template #heading-left>
-        <h1 class="title is-5" v-text="album.name" />
-        <h2 class="subtitle is-6">
+        <p class="title is-5" v-text="album.name" />
+        <p class="subtitle is-6">
           <br />
-        </h2>
+        </p>
         <div class="buttons fd-is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
@@ -147,5 +147,3 @@ export default {
   }
 }
 </script>
-
-<style></style>
