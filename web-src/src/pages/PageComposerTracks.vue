@@ -5,9 +5,9 @@
         <index-button-list :indices="tracks.indices" />
         <div class="columns">
           <div class="column">
-            <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />
+            <p class="heading" v-text="$t('page.artist.sort.title')" />
             <control-dropdown
-              v-model:value="selected_grouping_id"
+              v-model:value="uiStore.composer_tracks_sort"
               :options="groupings"
             />
           </div>
@@ -130,17 +130,9 @@ export default {
     expression() {
       return `composer is "${this.composer.name}" and media_kind is music`
     },
-    selected_grouping_id: {
-      get() {
-        return this.uiStore.composer_tracks_sort
-      },
-      set(value) {
-        this.uiStore.composer_tracks_sort = value
-      }
-    },
     tracks() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.selected_grouping_id
+        (grouping) => grouping.id === this.uiStore.composer_tracks_sort
       )
       return this.tracks_list.group(options)
     }
@@ -160,5 +152,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

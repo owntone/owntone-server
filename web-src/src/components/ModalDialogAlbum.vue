@@ -9,7 +9,7 @@
               :url="item.artwork_url"
               :artist="item.artist"
               :album="item.name"
-              class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
+              class="fd-has-shadow fd-cover fd-cover-normal-image"
             />
             <p class="title is-4">
               <a class="has-text-link" @click="open" v-text="item.name" />
@@ -184,5 +184,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

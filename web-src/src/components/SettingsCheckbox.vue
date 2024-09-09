@@ -1,15 +1,14 @@
 <template>
   <div class="field">
-    <input
+    <control-switch
       :id="setting.name"
       v-model="setting.value"
-      type="checkbox"
-      class="switch is-rounded mr-2"
-      @change="update_setting"
-    />
-    <label class="pt-0" :for="setting.name">
-      <slot name="label" />
-    </label>
+      @update:model-value="update_setting"
+    >
+      <template #label>
+        <slot name="label" />
+      </template>
+    </control-switch>
     <i
       class="is-size-7"
       :class="{ 'has-text-info': is_success, 'has-text-danger': is_error }"
@@ -22,11 +21,13 @@
 </template>
 
 <script>
+import ControlSwitch from '@/components/ControlSwitch.vue'
 import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 export default {
   name: 'SettingsCheckbox',
+  components: { ControlSwitch },
   props: {
     category: { required: true, type: String },
     name: { required: true, type: String }
@@ -104,5 +105,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

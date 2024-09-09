@@ -87,13 +87,12 @@
               </p>
               <p>
                 <span class="heading" v-text="$t('dialog.track.type')" />
-                <span class="title is-6">
-                  <span
-                    v-text="
-                      `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
-                    "
-                  />
-                </span>
+                <span
+                  class="title is-6"
+                  v-text="
+                    `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
+                  "
+                />
               </p>
               <p v-if="item.samplerate">
                 <span class="heading" v-text="$t('dialog.track.quality')" />
@@ -296,5 +295,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

@@ -4,27 +4,20 @@
       <template #options>
         <div class="columns">
           <div class="column">
-            <p class="heading mb-5" v-text="$t('page.artist.filter')" />
+            <p class="heading" v-text="$t('page.artist.filter')" />
             <div v-if="spotify_enabled" class="field">
-              <div class="control">
-                <input
-                  id="switchHideSpotify"
-                  v-model="hide_spotify"
-                  type="checkbox"
-                  class="switch is-rounded"
-                />
-                <label
-                  for="switchHideSpotify"
-                  v-text="$t('page.artist.hide-spotify')"
-                />
-              </div>
+              <control-switch v-model="uiStore.hide_spotify">
+                <template #label>
+                  <span v-text="$t('page.artist.hide-spotify')" />
+                </template>
+              </control-switch>
               <p class="help" v-text="$t('page.artist.hide-spotify-help')" />
             </div>
           </div>
           <div class="column">
-            <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />
+            <p class="heading" v-text="$t('page.artist.sort.title')" />
             <control-dropdown
-              v-model:value="selected_grouping_id"
+              v-model:value="uiStore.artist_albums_sort"
               :options="groupings"
             />
           </div>
@@ -73,6 +66,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
+import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
@@ -99,6 +93,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlDropdown,
+    ControlSwitch,
     ListAlbums,
     ModalDialogArtist
   },
@@ -136,28 +131,12 @@ export default {
   computed: {
     albums() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.selected_grouping_id
+        (grouping) => grouping.id === this.uiStore.artist_albums_sort
       )
       options.filters = [
-        (album) => !this.hide_spotify || album.data_kind !== 'spotify'
+        (album) => !this.uiStore.hide_spotify || album.data_kind !== 'spotify'
       ]
       return this.albums_list.group(options)
-    },
-    hide_spotify: {
-      get() {
-        return this.uiStore.hide_spotify
-      },
-      set(value) {
-        this.uiStore.hide_spotify = value
-      }
-    },
-    selected_grouping_id: {
-      get() {
-        return this.uiStore.artist_albums_sort
-      },
-      set(value) {
-        this.uiStore.artist_albums_sort = value
-      }
     },
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid
@@ -187,5 +166,3 @@ export default {
   }
 }
 </script>
-
-<style></style>
