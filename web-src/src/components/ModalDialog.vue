@@ -8,7 +8,7 @@
             <p v-if="title" class="title is-4" v-text="title" />
             <slot name="modal-content" />
           </div>
-          <footer class="card-footer is-clipped">
+          <footer class="card-footer">
             <a class="card-footer-item has-text-dark" @click="$emit('close')">
               <mdicon class="icon" name="cancel" size="16" />
               <span class="is-size-7" v-text="close_action" />
@@ -51,8 +51,16 @@ export default {
     show: Boolean,
     title: { required: true, type: String }
   },
-  emits: ['delete', 'close', 'ok']
+  emits: ['delete', 'close', 'ok'],
+  watch: {
+    show() {
+      const { classList } = document.querySelector('html')
+      if (this.show) {
+        classList.add('is-clipped')
+      } else {
+        classList.remove('is-clipped')
+      }
+    }
+  }
 }
 </script>
-
-<style></style>
