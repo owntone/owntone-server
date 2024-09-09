@@ -1,9 +1,9 @@
 <template>
-  <a :class="{ 'is-info': is_consume }" @click="toggle_consume_mode">
+  <a :class="{ 'is-info': is_consume }" @click="toggle">
     <mdicon
       class="icon"
       name="fire"
-      :size="icon_size"
+      size="16"
       :title="$t('player.button.consume')"
     />
   </a>
@@ -14,10 +14,7 @@ import { usePlayerStore } from '@/stores/player'
 import webapi from '@/webapi'
 
 export default {
-  name: 'PlayerButtonConsume',
-  props: {
-    icon_size: { default: 16, type: Number }
-  },
+  name: 'ControlPlayerConsume',
 
   setup() {
     return {
@@ -32,11 +29,9 @@ export default {
   },
 
   methods: {
-    toggle_consume_mode() {
+    toggle() {
       webapi.player_consume(!this.is_consume)
     }
   }
 }
 </script>
-
-<style></style>

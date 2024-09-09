@@ -223,4 +223,14 @@ export default {
 .lyrics div:last-child {
   padding-bottom: calc(25vh - 3rem);
 }
+
+/* Lyrics animation */
+@keyframes pop-color {
+  0% {
+    color: var(--bulma-black);
+  }
+  100% {
+    color: var(--bulma-success);
+  }
+}
 </style>

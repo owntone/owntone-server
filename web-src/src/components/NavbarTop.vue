@@ -6,126 +6,148 @@
     aria-label="main navigation"
   >
     <div class="navbar-brand">
-      <navbar-item-link
+      <control-link
         v-if="settingsStore.show_menu_item_playlists"
+        class="navbar-item"
         :to="{ name: 'playlists' }"
       >
         <mdicon class="icon" name="music-box-multiple" size="16" />
-      </navbar-item-link>
-      <navbar-item-link
+      </control-link>
+      <control-link
         v-if="settingsStore.show_menu_item_music"
+        class="navbar-item"
         :to="{ name: 'music' }"
       >
         <mdicon class="icon" name="music" size="16" />
-      </navbar-item-link>
-      <navbar-item-link
+      </control-link>
+      <control-link
         v-if="settingsStore.show_menu_item_podcasts"
+        class="navbar-item"
         :to="{ name: 'podcasts' }"
       >
         <mdicon class="icon" name="microphone" size="16" />
-      </navbar-item-link>
-      <navbar-item-link
+      </control-link>
+      <control-link
         v-if="settingsStore.show_menu_item_audiobooks"
+        class="navbar-item"
         :to="{ name: 'audiobooks' }"
       >
         <mdicon class="icon" name="book-open-variant" size="16" />
-      </navbar-item-link>
-      <navbar-item-link
+      </control-link>
+      <control-link
         v-if="settingsStore.show_menu_item_radio"
+        class="navbar-item"
         :to="{ name: 'radio' }"
       >
         <mdicon class="icon" name="radio" size="16" />
-      </navbar-item-link>
-      <navbar-item-link
+      </control-link>
+      <control-link
         v-if="settingsStore.show_menu_item_files"
+        class="navbar-item"
         :to="{ name: 'files' }"
       >
         <mdicon class="icon" name="folder-open" size="16" />
-      </navbar-item-link>
-      <navbar-item-link
+      </control-link>
+      <control-link
         v-if="settingsStore.show_menu_item_search"
+        class="navbar-item"
         :to="{ name: searchStore.search_source }"
       >
         <mdicon class="icon" name="magnify" size="16" />
-      </navbar-item-link>
-      <div
-        class="navbar-burger"
-        :class="{ 'is-active': show_burger_menu }"
-        @click="show_burger_menu = !show_burger_menu"
-      >
-        <span />
-        <span />
-        <span />
-      </div>
+      </control-link>
     </div>
-    <div class="navbar-menu" :class="{ 'is-active': show_burger_menu }">
-      <div class="navbar-start" />
-      <div class="navbar-end">
-        <!-- Burger menu entries -->
-        <div
-          class="navbar-item has-dropdown is-hoverable"
-          :class="{ 'is-active': show_settings_menu }"
-          @click="on_click_outside_settings"
-        >
-          <a class="navbar-item is-arrowless is-hidden-touch">
-            <mdicon class="icon" name="menu" size="24" />
-          </a>
-          <div class="navbar-dropdown is-right">
-            <navbar-item-link :to="{ name: 'playlists' }">
-              <mdicon class="icon" name="music-box-multiple" size="16" />
+    <div class="navbar-end">
+      <a
+        class="navbar-item"
+        @click="uiStore.show_burger_menu = !uiStore.show_burger_menu"
+      >
+        <mdicon
+          class="icon"
+          :name="uiStore.show_burger_menu ? 'close' : 'menu'"
+        />
+      </a>
+      <div
+        class="dropdown is-right"
+        :class="{ 'is-active': uiStore.show_burger_menu }"
+      >
+        <div class="dropdown-menu">
+          <div class="dropdown-content">
+            <control-link class="dropdown-item" :to="{ name: 'playlists' }">
+              <span class="icon-text">
+                <mdicon class="icon" name="music-box-multiple" size="16" />
+              </span>
               <b v-text="$t('navigation.playlists')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: 'music' }">
-              <mdicon class="icon" name="music" size="16" />
+            </control-link>
+            <control-link class="dropdown-item" :to="{ name: 'music' }">
+              <span class="icon-text">
+                <mdicon class="icon" name="music" size="16" />
+              </span>
               <b v-text="$t('navigation.music')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: 'music-artists' }">
+            </control-link>
+            <control-link class="dropdown-item" :to="{ name: 'music-artists' }">
               <span class="pl-5" v-text="$t('navigation.artists')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: 'music-albums' }">
+            </control-link>
+            <control-link class="dropdown-item" :to="{ name: 'music-albums' }">
               <span class="pl-5" v-text="$t('navigation.albums')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: 'music-genres' }">
+            </control-link>
+            <control-link class="dropdown-item" :to="{ name: 'music-genres' }">
               <span class="pl-5" v-text="$t('navigation.genres')" />
-            </navbar-item-link>
-            <navbar-item-link
+            </control-link>
+            <control-link
+              class="dropdown-item"
               v-if="spotify_enabled"
               :to="{ name: 'music-spotify' }"
             >
               <span class="pl-5" v-text="$t('navigation.spotify')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: 'podcasts' }">
-              <mdicon class="icon" name="microphone" size="16" />
+            </control-link>
+            <control-link class="dropdown-item" :to="{ name: 'podcasts' }">
+              <span class="icon-text">
+                <mdicon class="icon" name="microphone" size="16" />
+              </span>
               <b v-text="$t('navigation.podcasts')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: 'audiobooks' }">
-              <mdicon class="icon" name="book-open-variant" size="16" />
+            </control-link>
+            <control-link class="dropdown-item" :to="{ name: 'audiobooks' }">
+              <span class="icon-text">
+                <mdicon class="icon" name="book-open-variant" size="16" />
+              </span>
               <b v-text="$t('navigation.audiobooks')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: 'radio' }">
-              <mdicon class="icon" name="radio" size="16" />
+            </control-link>
+            <control-link class="dropdown-item" :to="{ name: 'radio' }">
+              <span class="icon-text">
+                <mdicon class="icon" name="radio" size="16" />
+              </span>
               <b v-text="$t('navigation.radio')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: 'files' }">
-              <mdicon class="icon" name="folder-open" size="16" />
+            </control-link>
+            <control-link class="dropdown-item" :to="{ name: 'files' }">
+              <span class="icon-text">
+                <mdicon class="icon" name="folder-open" size="16" />
+              </span>
               <b v-text="$t('navigation.files')" />
-            </navbar-item-link>
-            <navbar-item-link :to="{ name: searchStore.search_source }">
-              <mdicon class="icon" name="magnify" size="16" />
+            </control-link>
+            <control-link
+              class="dropdown-item"
+              :to="{ name: searchStore.search_source }"
+            >
+              <span class="icon-text">
+                <mdicon class="icon" name="magnify" size="16" />
+              </span>
               <b v-text="$t('navigation.search')" />
-            </navbar-item-link>
+            </control-link>
             <hr class="my-3" />
-            <navbar-item-link :to="{ name: 'settings-webinterface' }">
+            <control-link
+              class="dropdown-item"
+              :to="{ name: 'settings-webinterface' }"
+            >
               {{ $t('navigation.settings') }}
-            </navbar-item-link>
+            </control-link>
             <a
-              class="navbar-item"
+              class="dropdown-item"
               @click.stop.prevent="open_update_dialog()"
               v-text="$t('navigation.update-library')"
             />
-            <navbar-item-link :to="{ name: 'about' }">
+            <control-link class="dropdown-item" :to="{ name: 'about' }">
               {{ $t('navigation.about') }}
-            </navbar-item-link>
+            </control-link>
           </div>
         </div>
       </div>
@@ -139,7 +161,7 @@
 </template>
 
 <script>
-import NavbarItemLink from '@/components/NavbarItemLink.vue'
+import ControlLink from '@/components/ControlLink.vue'
 import { useSearchStore } from '@/stores/search'
 import { useServicesStore } from '@/stores/services'
 import { useSettingsStore } from '@/stores/settings'
@@ -147,7 +169,7 @@ import { useUIStore } from '@/stores/ui'
 
 export default {
   name: 'NavbarTop',
-  components: { NavbarItemLink },
+  components: { ControlLink },
 
   setup() {
     return {
@@ -165,22 +187,6 @@ export default {
   },
 
   computed: {
-    show_burger_menu: {
-      get() {
-        return this.uiStore.show_burger_menu
-      },
-      set(value) {
-        this.uiStore.show_burger_menu = value
-      }
-    },
-    show_update_dialog: {
-      get() {
-        return this.uiStore.show_update_dialog
-      },
-      set(value) {
-        this.uiStore.show_update_dialog = value
-      }
-    },
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid
     },
@@ -203,12 +209,10 @@ export default {
       this.show_settings_menu = !this.show_settings_menu
     },
     open_update_dialog() {
-      this.show_update_dialog = true
+      this.uiStore.show_update_dialog = true
       this.show_settings_menu = false
-      this.show_burger_menu = false
+      this.uiStore.show_burger_menu = false
     }
   }
 }
 </script>
-
-<style></style>

@@ -1,10 +1,10 @@
 <template>
-  <a :class="{ 'is-info': !is_repeat_off }" @click="toggle_repeat_mode">
+  <a :class="{ 'is-info': !is_repeat_off }" @click="toggle">
     <mdicon
       class="icon"
-      :name="icon_name"
-      :size="icon_size"
-      :title="$t(`player.button.${icon_name}`)"
+      :name="icon"
+      :size="16"
+      :title="$t(`player.button.${icon}`)"
     />
   </a>
 </template>
@@ -14,19 +14,14 @@ import { usePlayerStore } from '@/stores/player'
 import webapi from '@/webapi'
 
 export default {
-  name: 'PlayerButtonRepeat',
-  props: {
-    icon_size: { default: 16, type: Number }
-  },
-
+  name: 'ControlPlayerRepeat',
   setup() {
     return {
       playerStore: usePlayerStore()
     }
   },
-
   computed: {
-    icon_name() {
+    icon() {
       if (this.is_repeat_all) {
         return 'repeat'
       } else if (this.is_repeat_single) {
@@ -46,7 +41,7 @@ export default {
   },
 
   methods: {
-    toggle_repeat_mode() {
+    toggle() {
       if (this.is_repeat_all) {
         webapi.player_repeat('single')
       } else if (this.is_repeat_single) {
@@ -58,5 +53,3 @@ export default {
   }
 }
 </script>
-
-<style></style>
