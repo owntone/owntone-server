@@ -94,8 +94,8 @@
               <span class="pl-5" v-text="$t('navigation.genres')" />
             </control-link>
             <control-link
-              class="dropdown-item"
               v-if="spotify_enabled"
+              class="dropdown-item"
               :to="{ name: 'music-spotify' }"
             >
               <span class="pl-5" v-text="$t('navigation.spotify')" />
