@@ -844,6 +844,7 @@ free_query_params(struct query_params *qp, int content_only)
   free(qp->filter);
   free(qp->having);
   free(qp->order);
+  free(qp->group);
 
   if (!content_only)
     free(qp);
@@ -5291,7 +5292,9 @@ queue_enum_start(struct query_params *qp)
 
   qp->stmt = NULL;
 
-  if (qp->sort)
+  if (qp->order)
+    orderby = qp->order;
+  else if (qp->sort)
     orderby = sort_clause[qp->sort];
   else
     orderby = sort_clause[S_POS];
