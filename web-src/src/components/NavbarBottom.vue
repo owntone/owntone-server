@@ -45,7 +45,7 @@
         class="dropdown is-up is-right"
         :class="{ 'is-active': uiStore.show_player_menu }"
       >
-        <div class="dropdown-menu" role="menu">
+        <div class="dropdown-menu">
           <div class="dropdown-content">
             <div class="dropdown-item">
               <control-main-volume />

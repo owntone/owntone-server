@@ -1,11 +1,6 @@
 <template>
-  <nav
-    class="navbar is-light is-fixed-top"
-    :style="zindex"
-    role="navigation"
-    aria-label="main navigation"
-  >
-    <div class="navbar-brand">
+  <nav class="navbar is-light is-fixed-top" :style="zindex">
+    <div class="navbar-brand is-flex-grow-1">
       <control-link
         v-if="settingsStore.show_menu_item_playlists"
         class="navbar-item"
@@ -55,10 +50,8 @@
       >
         <mdicon class="icon" name="magnify" size="16" />
       </control-link>
-    </div>
-    <div class="navbar-end">
       <a
-        class="navbar-item"
+        class="navbar-item ml-auto"
         @click="uiStore.show_burger_menu = !uiStore.show_burger_menu"
       >
         <mdicon
@@ -152,6 +145,7 @@
         </div>
       </div>
     </div>
+
     <div
       v-show="show_settings_menu"
       class="is-overlay"
