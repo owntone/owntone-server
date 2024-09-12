@@ -1,6 +1,26 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.10
+	- fix: playlist scanner ignoring lines starting with non-ascii chars
+	- fix: last seconds of a track sometimes being skipped
+	- fix: Apple Music password-based auth
+	- fix: missing file scan when modified multiple times within a second
+	- fix: Roku M1001 crash
+	- fix: speakers changing IP addresses (error "Got RR type A size 16")
+	- fix: playlist rename not registered
+	- fix: problems with DAAP and old dates ("Integer value too large")
+	- fix: compability with ffmpeg 7 (fixes build error)
+	- web UI: many smaller improvements, e.g. sort by release date
+	- web UI: traditional Chinese translation
+	- new: ALAC transcoding for RSP/DAAP streaming
+	- new: ability to save id3 metadata
+	- config: change "trusted_networks" to have new value "lan" as default
+	- config: new option to announce a MPD httpd plugin (stream from server)
+	- config: set ipv6 to disabled by default due to unknown Airplay issue
+	- config: deprecate "cache_path", replaced by "cache_dir"
+	- dependency: libxml2 instead of mxml
+
 version 28.9
 	- web UI improvements:
 		display lyrics metadata
