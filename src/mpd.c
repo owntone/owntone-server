@@ -51,6 +51,10 @@
 #include "player.h"
 #include "remote_pairing.h"
 
+// According to the mpd protocol send "OK MPD <version>\n" to the client, where
+// version is the version of the supported mpd protocol and not the server version
+#define MPD_PROTOCOL_VERSION_OK "OK MPD 0.22.4\n"
+
 /**
  * from MPD source:
  * *
@@ -4751,11 +4755,8 @@ mpd_accept_conn_cb(struct evconnlistener *listener,
 
   client_ctx->binarylimit = MPD_BINARY_SIZE;
 
-  /*
-   * According to the mpd protocol send "OK MPD <version>\n" to the client, where version is the version
-   * of the supported mpd protocol and not the server version.
-   */
-  evbuffer_add(client_ctx->evbuffer, "OK MPD 0.22.4\n", 14);
+  // No zero terminator (newline in the string is terminator)
+  evbuffer_add(client_ctx->evbuffer, MPD_PROTOCOL_VERSION_OK, strlen(MPD_PROTOCOL_VERSION_OK));
 
   DPRINTF(E_INFO, L_MPD, "New mpd client connection accepted\n");
 }
