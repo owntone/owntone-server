@@ -11,17 +11,13 @@
       </a>
       <a
         v-if="delete_action"
-        class="card-footer-item has-background-danger has-text-white has-text-weight-bold"
+        class="card-footer-item has-background-danger"
         @click="$emit('delete')"
       >
         <mdicon class="icon" name="delete" size="16" />
         <span class="is-size-7" v-text="delete_action" />
       </a>
-      <a
-        v-if="ok_action"
-        class="card-footer-item has-background-info has-text-white has-text-weight-bold"
-        @click="$emit('ok')"
-      >
+      <a v-if="ok_action" class="card-footer-item" @click="$emit('ok')">
         <mdicon class="icon" name="check" size="16" />
         <span class="is-size-7" v-text="ok_action" />
       </a>

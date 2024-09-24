@@ -50,17 +50,14 @@
           v-text="$t('page.settings.devices.speaker-pairing-info')"
         />
         <div v-for="output in outputs" :key="output.id">
-          <div class="field">
-            <control-switch
-              :id="output.id"
-              v-model="output.selected"
-              @update:model-value="toggleOutput(output.id)"
-            >
-              <template #label>
-                <span v-text="output.name" />
-              </template>
-            </control-switch>
-          </div>
+          <control-switch
+            v-model="output.selected"
+            @update:model-value="toggleOutput(output.id)"
+          >
+            <template #label>
+              <span v-text="output.name" />
+            </template>
+          </control-switch>
           <form
             v-if="output.needs_auth_key"
             class="mb-5"

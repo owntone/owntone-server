@@ -2,7 +2,7 @@
   <div class="media is-align-items-center pt-0">
     <div class="media-left">
       <a
-        class="button is-white is-small"
+        class="button is-small"
         :class="{ 'has-text-grey-light': !output.selected }"
         @click="toggle"
       >

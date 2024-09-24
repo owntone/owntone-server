@@ -9,8 +9,8 @@
   >
     <template #modal-content>
       <div v-if="!libraryStore.updating">
-        <p class="mb-3" v-text="$t('dialog.update.info')" />
         <div v-if="spotify_enabled || rss.tracks > 0" class="field">
+          <label class="label" v-text="$t('dialog.update.info')" />
           <div class="control">
             <div class="select is-small">
               <select v-model="libraryStore.update_dialog_scan_kind">
@@ -30,13 +30,11 @@
             </div>
           </div>
         </div>
-        <div class="field">
-          <control-switch v-model="rescan_metadata">
-            <template #label>
-              <span v-text="$t('dialog.update.rescan-metadata')" />
-            </template>
-          </control-switch>
-        </div>
+        <control-switch v-model="rescan_metadata">
+          <template #label>
+            <span v-text="$t('dialog.update.rescan-metadata')" />
+          </template>
+        </control-switch>
       </div>
       <div v-else>
         <p class="mb-3" v-text="$t('dialog.update.progress')" />

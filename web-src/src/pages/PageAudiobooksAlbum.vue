@@ -6,7 +6,7 @@
         <p class="subtitle is-6 has-text-link">
           <a class="has-text-link" @click="open_artist" v-text="album.artist" />
         </p>
-        <div class="buttons fd-is-centered-mobile mt-5">
+        <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.audiobooks.album.play')" />

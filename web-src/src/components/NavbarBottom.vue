@@ -18,9 +18,9 @@
         <control-link
           :to="{ name: 'now-playing' }"
           exact
-          class="navbar-item is-expanded is-clipped is-size-7"
+          class="navbar-item is-justify-content-flex-start is-expanded is-clipped is-size-7"
         >
-          <div class="fd-is-text-clipped">
+          <div class="is-text-clipped">
             <strong v-text="current.title" />
             <br />
             <span v-text="current.artist" />
@@ -134,3 +134,11 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.is-text-clipped {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+</style>

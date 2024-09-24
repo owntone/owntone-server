@@ -6,22 +6,24 @@
         <index-button-list :indices="artists.indices" />
         <div class="columns">
           <div class="column">
-            <p class="heading" v-text="$t('page.artists.filter')" />
-            <div class="field">
-              <control-switch v-model="uiStore.hide_singles">
-                <template #label>
-                  <span v-text="$t('page.artists.hide-singles')" />
-                </template>
-              </control-switch>
-              <p class="help" v-text="$t('page.artists.hide-singles-help')" />
-            </div>
+            <p v-text="$t('page.artists.filter')" class="heading" />
+            <control-switch v-model="uiStore.hide_singles">
+              <template #label>
+                <span v-text="$t('page.artists.hide-singles')" />
+              </template>
+              <template #help>
+                <span v-text="$t('page.artists.hide-singles-help')" />
+              </template>
+            </control-switch>
             <div v-if="spotify_enabled" class="field">
               <control-switch v-model="uiStore.hide_spotify">
                 <template #label>
                   <span v-text="$t('page.artists.hide-spotify')" />
                 </template>
+                <template #help>
+                  <span v-text="$t('page.artists.hide-spotify-help')" />
+                </template>
               </control-switch>
-              <p class="help" v-text="$t('page.artists.hide-spotify-help')" />
             </div>
           </div>
           <div class="column">

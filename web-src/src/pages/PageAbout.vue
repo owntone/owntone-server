@@ -5,13 +5,11 @@
         <div class="column is-four-fifths">
           <div class="content">
             <nav class="level">
-              <!-- Left side -->
               <div class="level-left">
                 <div class="level-item">
                   <p class="title is-4" v-text="$t('page.about.library')" />
                 </div>
               </div>
-              <!-- Right side -->
               <div class="level-right">
                 <div v-if="library.updating">
                   <a
@@ -31,7 +29,7 @@
             <div class="media">
               <div
                 class="media-content has-text-weight-bold"
-                v-text="$t('page.about.library')"
+                v-text="$t('page.about.name')"
               />
               <div class="media-right" v-text="configuration.library_name" />
             </div>

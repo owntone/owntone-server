@@ -4,7 +4,7 @@
       <div class="media-content">
         <span
           :id="`index_${item.index}`"
-          class="tag is-info is-light is-small has-text-weight-bold"
+          class="tag is-small has-text-weight-bold"
           v-text="item.index"
         />
       </div>

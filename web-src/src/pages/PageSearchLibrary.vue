@@ -9,7 +9,7 @@
                 <input
                   ref="search_field"
                   v-model="search_query"
-                  class="input is-rounded is-shadowless"
+                  class="input is-rounded"
                   type="text"
                   :placeholder="$t('page.search.placeholder')"
                   autocomplete="off"
@@ -60,7 +60,7 @@
         <nav v-if="show_all_button(items)" class="level">
           <p class="level-item">
             <a
-              class="button is-light is-small is-rounded"
+              class="button is-small is-rounded"
               @click="expand(type)"
               v-text="
                 $t(`page.search.show-${type}s`, items.total, {

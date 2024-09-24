@@ -1,23 +1,23 @@
 <template>
-  <div class="field">
-    <control-switch
-      :id="setting.name"
-      v-model="setting.value"
-      @update:model-value="update_setting"
-    >
-      <template #label>
-        <slot name="label" />
-      </template>
-    </control-switch>
-    <i
-      class="is-size-7"
-      :class="{ 'has-text-info': is_success, 'has-text-danger': is_error }"
-      v-text="info"
-    />
-    <p v-if="$slots['info']" class="help">
-      <slot name="info" />
-    </p>
-  </div>
+  <control-switch v-model="setting.value" @update:model-value="update">
+    <template #label>
+      <slot name="label" />
+    </template>
+    <template #info>
+      <mdicon
+        v-if="isSuccess"
+        class="icon has-text-info"
+        name="check"
+        size="16"
+      />
+      <mdicon
+        v-if="isError"
+        class="icon has-text-danger"
+        name="close"
+        size="16"
+      />
+    </template>
+  </control-switch>
 </template>
 
 <script>
@@ -48,18 +48,10 @@ export default {
   },
 
   computed: {
-    info() {
-      if (this.is_success) {
-        return this.$t('setting.saved')
-      } else if (this.is_error) {
-        return this.$t('setting.not-saved')
-      }
-      return ''
-    },
-    is_error() {
+    isError() {
       return this.statusUpdate === 'error'
     },
-    is_success() {
+    isSuccess() {
       return this.statusUpdate === 'success'
     },
     setting() {
@@ -76,13 +68,13 @@ export default {
   },
 
   methods: {
-    clear_status() {
+    clearStatus() {
       if (this.is_error) {
         this.setting.value = !this.setting.value
       }
       this.statusUpdate = ''
     },
-    update_setting() {
+    update() {
       this.timerId = -1
       const setting = {
         category: this.category,
@@ -99,7 +91,7 @@ export default {
           this.statusUpdate = 'error'
         })
         .finally(() => {
-          this.timerId = window.setTimeout(this.clear_status, this.timerDelay)
+          this.timerId = window.setTimeout(this.clearStatus, this.timerDelay)
         })
     }
   }

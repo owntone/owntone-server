@@ -6,14 +6,13 @@
           <section v-if="$slots.options" ref="options">
             <slot name="options" />
             <nav class="buttons is-centered">
-              <router-link class="button is-small is-white" :to="position">
+              <router-link class="button is-small" :to="position">
                 <mdicon class="icon" :name="icon" size="16" />
               </router-link>
             </nav>
           </section>
-          <div :class="{ 'is-full-height': $slots.options }">
+          <div>
             <nav id="top" class="level is-clipped">
-              <!-- Left side -->
               <div class="level-left is-flex-shrink-1">
                 <div
                   class="level-item is-flex-shrink-1 has-text-centered-mobile"
@@ -23,7 +22,6 @@
                   </div>
                 </div>
               </div>
-              <!-- Right side -->
               <div class="level-right has-text-centered-mobile">
                 <slot name="heading-right" />
               </div>

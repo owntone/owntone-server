@@ -11,12 +11,6 @@
   cursor: move;
 }
 
-.fd-is-text-clipped {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .fd-tabs-section {
   padding-bottom: 0;
   padding-top: 0;
@@ -42,6 +36,11 @@
   > * {
     pointer-events: none;
   }
+}
+
+.navbar-item {
+  width: var(--bulma-navbar-height);
+  justify-content: center;
 }
 
 .fd-cover {
@@ -112,24 +111,16 @@
 
 /* Only scroll content if modal contains a card component */
 .modal-content .card-content {
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - calc(4 * var(--bulma-navbar-height)));
   overflow: auto;
-}
-
-/* Show scrollbar for navbar menu in desktop mode if content exceeds the screen size */
-@include desktop {
-  .navbar-dropdown {
-    max-height: calc(100vh - calc(2 * var(--bulma-navbar-height)) - 2rem);
-    overflow: auto;
-  }
 }
 
 .buttons {
   @include mobile {
-    &.fd-is-centered-mobile {
+    &.is-centered-mobile {
       justify-content: center;
       &:not(.has-addons) {
-        .button:not(.is-fullwidth) {
+        .button {
           margin-left: 0.25rem;
           margin-right: 0.25rem;
         }
@@ -157,7 +148,7 @@
   }
 }
 
-.fd-overlay-fullscreen {
+.overlay-fullscreen {
   @extend .is-overlay;
   z-index: 25;
   background-color: rgba(10, 10, 10, 0.2);
@@ -187,9 +178,9 @@
   box-sizing: border-box;
   border-radius: 50%;
   background: var(--bulma-light);
-  border: 1px solid var(--bulma-grey-light);
+  border: 1px solid var(--bulma-grey-lighter);
   @media (prefers-color-scheme: dark) {
-    background: var(--bulma-grey-light);
+    background: var(--bulma-grey-lighter);
     border: 1px solid var(--bulma-grey-dark);
   }
 }
@@ -209,12 +200,12 @@
   background: linear-gradient(
     90deg,
     var(--bulma-dark) var(--sx),
-    var(--bulma-grey-light) var(--sx)
+    var(--bulma-grey-lighter) var(--sx)
   );
   @media (prefers-color-scheme: dark) {
     background: linear-gradient(
       90deg,
-      var(--bulma-grey-light) var(--sx),
+      var(--bulma-grey-lighter) var(--sx),
       var(--bulma-grey-dark) var(--sx)
     );
   }

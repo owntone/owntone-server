@@ -241,6 +241,7 @@
       "compiled-with": "Compiled with support for {options}.",
       "library": "Library",
       "more": "more",
+      "name": "Name",
       "total-playtime": "Total playtime",
       "tracks": "Tracks",
       "update": "Update",
@@ -407,8 +408,8 @@
       "count": "{count} track|{count} track|{count} tracks",
       "edit": "Edit",
       "hide-previous": "Hide previous",
-      "title": "Queue",
-      "save": "Save"
+      "save": "Save",
+      "title": "Queue"
     },
     "radio": {
       "count": "{count} station|{count} station|{count} stations",
@@ -494,8 +495,7 @@
         "spotify": {
           "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",
           "logged-as": "Logged in as ",
-          "requirements": "You must have a Spotify premium account.",
-          "scopes": "Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
+          "requirements": "You must have a Spotify premium account. Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
           "user": "Access granted for ",
           "authorize": "Authorize Web API access",
           "grant-access": "Grant access to the Spotify Web API",
@@ -570,10 +570,6 @@
       "stop": "Stop",
       "toggle-lyrics": "Toggle lyrics"
     }
-  },
-  "setting": {
-    "not-saved": " (error saving setting)",
-    "saved": " (setting saved)"
   },
   "server": {
     "connection-failed": "Failed to connect to OwnTone server",

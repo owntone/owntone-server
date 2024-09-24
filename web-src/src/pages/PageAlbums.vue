@@ -7,22 +7,25 @@
         <div class="columns">
           <div class="column">
             <p class="heading" v-text="$t('page.albums.filter')" />
-            <div class="field">
-              <control-switch v-model="uiStore.hide_singles">
-                <template #label>
-                  <span v-text="$t('page.albums.hide-singles')" />
-                </template>
-              </control-switch>
-              <p class="help" v-text="$t('page.albums.hide-singles-help')" />
-            </div>
-            <div v-if="spotify_enabled" class="field">
-              <control-switch v-model="uiStore.hide_spotify">
-                <template #label>
-                  <span v-text="$t('page.albums.hide-spotify')" />
-                </template>
-              </control-switch>
-              <p class="help" v-text="$t('page.albums.hide-spotify-help')" />
-            </div>
+            <control-switch v-model="uiStore.hide_singles">
+              <template #label>
+                <span v-text="$t('page.albums.hide-singles')" />
+              </template>
+              <template #help>
+                <span v-text="$t('page.albums.hide-singles-help')" />
+              </template>
+            </control-switch>
+            <control-switch
+              v-if="spotify_enabled"
+              v-model="uiStore.hide_spotify"
+            >
+              <template #label>
+                <span v-text="$t('page.albums.hide-spotify')" />
+              </template>
+              <template #help>
+                <span v-text="$t('page.albums.hide-spotify-help')" />
+              </template>
+            </control-switch>
           </div>
           <div class="column">
             <p class="heading" v-text="$t('page.albums.sort.title')" />

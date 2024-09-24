@@ -10,7 +10,7 @@
             v-text="album.artists[0].name"
           />
         </p>
-        <div class="buttons fd-is-centered-mobile mt-5">
+        <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.spotify.album.shuffle')" />

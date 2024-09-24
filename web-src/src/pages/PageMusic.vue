@@ -12,7 +12,7 @@
         <nav class="level">
           <p class="level-item">
             <router-link
-              class="button is-light is-small is-rounded"
+              class="button is-small is-rounded"
               :to="{ name: 'music-recently-added' }"
             >
               {{ $t('page.music.show-more') }}
@@ -32,7 +32,7 @@
         <nav class="level">
           <p class="level-item">
             <router-link
-              class="button is-light is-small is-rounded"
+              class="button is-small is-rounded"
               :to="{ name: 'music-recently-played' }"
             >
               {{ $t('page.music.show-more') }}

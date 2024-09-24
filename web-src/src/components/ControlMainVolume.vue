@@ -1,7 +1,7 @@
 <template>
   <div class="media is-align-items-center pt-0">
     <div class="media-left">
-      <a class="button is-white is-small" @click="toggle">
+      <a class="button is-small" @click="toggle">
         <mdicon class="icon" :name="icon" />
       </a>
     </div>

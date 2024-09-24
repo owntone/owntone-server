@@ -1,14 +1,22 @@
 <template>
-  <label class="toggle">
-    <input
-      :checked="modelValue"
-      type="checkbox"
-      class="toggle-checkbox is-rounded mr-2"
-      @change="$emit('update:modelValue', !modelValue)"
-    />
-    <div class="toggle-switch"></div>
-    <slot name="label" class="toggle-label" />
-  </label>
+  <div class="field">
+    <label class="toggle">
+      <div class="control is-flex is-align-content-center">
+        <input
+          :checked="modelValue"
+          type="checkbox"
+          class="toggle-checkbox"
+          @change="$emit('update:modelValue', !modelValue)"
+        />
+        <div class="toggle-switch" />
+        <slot name="label" />
+        <slot name="info" />
+      </div>
+    </label>
+    <p v-if="$slots['help']" class="help notification">
+      <slot name="help" />
+    </p>
+  </div>
 </template>
 
 <script>
@@ -29,10 +37,11 @@ export default {
 
 .toggle-switch {
   display: inline-block;
-  background: var(--bulma-grey-light);
+  background: var(--bulma-grey-lighter);
   border-radius: 1rem;
-  width: 2.75rem;
-  height: 1.5rem;
+  min-width: 2.5rem;
+  width: 2.5rem;
+  height: 1.25rem;
   position: relative;
   vertical-align: middle;
   transition: background 0.25s;
@@ -49,18 +58,18 @@ export default {
   width: 1rem;
   height: 1rem;
   position: absolute;
-  top: 0.25rem;
-  left: 0.25rem;
+  top: 0.125rem;
+  left: 0.125rem;
   transition: left 0.25s;
 }
 .toggle:hover .toggle-switch:before {
   background: var(--bulma-white);
 }
 .toggle-checkbox:checked + .toggle-switch {
-  background: var(--bulma-primary);
+  background: var(--bulma-dark);
 }
 .toggle-checkbox:checked + .toggle-switch:before {
-  left: 1.5rem;
+  left: 1.375rem;
 }
 
 .toggle-checkbox {

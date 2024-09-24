@@ -8,7 +8,7 @@
             <input
               ref="url_field"
               v-model="url"
-              class="input is-shadowless"
+              class="input"
               type="url"
               pattern="http[s]?://.+"
               required

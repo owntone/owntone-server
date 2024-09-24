@@ -5,7 +5,6 @@
     <router-view v-slot="{ Component }">
       <component :is="Component" />
     </router-view>
-
     <modal-dialog-remote-pairing
       :show="pairing_active"
       @close="pairing_active = false"
@@ -18,7 +17,7 @@
     <navbar-bottom />
     <div
       v-show="show_burger_menu || show_player_menu"
-      class="fd-overlay-fullscreen"
+      class="overlay-fullscreen"
       @click="show_burger_menu = show_player_menu = false"
     />
   </div>

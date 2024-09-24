@@ -6,13 +6,16 @@
         <p class="subtitle is-6 has-text-link">
           <a class="has-text-link" @click="open_artist" v-text="album.artist" />
         </p>
-        <div class="buttons fd-is-centered-mobile mt-5">
-          <a class="button is-small is-dark is-rounded" @click="play">
+        <div class="buttons is-centered-mobile mt-5">
+          <a
+            class="button has-background-light is-small is-rounded"
+            @click="play"
+          >
             <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.album.shuffle')" />
           </a>
           <a
-            class="button is-small is-light is-rounded"
+            class="button is-small has-background-light is-rounded"
             @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />

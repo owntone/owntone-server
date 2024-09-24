@@ -6,7 +6,7 @@
         <p class="subtitle is-6">
           <br />
         </p>
-        <div class="buttons fd-is-centered-mobile mt-5">
+        <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.podcast.play')" />

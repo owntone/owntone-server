@@ -241,6 +241,7 @@
       "compiled-with": "Compiliert mit Unterstützung von {options}.",
       "library": "Bibliothek",
       "more": "mehr",
+      "name": "Name",
       "total-playtime": "Gesamte Spielzeit",
       "tracks": "Tracks",
       "update": "Neu einlesen",
@@ -407,8 +408,8 @@
       "count": "{count} Track|{count} Track|{count} Tracks",
       "edit": "Bearbeiten",
       "hide-previous": "Vorherige verbergen",
-      "title": "Warteschlange",
-      "save": "Speichern"
+      "save": "Speichern",
+      "title": "Warteschlange"
     },
     "radio": {
       "count": "{count} Station|{count} Station|{count} Stationen",
@@ -494,8 +495,7 @@
         "spotify": {
           "no-support": "OwnTone wurde entweder ohne Unterstützung für Spotify erstellt oder libspotify ist nicht installiert.",
           "logged-as": "Angemeldet als ",
-          "requirements": "Spotify Premium Abo erforderlich.",
-          "scopes": "Zugriff auf die Spotify Web-Api ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: ",
+          "requirements": "Spotify Premium Abo erforderlich. Zugriff auf die Spotify Web-Api ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: ",
           "user": "Zugriff gestattet für ",
           "authorize": "Authorisiere Web-API-Zugriff",
           "grant-access": "Zugriff auf die Spotify Web-API gestatten",
@@ -570,10 +570,6 @@
       "stop": "Wiedergabe stoppen",
       "toggle-lyrics": "Liedtexte anzeigen/verbergen"
     }
-  },
-  "setting": {
-    "not-saved": " (Fehler beim Speichern der Einstellungen)",
-    "saved": " (Einstellungen gesichert)"
   },
   "server": {
     "connection-failed": "Fehler bei Verbindung zum OwnTone-Server",

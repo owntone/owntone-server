@@ -23,10 +23,7 @@
         <mdicon class="icon" name="cancel" size="16" />
         <span class="is-size-7" v-text="$t('dialog.remote-pairing.cancel')" />
       </a>
-      <a
-        class="card-footer-item has-background-info has-text-white has-text-weight-bold"
-        @click="kickoff_pairing"
-      >
+      <a class="card-footer-item" @click="kickoff_pairing">
         <mdicon class="icon" name="cellphone" size="16" />
         <span class="is-size-7" v-text="$t('dialog.remote-pairing.pair')" />
       </a>

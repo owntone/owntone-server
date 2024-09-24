@@ -7,7 +7,7 @@
           <input
             ref="url_field"
             v-model="url"
-            class="input is-shadowless"
+            class="input"
             type="url"
             pattern="http[s]?://.+"
             required
@@ -33,7 +33,7 @@
       </a>
       <a
         :class="{ 'is-disabled': disabled }"
-        class="card-footer-item has-background-info has-text-white has-text-weight-bold"
+        class="card-footer-item"
         @click="add_stream"
       >
         <mdicon class="icon" name="playlist-plus" size="16" />

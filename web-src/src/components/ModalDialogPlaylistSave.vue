@@ -8,7 +8,7 @@
             <input
               ref="playlist_name_field"
               v-model="playlist_name"
-              class="input is-shadowless"
+              class="input"
               type="text"
               pattern=".+"
               required
@@ -34,7 +34,7 @@
       </a>
       <a
         :class="{ 'is-disabled': disabled }"
-        class="card-footer-item has-background-info has-text-white has-text-weight-bold"
+        class="card-footer-item has-text-weight-bold"
         @click="save"
       >
         <mdicon class="icon" name="content-save" size="16" />

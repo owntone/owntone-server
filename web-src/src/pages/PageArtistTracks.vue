@@ -6,14 +6,17 @@
         <div class="columns">
           <div class="column">
             <p class="heading" v-text="$t('page.artist.filter')" />
-            <div v-if="spotify_enabled" class="field">
-              <control-switch v-model="uiStore.hide_spotify">
-                <template #label>
-                  <span v-text="$t('page.artist.hide-spotify')" />
-                </template>
-              </control-switch>
-              <p class="help" v-text="$t('page.artist.hide-spotify-help')" />
-            </div>
+            <control-switch
+              v-if="spotify_enabled"
+              v-model="uiStore.hide_spotify"
+            >
+              <template #label>
+                <span v-text="$t('page.artist.hide-spotify')" />
+              </template>
+              <template #help>
+                <span v-text="$t('page.artist.hide-spotify-help')" />
+              </template>
+            </control-switch>
           </div>
           <div class="column">
             <p class="heading" v-text="$t('page.artist.sort.title')" />
