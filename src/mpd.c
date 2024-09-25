@@ -208,28 +208,11 @@ struct mpd_command
   int wants_num;
 };
 
-struct output
+struct param_output
 {
-  unsigned short shortid;
-  uint64_t id;
-  char *name;
-
-  unsigned selected;
+  struct evbuffer *evbuf;
+  uint32_t last_shortid;
 };
-
-struct output_get_param
-{
-  unsigned short curid;
-  unsigned short shortid;
-  struct output *output;
-};
-
-struct output_outputs_param
-{
-  unsigned short nextid;
-  struct evbuffer *buf;
-};
-
 
 /* ---------------------------------- Globals ------------------------------- */
 
@@ -240,6 +223,7 @@ static struct evhttp *evhttpd;
 static struct evconnlistener *mpd_listener;
 static int mpd_sockfd;
 static bool mpd_plugin_httpd;
+static int mpd_plugin_httpd_shortid = -1;
 
 // Virtual path to the default playlist directory
 static char *default_pl_dir;
@@ -380,16 +364,6 @@ client_ctx_add(void)
   mpd_clients = client_ctx;
 
   return client_ctx;
-}
-
-static void
-free_output(struct output *output)
-{
-  if (!output)
-    return;
-
-  free(output->name);
-  free(output);
 }
 
 /*
@@ -3100,107 +3074,30 @@ mpd_command_binarylimit(struct mpd_command_output *out, struct mpd_command_input
 }
 
 /*
- * Callback function for the 'player_speaker_enumerate' function.
- * Expect a struct output_get_param as argument and allocates a struct output if
- * the shortid of output_get_param matches the given speaker/output spk.
- */
-static void
-output_get_cb(struct player_speaker_info *spk, void *arg)
-{
-  struct output_get_param *param = arg;
-
-  if (!param->output
-      && param->shortid == param->curid)
-    {
-      CHECK_NULL(L_MPD, param->output = calloc(1, sizeof(struct output)));
-
-      param->output->id = spk->id;
-      param->output->shortid = param->shortid;
-      param->output->name = strdup(spk->name);
-      param->output->selected = spk->selected;
-
-      param->curid++;
-
-      DPRINTF(E_DBG, L_MPD, "Output found: shortid %d, id %" PRIu64 ", name '%s', selected %d\n",
-	param->output->shortid, param->output->id, param->output->name, param->output->selected);
-    }
-}
-
-/*
- * Command handler function for 'disableoutput'
- * Expects argument argv[1] to be the id of the speaker to disable.
+ * Command handler function for 'disableoutput', 'enableoutput', 'toggleoutput'
+ * Expects argument argv[1] to be the id of the output.
  */
 static int
-mpd_command_disableoutput(struct mpd_command_output *out, struct mpd_command_input *in, struct mpd_client_ctx *ctx)
+mpd_command_xoutput(struct mpd_command_output *out, struct mpd_command_input *in, struct mpd_client_ctx *ctx)
 {
-  uint32_t num = in->argv_u32val[1];
-  struct output_get_param param = { .shortid = num };
+  const char *action = in->argv[0];
+  uint32_t shortid = in->argv_u32val[1];
+  struct player_speaker_info spk;
   int ret;
 
-  player_speaker_enumerate(output_get_cb, &param);
+  if (shortid == mpd_plugin_httpd_shortid)
+    RETURN_ERROR(ACK_ERROR_ARG, "Output cannot be toggled");
 
-  if (param.output && param.output->selected)
-    {
-      ret = player_speaker_disable(param.output->id);
-      free_output(param.output);
+  ret = player_speaker_get_byindex(&spk, shortid);
+  if (ret < 0)
+    RETURN_ERROR(ACK_ERROR_ARG, "Unknown output");
 
-      if (ret < 0)
-	RETURN_ERROR(ACK_ERROR_UNKNOWN, "Speakers deactivation failed: %d", num);
-    }
+  if ((spk.selected && strcasecmp(action, "enable") == 0) || (!spk.selected && strcasecmp(action, "disable") == 0))
+    return 0; // Nothing to do
 
-  return 0;
-}
-
-/*
- * Command handler function for 'enableoutput'
- * Expects argument argv[1] to be the id of the speaker to enable.
- */
-static int
-mpd_command_enableoutput(struct mpd_command_output *out, struct mpd_command_input *in, struct mpd_client_ctx *ctx)
-{
-  uint32_t num = in->argv_u32val[1];
-  struct output_get_param param = { .shortid = num };
-  int ret;
-
-  player_speaker_enumerate(output_get_cb, &param);
-
-  if (param.output && !param.output->selected)
-    {
-      ret = player_speaker_enable(param.output->id);
-      free_output(param.output);
-
-      if (ret < 0)
-	RETURN_ERROR(ACK_ERROR_UNKNOWN, "Speakers deactivation failed: %d", num);
-    }
-
-  return 0;
-}
-
-/*
- * Command handler function for 'toggleoutput'
- * Expects argument argv[1] to be the id of the speaker to enable/disable.
- */
-static int
-mpd_command_toggleoutput(struct mpd_command_output *out, struct mpd_command_input *in, struct mpd_client_ctx *ctx)
-{
-  uint32_t num = in->argv_u32val[1];
-  struct output_get_param param = { .shortid = num };
-  int ret;
-
-  player_speaker_enumerate(output_get_cb, &param);
-
-  if (param.output)
-    {
-      if (param.output->selected)
-	ret = player_speaker_disable(param.output->id);
-      else
-	ret = player_speaker_enable(param.output->id);
-
-      free_output(param.output);
-
-      if (ret < 0)
-	RETURN_ERROR(ACK_ERROR_UNKNOWN, "Toggle speaker failed: %d", num);
-    }
+  ret = spk.selected ? player_speaker_disable(spk.id) : player_speaker_enable(spk.id);
+  if (ret < 0)
+    RETURN_ERROR(ACK_ERROR_UNKNOWN, "Output error, see log");
 
   return 0;
 }
@@ -3219,8 +3116,7 @@ mpd_command_toggleoutput(struct mpd_command_output *out, struct mpd_command_inpu
 static void
 speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 {
-  struct output_outputs_param *param = arg;
-  struct evbuffer *evbuf = param->buf;
+  struct param_output *param = arg;
   char plugin[sizeof(spk->output_type)];
   char *p;
   char *q;
@@ -3235,16 +3131,17 @@ speaker_enum_cb(struct player_speaker_info *spk, void *arg)
     }
   *q = '\0';
 
-  evbuffer_add_printf(evbuf,
+  evbuffer_add_printf(param->evbuf,
 		      "outputid: %u\n"
 		      "outputname: %s\n"
 		      "plugin: %s\n"
 		      "outputenabled: %d\n",
-		      param->nextid,
+		      spk->index,
 		      spk->name,
 		      plugin,
 		      spk->selected);
-  param->nextid++;
+
+  param->last_shortid = spk->index;
 }
 
 /*
@@ -3254,28 +3151,25 @@ speaker_enum_cb(struct player_speaker_info *spk, void *arg)
 static int
 mpd_command_outputs(struct mpd_command_output *out, struct mpd_command_input *in, struct mpd_client_ctx *ctx)
 {
-  struct output_outputs_param param = { 0 };
+  struct param_output param = { .evbuf = out->evbuf, .last_shortid = -1 };
 
   /* Reference:
    * https://mpd.readthedocs.io/en/latest/protocol.html#audio-output-devices
-   * the ID returned by mpd may change between excutions, so what we do
-   * is simply enumerate the speakers, and for get/set commands we count
-   * ID times to the output referenced. */
-  param.buf = out->evbuf;
-
+   * the ID returned by mpd may change between excutions (!!), so what we do
+   * is simply enumerate the speakers with the speaker index */
   player_speaker_enumerate(speaker_enum_cb, &param);
 
   /* streaming output is not in the speaker list, so add it as pseudo
    * element when configured to do so */
   if (mpd_plugin_httpd)
     {
-      evbuffer_add_printf(out->evbuf,
-		      	  "outputid: %u\n"
-		      	  "outputname: MP3 stream\n"
-		      	  "plugin: httpd\n"
-		      	  "outputenabled: 1\n",
-		      	  param.nextid);
-      param.nextid++;
+      mpd_plugin_httpd_shortid = param.last_shortid + 1;
+      evbuffer_add_printf(param.evbuf,
+                          "outputid: %u\n"
+                          "outputname: MP3 stream\n"
+                          "plugin: httpd\n"
+                          "outputenabled: 1\n",
+                          mpd_plugin_httpd_shortid);
     }
 
   return 0;
@@ -3284,18 +3178,14 @@ mpd_command_outputs(struct mpd_command_output *out, struct mpd_command_input *in
 static int
 outputvolume_set(uint32_t shortid, int volume)
 {
-  struct output_get_param param = { .shortid = shortid };
+  struct player_speaker_info spk;
   int ret;
 
-  player_speaker_enumerate(output_get_cb, &param);
-
-  if (!param.output)
+  ret = player_speaker_get_byindex(&spk, shortid);
+  if (ret < 0)
     return -1;
 
-  ret = player_volume_setabs_speaker(param.output->id, volume);
-
-  free_output(param.output);
-  return ret;
+  return player_volume_setabs_speaker(spk.id, volume);
 }
 
 static int
@@ -3687,9 +3577,9 @@ static struct mpd_command mpd_handlers[] =
     { "binarylimit",                mpd_command_binarylimit,                 2,              MPD_WANTS_NUM_ARG1_UVAL },
 
     // Audio output devices
-    { "disableoutput",              mpd_command_disableoutput,               2,              MPD_WANTS_NUM_ARG1_UVAL },
-    { "enableoutput",               mpd_command_enableoutput,                2,              MPD_WANTS_NUM_ARG1_UVAL },
-    { "toggleoutput",               mpd_command_toggleoutput,                2,              MPD_WANTS_NUM_ARG1_UVAL },
+    { "disableoutput",              mpd_command_xoutput,                     2,              MPD_WANTS_NUM_ARG1_UVAL },
+    { "enableoutput",               mpd_command_xoutput,                     2,              MPD_WANTS_NUM_ARG1_UVAL },
+    { "toggleoutput",               mpd_command_xoutput,                     2,              MPD_WANTS_NUM_ARG1_UVAL },
     { "outputs",                    mpd_command_outputs,                    -1 },
 
     // Custom command outputvolume (not supported by mpd)
