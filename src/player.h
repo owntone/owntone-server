@@ -30,6 +30,7 @@ enum player_seek_mode {
 
 struct player_speaker_info {
   uint64_t id;
+  uint32_t index;
   uint32_t active_remote;
   char name[255];
   char output_type[50];
@@ -105,6 +106,9 @@ player_speaker_get_byactiveremote(struct player_speaker_info *spk, uint32_t acti
 
 int
 player_speaker_get_byaddress(struct player_speaker_info *spk, const char *address);
+
+int
+player_speaker_get_byindex(struct player_speaker_info *spk, uint32_t index);
 
 int
 player_speaker_enable(uint64_t id);
