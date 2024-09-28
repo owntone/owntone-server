@@ -1240,8 +1240,6 @@ httpd_xcode_profile_get(struct httpd_request *hreq)
   if (!hreq->peer_address)
     return XCODE_NONE;
 
-  DPRINTF(E_DBG, L_HTTPD, "Checking if client '%s' is a speaker\n", hreq->peer_address);
-
   // A Roku Soundbridge may also be RCP device/speaker for which the user may
   // have set a prefered streaming format
   ret = player_speaker_get_byaddress(&spk, hreq->peer_address);
