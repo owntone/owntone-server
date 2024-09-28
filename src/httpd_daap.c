@@ -1225,6 +1225,8 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 
   spk_profile = httpd_xcode_profile_get(hreq);
 
+  DPRINTF(E_DBG, L_DAAP, "Speaker check of '%s' (codecs '%s') returned %d\n", hreq->user_agent, accept_codecs, spk_profile);
+
   nsongs = 0;
   while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
