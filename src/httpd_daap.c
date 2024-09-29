@@ -1149,7 +1149,6 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
   const char *accept_codecs;
   const char *tag;
   size_t len;
-  enum transcode_profile spk_profile;
   enum transcode_profile profile;
   struct transcode_metadata_string xcode_metadata;
   struct media_quality quality = { 0 };
@@ -1223,10 +1222,6 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
       accept_codecs = httpd_header_find(hreq->in_headers, "Accept-Codecs");
     }
 
-  spk_profile = httpd_xcode_profile_get(hreq);
-
-  DPRINTF(E_DBG, L_DAAP, "Speaker check of '%s' (codecs '%s') returned %d\n", hreq->user_agent, accept_codecs, spk_profile);
-
   nsongs = 0;
   while ((ret = db_query_fetch_file(&dbmfi, &qp)) == 0)
     {
@@ -1241,9 +1236,6 @@ daap_reply_songlist_generic(struct httpd_request *hreq, int playlist)
 	}
       else if (profile != XCODE_NONE)
 	{
-	  if (spk_profile != XCODE_NONE)
-	    profile = spk_profile;
-
 	  if (safe_atou32(dbmfi.song_length, &len_ms) < 0)
 	    len_ms = 3 * 60 * 1000; // just a fallback default
 
