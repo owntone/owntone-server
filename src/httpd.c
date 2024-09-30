@@ -1237,11 +1237,15 @@ httpd_xcode_profile_get(struct httpd_request *hreq)
 
   // No peer address if the function is called from httpd_daap.c when the DAAP
   // cache is being updated
-  if (!hreq->peer_address)
+  if (!hreq->peer_address || !hreq->user_agent)
     return XCODE_NONE;
 
   // A Roku Soundbridge may also be RCP device/speaker for which the user may
-  // have set a prefered streaming format
+  // have set a prefered streaming format, but in all other cases we don't use
+  // speaker configuration (so caller will let transcode_needed decide)
+  if (strncmp(hreq->user_agent, "Roku", strlen("Roku")) != 0)
+    return XCODE_NONE;
+
   ret = player_speaker_get_byaddress(&spk, hreq->peer_address);
   if (ret < 0)
     return XCODE_NONE;
