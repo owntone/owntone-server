@@ -1,0 +1,55 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+	"name": "Ubuntu",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	// "image": "mcr.microsoft.com/devcontainers/base:jammy"
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+
+	"runArgs": [
+		// Use host network to be able to connect to remote speakers
+		"--network=host",
+		"--env-file", ".devcontainer/devcontainer.env"
+	],
+
+	// Configure tool-specific properties.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"Vue.volar",
+				"ms-vscode.cpptools-extension-pack",
+				"ms-azuretools.vscode-docker",
+				"lokalise.i18n-ally",
+				"esbenp.prettier-vscode"
+			]
+		}
+	},
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {}
+	},
+
+	// Mounts volumes to keep files / state between container rebuilds
+	"mounts": [
+		// Map script folder to install and init additional tools (see "postCreateCommand" and Dockerfile / .bashrc)
+		"source=${localWorkspaceFolder}/.devcontainer/.scripts,target=/scripts,type=bind,consistency=cached",
+		// Persist ~/.bash_history
+		"source=owntone-bashhistory,target=/commandhistory,type=volume",
+		// Persist ~/.local/share to persist state of additionally installed tools (e. g. atuin, zoxide)
+		"source=owntone-localshare,target=/home/vscode/.local/share,type=volume",
+		// Bind mounts for owntone config file and logs, cache, music directories
+		//"source=<path-to-local-logs-dir>,target=/data/logs,type=bind,consistency=cached",
+		//"source=<path-to-local-cache-dir>,target=/data/cache,type=bind,consistency=cached",
+		//"source=<path-to-local-music-dir>,target=/data/music,type=bind,consistency=cached",
+		"source=${localWorkspaceFolder}/.devcontainer/data/devcontainer-owntone.conf,target=/data/conf/owntone.conf,type=bind,consistency=cached"
+	],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "bash /scripts/install-devcontainer-tools.sh",
+
+	// Start dbus and avahi, required when running owntone-server
+	"postStartCommand": "sudo service dbus start ; sudo avahi-daemon -D"
+}

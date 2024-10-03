@@ -1,0 +1,106 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "[server] autoreconf",
+            "type": "shell",
+            "command": "autoreconf -i",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "[server] configure",
+            "type": "shell",
+            "command": "./configure",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "[server] make",
+            "type": "shell",
+            "command": "make",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "[server] scan-build",
+            "type": "shell",
+            "command": "make clean && scan-build --status-bugs -disable-checker deadcode.DeadStores --exclude src/parsers make",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "[server] clean",
+            "type": "shell",
+            "command": "make clean",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "[web] install",
+            "type": "npm",
+            "script": "install",
+            "options": {
+                "cwd": "${workspaceFolder}/web-src"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "[web] build",
+            "type": "npm",
+            "script": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/web-src"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "[web] serve",
+            "type": "npm",
+            "script": "serve",
+            "options": {
+                "cwd": "${workspaceFolder}/web-src"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "[docs] serve",
+            "type": "shell",
+            "command": "mkdocs serve",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "[docs] build",
+            "type": "shell",
+            "command": "mkdocs build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
