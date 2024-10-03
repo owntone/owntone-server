@@ -38,6 +38,7 @@
 #include "logger.h"
 #include "commands.h"
 #include "httpd_internal.h"
+#include "websocket_ev.h"
 
 // #define DEBUG_ALLOC 1
 
@@ -341,7 +342,10 @@ httpd_server_free(httpd_server *server)
     close(server->fd);
 
   if (server->evhttp)
-    evhttp_free(server->evhttp);
+    {
+      websocketev_deinit();
+      evhttp_free(server->evhttp);
+    }
 
   commands_base_free(server->cmdbase);
   free(server);
@@ -374,6 +378,7 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_request_c
     goto error;
 
   evhttp_set_gencb(server->evhttp, gencb_httpd, server);
+  websocketev_init(server->evhttp);
 
   return server;
 
