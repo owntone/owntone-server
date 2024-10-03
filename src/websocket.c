@@ -478,7 +478,11 @@ websocket_init(void)
 
   if (websocket_port <= 0)
     {
+#ifdef HAVE_LIBEVENT22
+      DPRINTF(E_DBG, L_WEB, "Libwebsocket disabled, using libevent websocket instead. To enable it, set websocket_port in config to a valid port number.\n");
+#else
       DPRINTF(E_LOG, L_WEB, "Websocket disabled. To enable it, set websocket_port in config to a valid port number.\n");
+#endif
       return 0;
     }
 
