@@ -1029,7 +1029,7 @@ void
 db_perthread_deinit(void);
 
 int
-db_init(void);
+db_init(char *sqlite_ext_path);
 
 void
 db_deinit(void);
