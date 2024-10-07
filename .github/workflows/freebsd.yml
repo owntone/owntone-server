@@ -1,0 +1,44 @@
+name: FreeBSD
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - 'htdocs/**'
+      - 'web-src/**'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - 'htdocs/**'
+      - 'web-src/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build
+      uses: vmactions/freebsd-vm@v1
+      with:
+        prepare: |
+          pkg install -y gmake autoconf automake libtool pkgconf gettext gperf glib ffmpeg libconfuse libevent libxml2 libgcrypt libunistring libiconv curl libplist libinotify avahi sqlite3 alsa-lib libsodium json-c libwebsockets protobuf-c bison flex
+          pw user add owntone -m -d /usr/local/var/cache/owntone
+
+        run: |
+          autoreconf -vi
+          export CFLAGS="${ARCH} -g -I/usr/local/include -I/usr/include"
+          export LDFLAGS="-L/usr/local/lib -L/usr/lib"
+          ./configure --disable-install-system
+          gmake
+          gmake install
+          mkdir -p /srv/music
+          service dbus onestart
+          service avahi-daemon onestart
+          /usr/local/sbin/owntone -f -t
