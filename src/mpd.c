@@ -72,7 +72,17 @@
 
 // According to the mpd protocol send "OK MPD <version>\n" to the client, where
 // version is the version of the supported mpd protocol and not the server version
-#define MPD_PROTOCOL_VERSION_OK "OK MPD 0.22.4\n"
+//   0.22.4 binarylimit
+//   0.23   getvol, addid relative position "+3", searchadd position param
+// TODO:
+//   0.23.1 load plname 0: +3
+//   0.23.3 add position param, playlistadd position param, playlistdelete plname songpos
+//   0.23.4 searchaddpl position param
+//   0.23.5 searchadd relative position
+//   0.24   case sensitive operands, added tag in response, oneshot status,
+//          consume oneshot, listplaylist/listplaylistinfo range, playlistmove
+//          range, save mode, sticker find sort uri/value/value_int
+#define MPD_PROTOCOL_VERSION_OK "OK MPD 0.23.0\n"
 
 /**
  * from MPD source:
@@ -1209,6 +1219,19 @@ mpd_command_setvol(struct mpd_command_output *out, struct mpd_command_input *in,
 }
 
 /*
+ * Read the (master) volume
+ */
+static int
+mpd_command_getvol(struct mpd_command_output *out, struct mpd_command_input *in, struct mpd_client_ctx *ctx)
+{
+  struct player_status status;
+
+  player_get_status(&status);
+  evbuffer_add_printf(out->evbuf, "volume: %d\n", status.volume);
+  return 0;
+}
+
+/*
  * Command handler function for 'single'
  * Sets the repeat mode, expects argument argv[1] to be an integer or
  * "oneshot" for 0.21 protocol.
@@ -1574,7 +1597,8 @@ mpd_queue_add(char *path, bool exact_match, int position)
 }
 
 /*
- * Command handler function for 'add'
+ * add "file:/srv/music/Blue Foundation/Life Of A Ghost 2/07 Ghost.mp3" +1
+ *
  * Adds the all songs under the given path to the end of the playqueue (directories add recursively).
  * Expects argument argv[1] to be a path to a single file or directory.
  */
@@ -1602,7 +1626,8 @@ mpd_command_add(struct mpd_command_output *out, struct mpd_command_input *in, st
 }
 
 /*
- * Command handler function for 'addid'
+ * addid "file:/srv/music/Blue Foundation/Life Of A Ghost 2/07 Ghost.mp3" +1
+ *
  * Adds the song under the given path to the end or to the given position of the playqueue.
  * Expects argument argv[1] to be a path to a single file. argv[2] is optional, if present
  * as int is the absolute new position, if present as "+x" og "-x" it is relative.
@@ -3546,6 +3571,7 @@ static struct mpd_command mpd_handlers[] =
     { "random",                     mpd_command_random,                      2,              MPD_WANTS_NUM_ARG1_UVAL },
     { "repeat",                     mpd_command_repeat,                      2,              MPD_WANTS_NUM_ARG1_UVAL },
     { "setvol",                     mpd_command_setvol,                      2,              MPD_WANTS_NUM_ARG1_UVAL },
+    { "getvol",                     mpd_command_getvol,                     -1 },
     { "single",                     mpd_command_single,                      2 },
     { "replay_gain_mode",           mpd_command_ignore,                     -1 },
     { "replay_gain_status",         mpd_command_replay_gain_status,         -1 },
