@@ -2336,6 +2336,61 @@ mpd_command_save(struct mpd_command_output *out, struct mpd_command_input *in, s
 }
 
 /*
+ * albumart {uri} {offset}
+ *  or
+ * readpicture {uri} {offset}
+ *
+ * From the docs the offset appears to be mandatory even if 0, but we treat it
+ * as optional. We don't differentiate between getting album or picture (track)
+ * artwork, since the artwork module will do its own thing. If no artwork can
+ * be found we return a 0 byte response, as per the docs.
+ */
+static int
+mpd_command_albumart(struct mpd_command_output *out, struct mpd_command_input *in, struct mpd_client_ctx *ctx)
+{
+  char *virtual_path;
+  uint32_t offset = in->argv_u32val[2];
+  struct evbuffer *artwork;
+  size_t total_size;
+  size_t len;
+  int format;
+  int id;
+
+  virtual_path = prepend_slash(in->argv[1]);
+  id = db_file_id_byvirtualpath(virtual_path);
+  free(virtual_path);
+  if (id <= 0)
+    RETURN_ERROR(ACK_ERROR_ARG, "Invalid path");
+
+  CHECK_NULL(L_MPD, artwork = evbuffer_new());
+
+  // Ref. docs: "If the song file was recognized, but there is no picture, the
+  // response is successful, but is otherwise empty"
+  format = artwork_get_item(artwork, id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
+  if (format == ART_FMT_PNG)
+    evbuffer_add_printf(out->evbuf, "type: image/png\n");
+  else if (format == ART_FMT_JPEG)
+    evbuffer_add_printf(out->evbuf, "type: image/jpeg\n");
+  else
+    goto out;
+
+  total_size = evbuffer_get_length(artwork);
+  evbuffer_add_printf(out->evbuf, "size: %zu\n", total_size);
+
+  evbuffer_drain(artwork, offset);
+
+  len = MIN(ctx->binarylimit, evbuffer_get_length(artwork));
+  evbuffer_add_printf(out->evbuf, "binary: %zu\n", len);
+
+  evbuffer_remove_buffer(artwork, out->evbuf, len);
+  evbuffer_add(out->evbuf, "\n", 1);
+
+ out:
+  evbuffer_free(artwork);
+  return 0;
+}
+
+/*
  * count [FILTER] [group {GROUPTYPE}]
  *
  * TODO Support for groups (the db interface doesn't have method for this). Note
@@ -3545,6 +3600,7 @@ static struct mpd_command mpd_handlers[] =
     { "save",                       mpd_command_save,                        2 },
 
     // The music database
+    { "albumart",                   mpd_command_albumart,                    2,              MPD_WANTS_NUM_ARG2_UVAL },
     { "count",                      mpd_command_count,                      -1 },
     { "find",                       mpd_command_find,                        2 },
     { "findadd",                    mpd_command_findadd,                     2 },
@@ -3556,6 +3612,7 @@ static struct mpd_command mpd_handlers[] =
     { "listfiles",                  mpd_command_listfiles,                  -1 },
     { "lsinfo",                     mpd_command_lsinfo,                     -1 },
 //    { "readcomments",               mpd_command_readcomments,               -1 },
+    { "readpicture",                mpd_command_albumart,                    2,              MPD_WANTS_NUM_ARG2_UVAL },
 //    { "searchaddpl",                mpd_command_searchaddpl,                -1 },
     { "update",                     mpd_command_update,                     -1 },
 //    { "rescan",                     mpd_command_rescan,                     -1 },
