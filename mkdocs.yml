@@ -100,8 +100,8 @@ markdown_extensions:
   - pymdownx.caret
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_generator: !!python/name:materialx.emoji.to_svg
-      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -132,20 +132,23 @@ nav:
     - Configuration: configuration.md
     - Building: building.md
     - Library: library.md
+    - Control:
+      - Mobile Device: control-clients/mobile.md
+      - Desktop: control-clients/desktop.md
+      - Browser: control-clients/web.md
+      - API and CLI: control-clients/cli-api.md
+    - Audio Outputs:
+      - AirPlay: audio-outputs/airplay.md
+      - Chromecast: audio-outputs/chromecast.md
+      - Local Audio: audio-outputs/local-audio.md
+      - Mobile Device: audio-outputs/mobile.md
+      - Web: audio-outputs/web.md
+      - Roku: audio-outputs/roku.md
+      - Streaming: audio-outputs/streaming.md
+    - Media Clients: media-clients.md
     - Artwork: artwork.md
     - Playlists and Radio: playlists.md
     - Smart Playlists: smart-playlists.md
-    - Clients:
-      - Supported Clients: clients/supported-clients.md
-      - Remote: clients/remote.md
-      - Web Interface: clients/web-interface.md
-      - MPD Clients: clients/mpd.md
-      - Command Line: clients/cli.md
-    - Outputs:
-      - Local Audio: outputs/local-audio.md
-      - AirPlay: outputs/airplay.md
-      - Chromecast: outputs/chromecast.md
-      - Streaming: outputs/streaming.md
     - Services Integration:
       - Spotify: integrations/spotify.md
       - LastFM: integrations/lastfm.md

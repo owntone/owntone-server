@@ -1,20 +1,10 @@
 # Streaming
 
 The streaming option is useful when you want to listen to audio played by
-OwnTone in a browser or a media player of your choice [^1],[^3].
+OwnTone in a browser or a media player of your choice [^1],[^2].
 
-Moreover, Apple Remote or the web interface can be used to control the
-playback.
-
-## Listening to Audio in a Browser
-
-To listen to audio being played by OwnTone in a browser, follow these
-steps:
-
-1. Start playing audio in OwnTone.
-2. In the web interface, activate the stream in the output menu by clicking
-   on the icon :material-broadcast: next to HTTP Stream.
-   After a few seconds, the audio should play in the background [^2].
+You can control playback via the web interface or any of the supported control
+clients.
 
 ## Listening to Audio in a Media Player
 
@@ -37,10 +27,7 @@ steps:
       audio, since Apple does not allow AirPlay receiver apps, and because
       Home Sharing cannot be supported by OwnTone.
 
-[^2]: On iOS devices, playing audio in the background when the device is locked
-      is not supported in a private browser tab.
-
-[^3]: For the streaming option to work, MP3 encoding must be supported by
+[^2]: For the streaming option to work, MP3 encoding must be supported by
       `libavcodec`. If it is not, a message will appear in the log file.
       For example, on Debian or Ubuntu, MP3 encoding support is provided by the
       package `libavcodec-extra`.

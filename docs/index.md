@@ -54,7 +54,7 @@ OwnTone is written in C with a web interface written in Vue.js.
 ![Music browse](assets/images/screenshot-music-browse.png){: class="zoom" }
 ![Music album](assets/images/screenshot-music-album.png){: class="zoom" }
 
-_(You can find more screenshots from OwnTone's web interface [here](clients/web-interface.md))_
+_(You can find more screenshots from OwnTone's web interface [here](control-clients/web.md))_
 {: class="text-center" }
 
 ---

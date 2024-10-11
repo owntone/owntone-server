@@ -11,8 +11,7 @@ interface: Select the device and then enter the PIN that the Apple TV displays.
 
 If your speaker is silent when you start playback, and there is no obvious error
 message in the log, you can try disabling ipv6 in the config. Some speakers
-announce that they support ipv6, but in fact don't (at least not with forked-
-daapd).
+announce that they support ipv6, but for some reason don't work with OwnTone.
 
 If the speaker becomes unselected when you start playback, and you in the log
 see "ANNOUNCE request failed in session startup: 400 Bad Request", then try

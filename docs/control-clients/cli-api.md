@@ -1,10 +1,30 @@
-# Command Line
+# API and Command Line
 
 You can choose between:
 
-- a [MPD command line client](mpd.md) (easiest) like `mpc`
-- curl with OwnTone's JSON API (see [JSON API docs](../json-api.md))
-- curl with DAAP/DACP commands (hardest)
+- [The JSON API](#json-api)
+- [A MPD command line client like mpc](#mpc)
+- [DAAP/DACP commands](#daapdacp)
+
+The JSON API is the most versatile and the recommended method, but for simple
+command line operations, mpc is easier. DAAP/DACP is only for masochists.
+
+
+## JSON API
+
+See the [JSON API docs](../json-api.md)
+
+
+## mpc
+
+[mpc](https://www.musicpd.org/clients/mpc/) is easy to use for simple operations
+like enabling speakers, changing volume and getting status.
+
+Due to differences in implementation between OwnTone and MPD, some mpc commands
+will work differently or not at all.
+
+
+## DAAP/DACP
 
 Here is an example of how to use curl with DAAP/DACP. Say you have a playlist
 with a radio station, and you want to make a script that starts playback of that
