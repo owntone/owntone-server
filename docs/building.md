@@ -272,7 +272,12 @@ The source for the player web interface is located under the `web-src` folder an
 requires nodejs >= 6.0 to be built. In the `web-src` folder run `npm install` to
 install all dependencies for the player web interface. After that run `npm run build`.
 This will build the web interface and update the `htdocs` folder.
-(See [Web interface](clients/web-interface.md) for more informations)
+
+To serve the web interface locally you can run `npm run serve`, which will make
+it reachable at [localhost:3000](http://localhost:3000). The command expects the
+server be running at [localhost:3689](http://localhost:3689) and proxies API
+calls to this location. If the server is running at a different location you
+can use `export VITE_OWNTONE_URL=http://owntone.local:3689`.
 
 Building with libwebsockets is required if you want the web interface.
 It will be enabled if the library is present (with headers).
@@ -307,6 +312,23 @@ if it's started as root.
 
 This user must have read permission to your library and read/write permissions
 to the database location (`$localstatedir/cache/owntone` by default).
+
+## Web source formatting/linting
+
+The source code follows certain formatting conventions for maintainability and
+readability. To ensure that the source code follows these conventions,
+[Prettier](https://prettier.io/) is used.
+
+The command `npm run format` applies formatting conventions to the source code
+based on a preset configuration. Note that a additional configuration is made in
+the file `.prettierrc.json`.
+
+To flag programming errors, bugs, stylistic errors and suspicious constructs in
+the source code, [ESLint](https://eslint.org) is used.
+
+ESLint has been configured following this [guide](https://vueschool.io/articles/vuejs-tutorials/eslint-and-prettier-with-vite-and-vue-js-3/).
+
+`npm run lint` lints the source code and fixes all automatically fixable errors.
 
 ## Non-Priviliged User Version for Development
 

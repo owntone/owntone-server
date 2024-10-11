@@ -11,7 +11,7 @@ The configuration of OwnTone - usually located in `/etc/owntone.conf` - is split
 - [`airplay`](#per-airplay-device-settings) - Settings for a specific AirPlay device.
 - [`chromecast`](#per-chromecast-device-settings) - Settings for a specific Chromecast device.
 - [`spotify`](#spotify-settings) - Settings for the Spotify playback.
-- [`rcp`](#rcp--roku-soundbridge-settings) - Settings for RCP / Roku Soundbridge devices.
+- [`rcp`](#rcproku-soundbridge-settings) - Settings for RCP / Roku Soundbridge devices.
 - [`mpd`](#mpd-settings) - Settings for MPD clients.
 - [`sqlite`](#sqlite-settings) - Settings for SQLite operation.
 - [`streaming`](#streaming-settings) - Settings for the streaming.
@@ -1233,7 +1233,7 @@ Flag to indicate to use the playlist name as the album name.
 album_override = <true|false>
 ```
 
-## RCP / Roku Soundbridge Settings
+## RCP/Roku Soundbridge Settings
 
 ```conf
 rcp "<device-name>" {
