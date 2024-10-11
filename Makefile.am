@@ -23,24 +23,29 @@ dist_man_MANS = owntone.8
 nobase_dist_doc_DATA = \
 	UPGRADING \
 	README.md \
+	docs/index.md \
+	docs/getting-started.md \
+	docs/installation.md \
+	docs/configuration.md \
+	docs/building.md \
+	docs/library.md \
+	docs/control-clients/mobile.md \
+	docs/control-clients/desktop.md \
+	docs/control-clients/web.md \
+	docs/control-clients/cli-api.md \
+	docs/audio-outputs/airplay.md \
+	docs/audio-outputs/chromecast.md \
+	docs/audio-outputs/local-audio.md \
+	docs/audio-outputs/mobile.md \
+	docs/audio-outputs/web.md \
+	docs/audio-outputs/roku.md \
+	docs/audio-outputs/streaming.md \
+	docs/media-clients.md \
+	docs/artwork.md \
 	docs/playlists.md \
+	docs/smart-playlists.md \
 	docs/integrations/spotify.md \
 	docs/integrations/lastfm.md \
-	docs/index.md \
-	docs/outputs/streaming.md \
-	docs/outputs/chromecast.md \
-	docs/outputs/airplay.md \
-	docs/outputs/local-audio.md \
-	docs/installation.md \
-	docs/clients/web-interface.md \
-	docs/clients/remote.md \
-	docs/clients/cli.md \
-	docs/clients/supported-clients.md \
-	docs/clients/mpd.md \
-	docs/smart-playlists.md \
-	docs/artwork.md \
-	docs/library.md \
-	docs/getting-started.md \
 	docs/advanced/radio-streams.md \
 	docs/advanced/multiple-instances.md \
 	docs/advanced/outputs-alsa.md \
