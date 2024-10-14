@@ -130,6 +130,7 @@ owntone_SOURCES = main.c \
 	listener.c listener.h \
 	commands.c commands.h \
 	outputs/plist_wrap.h \
+	websocket_ev.c websocket_ev.h \
 	$(LIBWEBSOCKETS_SRC) \
 	$(GPERF_SRC) \
 	$(LEXER_SRC) $(PARSER_SRC)
