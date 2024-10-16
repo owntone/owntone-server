@@ -3305,11 +3305,28 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
 	{
 	  db_file_reset_playskip_count(track_id);
 	}
+      else if (safe_atou32(param, &val) == 0)
+	{
+	  library_item_attrib_save(track_id, LIBRARY_ATTRIB_PLAY_COUNT, val);
+	}
       else
 	{
-	  DPRINTF(E_WARN, L_WEB, "Ignoring invalid play_count value '%s' for track '%d'.\n", param, track_id);
+	  DPRINTF(E_WARN, L_WEB, "Invalid play_count value '%s' for track '%d'.\n", param, track_id);
 	  return HTTP_BADREQUEST;
 	}
+    }
+
+  param = httpd_query_value_find(hreq->query, "skip_count");
+  if (param)
+    {
+      ret = safe_atou32(param, &val);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_WEB, "Invalid skip_count value '%s' for track '%d'.\n", param, track_id);
+	  return HTTP_BADREQUEST;
+	}
+
+      library_item_attrib_save(track_id, LIBRARY_ATTRIB_SKIP_COUNT, val);
     }
 
   param = httpd_query_value_find(hreq->query, "rating");

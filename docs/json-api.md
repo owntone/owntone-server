@@ -1622,7 +1622,7 @@ curl -X GET "http://localhost:3689/api/library/tracks/27/playlists"
 
 ### Update track properties
 
-Change properties of one or more tracks (supported properties are "rating", "play_count" and "usermark")
+Change properties of one or more tracks (supported properties are "rating", "play_count", "skip_count" and "usermark")
 
 **Endpoint**
 
@@ -1663,7 +1663,8 @@ PUT /api/library/tracks/{id}
 | Parameter       | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | rating          | The new rating (0 - 100)                                    |
-| play_count      | Either `increment` or `reset`. `increment` will increment `play_count` and update `time_played`, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped` |
+| play_count      | Either `increment` or `reset` or the new count. `increment` will increment `play_count` and update `time_played`, `reset` will set `play_count` and `skip_count` to zero and delete `time_played` and `time_skipped` |
+| skip_count      | The new skip count                                          |
 | usermark        | The new usermark (>= 0)                                     |
 
 **Response**

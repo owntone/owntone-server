@@ -692,6 +692,13 @@ item_attrib_save(void *arg, int *retval)
 	mfi->play_count = param->value;
 	break;
 
+      case LIBRARY_ATTRIB_SKIP_COUNT:
+	if (param->value < 0)
+	  goto error;
+
+	mfi->skip_count = param->value;
+	break;
+
        default:
 	goto error;
     }
