@@ -667,7 +667,7 @@ item_attrib_save(void *arg, int *retval)
   switch (param->attrib)
     {
       case LIBRARY_ATTRIB_RATING:
-	if (param->value < 0 || param->value > DB_FILES_RATING_MAX)
+	if (param->value > DB_FILES_RATING_MAX)
 	  goto error;
 
 	mfi->rating = param->value;
@@ -679,24 +679,23 @@ item_attrib_save(void *arg, int *retval)
 	break;
 
       case LIBRARY_ATTRIB_USERMARK:
-	if (param->value < 0)
-	  goto error;
-
 	mfi->usermark = param->value;
 	break;
 
       case LIBRARY_ATTRIB_PLAY_COUNT:
-	if (param->value < 0)
-	  goto error;
-
 	mfi->play_count = param->value;
 	break;
 
       case LIBRARY_ATTRIB_SKIP_COUNT:
-	if (param->value < 0)
-	  goto error;
-
 	mfi->skip_count = param->value;
+	break;
+
+      case LIBRARY_ATTRIB_TIME_PLAYED:
+	mfi->time_played = param->value;
+	break;
+
+      case LIBRARY_ATTRIB_TIME_SKIPPED:
+	mfi->time_skipped = param->value;
 	break;
 
        default:
