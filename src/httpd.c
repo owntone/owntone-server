@@ -102,7 +102,7 @@ struct stream_ctx {
   off_t offset;
   off_t start_offset;
   off_t end_offset;
-  int marked;
+  bool no_register_playback;
   struct transcode_ctx *xcode;
 };
 
@@ -666,11 +666,11 @@ stream_end(struct stream_ctx *st)
 static void
 stream_end_register(struct stream_ctx *st)
 {
-  if (!st->marked
+  if (!st->no_register_playback
       && (st->stream_size > ((st->size * 50) / 100))
       && (st->offset > ((st->size * 80) / 100)))
     {
-      st->marked = 1;
+      st->no_register_playback = true;
       worker_execute(playcount_inc_cb, &st->id, sizeof(int), 0);
 #ifdef LASTFM
       worker_execute(scrobble_cb, &st->id, sizeof(int), 1);
@@ -697,6 +697,7 @@ stream_new(struct media_file_info *mfi, struct httpd_request *hreq, event_callba
 
   event_active(st->ev, 0, 0);
 
+  st->no_register_playback = httpd_query_value_find(hreq->query, "no_register_playback");
   st->id = mfi->id;
   st->hreq = hreq;
   return st;
