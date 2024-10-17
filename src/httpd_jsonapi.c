@@ -59,6 +59,22 @@
 # include "inputs/spotify.h"
 #endif
 
+struct track_attribs
+{
+  enum library_attrib type;
+  const char *name;
+};
+
+// Currently these must all be uint32
+static const struct track_attribs track_attribs[] =
+{
+  { LIBRARY_ATTRIB_PLAY_COUNT, "play_count", },
+  { LIBRARY_ATTRIB_SKIP_COUNT, "skip_count", },
+  { LIBRARY_ATTRIB_TIME_PLAYED, "time_played", },
+  { LIBRARY_ATTRIB_TIME_SKIPPED, "time_skipped", },
+  { LIBRARY_ATTRIB_RATING, "rating", },
+  { LIBRARY_ATTRIB_USERMARK, "usermark", },
+};
 
 static bool allow_modifying_stored_playlists;
 static char *default_playlist_directory;
@@ -3221,6 +3237,7 @@ jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
   int err;
   int32_t track_id;
   int i;
+  int j;
 
   request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
@@ -3257,13 +3274,18 @@ jsonapi_reply_library_tracks_put(struct httpd_request *hreq)
 	  goto error;
 	}
 
-      // These are async, so no error check
-      if (jparse_contains_key(track, "rating", json_type_int))
-	library_item_attrib_save(track_id, LIBRARY_ATTRIB_RATING, jparse_int_from_obj(track, "rating"));
-      if (jparse_contains_key(track, "usermark", json_type_int))
-	library_item_attrib_save(track_id, LIBRARY_ATTRIB_USERMARK, jparse_int_from_obj(track, "usermark"));
-      if (jparse_contains_key(track, "play_count", json_type_int))
-	library_item_attrib_save(track_id, LIBRARY_ATTRIB_PLAY_COUNT, jparse_int_from_obj(track, "play_count"));
+      for (j = 0; j < ARRAY_SIZE(track_attribs); j++)
+	{
+	  if (!jparse_contains_key(track, track_attribs[j].name, json_type_int))
+	    continue;
+
+	  ret = jparse_int_from_obj(track, track_attribs[j].name);
+	  if (ret < 0)
+	    continue;
+
+	  // async, so no error check
+	  library_item_attrib_save(track_id, track_attribs[j].type, ret);
+	}
 
       i++;
     }
@@ -3286,6 +3308,7 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
   const char *param;
   uint32_t val;
   int ret;
+  int i;
 
   ret = safe_atoi32(hreq->path_parts[3], &track_id);
   if (ret < 0 || !db_file_id_exists(track_id))
@@ -3294,66 +3317,32 @@ jsonapi_reply_library_tracks_put_byid(struct httpd_request *hreq)
       return HTTP_NOTFOUND;
     }
 
-  param = httpd_query_value_find(hreq->query, "play_count");
-  if (param)
+  for (i = 0; i < ARRAY_SIZE(track_attribs); i++)
     {
-      if (strcmp(param, "increment") == 0)
+      param = httpd_query_value_find(hreq->query, track_attribs[i].name);
+      if (!param)
+	continue;
+
+      // Special cases
+      if (track_attribs[i].type == LIBRARY_ATTRIB_PLAY_COUNT && strcmp(param, "increment") == 0)
 	{
 	  db_file_inc_playcount(track_id);
+	  continue;
 	}
-      else if (strcmp(param, "reset") == 0)
+      if (track_attribs[i].type == LIBRARY_ATTRIB_PLAY_COUNT && strcmp(param, "reset") == 0)
 	{
 	  db_file_reset_playskip_count(track_id);
+	  continue;
 	}
-      else if (safe_atou32(param, &val) == 0)
-	{
-	  library_item_attrib_save(track_id, LIBRARY_ATTRIB_PLAY_COUNT, val);
-	}
-      else
-	{
-	  DPRINTF(E_WARN, L_WEB, "Invalid play_count value '%s' for track '%d'.\n", param, track_id);
-	  return HTTP_BADREQUEST;
-	}
-    }
 
-  param = httpd_query_value_find(hreq->query, "skip_count");
-  if (param)
-    {
       ret = safe_atou32(param, &val);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_WEB, "Invalid skip_count value '%s' for track '%d'.\n", param, track_id);
+	  DPRINTF(E_WARN, L_WEB, "Invalid %s value '%s' for track '%d'.\n", track_attribs[i].name, param, track_id);
 	  return HTTP_BADREQUEST;
 	}
 
-      library_item_attrib_save(track_id, LIBRARY_ATTRIB_SKIP_COUNT, val);
-    }
-
-  param = httpd_query_value_find(hreq->query, "rating");
-  if (param)
-    {
-      ret = safe_atou32(param, &val);
-      if (ret < 0 || val > DB_FILES_RATING_MAX)
-	{
-	  DPRINTF(E_WARN, L_WEB, "Invalid rating value '%s' for track '%d'.\n", param, track_id);
-	  return HTTP_BADREQUEST;
-	}
-
-      library_item_attrib_save(track_id, LIBRARY_ATTRIB_RATING, val);
-    }
-
-  // Retreive marked tracks via "/api/search?type=tracks&expression=usermark+=+1"
-  param = httpd_query_value_find(hreq->query, "usermark");
-  if (param)
-    {
-      ret = safe_atou32(param, &val);
-      if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_WEB, "Invalid usermark value '%s' for track '%d'.\n", param, track_id);
-	  return HTTP_BADREQUEST;
-	}
-
-      library_item_attrib_save(track_id, LIBRARY_ATTRIB_USERMARK, val);
+      library_item_attrib_save(track_id, track_attribs[i].type, val);
     }
 
   return HTTP_OK;
