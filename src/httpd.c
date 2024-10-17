@@ -697,7 +697,9 @@ stream_new(struct media_file_info *mfi, struct httpd_request *hreq, event_callba
 
   event_active(st->ev, 0, 0);
 
-  st->no_register_playback = httpd_query_value_find(hreq->query, "no_register_playback");
+  if (httpd_query_value_find(hreq->query, "no_register_playback"))
+    st->no_register_playback = true;
+
   st->id = mfi->id;
   st->hreq = hreq;
   return st;
