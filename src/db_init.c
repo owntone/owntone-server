@@ -316,6 +316,10 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_STATEMKINDSALI				\
   "CREATE INDEX IF NOT EXISTS idx_state_mkind_sali ON files(disabled, media_kind, songalbumid);"
 
+/* S_ALBUM and S_ARTIST */
+#define I_SORT_ALBUMARTIST                      \
+  "CREATE INDEX IF NOT EXISTS idx_sort_albumartist ON files(disabled, album_artist_sort, album_sort, disc, track);"
+
 /* Used by Q_BROWSE_ALBUM */
 #define I_ALBUM					\
   "CREATE INDEX IF NOT EXISTS idx_album ON files(disabled, album_sort, album, media_kind);"
@@ -387,7 +391,8 @@ static const struct db_init_query db_init_index_queries[] =
     { I_STATEMKINDSARI, "create state/mkind/sari index" },
     { I_STATEMKINDSALI, "create state/mkind/sali index" },
 
-    { I_ALBUMARTIST, "create album_artist index" },
+    { I_SORT_ALBUMARTIST, "create sort_albumartist index" },
+    { I_ALBUMARTIST, "create albumartist index" },
     { I_COMPOSER,  "create composer index" },
     { I_GENRE,     "create genre index" },
     { I_TITLE,     "create title index" },
