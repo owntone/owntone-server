@@ -188,11 +188,11 @@ Specific IP address to which the server is bound.
 bind_address = "<ip-address>"
 ```
 
-### cache_path
+### cache_dir
 
-Full path to the cache database file.
+Directory where the server keeps cached data.
 
-**Default:** unset
+**Default:** `"/var/cache/owntone"`
 
 ```conf
 cache_path = "<path-to-database-cache-file>"
