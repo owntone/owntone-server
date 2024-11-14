@@ -42,7 +42,7 @@
       </a>
       <a
         :class="{ 'is-disabled': disabled }"
-        class="card-footer-item has-background-info has-text-white has-text-weight-bold"
+        class="card-footer-item has-text-dark"
         @click="play"
       >
         <mdicon class="icon" name="play" size="16" />
