@@ -6,7 +6,7 @@
 #include <pthread.h>
 
 #define LIBRESPOT_C_VERSION_MAJOR 0
-#define LIBRESPOT_C_VERSION_MINOR 2
+#define LIBRESPOT_C_VERSION_MINOR 4
 
 
 struct sp_session;
@@ -47,8 +47,7 @@ struct sp_sysinfo
 
 struct sp_callbacks
 {
-  // Bring your own https client and tcp connector
-  int (*https_get)(char **body, const char *url);
+  // Bring your own tcp connector
   int (*tcp_connect)(const char *address, unsigned short port);
   void (*tcp_disconnect)(int fd);
 
@@ -60,10 +59,9 @@ struct sp_callbacks
   void (*logmsg)(const char *fmt, ...);
 };
 
-
-
+// Deprecated, use login_token and login_stored_cred instead
 struct sp_session *
-librespotc_login_password(const char *username, const char *password);
+librespotc_login_password(const char *username, const char *password) __attribute__ ((deprecated));
 
 struct sp_session *
 librespotc_login_stored_cred(const char *username, uint8_t *stored_cred, size_t stored_cred_len);
@@ -73,6 +71,9 @@ librespotc_login_token(const char *username, const char *token);
 
 int
 librespotc_logout(struct sp_session *session);
+
+int
+librespotc_legacy_set(struct sp_session *session, int use_legacy);
 
 int
 librespotc_bitrate_set(struct sp_session *session, enum sp_bitrates bitrate);
