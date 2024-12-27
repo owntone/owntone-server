@@ -48,7 +48,7 @@ static pthread_mutex_t websocket_write_event_lock;
 static short websocket_write_events;
 
 
-/* Thread: library (the thread the event occurred) */
+/* Thread: library, player, etc. (the thread the event occurred) */
 static void
 listener_cb(short event_mask, void *ctx)
 {
@@ -133,7 +133,7 @@ process_notify_request(short *requested_events, void *in, size_t len)
 	  if (json_object_get_type(item) == json_type_string)
 	    {
 	      event_type = json_object_get_string(item);
-	      DPRINTF(E_DBG, L_WEB, "notify callback event received: %s\n", event_type);
+	      DPRINTF(E_SPAM, L_WEB, "notify callback event received: %s\n", event_type);
 
 	      if (0 == strcmp(event_type, "update"))
 		{
@@ -279,7 +279,7 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
   short events = 0;
   int ret = 0;
 
-  DPRINTF(E_DBG, L_WEB, "notify callback reason: %d\n", reason);
+  DPRINTF(E_SPAM, L_WEB, "notify callback reason: %d\n", reason);
 
   switch (reason)
   {
