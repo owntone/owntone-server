@@ -195,7 +195,7 @@ ws_listener_cb(void *arg, int *ret)
   char *reply = NULL;
   short *event_mask = arg;
 
-  for (client = ws_clients; client; client = ws_clients->next)
+  for (client = ws_clients; client; client = client->next)
     {
       reply = ws_create_notify_reply(*event_mask, &client->requested_events);
       evws_send_text(client->evws, reply);
