@@ -305,9 +305,11 @@ gencb_httpd(httpd_backend *backend, void *arg)
   struct httpd_request *hreq;
   struct bufferevent *bufev;
 
+#ifndef HAVE_LIBEVENT22
   // Clear the proxy request flag set by evhttp if the request URI was absolute.
   // It has side-effects on Connection: keep-alive
   backend->flags &= ~EVHTTP_PROXY_REQUEST;
+#endif
 
   // This is a workaround for some versions of libevent (2.0 and 2.1) that don't
   // detect if the client hangs up, and thus don't clean up and never call the
