@@ -1307,7 +1307,7 @@ cache_database_update(void *arg, int *retval)
 
 /* Callback from filescanner thread */
 static void
-cache_daap_listener_cb(short event_mask)
+cache_daap_listener_cb(short event_mask, void *ctx)
 {
   commands_exec_async(cmdbase, cache_database_update, NULL);
 }
@@ -1715,7 +1715,7 @@ cache(void *arg)
   for (i = 0; i < ARRAY_SIZE(cache_xcode_jobs); i++)
     CHECK_NULL(L_CACHE, cache_xcode_jobs[i].ev = evtimer_new(evbase_cache, cache_xcode_job_complete_cb, &cache_xcode_jobs[i]));
 
-  CHECK_ERR(L_CACHE, listener_add(cache_daap_listener_cb, LISTENER_DATABASE));
+  CHECK_ERR(L_CACHE, listener_add(cache_daap_listener_cb, LISTENER_DATABASE, NULL));
 
   cache_is_initialized = 1;
 

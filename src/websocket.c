@@ -50,7 +50,7 @@ static short websocket_write_events;
 
 /* Thread: library (the thread the event occurred) */
 static void
-listener_cb(short event_mask)
+listener_cb(short event_mask, void *ctx)
 {
   pthread_mutex_lock(&websocket_write_event_lock);
   websocket_write_events |= event_mask;
@@ -416,7 +416,7 @@ static void *
 websocket(void *arg)
 {
   listener_add(listener_cb, LISTENER_UPDATE | LISTENER_DATABASE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM | LISTENER_SPEAKER
-               | LISTENER_PLAYER | LISTENER_OPTIONS | LISTENER_VOLUME | LISTENER_QUEUE);
+               | LISTENER_PLAYER | LISTENER_OPTIONS | LISTENER_VOLUME | LISTENER_QUEUE, NULL);
 
   while(!websocket_exit)
   {
