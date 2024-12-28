@@ -1,7 +1,7 @@
 @charset "utf-8";
 
-@import 'bulma/bulma';
-@import 'bulma/sass/utilities/mixins';
+@use 'bulma/bulma';
+@use 'bulma/sass/utilities/mixins';
 
 .fd-is-not-allowed {
   cursor: not-allowed;
@@ -57,7 +57,7 @@
     }
   }
   &-medium-image {
-    @include tablet {
+    @include mixins.tablet {
       justify-content: right;
     }
     img {
@@ -72,7 +72,7 @@
     }
   }
   &-big-image {
-    @include mobile {
+    @include mixins.mobile {
       @media screen and (orientation: landscape) {
         img {
           display: none;
@@ -116,7 +116,7 @@
 }
 
 .buttons {
-  @include mobile {
+  @include mixins.mobile {
     &.is-centered-mobile {
       justify-content: center;
       &:not(.has-addons) {
@@ -139,10 +139,10 @@
 
 .column {
   &.fd-has-cover {
-    @include mobile {
+    @include mixins.mobile {
       margin: auto;
     }
-    @include tablet {
+    @include mixins.tablet {
       margin-right: 0;
     }
   }
@@ -160,7 +160,7 @@
 }
 
 .dropdown-menu {
-  @include mobile {
+  @include mixins.mobile {
     width: 100vw;
   }
 }
@@ -230,7 +230,7 @@ input[type='range'].slider {
   --sh: 0.25rem;
   --th: calc(var(--sh) * 4);
   background-color: transparent;
-  @include mobile {
+  @include mixins.mobile {
     --th: calc(var(--sh) * 5);
   }
   & {
