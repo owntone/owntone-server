@@ -6,7 +6,7 @@
         <index-button-list :indices="artists.indices" />
         <div class="columns">
           <div class="column">
-            <p v-text="$t('page.artists.filter')" class="heading" />
+            <p class="heading" v-text="$t('page.artists.filter')" />
             <control-switch v-model="uiStore.hide_singles">
               <template #label>
                 <span v-text="$t('page.artists.hide-singles')" />
