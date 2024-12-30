@@ -1,26 +1,24 @@
 <template>
-  <div id="app">
-    <navbar-top />
-    <vue-progress-bar class="has-background-info" />
-    <router-view v-slot="{ Component }">
-      <component :is="Component" />
-    </router-view>
-    <modal-dialog-remote-pairing
-      :show="pairing_active"
-      @close="pairing_active = false"
-    />
-    <modal-dialog-update
-      :show="show_update_dialog"
-      @close="show_update_dialog = false"
-    />
-    <notification-list v-show="!show_burger_menu" />
-    <navbar-bottom />
-    <div
-      v-show="show_burger_menu || show_player_menu"
-      class="overlay-fullscreen"
-      @click="show_burger_menu = show_player_menu = false"
-    />
-  </div>
+  <navbar-top />
+  <vue-progress-bar class="has-background-info" />
+  <router-view v-slot="{ Component }">
+    <component :is="Component" />
+  </router-view>
+  <modal-dialog-remote-pairing
+    :show="pairing_active"
+    @close="pairing_active = false"
+  />
+  <modal-dialog-update
+    :show="show_update_dialog"
+    @close="show_update_dialog = false"
+  />
+  <notification-list v-show="!show_burger_menu" />
+  <navbar-bottom />
+  <div
+    v-show="show_burger_menu || show_player_menu"
+    class="overlay-fullscreen"
+    @click="show_burger_menu = show_player_menu = false"
+  />
 </template>
 
 <script>
