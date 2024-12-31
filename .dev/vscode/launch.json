@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "OwnTone",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/owntone",
+            "args": ["-f", "-c", "/data/conf/owntone.conf", "-w", "${workspaceFolder}/htdocs", "-s", "${workspaceFolder}/sqlext/.libs/owntone-sqlext.so"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ],
+    "version": "2.0.0"
+}

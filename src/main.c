@@ -73,8 +73,9 @@
 # include "lastfm.h"
 #endif
 
-#define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
-#define WEB_ROOT  DATADIR "/htdocs"
+#define PIDFILE          STATEDIR "/run/" PACKAGE ".pid"
+#define WEB_ROOT         DATADIR "/htdocs"
+#define SQLITE_EXT_PATH  PKGLIBDIR "/" PACKAGE_NAME "-sqlext.so"
 
 struct event_base *evbase_main;
 
@@ -106,6 +107,7 @@ usage(char *program)
   printf("  --mdns-no-daap  Don't announce DAAP service via mDNS\n");
   printf("  --mdns-no-cname Don't register owntone.local as CNAME via mDNS\n");
   printf("  --mdns-no-web   Don't announce web interface via mDNS\n");
+  printf("  -s <path>      Use <path> as the path for the OwnTone sqlite extension (owntone-sqlext.so)\n");
   printf("\n\n");
   printf("Available log domains:\n");
   logger_domains();
@@ -495,6 +497,7 @@ main(int argc, char **argv)
   char *ffid = NULL;
   char *pidfile = PIDFILE;
   char *webroot = WEB_ROOT;
+  char *sqlite_extension_path = SQLITE_EXT_PATH;
   char **buildopts;
   const char *av_version;
   const char *gcry_version;
@@ -516,6 +519,7 @@ main(int argc, char **argv)
       { "pidfile",      1, NULL, 'P' },
       { "version",      0, NULL, 'v' },
       { "webroot",      1, NULL, 'w' },
+      { "sqliteext",    1, NULL, 's' },
       { "testrun",      0, NULL, 't' }, // Used for CI, not documented to user
 
       { "mdns-no-rsp",  0, NULL, 512 },
@@ -526,7 +530,7 @@ main(int argc, char **argv)
       { NULL,           0, NULL, 0 }
     };
 
-  while ((option = getopt_long(argc, argv, "D:d:c:P:ftb:vw:", option_map, NULL)) != -1)
+  while ((option = getopt_long(argc, argv, "D:d:c:P:ftb:vw:s:", option_map, NULL)) != -1)
     {
       switch (option)
 	{
@@ -585,6 +589,10 @@ main(int argc, char **argv)
 
 	  case 'w':
 	    webroot = optarg;
+	    break;
+
+	  case 's':
+	    sqlite_extension_path = optarg;
 	    break;
 
 	  default:
@@ -739,7 +747,7 @@ main(int argc, char **argv)
 
   /* Initialize the database before starting */
   DPRINTF(E_INFO, L_MAIN, "Initializing database\n");
-  ret = db_init();
+  ret = db_init(sqlite_extension_path);
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_MAIN, "Database init failed\n");

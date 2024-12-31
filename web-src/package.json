@@ -3,7 +3,7 @@
   "version": "2.0.1",
   "type": "module",
   "scripts": {
-    "serve": "vite --port 3000",
+    "serve": "vite --port 3000 --host",
     "build": "vite build --base='./'",
     "lint": "eslint",
     "dev": "vite",

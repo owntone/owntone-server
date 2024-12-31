@@ -652,6 +652,7 @@ db_pl_type_label(enum pl_type pl_type)
 struct rng_ctx shuffle_rng;
 
 static char *db_path;
+static char *db_sqlite_ext_path;
 static bool db_rating_updates;
 
 static __thread sqlite3 *hdl;
@@ -6957,7 +6958,7 @@ db_open(void)
       return -1;
     }
 
-  ret = sqlite3_load_extension(hdl, PKGLIBDIR "/" PACKAGE_NAME "-sqlext.so", NULL, &errmsg);
+  ret = sqlite3_load_extension(hdl, db_sqlite_ext_path, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not load SQLite extension: %s\n", errmsg);
@@ -7371,7 +7372,7 @@ db_check_version(void)
 }
 
 int
-db_init(void)
+db_init(char *sqlite_ext_path)
 {
   uint32_t files;
   uint32_t pls;
@@ -7388,6 +7389,7 @@ db_init(void)
     }
 
   db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
+  db_sqlite_ext_path = sqlite_ext_path;
   db_rating_updates = cfg_getbool(cfg_getsec(cfg, "library"), "rating_updates");
 
   DPRINTF(E_INFO, L_DB, "Configured to use database file '%s'\n", db_path);

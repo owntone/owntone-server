@@ -158,4 +158,5 @@ nav:
       - Radio Streams: advanced/radio-streams.md
       - Remote Access: advanced/remote-access.md
       - Multiple Instances: advanced/multiple-instances.md
+    - Development: development.md
   - JSON API: json-api.md

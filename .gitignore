@@ -39,7 +39,11 @@ owntone@.service
 /.cproject
 /.project
 /.autotools
-/.vscode
 
 # ignore MkDocs generated documentation
 /site/
+/test/
+
+/.vscode/
+/.devcontainer/
+!/.dev/Makefile

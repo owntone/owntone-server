@@ -1,0 +1,12 @@
+{
+    "C_Cpp.default.forcedInclude": [
+        "${workspaceFolder}/config.h"
+    ],
+    "[vue]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[c]": {
+        "editor.detectIndentation": false,
+        "editor.tabSize": 8
+    }
+}
