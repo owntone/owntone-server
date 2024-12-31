@@ -145,15 +145,15 @@ export default {
   },
 
   watch: {
-    playerStore() {
+    'playerStore.state'(newState) {
       if (this.interval_id > 0) {
         window.clearTimeout(this.interval_id)
         this.interval_id = 0
       }
-      if (this.playerStore.state === 'play') {
+      if (newState === 'play') {
         this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
-    }
+    },
   },
 
   created() {
