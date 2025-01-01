@@ -1,7 +1,7 @@
 <template>
   <template v-for="item in items" :key="item.id">
-    <div class="media is-align-items-center">
-      <div class="media-content is-clickable is-clipped" @click="open(item)">
+    <div class="media is-align-items-center mb-0">
+      <div class="media-content is-clickable" @click="open(item)">
         <p class="title is-6" v-text="item.name" />
       </div>
       <div class="media-right">

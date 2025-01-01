@@ -7,26 +7,31 @@
         v-text="item.index"
       />
     </div>
-    <div v-else class="media is-align-items-center" @click="open(item.item)">
+    <div
+      v-else
+      class="media is-align-items-center is-clickable mb-0"
+      @click="open(item.item)"
+    >
       <cover-artwork
         v-if="settingsStore.show_cover_artwork_in_album_lists"
         :url="item.item.artwork_url"
         :artist="item.item.artist"
         :album="item.item.name"
-        class="media-left is-clickable fd-has-shadow fd-cover fd-cover-small-image"
+        class="media-left fd-has-shadow fd-cover fd-cover-small-image"
       />
-
-      <div class="media-content is-clickable">
-        <p class="title is-6" v-text="item.item.name" />
-        <p
-          class="subtitle is-7 has-text-grey has-text-weight-bold"
-          v-text="item.item.artist"
-        />
-        <p
-          v-if="item.item.date_released && item.item.media_kind === 'music'"
-          class="subtitle is-7 has-text-grey"
-          v-text="$filters.date(item.item.date_released)"
-        />
+      <div class="media-content">
+        <div class="content is-small">
+          <div class="is-size-6 has-text-weight-bold" v-text="item.item.name" />
+          <div
+            class="has-text-grey has-text-weight-bold"
+            v-text="item.item.artist"
+          />
+          <div
+            v-if="item.item.date_released && item.item.media_kind === 'music'"
+            class="has-text-grey"
+            v-text="$filters.date(item.item.date_released)"
+          />
+        </div>
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item.item)">

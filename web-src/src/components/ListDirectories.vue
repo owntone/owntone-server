@@ -1,5 +1,5 @@
 <template>
-  <div v-if="$route.query.directory" class="media is-align-items-center">
+  <div v-if="$route.query.directory" class="media is-align-items-center mb-0">
     <mdicon
       class="icon media-left is-clickable"
       name="chevron-left"
@@ -21,9 +21,12 @@
     </div>
   </div>
   <template v-for="item in items" :key="item.path">
-    <div class="media is-align-items-center" @click="open(item)">
-      <mdicon class="media-left is-clickable icon" name="folder" />
-      <div class="media-content is-clickable is-clipped">
+    <div
+      class="media is-align-items-center is-clickable mb-0"
+      @click="open(item)"
+    >
+      <mdicon class="media-left icon" name="folder" />
+      <div class="media-content">
         <p class="title is-6" v-text="item.name" />
       </div>
       <div class="media-right">

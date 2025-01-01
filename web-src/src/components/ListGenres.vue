@@ -9,8 +9,12 @@
         />
       </div>
     </div>
-    <div v-else class="media is-align-items-center" @click="open(item.item)">
-      <div class="media-content is-clickable is-clipped">
+    <div
+      v-else
+      class="media is-align-items-center is-clickable mb-0"
+      @click="open(item.item)"
+    >
+      <div class="media-content">
         <p class="title is-6" v-text="item.item.name" />
       </div>
       <div class="media-right">

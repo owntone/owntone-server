@@ -9,35 +9,33 @@
     </div>
     <div
       v-else
-      class="media is-align-items-center"
+      class="media is-align-items-center is-clickable mb-0"
       :class="{ 'with-progress': show_progress }"
       @click="play(item.item)"
     >
-      <mdicon
-        v-if="show_icon"
-        class="media-left icon is-clickable"
-        name="file-outline"
-      />
-      <div class="media-content is-clipped">
-        <p
-          class="title is-6"
-          :class="{
-            'has-text-grey':
-              item.item.media_kind === 'podcast' && item.item.play_count > 0
-          }"
-          v-text="item.item.title"
-        />
-        <p
-          class="subtitle is-7 has-text-grey has-text-weight-bold"
-          v-text="item.item.artist"
-        />
-        <p class="subtitle is-7 has-text-grey" v-text="item.item.album" />
-        <progress
-          v-if="show_progress && item.item.seek_ms > 0"
-          class="progress is-info"
-          :max="item.item.length_ms"
-          :value="item.item.seek_ms"
-        />
+      <mdicon v-if="show_icon" class="media-left icon" name="file-outline" />
+      <div class="media-content">
+        <div class="content is-small">
+          <div
+            class="is-size-6 has-text-weight-bold"
+            :class="{
+              'has-text-grey':
+                item.item.media_kind === 'podcast' && item.item.play_count > 0
+            }"
+            v-text="item.item.title"
+          />
+          <div
+            class="has-text-weight-bold has-text-grey"
+            v-text="item.item.artist"
+          />
+          <div class="has-text-grey" v-text="item.item.album" />
+          <progress
+            v-if="show_progress && item.item.seek_ms > 0"
+            class="progress is-info"
+            :max="item.item.length_ms"
+            :value="item.item.seek_ms"
+          />
+        </div>
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item.item)">

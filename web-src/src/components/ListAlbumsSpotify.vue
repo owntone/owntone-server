@@ -1,6 +1,9 @@
 <template>
   <template v-for="item in items" :key="item.id">
-    <div class="media is-align-items-center is-clickable" @click="open(item)">
+    <div
+      class="media is-align-items-center is-clickable mb-0"
+      @click="open(item)"
+    >
       <div
         v-if="settingsStore.show_cover_artwork_in_album_lists"
         class="media-left"
@@ -12,18 +15,18 @@
           class="fd-has-shadow fd-cover fd-cover-small-image"
         />
       </div>
-      <div class="media-content is-clipped">
-        <p class="title is-6" v-text="item.name" />
-        <p
-          class="subtitle is-7 has-text-grey has-text-weight-bold"
-          v-text="item.artists[0]?.name"
-        />
-        <p
-          class="subtitle is-7 has-text-grey"
-          v-text="
-            [item.album_type, $filters.date(item.release_date)].join(', ')
-          "
-        />
+      <div class="media-content">
+        <div class="content is-small">
+          <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
+          <div
+            class="has-text-weight-bold has-text-grey"
+            v-text="item.artists[0]?.name"
+          />
+          <div
+            class="has-text-grey"
+            v-text="$filters.date(item.release_date)"
+          />
+        </div>
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">
