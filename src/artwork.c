@@ -1166,6 +1166,13 @@ online_source_request_url_make(char *url, size_t url_size, const struct online_s
       goto error;
     }
 
+  if ((artist && strncasecmp("unknown", artist, strlen("unknown")) == 0) ||
+      (album && strncasecmp("unknown", album, strlen("unknown")) == 0) )
+    {
+      DPRINTF(E_DBG, L_ART, "Skipping online artwork search for unknown artist/album\n");
+      goto error;
+    }
+
   for (i = 0; src->query_parts[i].key; i++)
     {
       if (!album && strstr(src->query_parts[i].template, "$ALBUM$"))
