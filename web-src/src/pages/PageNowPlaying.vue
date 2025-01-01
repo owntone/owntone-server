@@ -153,7 +153,7 @@ export default {
       if (newState === 'play') {
         this.interval_id = window.setInterval(this.tick, INTERVAL)
       }
-    },
+    }
   },
 
   created() {
