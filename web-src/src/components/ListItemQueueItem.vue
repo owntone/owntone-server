@@ -5,7 +5,7 @@
   >
     <div v-if="edit_mode" class="media-left">
       <mdicon
-        class="icon has-text-grey fd-is-movable"
+        class="icon has-text-grey is-movable"
         name="drag-horizontal"
         size="18"
       />
@@ -80,3 +80,9 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.is-movable {
+  cursor: move;
+}
+</style>

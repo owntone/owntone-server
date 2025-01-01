@@ -5,7 +5,7 @@
         class="media-content"
         :class="{
           'is-clickable': item.is_playable,
-          'fd-is-not-allowed': !item.is_playable
+          'is-not-allowed': !item.is_playable
         }"
         @click="play(item)"
       >
@@ -82,3 +82,9 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.is-not-allowed {
+  cursor: not-allowed;
+}
+</style>
