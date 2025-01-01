@@ -1,14 +1,15 @@
 <template>
   <template v-for="item in items" :key="item.id">
-    <div class="media is-align-items-center mb-0">
-      <div class="media-content is-clickable" @click="open(item)">
-        <div class="content is-small">
-          <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
-          <div
-            class="has-text-weight-bold has-text-grey"
-            v-text="item.owner.display_name"
-          />
-        </div>
+    <div
+      class="media is-align-items-center is-clickable mb-0"
+      @click="open(item)"
+    >
+      <div class="media-content">
+        <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
+        <div
+          class="is-size-7 has-text-weight-bold has-text-grey"
+          v-text="item.owner.display_name"
+        />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">

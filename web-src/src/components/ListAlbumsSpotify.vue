@@ -16,17 +16,15 @@
         />
       </div>
       <div class="media-content">
-        <div class="content is-small">
-          <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
-          <div
-            class="has-text-weight-bold has-text-grey"
-            v-text="item.artists[0]?.name"
-          />
-          <div
-            class="has-text-grey"
-            v-text="$filters.date(item.release_date)"
-          />
-        </div>
+        <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
+        <div
+          class="is-size-7 has-text-weight-bold has-text-grey"
+          v-text="item.artists[0]?.name"
+        />
+        <div
+          class="is-size-7 has-text-grey"
+          v-text="$filters.date(item.release_date)"
+        />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">

@@ -20,18 +20,16 @@
         class="media-left fd-has-shadow fd-cover fd-cover-small-image"
       />
       <div class="media-content">
-        <div class="content is-small">
-          <div class="is-size-6 has-text-weight-bold" v-text="item.item.name" />
-          <div
-            class="has-text-grey has-text-weight-bold"
-            v-text="item.item.artist"
-          />
-          <div
-            v-if="item.item.date_released && item.item.media_kind === 'music'"
-            class="has-text-grey"
-            v-text="$filters.date(item.item.date_released)"
-          />
-        </div>
+        <div class="is-size-6 has-text-weight-bold" v-text="item.item.name" />
+        <div
+          class="is-size-7 has-text-grey has-text-weight-bold"
+          v-text="item.item.artist"
+        />
+        <div
+          v-if="item.item.date_released && item.item.media_kind === 'music'"
+          class="is-size-7 has-text-grey"
+          v-text="$filters.date(item.item.date_released)"
+        />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item.item)">

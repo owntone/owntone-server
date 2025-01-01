@@ -15,27 +15,25 @@
     >
       <mdicon v-if="show_icon" class="media-left icon" name="file-outline" />
       <div class="media-content">
-        <div class="content is-small">
-          <div
-            class="is-size-6 has-text-weight-bold"
-            :class="{
-              'has-text-grey':
-                item.item.media_kind === 'podcast' && item.item.play_count > 0
-            }"
-            v-text="item.item.title"
-          />
-          <div
-            class="has-text-weight-bold has-text-grey"
-            v-text="item.item.artist"
-          />
-          <div class="has-text-grey" v-text="item.item.album" />
-          <progress
-            v-if="show_progress && item.item.seek_ms > 0"
-            class="progress is-info"
-            :max="item.item.length_ms"
-            :value="item.item.seek_ms"
-          />
-        </div>
+        <div
+          class="is-size-6 has-text-weight-bold"
+          :class="{
+            'has-text-grey':
+              item.item.media_kind === 'podcast' && item.item.play_count > 0
+          }"
+          v-text="item.item.title"
+        />
+        <div
+          class="is-size-7 has-text-weight-bold has-text-grey"
+          v-text="item.item.artist"
+        />
+        <div class="is-size-7 has-text-grey" v-text="item.item.album" />
+        <progress
+          v-if="show_progress && item.item.seek_ms > 0"
+          class="progress is-info"
+          :max="item.item.length_ms"
+          :value="item.item.seek_ms"
+        />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item.item)">

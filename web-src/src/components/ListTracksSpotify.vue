@@ -9,32 +9,30 @@
         }"
         @click="play(item)"
       >
-        <div class="content is-small">
-          <div
-            class="is-size-6 has-text-weight-bold"
-            :class="{ 'has-text-grey-light': !item.is_playable }"
-            v-text="item.name"
-          />
-          <div
-            class="has-text-weight-bold"
-            :class="{
-              'has-text-grey': item.is_playable,
-              'has-text-grey-light': !item.is_playable
-            }"
-            v-text="item.artists[0].name"
-          />
-          <div class="has-text-grey" v-text="item.album.name" />
-          <div v-if="!item.is_playable" class="has-text-grey">
-            (<span v-text="$t('list.spotify.not-playable-track')" />
-            <span
-              v-if="item.restrictions?.reason"
-              v-text="
-                $t('list.spotify.restriction-reason', {
-                  reason: item.restrictions.reason
-                })
-              "
-            />)
-          </div>
+        <div
+          class="is-size-6 has-text-weight-bold"
+          :class="{ 'has-text-grey-light': !item.is_playable }"
+          v-text="item.name"
+        />
+        <div
+          class="is-size-7 has-text-weight-bold"
+          :class="{
+            'has-text-grey': item.is_playable,
+            'has-text-grey-light': !item.is_playable
+          }"
+          v-text="item.artists[0].name"
+        />
+        <div class="is-size-7 has-text-grey" v-text="item.album.name" />
+        <div v-if="!item.is_playable" class="is-size-7 has-text-grey">
+          (<span v-text="$t('list.spotify.not-playable-track')" />
+          <span
+            v-if="item.restrictions?.reason"
+            v-text="
+              $t('list.spotify.restriction-reason', {
+                reason: item.restrictions.reason
+              })
+            "
+          />)
         </div>
       </div>
       <div class="media-right">
