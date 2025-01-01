@@ -2,14 +2,14 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <p
+        <div
           class="title is-4"
           v-text="
             playlist.id === 0 ? $t('page.playlists.title') : playlist.name
           "
         />
-        <p
-          class="heading"
+        <div
+          class="is-size-7 is-uppercase"
           v-text="$t('page.playlists.count', { count: playlists.count })"
         />
       </template>

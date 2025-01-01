@@ -6,7 +6,10 @@
         <index-button-list :indices="albums.indices" />
         <div class="columns">
           <div class="column">
-            <p class="heading" v-text="$t('page.albums.filter')" />
+            <div
+              class="is-size-7 is-uppercase"
+              v-text="$t('page.albums.filter')"
+            />
             <control-switch v-model="uiStore.hide_singles">
               <template #label>
                 <span v-text="$t('page.albums.hide-singles')" />
@@ -28,7 +31,10 @@
             </control-switch>
           </div>
           <div class="column">
-            <p class="heading" v-text="$t('page.albums.sort.title')" />
+            <div
+              class="is-size-7 is-uppercase"
+              v-text="$t('page.albums.sort.title')"
+            />
             <control-dropdown
               v-model:value="uiStore.albums_sort"
               :options="groupings"
@@ -37,9 +43,9 @@
         </div>
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.albums.title')" />
-        <p
-          class="heading"
+        <div class="title is-4" v-text="$t('page.albums.title')" />
+        <div
+          class="is-size-7 is-uppercase"
           v-text="$t('page.albums.count', { count: albums.count })"
         />
       </template>

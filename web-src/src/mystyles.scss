@@ -105,14 +105,6 @@
   }
 }
 
-.heading {
-  display: block;
-  font-size: 0.75rem;
-  letter-spacing: 1px;
-  margin-bottom: 0px !important;
-  text-transform: uppercase;
-}
-
 .column {
   &.fd-has-cover {
     @include mixins.mobile {

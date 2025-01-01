@@ -1,22 +1,29 @@
 <template>
   <base-modal :show="show" @close="$emit('close')">
     <template #content>
-      <p class="title is-4">
-        <a class="has-text-link" @click="open" v-text="item.name" />
-      </p>
-      <div class="content is-small">
-        <p>
-          <span class="heading" v-text="$t('dialog.playlist.path')" />
-          <span class="title is-6" v-text="item.path" />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.playlist.type')" />
-          <span class="title is-6" v-text="$t(`playlist.type.${item.type}`)" />
-        </p>
-        <p v-if="!item.folder">
-          <span class="heading" v-text="$t('dialog.playlist.tracks')" />
-          <span class="title is-6" v-text="item.item_count" />
-        </p>
+      <div class="title is-4">
+        <a @click="open" v-text="item.name" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.playlist.path')"
+        />
+        <div class="title is-6" v-text="item.path" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.playlist.type')"
+        />
+        <div class="title is-6" v-text="$t(`playlist.type.${item.type}`)" />
+      </div>
+      <div v-if="!item.folder" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.playlist.tracks')"
+        />
+        <div class="title is-6" v-text="item.item_count" />
       </div>
     </template>
     <template v-if="!item.folder" #footer>

@@ -1,22 +1,29 @@
 <template>
   <base-modal :show="show" @close="$emit('close')">
     <template #content>
-      <p class="title is-4">
-        <a class="has-text-link" @click="open" v-text="item.name" />
-      </p>
-      <div class="content is-small">
-        <p>
-          <span class="heading" v-text="$t('dialog.spotify.playlist.owner')" />
-          <span class="title is-6" v-text="item.owner.display_name" />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.spotify.playlist.tracks')" />
-          <span class="title is-6" v-text="item.tracks.total" />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.spotify.playlist.path')" />
-          <span class="title is-6" v-text="item.uri" />
-        </p>
+      <div class="title is-4">
+        <a @click="open" v-text="item.name" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.playlist.owner')"
+        />
+        <div class="title is-6" v-text="item.owner.display_name" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.playlist.tracks')"
+        />
+        <div class="title is-6" v-text="item.tracks.total" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.playlist.path')"
+        />
+        <div class="title is-6" v-text="item.uri" />
       </div>
     </template>
     <template #footer>

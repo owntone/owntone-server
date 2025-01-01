@@ -1,25 +1,32 @@
 <template>
   <base-modal :show="show" @close="$emit('close')">
     <template #content>
-      <p class="title is-4">
-        <a class="has-text-link" @click="open" v-text="item.name" />
-      </p>
-      <div class="content is-small">
-        <p>
-          <span class="heading" v-text="$t('dialog.genre.albums')" />
-          <span class="title is-6" v-text="item.album_count" />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.genre.tracks')" />
-          <span class="title is-6" v-text="item.track_count" />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.genre.duration')" />
-          <span
-            class="title is-6"
-            v-text="$filters.durationInHours(item.length_ms)"
-          />
-        </p>
+      <div class="title is-4">
+        <a @click="open" v-text="item.name" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.genre.albums')"
+        />
+        <div class="title is-6" v-text="item.album_count" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.genre.tracks')"
+        />
+        <div class="title is-6" v-text="item.track_count" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.genre.duration')"
+        />
+        <div
+          class="title is-6"
+          v-text="$filters.durationInHours(item.length_ms)"
+        />
       </div>
     </template>
     <template #footer>

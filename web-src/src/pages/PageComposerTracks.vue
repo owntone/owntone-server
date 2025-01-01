@@ -5,7 +5,10 @@
         <index-button-list :indices="tracks.indices" />
         <div class="columns">
           <div class="column">
-            <p class="heading" v-text="$t('page.artist.sort.title')" />
+            <div
+              class="is-size-7 is-uppercase"
+              v-text="$t('page.artist.sort.title')"
+            />
             <control-dropdown
               v-model:value="uiStore.composer_tracks_sort"
               :options="groupings"
@@ -14,7 +17,23 @@
         </div>
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="composer.name" />
+        <div class="title is-4" v-text="composer.name" />
+        <div class="is-size-7 is-uppercase">
+          <a
+            @click="open_albums"
+            v-text="
+              $t('page.composer.album-count', {
+                count: composer.album_count
+              })
+            "
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <span
+            v-text="
+              $t('page.composer.track-count', { count: composer.track_count })
+            "
+          />
+        </div>
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -31,23 +50,6 @@
         </div>
       </template>
       <template #content>
-        <p class="heading has-text-centered-mobile">
-          <a
-            class="has-text-link"
-            @click="open_albums"
-            v-text="
-              $t('page.composer.album-count', {
-                count: composer.album_count
-              })
-            "
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <span
-            v-text="
-              $t('page.composer.track-count', { count: composer.track_count })
-            "
-          />
-        </p>
         <list-tracks :items="tracks" :expression="expression" />
         <modal-dialog-composer
           :item="composer"

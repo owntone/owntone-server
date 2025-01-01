@@ -6,7 +6,7 @@
       </a>
     </div>
     <div class="media-content">
-      <p class="heading" v-text="$t('navigation.volume')" />
+      <div class="is-size-7 is-uppercase" v-text="$t('navigation.volume')" />
       <control-slider
         v-model:value="player.volume"
         :cursor="cursor"

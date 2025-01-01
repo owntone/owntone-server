@@ -1,7 +1,8 @@
 <template>
   <div
     v-if="is_next || !show_only_next_items"
-    class="media is-align-items-center"
+    class="media is-align-items-center is-clickable mb-0"
+    @click="play"
   >
     <div v-if="edit_mode" class="media-left">
       <mdicon
@@ -10,17 +11,17 @@
         size="18"
       />
     </div>
-    <div class="media-content is-clickable is-clipped" @click="play">
-      <p
-        class="title is-6"
+    <div class="media-content">
+      <div
+        class="is-size-6 has-text-weight-bold"
         :class="{
           'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next
         }"
         v-text="item.title"
       />
-      <p
-        class="subtitle is-7 has-text-weight-bold"
+      <div
+        class="is-size-7 has-text-weight-bold"
         :class="{
           'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next,
@@ -28,8 +29,8 @@
         }"
         v-text="item.artist"
       />
-      <p
-        class="subtitle is-7"
+      <div
+        class="is-size-7"
         :class="{
           'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next,

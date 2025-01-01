@@ -17,8 +17,8 @@
         class="is-flex is-align-content-center"
         :class="{ 'has-text-grey-light': !playing }"
       >
-        <p class="heading" v-text="$t('navigation.stream')" />
-        <a href="stream.mp3" class="heading ml-2" target="_blank">
+        <div class="is-size-7 is-uppercase" v-text="$t('navigation.stream')" />
+        <a href="stream.mp3" class="ml-2" target="_blank">
           <mdicon class="icon is-small" name="open-in-new" />
         </a>
       </div>

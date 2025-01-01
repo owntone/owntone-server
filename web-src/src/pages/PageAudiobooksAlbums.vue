@@ -8,7 +8,7 @@
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.audiobooks.albums.title')" />
         <p
-          class="heading"
+          class="is-size-7 is-uppercase"
           v-text="$t('page.audiobooks.albums.count', { count: albums.count })"
         />
       </template>

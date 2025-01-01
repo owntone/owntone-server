@@ -10,8 +10,8 @@
       </a>
     </div>
     <div class="media-content">
-      <p
-        class="heading"
+      <div
+        class="is-size-7 is-uppercase"
         :class="{ 'has-text-grey-light': !output.selected }"
         v-text="output.name"
       />

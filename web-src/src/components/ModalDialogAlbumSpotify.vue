@@ -1,40 +1,39 @@
 <template>
   <base-modal :show="show" @close="$emit('close')">
     <template #content>
+      <div class="title is-4">
+        <a @click="open" v-text="item.name" />
+      </div>
       <cover-artwork
         :url="artwork_url(item)"
         :artist="item.artist"
         :album="item.name"
-        class="fd-has-shadow fd-cover fd-cover-normal-image"
+        class="fd-has-shadow fd-cover fd-cover-normal-image mb-3"
         @load="artwork_loaded"
         @error="artwork_error"
       />
-      <p class="title is-4">
-        <a class="has-text-link" @click="open" v-text="item.name" />
-      </p>
-      <div class="content is-small">
-        <p>
-          <span
-            class="heading"
-            v-text="$t('dialog.spotify.album.album-artist')"
-          />
-          <a
-            class="title is-6 has-text-link"
-            @click="open_artist"
-            v-text="item.artists[0].name"
-          />
-        </p>
-        <p>
-          <span
-            class="heading"
-            v-text="$t('dialog.spotify.album.release-date')"
-          />
-          <span class="title is-6" v-text="$filters.date(item.release_date)" />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.spotify.album.type')" />
-          <span class="title is-6" v-text="item.album_type" />
-        </p>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.album.album-artist')"
+        />
+        <div class="title is-6">
+          <a @click="open_artist" v-text="item.artists[0].name" />
+        </div>
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.album.release-date')"
+        />
+        <div class="title is-6" v-text="$filters.date(item.release_date)" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.album.type')"
+        />
+        <div class="title is-6" v-text="item.album_type" />
       </div>
     </template>
     <template #footer>

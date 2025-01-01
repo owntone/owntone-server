@@ -22,9 +22,9 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.podcasts.title')" />
-        <p
-          class="heading"
+        <div class="title is-4" v-text="$t('page.podcasts.title')" />
+        <div
+          class="is-size-7 is-uppercase"
           v-text="$t('page.podcasts.count', { count: albums.total })"
         />
       </template>

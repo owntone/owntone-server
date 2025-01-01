@@ -17,118 +17,137 @@
           v-text="$t('dialog.track.mark-as-played')"
         />
       </div>
-      <div class="content is-small">
-        <p v-if="item.album">
-          <span class="heading" v-text="$t('dialog.track.album')" />
-          <a
-            class="title is-6 has-text-link"
-            @click="open_album"
-            v-text="item.album"
-          />
-        </p>
-        <p v-if="item.album_artist && item.media_kind !== 'audiobook'">
-          <span class="heading" v-text="$t('dialog.track.album-artist')" />
-          <a
-            class="title is-6 has-text-link"
-            @click="open_album_artist"
-            v-text="item.album_artist"
-          />
-        </p>
-        <p v-if="item.composer">
-          <span class="heading" v-text="$t('dialog.track.composer')" />
-          <span class="title is-6" v-text="item.composer" />
-        </p>
-        <p v-if="item.date_released">
-          <span class="heading" v-text="$t('dialog.track.release-date')" />
-          <span class="title is-6" v-text="$filters.date(item.date_released)" />
-        </p>
-        <p v-else-if="item.year">
-          <span class="heading" v-text="$t('dialog.track.year')" />
-          <span class="title is-6" v-text="item.year" />
-        </p>
-        <p v-if="item.genre">
-          <span class="heading" v-text="$t('dialog.track.genre')" />
-          <a
-            class="title is-6 has-text-link"
-            @click="open_genre"
-            v-text="item.genre"
-          />
-        </p>
-        <p v-if="item.disc_number">
-          <span class="heading" v-text="$t('dialog.track.position')" />
+      <div v-if="item.album" class="mb-3">
+        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.album')" />
+        <div class="title is-6">
+          <a @click="open_album" v-text="item.album" />
+        </div>
+      </div>
+      <div
+        v-if="item.album_artist && item.media_kind !== 'audiobook'"
+        class="mb-3"
+      >
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.album-artist')"
+        />
+        <div class="title is-6">
+          <a @click="open_album_artist" v-text="item.album_artist" />
+        </div>
+      </div>
+      <div v-if="item.composer" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.composer')"
+        />
+        <div class="title is-6" v-text="item.composer" />
+      </div>
+      <div v-if="item.date_released" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.release-date')"
+        />
+        <div class="title is-6" v-text="$filters.date(item.date_released)" />
+      </div>
+      <div v-else-if="item.year" class="mb-3">
+        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.year')" />
+        <div class="title is-6" v-text="item.year" />
+      </div>
+      <div v-if="item.genre" class="mb-3">
+        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.genre')" />
+        <div class="title is-6">
+          <a @click="open_genre" v-text="item.genre" />
+        </div>
+      </div>
+      <div v-if="item.disc_number" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.position')"
+        />
+        <div
+          class="title is-6"
+          v-text="[item.disc_number, item.track_number].join(' / ')"
+        />
+      </div>
+      <div v-if="item.length_ms" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.duration')"
+        />
+        <div
+          class="title is-6"
+          v-text="$filters.durationInHours(item.length_ms)"
+        />
+      </div>
+      <div class="mb-3">
+        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.path')" />
+        <div class="title is-6" v-text="item.path" />
+      </div>
+      <div class="mb-3">
+        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.type')" />
+        <div
+          class="title is-6"
+          v-text="
+            `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
+          "
+        />
+      </div>
+      <div v-if="item.samplerate" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.quality')"
+        />
+        <div class="title is-6">
+          <span v-text="item.type" />
           <span
-            class="title is-6"
-            v-text="[item.disc_number, item.track_number].join(' / ')"
-          />
-        </p>
-        <p v-if="item.length_ms">
-          <span class="heading" v-text="$t('dialog.track.duration')" />
-          <span
-            class="title is-6"
-            v-text="$filters.durationInHours(item.length_ms)"
-          />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.track.path')" />
-          <span class="title is-6" v-text="item.path" />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.track.type')" />
-          <span
-            class="title is-6"
+            v-if="item.samplerate"
             v-text="
-              `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
-            "
-          />
-        </p>
-        <p v-if="item.samplerate">
-          <span class="heading" v-text="$t('dialog.track.quality')" />
-          <span class="title is-6">
-            <span v-text="item.type" />
-            <span
-              v-if="item.samplerate"
-              v-text="
-                $t('dialog.track.samplerate', {
-                  rate: item.samplerate
-                })
-              "
-            />
-            <span
-              v-if="item.channels"
-              v-text="
-                $t('dialog.track.channels', {
-                  channels: $filters.channels(item.channels)
-                })
-              "
-            />
-            <span
-              v-if="item.bitrate"
-              v-text="$t('dialog.track.bitrate', { rate: item.bitrate })"
-            />
-          </span>
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.track.added-on')" />
-          <span
-            class="title is-6"
-            v-text="$filters.datetime(item.time_added)"
-          />
-        </p>
-        <p>
-          <span class="heading" v-text="$t('dialog.track.rating')" />
-          <span
-            class="title is-6"
-            v-text="
-              $t('dialog.track.rating-value', {
-                rating: Math.floor(item.rating / 10)
+              $t('dialog.track.samplerate', {
+                rate: item.samplerate
               })
             "
           />
-        </p>
-        <p v-if="item.comment">
-          <span class="heading" v-text="$t('dialog.track.comment')" />
-          <span class="title is-6" v-text="item.comment" />
-        </p>
+          <span
+            v-if="item.channels"
+            v-text="
+              $t('dialog.track.channels', {
+                channels: $filters.channels(item.channels)
+              })
+            "
+          />
+          <span
+            v-if="item.bitrate"
+            v-text="$t('dialog.track.bitrate', { rate: item.bitrate })"
+          />
+        </div>
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.added-on')"
+        />
+        <div class="title is-6" v-text="$filters.datetime(item.time_added)" />
+      </div>
+      <div>
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.rating')"
+        />
+        <div
+          class="title is-6"
+          v-text="
+            $t('dialog.track.rating-value', {
+              rating: Math.floor(item.rating / 10)
+            })
+          "
+        />
+      </div>
+      <div v-if="item.comment" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.track.comment')"
+        />
+        <div class="title is-6" v-text="item.comment" />
       </div>
     </template>
     <template #footer>

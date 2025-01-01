@@ -4,7 +4,10 @@
       <template #options>
         <div class="columns">
           <div class="column">
-            <p class="heading" v-text="$t('page.artist.filter')" />
+            <div
+              class="is-size-7 is-uppercase"
+              v-text="$t('page.artist.filter')"
+            />
             <control-switch
               v-if="spotify_enabled"
               v-model="uiStore.hide_spotify"
@@ -18,7 +21,10 @@
             </control-switch>
           </div>
           <div class="column">
-            <p class="heading" v-text="$t('page.artist.sort.title')" />
+            <div
+              class="is-size-7 is-uppercase"
+              v-text="$t('page.artist.sort.title')"
+            />
             <control-dropdown
               v-model:value="uiStore.artist_albums_sort"
               :options="groupings"
@@ -27,7 +33,17 @@
         </div>
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="artist.name" />
+        <div class="title is-4" v-text="artist.name" />
+        <div class="is-size-7 is-uppercase">
+          <span
+            v-text="$t('page.artist.album-count', { count: albums.count })"
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <a
+            @click="open_tracks"
+            v-text="$t('page.artist.track-count', { count: track_count })"
+          />
+        </div>
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -44,17 +60,6 @@
         </div>
       </template>
       <template #content>
-        <p class="heading has-text-centered-mobile">
-          <span
-            v-text="$t('page.artist.album-count', { count: albums.count })"
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <a
-            class="has-text-link"
-            @click="open_tracks"
-            v-text="$t('page.artist.track-count', { count: track_count })"
-          />
-        </p>
         <list-albums :items="albums" />
         <modal-dialog-artist
           :item="artist"

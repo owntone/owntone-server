@@ -1,32 +1,37 @@
 <template>
   <base-modal :show="show" @close="$emit('close')">
     <template #content>
-      <p class="title is-4">
-        <a class="has-text-link" @click="open_albums" v-text="item.name" />
-      </p>
-      <p>
-        <span class="heading" v-text="$t('dialog.composer.albums')" />
-        <a
-          class="has-text-link is-6"
-          @click="open_albums"
-          v-text="item.album_count"
+      <div class="title is-4">
+        <a @click="open_albums" v-text="item.name" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.composer.albums')"
         />
-      </p>
-      <p>
-        <span class="heading" v-text="$t('dialog.composer.tracks')" />
-        <a
-          class="has-text-link is-6"
-          @click="open_tracks"
-          v-text="item.track_count"
+        <div class="title is-6">
+          <a @click="open_albums" v-text="item.album_count" />
+        </div>
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.composer.tracks')"
         />
-      </p>
-      <p>
-        <span class="heading" v-text="$t('dialog.composer.duration')" />
-        <span
+        <div class="title is-6">
+          <a @click="open_tracks" v-text="item.track_count" />
+        </div>
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.composer.duration')"
+        />
+        <div
           class="title is-6"
           v-text="$filters.durationInHours(item.length_ms)"
         />
-      </p>
+      </div>
     </template>
     <template #footer>
       <a class="card-footer-item has-text-dark" @click="queue_add">

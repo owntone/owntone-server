@@ -2,9 +2,9 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.queue.title')" />
-        <p
-          class="heading"
+        <div class="title is-4" v-text="$t('page.queue.title')" />
+        <div
+          class="is-size-7 is-uppercase"
           v-text="$t('page.queue.count', { count: queue.count })"
         />
       </template>

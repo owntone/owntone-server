@@ -6,9 +6,9 @@
         <index-button-list :indices="genres.indices" />
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.genres.title')" />
-        <p
-          class="heading"
+        <div class="title is-4" v-text="$t('page.genres.title')" />
+        <div
+          class="is-size-7 is-uppercase"
           v-text="$t('page.genres.count', { count: genres.total })"
         />
       </template>

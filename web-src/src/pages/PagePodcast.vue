@@ -2,10 +2,10 @@
   <div>
     <content-with-hero>
       <template #heading-left>
-        <p class="title is-5" v-text="album.name" />
-        <p class="subtitle is-6">
+        <div class="title is-5" v-text="album.name" />
+        <div class="subtitle is-6">
           <br />
-        </p>
+        </div>
         <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
@@ -29,8 +29,8 @@
         />
       </template>
       <template #content>
-        <p
-          class="heading has-text-centered-mobile mt-5"
+        <div
+          class="is-size-7 is-uppercase has-text-centered-mobile my-5"
           v-text="$t('page.podcast.track-count', { count: album.track_count })"
         />
         <list-tracks

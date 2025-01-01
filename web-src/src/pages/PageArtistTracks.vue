@@ -5,7 +5,10 @@
         <index-button-list :indices="tracks.indices" />
         <div class="columns">
           <div class="column">
-            <p class="heading" v-text="$t('page.artist.filter')" />
+            <p
+              class="is-size-7 is-uppercase"
+              v-text="$t('page.artist.filter')"
+            />
             <control-switch
               v-if="spotify_enabled"
               v-model="uiStore.hide_spotify"
@@ -19,7 +22,10 @@
             </control-switch>
           </div>
           <div class="column">
-            <p class="heading" v-text="$t('page.artist.sort.title')" />
+            <p
+              class="is-size-7 is-uppercase"
+              v-text="$t('page.artist.sort.title')"
+            />
             <control-dropdown
               v-model:value="uiStore.artist_tracks_sort"
               :options="groupings"
@@ -29,6 +35,16 @@
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="artist.name" />
+        <div class="is-size-7 is-uppercase">
+          <a
+            @click="open_artist"
+            v-text="$t('page.artist.album-count', { count: album_count })"
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <span
+            v-text="$t('page.artist.track-count', { count: tracks.count })"
+          />
+        </div>
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -45,17 +61,6 @@
         </div>
       </template>
       <template #content>
-        <p class="heading has-text-centered-mobile">
-          <a
-            class="has-text-link"
-            @click="open_artist"
-            v-text="$t('page.artist.album-count', { count: album_count })"
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <span
-            v-text="$t('page.artist.track-count', { count: tracks.count })"
-          />
-        </p>
         <list-tracks :items="tracks" :uris="track_uris" />
         <modal-dialog-artist
           :item="artist"
