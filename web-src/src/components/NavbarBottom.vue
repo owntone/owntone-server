@@ -47,19 +47,13 @@
       >
         <div class="dropdown-menu">
           <div class="dropdown-content">
-            <div class="dropdown-item">
+            <div class="dropdown-item pt-0">
               <control-main-volume />
-            </div>
-            <hr class="dropdown-divider" />
-            <div class="dropdown-item">
               <control-output-volume
                 v-for="output in outputsStore.outputs"
                 :key="output.id"
                 :output="output"
               />
-            </div>
-            <hr class="dropdown-divider" />
-            <div class="dropdown-item">
               <control-stream-volume />
             </div>
             <hr class="dropdown-divider" />

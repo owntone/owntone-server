@@ -1,5 +1,5 @@
 <template>
-  <div class="media is-align-items-center pt-0">
+  <div class="media is-align-items-center mb-0">
     <div class="media-left">
       <a
         class="button is-small"
@@ -12,11 +12,8 @@
         <mdicon class="icon" name="broadcast" />
       </a>
     </div>
-    <div class="media-content">
-      <div
-        class="is-flex is-align-content-center"
-        :class="{ 'has-text-grey-light': !playing }"
-      >
+    <div class="media-content is-align-items-center">
+      <div class="is-flex" :class="{ 'has-text-grey-light': !playing }">
         <div class="is-size-7 is-uppercase" v-text="$t('navigation.stream')" />
         <a href="stream.mp3" class="ml-2" target="_blank">
           <mdicon class="icon is-small" name="open-in-new" />
