@@ -173,8 +173,9 @@ streamurl_process(struct input_metadata *metadata, const char *url)
 {
   struct http_client_ctx client = { 0 };
   struct keyval kv = { 0 };
-  struct evbuffer *evbuf;
+  struct evbuffer *evbuf = NULL;
   const char *content_type;
+  const char *artwork_url;
   char *body;
   int ret;
 
@@ -184,6 +185,21 @@ streamurl_process(struct input_metadata *metadata, const char *url)
     {
       DPRINTF(E_DBG, L_PLAYER, "Ignoring StreamUrl resource '%s', no settings\n", url);
       return -1;
+    }
+
+  // If the StreamUrl contains a keyword followed by the actual url, e.g. http://metadata.cdnstream1.com/?yadayada&ALBUM_ART=https%3A%2F%2Fis1-ssl.mzstatic.com%2Fimage%2Fthumb%2FMusic%2F11%2Fcc%2F21%2Fmzi.nepwiuir.jpg
+  if (streamurl_map[0].words)
+    {
+      ret = http_form_urldecode(&kv, url);
+      if (ret < 0)
+	return -1;
+
+      artwork_url = keyval_get(&kv, streamurl_map[0].words);
+      metadata->artwork_url = safe_strdup(artwork_url);
+      keyval_clear(&kv);
+
+      if (metadata->artwork_url)
+	goto out;
     }
 
   DPRINTF(E_DBG, L_PLAYER, "Downloading StreamUrl resource '%s'\n", url);
@@ -219,7 +235,8 @@ streamurl_process(struct input_metadata *metadata, const char *url)
 
  out:
   keyval_clear(&kv);
-  evbuffer_free(evbuf);
+  if (evbuf)
+    evbuffer_free(evbuf);
   streamurl_settings_unload();
   return ret;
 }

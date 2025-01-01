@@ -86,6 +86,14 @@ http_client_request(struct http_client_ctx *ctx, struct http_client_session *ses
 char *
 http_form_urlencode(struct keyval *kv);
 
+/* The reverse of http_form_urlencode, except takes a full url as input.
+ *
+ * @param kv keyval struct allocated by caller where values will be added
+ * @param url with the query to decode
+ * @return 0 if ok, otherwise -1
+ */
+int
+http_form_urldecode(struct keyval *kv, const char *uri);
 
 /* Returns a newly allocated string with the first stream in the m3u given in
  * url. If url is not a m3u, the string will be a copy of url.
