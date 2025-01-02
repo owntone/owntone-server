@@ -172,7 +172,7 @@ http_client_request(struct http_client_ctx *ctx, struct http_client_session *ses
   res = curl_easy_perform(curl);
   if (res != CURLE_OK)
     {
-      DPRINTF(E_LOG, L_HTTP, "Request to %s failed: %s\n", ctx->url, curl_easy_strerror(res));
+      DPRINTF(E_WARN, L_HTTP, "Request to %s failed: %s\n", ctx->url, curl_easy_strerror(res));
       curl_slist_free_all(headers);
       if (!session)
 	{
