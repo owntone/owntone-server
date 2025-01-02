@@ -71,7 +71,7 @@
 
 // See online_source_is_failing()
 #define ONLINE_SEARCH_COOLDOWN_TIME 3600
-#define ONLINE_SEARCH_FAILURES_MAX 3
+#define ONLINE_SEARCH_FAILURES_MAX 5
 
 enum artwork_cache
 {
@@ -191,6 +191,8 @@ static const char *cover_extension[] =
   {
     "jpg", "png",
   };
+
+static pthread_mutex_t artwork_cache_stash_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* ----------------- DECLARE AND CONFIGURE SOURCE HANDLERS ----------------- */
 
@@ -457,7 +459,6 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
   ret = http_client_request(&client, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_ART, "Request to '%s' failed with return value %d\n", url, ret);
       goto out;
     }
 
@@ -941,12 +942,18 @@ artwork_get_byurl(struct evbuffer *artwork, const char *url, struct artwork_req_
   CHECK_NULL(L_ART, raw = evbuffer_new());
   format = ART_E_ERROR;
 
+  // Accessing the cache is thread safe, the purpose of the lock is to make the
+  // artwork stash more effective if we have parallel requests for the same url.
+  // It will assure that the artwork from the first request is downloaded and
+  // stashed before processing the next request.
+  pthread_mutex_lock(&artwork_cache_stash_mutex);
   ret = cache_artwork_read(raw, url, &format);
   if (ret < 0)
     {
       format = artwork_read_byurl(raw, url);
       cache_artwork_stash(raw, url, format);
     }
+  pthread_mutex_unlock(&artwork_cache_stash_mutex);
 
   // If we couldn't read, or we have cached a negative result from the last attempt, we stop now
   if (format <= 0)
@@ -1123,7 +1130,7 @@ online_source_response_parse(char **artwork_url, const struct online_source *src
 }
 
 static int
-online_source_request_url_make(char *url, size_t url_size, const struct online_source *src, struct artwork_ctx *ctx)
+online_source_search_url_make(char *url, size_t url_size, const struct online_source *src, struct artwork_ctx *ctx)
 {
   struct db_queue_item *queue_item;
   struct keyval query = { 0 };
@@ -1166,8 +1173,8 @@ online_source_request_url_make(char *url, size_t url_size, const struct online_s
       goto error;
     }
 
-  if ((artist && strncasecmp("unknown", artist, strlen("unknown")) == 0) ||
-      (album && strncasecmp("unknown", album, strlen("unknown")) == 0) )
+  if ((artist && strncmp(CFG_NAME_UNKNOWN_ARTIST, artist, strlen(CFG_NAME_UNKNOWN_ARTIST)) == 0) ||
+      (album && strncmp(CFG_NAME_UNKNOWN_ALBUM, album, strlen(CFG_NAME_UNKNOWN_ARTIST)) == 0) )
     {
       DPRINTF(E_DBG, L_ART, "Skipping online artwork search for unknown artist/album\n");
       goto error;
@@ -1192,14 +1199,17 @@ online_source_request_url_make(char *url, size_t url_size, const struct online_s
       ret = keyval_add(&query, src->query_parts[i].key, param);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_ART, "keyval_add() failed in request_url_make()\n");
+	  DPRINTF(E_LOG, L_ART, "keyval_add() failed in online_source_request_url_make()\n");
 	  goto error;
 	}
     }
 
   encoded_query = http_form_urlencode(&query);
   if (!encoded_query)
-    goto error;
+    {
+      DPRINTF(E_WARN, L_ART, "URL encoding for online artwork search failed\n");
+      goto error;
+    }
 
   snprintf(url, url_size, "%s?%s", src->search_endpoint, src->search_param);
   if (safe_snreplace(url, url_size, "$QUERY$", encoded_query) < 0)
@@ -1227,17 +1237,12 @@ online_source_search_check_last(char **last_artwork_url, const struct online_sou
   struct online_search_history *history = src->search_history;
   bool is_same;
 
-  pthread_mutex_lock(&history->mutex);
-
   is_same = (hash == history->last_hash) &&
             (max_w == history->last_max_w) &&
             (max_h == history->last_max_h);
 
-  // Copy this to the caller while we have the lock anyway
   if (is_same)
     *last_artwork_url = safe_strdup(history->last_artwork_url);
-
-  pthread_mutex_unlock(&history->mutex);
 
   return is_same ? 0 : -1;
 }
@@ -1247,8 +1252,6 @@ online_source_is_failing(const struct online_source *src, int id)
 {
   struct online_search_history *history = src->search_history;
   bool is_failing;
-
-  pthread_mutex_lock(&history->mutex);
 
   // If the last request was more than ONLINE_SEARCH_COOLDOWN_TIME ago we will always try again
   if (time(NULL) > history->last_timestamp + ONLINE_SEARCH_COOLDOWN_TIME)
@@ -1266,22 +1269,20 @@ online_source_is_failing(const struct online_source *src, int id)
   else
     is_failing = true;
 
-  pthread_mutex_unlock(&history->mutex);
-
   return is_failing;
 }
 
 static void
-online_source_history_update(const struct online_source *src, int id, uint32_t request_hash, int response_code, const char *artwork_url)
+online_source_history_update(const struct online_source *src, int id, uint32_t request_hash, int response_code, const char *artwork_url, int max_w, int max_h)
 {
   struct online_search_history *history = src->search_history;
-
-  pthread_mutex_lock(&history->mutex);
 
   history->last_id = id;
   history->last_hash = request_hash;
   history->last_response_code = response_code;
   history->last_timestamp = time(NULL);
+  history->last_max_w = max_w;
+  history->last_max_h = max_h;
 
   free(history->last_artwork_url);
   history->last_artwork_url = safe_strdup(artwork_url); // FIXME should free this on exit
@@ -1290,8 +1291,6 @@ online_source_history_update(const struct online_source *src, int id, uint32_t r
     history->count_failures = 0;
   else
     history->count_failures++;
-
-  pthread_mutex_unlock(&history->mutex);
 }
 
 static int
@@ -1327,34 +1326,24 @@ auth_header_add(struct keyval *headers, const struct online_source *src)
 }
 
 static char *
-online_source_search(const struct online_source *src, struct artwork_ctx *ctx)
+online_source_artwork_url_get(const char *search_url, const struct online_source *src, int id, int max_w, int max_h)
 {
   char *artwork_url;
   struct http_client_ctx client = { 0 };
   struct keyval output_headers = { 0 };
   uint32_t hash;
-  char url[2048];
   int ret;
 
-  DPRINTF(E_SPAM, L_ART, "Trying %s for %s\n", src->name, ctx->dbmfi->path);
-
-  ret = online_source_request_url_make(url, sizeof(url), src, ctx);
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_ART, "Skipping artwork source %s, could not construct a request URL\n", src->name);
-      return NULL;
-    }
-
   // Be nice to our peer + improve response times by not repeating search requests
-  hash = djb_hash(url, strlen(url));
-  ret = online_source_search_check_last(&artwork_url, src, hash, ctx->req_params.max_w, ctx->req_params.max_h);
+  hash = djb_hash(search_url, strlen(search_url));
+  ret = online_source_search_check_last(&artwork_url, src, hash, max_w, max_h);
   if (ret == 0)
     {
       return artwork_url; // Will be NULL if we are repeating a search that failed
     }
 
   // If our recent searches have been futile we may give the source a break
-  if (online_source_is_failing(src, ctx->id))
+  if (online_source_is_failing(src, id))
     {
       DPRINTF(E_DBG, L_ART, "Skipping artwork source %s, too many failed requests\n", src->name);
       return NULL;
@@ -1367,18 +1356,18 @@ online_source_search(const struct online_source *src, struct artwork_ctx *ctx)
     }
 
   CHECK_NULL(L_ART, client.input_body = evbuffer_new());
-  client.url = url;
+  client.url = search_url;
   client.output_headers = &output_headers;
 
   ret = http_client_request(&client, NULL);
   keyval_clear(&output_headers);
   if (ret < 0 || client.response_code != HTTP_OK)
     {
-      DPRINTF(E_WARN, L_ART, "Artwork request to '%s' failed, response code %d\n", url, client.response_code);
+      DPRINTF(E_WARN, L_ART, "Artwork request to '%s' failed, response code %d\n", search_url, client.response_code);
       goto error;
     }
 
-  ret = online_source_response_parse(&artwork_url, src, client.input_body, ctx->req_params.max_w, ctx->req_params.max_h);
+  ret = online_source_response_parse(&artwork_url, src, client.input_body, max_w, max_h);
   if (ret == ONLINE_SOURCE_PARSE_NOT_FOUND)
     DPRINTF(E_DBG, L_ART, "No image tag found in response from source '%s'\n", src->name);
   else if (ret == ONLINE_SOURCE_PARSE_INVALID)
@@ -1391,14 +1380,39 @@ online_source_search(const struct online_source *src, struct artwork_ctx *ctx)
   if (ret != ONLINE_SOURCE_PARSE_OK)
     goto error;
 
-  online_source_history_update(src, ctx->id, hash, client.response_code, artwork_url);
+  online_source_history_update(src, id, hash, client.response_code, artwork_url, max_w, max_h);
   evbuffer_free(client.input_body);
   return artwork_url;
 
  error:
-  online_source_history_update(src, ctx->id, hash, client.response_code, NULL);
+  online_source_history_update(src, id, hash, client.response_code, NULL, max_w, max_h);
   evbuffer_free(client.input_body);
   return NULL;
+}
+
+static char *
+online_source_search(const struct online_source *src, struct artwork_ctx *ctx)
+{
+  struct online_search_history *history = src->search_history;
+  char search_url[2048];
+  char *artwork_url;
+  int ret;
+
+  DPRINTF(E_SPAM, L_ART, "Trying %s for %s\n", src->name, ctx->dbmfi->path);
+
+  ret = online_source_search_url_make(search_url, sizeof(search_url), src, ctx);
+  if (ret < 0)
+    return NULL;
+
+  // The protection against flooding the online source with requests requires
+  // that online_source_request() isn't called in parallel
+  pthread_mutex_lock(&history->mutex);
+
+  artwork_url = online_source_artwork_url_get(search_url, src, ctx->id, ctx->req_params.max_w, ctx->req_params.max_h);
+
+  pthread_mutex_unlock(&history->mutex);
+
+  return artwork_url;
 }
 
 static bool
