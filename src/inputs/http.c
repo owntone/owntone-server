@@ -293,11 +293,14 @@ metadata_prepare(struct input_source *source)
   // Note we map title to album, because clients should show stream name as title
   swap_pointers(&prepared_metadata.parsed.album, &m->title);
 
-  // In this case we have to go async to download the url and process the content
-  if (m->url && !artwork_extension_is_artwork(m->url))
-    worker_execute(streamurl_cb, m->url, strlen(m->url) + 1, 0);
-  else
-    swap_pointers(&prepared_metadata.parsed.artwork_url, &m->url);
+  if (! SETTINGS_GETBOOL("misc", "streamurl_ignore"))
+    {
+      // In this case we have to go async to download the url and process the content
+      if (m->url && !artwork_extension_is_artwork(m->url))
+	worker_execute(streamurl_cb, m->url, strlen(m->url) + 1, 0);
+      else
+	swap_pointers(&prepared_metadata.parsed.artwork_url, &m->url);
+    }
 
   http_icy_metadata_free(m, 0);
   return 0;
