@@ -4117,7 +4117,7 @@ mpd_notify_idle(void *arg, int *retval)
 }
 
 static void
-mpd_listener_cb(short event_mask)
+mpd_listener_cb(short event_mask, void *ctx)
 {
   short *ptr;
 
@@ -4381,7 +4381,7 @@ mpd_init(void)
   thread_setname(tid_mpd, "mpd");
 
   mpd_clients = NULL;
-  listener_add(mpd_listener_cb, MPD_ALL_IDLE_LISTENER_EVENTS);
+  listener_add(mpd_listener_cb, MPD_ALL_IDLE_LISTENER_EVENTS, NULL);
 
   return 0;
 

@@ -999,7 +999,7 @@ pipelist_create(void)
 // the pipe thread to watch the pipes. If no pipes in library, it will shut down
 // the pipe thread.
 static void
-pipe_listener_cb(short event_mask)
+pipe_listener_cb(short event_mask, void *ctx)
 {
   union pipe_arg *cmdarg;
 
@@ -1146,8 +1146,8 @@ init(void)
   pipe_autostart = cfg_getbool(cfg_getsec(cfg, "library"), "pipe_autostart");
   if (pipe_autostart)
     {
-      pipe_listener_cb(0);
-      CHECK_ERR(L_PLAYER, listener_add(pipe_listener_cb, LISTENER_DATABASE));
+      pipe_listener_cb(0, NULL);
+      CHECK_ERR(L_PLAYER, listener_add(pipe_listener_cb, LISTENER_DATABASE, NULL));
     }
 
   pipe_sample_rate = cfg_getint(cfg_getsec(cfg, "library"), "pipe_sample_rate");

@@ -27,13 +27,14 @@ struct listener
 {
   notify notify_cb;
   short events;
+  void *ctx;
   struct listener *next;
 };
 
 struct listener *listener_list = NULL;
 
 int
-listener_add(notify notify_cb, short events)
+listener_add(notify notify_cb, short events, void *ctx)
 {
   struct listener *listener;
 
@@ -44,6 +45,7 @@ listener_add(notify notify_cb, short events)
     }
   listener->notify_cb = notify_cb;
   listener->events = events;
+  listener->ctx = ctx;
   listener->next = listener_list;
   listener_list = listener;
 
@@ -88,7 +90,7 @@ listener_notify(short event_mask)
   while (listener)
     {
       if (event_mask & listener->events)
-	listener->notify_cb(event_mask & listener->events);
+	listener->notify_cb(event_mask & listener->events, listener->ctx);
       listener = listener->next;
     }
 }

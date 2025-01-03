@@ -30,7 +30,7 @@ enum listener_event_type
   LISTENER_RATING = (1 << 11),
 };
 
-typedef void (*notify)(short event_mask);
+typedef void (*notify)(short event_mask, void *ctx);
 
 /*
  * Registers the given callback function to the given event types.
@@ -39,10 +39,11 @@ typedef void (*notify)(short event_mask);
  * @param notify_cb Callback function (should be a non-blocking function,
  *        especially when the event is from the player)
  * @param event_mask Event mask, one or more of LISTENER_*
+ * @param ctx Context will be passed to the notify callback
  * @return 0 on success, -1 on failure
  */
 int
-listener_add(notify notify_cb, short event_mask);
+listener_add(notify notify_cb, short event_mask, void *ctx);
 
 /*
  * Removes the given callback function

@@ -971,7 +971,7 @@ speaker_update_handler_cb(void *arg)
 
 // Thread: player (must not block)
 static void
-httpd_speaker_update_handler(short event_mask)
+httpd_speaker_update_handler(short event_mask, void *ctx)
 {
   worker_execute(speaker_update_handler_cb, NULL, 0, 0);
 }
@@ -1636,7 +1636,7 @@ httpd_init(const char *webroot)
 
   // We need to know about speaker format changes so we can ask the cache to
   // start preparing headers for mp4/alac if selected
-  listener_add(httpd_speaker_update_handler, LISTENER_SPEAKER);
+  listener_add(httpd_speaker_update_handler, LISTENER_SPEAKER, NULL);
 
   return 0;
 

@@ -787,7 +787,7 @@ update_fail_cb(void *arg)
 
 /* Thread: player */
 static void
-dacp_playstatus_update_handler(short event_mask)
+dacp_playstatus_update_handler(short event_mask, void *ctx)
 {
   struct dacp_update_request *ur;
 
@@ -2818,7 +2818,7 @@ dacp_init(void)
 
   CHECK_ERR(L_DACP, mutex_init(&update_request_lck));
   update_current_rev = 2;
-  listener_add(dacp_playstatus_update_handler, LISTENER_PLAYER | LISTENER_VOLUME | LISTENER_QUEUE);
+  listener_add(dacp_playstatus_update_handler, LISTENER_PLAYER | LISTENER_VOLUME | LISTENER_QUEUE, NULL);
 
   return 0;
 }
