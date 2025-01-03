@@ -75,24 +75,6 @@
       <template #heading-left>
         <p
           class="title is-4"
-          v-text="$t('page.settings.general.album-lists')"
-        />
-      </template>
-      <template #content>
-        <settings-checkbox
-          category="webinterface"
-          name="show_cover_artwork_in_album_lists"
-        >
-          <template #label>
-            <span v-text="$t('page.settings.general.show-coverart')" />
-          </template>
-        </settings-checkbox>
-      </template>
-    </content-with-heading>
-    <content-with-heading>
-      <template #heading-left>
-        <p
-          class="title is-4"
           v-text="$t('page.settings.general.now-playing-page')"
         />
       </template>

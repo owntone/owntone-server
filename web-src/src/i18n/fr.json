@@ -441,12 +441,14 @@
     },
     "settings": {
       "artwork": {
-        "artwork": "Illustrations",
+        "title": "Illustrations",
         "coverartarchive": "Cover Art Archive",
         "discogs": "Discogs",
-        "explanation-1": "Prend en charge les illustrations au format PNG et JPEG qui sont soit placées dans la bibliothèque en tant que fichiers image séparés, soit intégrées dans les fichiers média, soit mises à disposition en ligne par les stations de radio.",
+        "explanation-1": "OwnTone prend en charge les illustrations au format PNG et JPEG qui sont soit placées dans la bibliothèque en tant que fichiers image séparés, soit intégrées dans les fichiers média, soit mises à disposition en ligne par les stations de radio.",
         "explanation-2": "En outre, vous pouvez activer la récupération des illustrations à partir des fournisseurs d’illustrations suivants :",
-        "spotify": "Spotify"
+        "show-coverart": "Afficher les illustrations dans la liste d’albums",
+        "spotify": "Spotify",
+        "streaming": "Ignorer les illustrations fournies par les stations de radio"
       },
       "devices": {
         "no-active-pairing": "Aucune demande de jumelage active.",
@@ -460,7 +462,6 @@
         "verify": "Vérifier"
       },
       "general": {
-        "album-lists": "Listes d’albums",
         "audiobooks": "Livres audio",
         "files": "Fichiers",
         "genres": "Genres",
@@ -482,7 +483,6 @@
         "show-composer-genres": "Afficher le compositeur uniquement pour les genres listés",
         "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché sur la page « En cours de lecture »",
         "show-composer": "Afficher le compositeur",
-        "show-coverart": "Afficher les illustrations dans la liste d’albums",
         "show-path": "Afficher le chemin du fichier sur la page « En cours de lecture »"
       },
       "services": {

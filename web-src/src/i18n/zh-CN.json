@@ -441,12 +441,14 @@
     },
     "settings": {
       "artwork": {
-        "artwork": "封面",
+        "title": "封面",
         "coverartarchive": "Cover Art Archive",
         "discogs": "Discogs",
         "explanation-1": "OwnTone支持PNG和 JPEG封面，这些封面可以作为单独的图像文件放置在库中或嵌入到媒体文件中，也可以通过广播电台在线提供",
         "explanation-2": "除此之外，您还可以从以下素材提供者获取封面:",
-        "spotify": "Spotify"
+        "show-coverart": "在专辑列表中显示封面艺术作品",
+        "spotify": "Spotify",
+        "streaming": "忽略广播电台提供的作品"
       },
       "devices": {
         "no-active-pairing": "没有活跃的配对请求",
@@ -460,7 +462,6 @@
         "verify": "验证"
       },
       "general": {
-        "album-lists": "专辑列表",
         "audiobooks": "有声读物",
         "files": "文件",
         "genres": "流派",
@@ -482,7 +483,6 @@
         "show-composer-genres": "仅显示列出的流派的作曲家",
         "show-composer-info": "如果启用，当前播放曲目的作曲家将显示在“正在播放页面”上",
         "show-composer": "显示作曲家",
-        "show-coverart": "在专辑列表中显示封面艺术作品",
         "show-path": "在“正在播放”页面显示文件路径"
       },
       "services": {
