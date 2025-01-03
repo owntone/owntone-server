@@ -59,9 +59,9 @@ settings_option_getbool(struct settings_option *option);
 char *
 settings_option_getstr(struct settings_option *option);
 
-#define SETTINGS_GETINT(category, name) settings_option_getint(settings_option_get((category), (name)))
-#define SETTINGS_GETBOOL(category, name) settings_option_getbool(settings_option_get((category), (name)))
-#define SETTINGS_GETSTR(category, name) settings_option_getstr(settings_option_get((category), (name)))
+#define SETTINGS_GETINT(category, name) settings_option_getint(settings_option_get(settings_category_get(category), (name)))
+#define SETTINGS_GETBOOL(category, name) settings_option_getbool(settings_option_get(settings_category_get(category), (name)))
+#define SETTINGS_GETSTR(category, name) settings_option_getstr(settings_option_get(settings_category_get(category), (name)))
 
 int
 settings_option_setint(struct settings_option *option, int value);
@@ -72,9 +72,9 @@ settings_option_setbool(struct settings_option *option, bool value);
 int
 settings_option_setstr(struct settings_option *option, const char *value);
 
-#define SETTINGS_SETINT(category, name, value) settings_option_setint(settings_option_get((category), (name)), (value))
-#define SETTINGS_SETBOOL(category, name, value) settings_option_setbool(settings_option_get((category), (name)), (value))
-#define SETTINGS_SETSTR(category, name, value) settings_option_setstr(settings_option_get((category), (name)), (value))
+#define SETTINGS_SETINT(category, name, value) settings_option_setint(settings_option_get(settings_category_get(category), (name)), (value))
+#define SETTINGS_SETBOOL(category, name, value) settings_option_setbool(settings_option_get(settings_category_get(category), (name)), (value))
+#define SETTINGS_SETSTR(category, name, value) settings_option_setstr(settings_option_get(settings_category_get(category), (name)), (value))
 
 
 int
