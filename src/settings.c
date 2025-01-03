@@ -55,6 +55,7 @@ static struct settings_option misc_options[] =
   {
       { "streamurl_keywords_artwork_url", SETTINGS_TYPE_STR },
       { "streamurl_keywords_length", SETTINGS_TYPE_STR },
+      { "streamurl_ignore", SETTINGS_TYPE_BOOL },
   };
 
 static struct settings_option player_options[] =

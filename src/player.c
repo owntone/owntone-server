@@ -308,7 +308,6 @@ static int player_flush_pending;
 // Config values and player settings category
 static int speaker_autoselect;
 static int clear_queue_on_stop_disabled;
-static struct settings_category *player_settings_category;
 
 // Player status
 static enum play_status player_state;
@@ -3161,7 +3160,7 @@ repeat_set(void *arg, int *retval)
     }
 
   // Persist
-  SETTINGS_SETINT(player_settings_category, PLAYER_SETTINGS_MODE_REPEAT, repeat);
+  SETTINGS_SETINT("player", PLAYER_SETTINGS_MODE_REPEAT, repeat);
 
   if (repeat == REPEAT_ALL || repeat == REPEAT_SONG)
     {
@@ -3203,7 +3202,7 @@ shuffle_set(void *arg, int *retval)
   shuffle = new_shuffle;
 
   // Persist
-  SETTINGS_SETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_SHUFFLE, shuffle);
+  SETTINGS_SETBOOL("player", PLAYER_SETTINGS_MODE_SHUFFLE, shuffle);
 
  out:
   *retval = 0;
@@ -3219,7 +3218,7 @@ consume_set(void *arg, int *retval)
   consume = cmdarg->intval;
 
   // Persist
-  SETTINGS_SETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_CONSUME, consume);
+  SETTINGS_SETBOOL("player", PLAYER_SETTINGS_MODE_CONSUME, consume);
 
   if (consume)
     {
@@ -3879,11 +3878,10 @@ player_init(void)
       clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
     }
 
-  CHECK_NULL(L_PLAYER, player_settings_category = settings_category_get("player"));
-  ret = SETTINGS_GETINT(player_settings_category, PLAYER_SETTINGS_MODE_REPEAT);
+  ret = SETTINGS_GETINT("player", PLAYER_SETTINGS_MODE_REPEAT);
   repeat = (ret > 0) ? ret : REPEAT_OFF;
-  shuffle = SETTINGS_GETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_SHUFFLE);
-  consume = SETTINGS_GETBOOL(player_settings_category, PLAYER_SETTINGS_MODE_CONSUME);
+  shuffle = SETTINGS_GETBOOL("player", PLAYER_SETTINGS_MODE_SHUFFLE);
+  consume = SETTINGS_GETBOOL("player", PLAYER_SETTINGS_MODE_CONSUME);
 
   player_state = PLAY_STOPPED;
 
