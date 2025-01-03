@@ -3,13 +3,26 @@
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.artwork.artwork')" />
+        <div class="title is-4" v-text="$t('page.settings.artwork.title')" />
       </template>
       <template #content>
         <div
           class="content"
           v-text="$t('page.settings.artwork.explanation-1')"
         />
+        <settings-checkbox category="artwork" name="streamurl_ignore">
+          <template #label>
+            <span v-text="$t('page.settings.artwork.streaming')" />
+          </template>
+        </settings-checkbox>
+        <settings-checkbox
+          category="artwork"
+          name="show_cover_artwork_in_album_lists"
+        >
+          <template #label>
+            <span v-text="$t('page.settings.artwork.show-coverart')" />
+          </template>
+        </settings-checkbox>
         <div
           class="content"
           v-text="$t('page.settings.artwork.explanation-2')"
