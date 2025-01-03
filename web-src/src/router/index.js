@@ -41,7 +41,7 @@ import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
 import { useUIStore } from '@/stores/ui'
 
-const TOP_WITH_TABS = 124
+const TOP_WITH_TABS = 100
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -322,18 +322,6 @@ export const router = createRouter({
         }, delay)
       })
     }
-    if (to.meta.has_index) {
-      /*
-       * Navigate to a page with index nav that should be hidden automatically
-       * If a tab navigation exists, an offset to the "top" anchor is added
-       */
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          resolve({ el: '#top', top: TOP_WITH_TABS })
-        }, delay)
-      })
-    }
-
     return { left: 0, top: 0 }
   }
 })
