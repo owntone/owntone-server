@@ -30,7 +30,6 @@ static struct settings_option webinterface_options[] =
       { "show_composer_now_playing", SETTINGS_TYPE_BOOL },
       { "show_filepath_now_playing", SETTINGS_TYPE_BOOL },
       { "show_composer_for_genre", SETTINGS_TYPE_STR },
-      { "show_cover_artwork_in_album_lists", SETTINGS_TYPE_BOOL, { true } },
       { "show_menu_item_playlists", SETTINGS_TYPE_BOOL, { true } },
       { "show_menu_item_music", SETTINGS_TYPE_BOOL, { true } },
       { "show_menu_item_podcasts", SETTINGS_TYPE_BOOL, { true } },
@@ -49,13 +48,14 @@ static struct settings_option artwork_options[] =
       { "use_artwork_source_spotify", SETTINGS_TYPE_BOOL, { true } },
       { "use_artwork_source_discogs", SETTINGS_TYPE_BOOL, { false } },
       { "use_artwork_source_coverartarchive", SETTINGS_TYPE_BOOL, { false } },
+      { "show_cover_artwork_in_album_lists", SETTINGS_TYPE_BOOL, { true } },
+      { "streamurl_ignore", SETTINGS_TYPE_BOOL, { false } },
   };
 
 static struct settings_option misc_options[] =
   {
       { "streamurl_keywords_artwork_url", SETTINGS_TYPE_STR },
       { "streamurl_keywords_length", SETTINGS_TYPE_STR },
-      { "streamurl_ignore", SETTINGS_TYPE_BOOL },
   };
 
 static struct settings_option player_options[] =
