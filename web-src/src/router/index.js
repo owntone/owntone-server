@@ -36,7 +36,6 @@ import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
 import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
-import PageSettingsMiscellaneous from '@/pages/PageSettingsMiscellaneous.vue'
 import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
 import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
@@ -287,11 +286,6 @@ export const router = createRouter({
       component: PageSettingsArtwork,
       name: 'settings-artwork',
       path: '/settings/artwork'
-    },
-    {
-      component: PageSettingsMiscellaneous,
-      name: 'settings-miscellaneous',
-      path: '/settings/miscellaneous'
     },
     {
       component: PageSettingsOnlineServices,
