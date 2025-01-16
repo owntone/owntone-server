@@ -10,7 +10,7 @@
           class="content"
           v-text="$t('page.settings.artwork.explanation-1')"
         />
-        <settings-checkbox category="misc" name="streamurl_ignore">
+        <settings-checkbox category="artwork" name="streamurl_ignore">
           <template #label>
             <span v-text="$t('page.settings.artwork.streaming')" />
           </template>
