@@ -919,6 +919,55 @@ handle_clienttoken(struct sp_message *msg, struct sp_session *session)
   return ret;
 }
 
+static void
+hashcash_challenges_free(struct crypto_hashcash_challenge **challenges, int *n_challenges)
+{
+  for (int i = 0; i < *n_challenges; i++)
+    free(challenges[i]->ctx);
+
+  free(*challenges);
+  *challenges = NULL;
+  *n_challenges = 0;
+}
+
+static enum sp_error
+handle_login5_challenges(Spotify__Login5__V3__Challenges *challenges, uint8_t *login_ctx, size_t login_ctx_len, struct sp_session *session)
+{
+  Spotify__Login5__V3__Challenge *this_challenge;
+  struct crypto_hashcash_challenge *crypto_challenge;
+  int ret;
+  int i;
+
+  session->n_hashcash_challenges = challenges->n_challenges;
+  session->hashcash_challenges = calloc(challenges->n_challenges, sizeof(struct crypto_hashcash_challenge));
+
+  for (i = 0, crypto_challenge = session->hashcash_challenges; i < session->n_hashcash_challenges; i++, crypto_challenge++)
+    {
+      this_challenge = challenges->challenges[i];
+
+      if (this_challenge->challenge_case != SPOTIFY__LOGIN5__V3__CHALLENGE__CHALLENGE_HASHCASH)
+	RETURN_ERROR(SP_ERR_INVALID, "Received unsupported login5 challenge");
+
+      if (this_challenge->hashcash->prefix.len != sizeof(crypto_challenge->prefix))
+	RETURN_ERROR(SP_ERR_INVALID, "Received hashcash challenge with unexpected prefix length");
+
+      crypto_challenge->ctx_len = login_ctx_len;
+      crypto_challenge->ctx = malloc(login_ctx_len);
+      memcpy(crypto_challenge->ctx, login_ctx, login_ctx_len);
+
+      memcpy(crypto_challenge->prefix, this_challenge->hashcash->prefix.data, sizeof(crypto_challenge->prefix));
+      crypto_challenge->wanted_zero_bits = this_challenge->hashcash->length;
+      crypto_challenge->max_iterations = 100000; //TODO define or make variable
+
+    }
+
+  return SP_OK_DONE;
+
+ error:
+  hashcash_challenges_free(&session->hashcash_challenges, &session->n_hashcash_challenges);
+  return ret;
+}
+
 static enum sp_error
 handle_login5(struct sp_message *msg, struct sp_session *session)
 {
@@ -950,7 +999,9 @@ handle_login5(struct sp_message *msg, struct sp_session *session)
 	break;
       case SPOTIFY__LOGIN5__V3__LOGIN_RESPONSE__RESPONSE_CHALLENGES:
 	sp_cb.logmsg("Login %zu challenges\n", response->challenges->n_challenges);
-	// TODO support hashcash challenges
+	ret = handle_login5_challenges(response->challenges, response->login_context.data, response->login_context.len, session);
+	if (ret != SP_OK_DONE)
+	  goto error;
 	break;
       case SPOTIFY__LOGIN5__V3__LOGIN_RESPONSE__RESPONSE_ERROR:
 	RETURN_ERROR(SP_ERR_LOGINFAILED, err2txt(response->error, sp_login5_error_map, ARRAY_SIZE(sp_login5_error_map)));
@@ -1728,7 +1779,7 @@ msg_make_clienttoken(struct sp_message *msg, struct sp_session *session)
   dreq.connectivity_sdk_data = &sdk_data;
   dreq.data_case = SPOTIFY__CLIENTTOKEN__HTTP__V0__CLIENT_DATA_REQUEST__DATA_CONNECTIVITY_SDK_DATA;
   dreq.client_version = sp_sysinfo.client_version; // e.g. "0.0.0" (SpotifyLikeClient)
-  dreq.client_id = SP_CLIENT_ID_HEX;
+  dreq.client_id = sp_sysinfo.client_id;
 
   treq.client_data = &dreq;
   treq.request_type = SPOTIFY__CLIENTTOKEN__HTTP__V0__CLIENT_TOKEN_REQUEST_TYPE__REQUEST_CLIENT_DATA_REQUEST;
@@ -1747,17 +1798,87 @@ msg_make_clienttoken(struct sp_message *msg, struct sp_session *session)
   return 0;
 }
 
+static void
+challenge_solutions_free(Spotify__Login5__V3__ChallengeSolutions *solutions)
+{
+  Spotify__Login5__V3__ChallengeSolution *this_solution;
+  int i;
+
+  if (!solutions)
+    return;
+
+  for (i = 0; i < solutions->n_solutions; i++)
+    {
+      this_solution = solutions->solutions[i];
+
+      free(this_solution->hashcash->duration);
+      free(this_solution->hashcash->suffix.data);
+      free(this_solution->hashcash);
+    }
+
+  free(solutions->solutions);
+}
+
+// Finds solutions to the challenges stored in *challenges and adds them to *solutions
+static int
+challenge_solutions_append(Spotify__Login5__V3__ChallengeSolutions *solutions, struct crypto_hashcash_challenge *challenges, int n_challenges)
+{
+  Spotify__Login5__V3__ChallengeSolution *this_solution;
+  struct crypto_hashcash_challenge *crypto_challenge;
+  struct crypto_hashcash_solution crypto_solution;
+  size_t suffix_len = sizeof(crypto_solution.suffix);
+  int ret;
+  int i;
+
+  solutions->n_solutions = n_challenges;
+  solutions->solutions = calloc(n_challenges, sizeof(Spotify__Login5__V3__ChallengeSolution));
+
+  for (i = 0, crypto_challenge = challenges; i < n_challenges; i++, crypto_challenge++)
+    {
+      ret = crypto_hashcash_solve(&crypto_solution, crypto_challenge, &sp_errmsg);
+      if (ret < 0)
+	RETURN_ERROR(SP_ERR_INVALID, sp_errmsg);
+
+      this_solution = solutions->solutions[i];
+      spotify__login5__v3__challenge_solution__init(this_solution);
+      this_solution->solution_case = SPOTIFY__LOGIN5__V3__CHALLENGE_SOLUTION__SOLUTION_HASHCASH;
+
+      this_solution->hashcash = malloc(sizeof(Spotify__Login5__V3__Challenges__HashcashSolution));
+      spotify__login5__v3__challenges__hashcash_solution__init(this_solution->hashcash);
+
+      this_solution->hashcash->duration = malloc(sizeof(Google__Protobuf__Duration));
+      google__protobuf__duration__init(this_solution->hashcash->duration);
+
+      this_solution->hashcash->suffix.len = suffix_len;
+      this_solution->hashcash->suffix.data = malloc(suffix_len);
+      memcpy(this_solution->hashcash->suffix.data, crypto_solution.suffix, suffix_len);
+
+      this_solution->hashcash->duration->seconds = crypto_solution.duration.tv_sec;
+      this_solution->hashcash->duration->nanos = crypto_solution.duration.tv_nsec;;
+    }
+
+  return 0;
+
+ error:
+  challenge_solutions_free(solutions);
+  return ret;
+}
+
 // Ref. login5/login5.go
 static int
 msg_make_login5(struct sp_message *msg, struct sp_session *session)
 {
   struct http_request *hreq = &msg->payload.hreq;
   Spotify__Login5__V3__LoginRequest req = SPOTIFY__LOGIN5__V3__LOGIN_REQUEST__INIT;
+  Spotify__Login5__V3__ChallengeSolutions solutions = SPOTIFY__LOGIN5__V3__CHALLENGE_SOLUTIONS__INIT;
   Spotify__Login5__V3__ClientInfo client_info = SPOTIFY__LOGIN5__V3__CLIENT_INFO__INIT;
   Spotify__Login5__V3__Credentials__StoredCredential stored_credential = SPOTIFY__LOGIN5__V3__CREDENTIALS__STORED_CREDENTIAL__INIT;
   struct sp_token *token = &session->http_accesstoken;
+  uint8_t *login_context = NULL;
+  size_t login_context_len;
   time_t now = time(NULL);
   bool must_refresh;
+  int ret;
 
   must_refresh = (now > token->received_ts + token->expires_after_seconds);
   if (!must_refresh)
@@ -1766,7 +1887,25 @@ msg_make_login5(struct sp_message *msg, struct sp_session *session)
   if (session->credentials.stored_cred_len == 0)
     return -1;
 
-  client_info.client_id = SP_CLIENT_ID_HEX;
+  // This is our second login5 request - Spotify returned challenges after the first.
+  // The login_context is echoed from Spotify's response to the first login5.
+  if (session->hashcash_challenges)
+    {
+      login_context_len = session->hashcash_challenges->ctx_len;
+      login_context = malloc(login_context_len);
+      memcpy(login_context, session->hashcash_challenges->ctx, login_context_len);
+
+      ret = challenge_solutions_append(&solutions, session->hashcash_challenges, session->n_hashcash_challenges);
+      hashcash_challenges_free(&session->hashcash_challenges, &session->n_hashcash_challenges);
+      if (ret < 0)
+	goto error;
+
+      req.challenge_solutions = &solutions;
+      req.login_context.data = login_context;
+      req.login_context.len = login_context_len;
+    }
+
+  client_info.client_id = sp_sysinfo.client_id;
   client_info.device_id = sp_sysinfo.device_id;
 
   req.client_info = &client_info;
@@ -1789,7 +1928,25 @@ msg_make_login5(struct sp_message *msg, struct sp_session *session)
   hreq->headers[1] = asprintf_or_die("Content-Type: application/x-protobuf");
   hreq->headers[2] = asprintf_or_die("Client-Token: %s", session->http_clienttoken.value);
 
+  challenge_solutions_free(&solutions);
+  free(login_context);
   return 0;
+
+ error:
+  challenge_solutions_free(&solutions);
+  free(login_context);
+  return -1;
+}
+
+static int
+msg_make_login5_challenges(struct sp_message *msg, struct sp_session *session)
+{
+  // Spotify didn't give us any challenges during login5, so we can just proceed
+  if (!session->hashcash_challenges)
+    return 1; // Continue to next message
+
+  // Otherwise make another login5 request that includes the challenge responses
+  return msg_make_login5(msg, session);
 }
 
 // Ref. spclient/spclient.go
@@ -1893,6 +2050,7 @@ static struct sp_seq_request seq_requests[][7] =
     // The first two will be skipped if valid tokens already exist
     { SP_SEQ_MEDIA_OPEN, "CLIENTTOKEN", SP_PROTO_HTTP, msg_make_clienttoken, NULL, handle_clienttoken, },
     { SP_SEQ_MEDIA_OPEN, "LOGIN5", SP_PROTO_HTTP, msg_make_login5, NULL, handle_login5, },
+    { SP_SEQ_MEDIA_OPEN, "LOGIN5_CHALLENGES", SP_PROTO_HTTP, msg_make_login5_challenges, NULL, handle_login5, },
     { SP_SEQ_MEDIA_OPEN, "METADATA_GET", SP_PROTO_HTTP, msg_make_metadata_get, NULL, handle_metadata_get, },
     { SP_SEQ_MEDIA_OPEN, "AUDIO_KEY_GET", SP_PROTO_TCP, msg_make_audio_key_get, prepare_tcp, handle_tcp_generic, },
     { SP_SEQ_MEDIA_OPEN, "STORAGE_RESOLVE", SP_PROTO_HTTP, msg_make_storage_resolve, NULL, handle_storage_resolve, },

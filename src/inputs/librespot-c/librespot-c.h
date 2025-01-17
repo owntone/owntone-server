@@ -37,9 +37,13 @@ struct sp_metadata
   size_t file_len;
 };
 
+// How to identify towards Spotify. The device_id can be set to an actual value
+// identifying the client, but the rest are unfortunately best left as zeroes,
+// which will make librespot-c use defaults that spoof whitelisted clients.
 struct sp_sysinfo
 {
   char client_name[16];
+  char client_id[33];
   char client_version[16];
   char client_build_id[16];
   char device_id[41]; // librespot gives a 20 byte id (so 40 char hex + 1 zero term)

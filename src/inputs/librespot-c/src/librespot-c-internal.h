@@ -81,8 +81,11 @@
 #define SP_CLIENT_VERSION_DEFAULT "0.0.0"
 #define SP_CLIENT_BUILD_ID_DEFAULT "aabbccdd"
 
-// ClientIdHex from client_id.go
-#define SP_CLIENT_ID_HEX "65b708073fc0480ea92a077233ca87bd"
+// ClientIdHex from client_id.go. This seems to be the id that Spotify's own app
+// uses. It is used in the call to https://clienttoken.spotify.com/v1/clienttoken.
+// The endpoint doesn't accept client ID's of app registered at
+// develop.spotify.com, so unfortunately spoofing is required.
+#define SP_CLIENT_ID_DEFAULT "65b708073fc0480ea92a077233ca87bd"
 
 // Shorthand for error handling
 #define RETURN_ERROR(r, m) \
@@ -381,6 +384,9 @@ struct sp_session
   struct http_session http_session;
   struct sp_token http_clienttoken;
   struct sp_token http_accesstoken;
+
+  int n_hashcash_challenges;
+  struct crypto_hashcash_challenge *hashcash_challenges;
 
   bool is_logged_in;
   struct sp_credentials credentials;

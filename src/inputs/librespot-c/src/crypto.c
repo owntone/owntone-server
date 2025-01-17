@@ -13,6 +13,7 @@
 /* ----------------------------------- Crypto ------------------------------- */
 
 #define SHA512_DIGEST_LENGTH 64
+#define SHA1_DIGEST_LENGTH 20
 #define bnum_new(bn)                                            \
     do {                                                        \
         if (!gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P)) { \
@@ -461,4 +462,130 @@ crypto_base62_to_bin(uint8_t *out, size_t out_len, const char *in)
   bnum_free(n);
   bnum_free(base);
   return -1;
+}
+
+static int
+count_trailing_zero_bits(uint8_t *data, size_t data_len)
+{
+  int zero_bits = 0;
+  size_t idx;
+  int bit;
+
+  for (idx = data_len - 1; idx >= 0; idx--)
+    {
+      for (bit = 0; bit < 8; bit++)
+	{
+	  if (data[idx] & (1 << bit))
+	    return zero_bits;
+
+	  zero_bits++;
+        }
+    }
+
+    return zero_bits;
+}
+
+static void
+sha1_sum(uint8_t *digest, uint8_t *data, size_t data_len, gcry_md_hd_t hdl)
+{
+  gcry_md_reset(hdl);
+
+  gcry_md_write(hdl, data, data_len);
+  gcry_md_final(hdl);
+
+  memcpy(digest, gcry_md_read(hdl, GCRY_MD_SHA1), SHA1_DIGEST_LENGTH);
+}
+
+static void
+sha1_two_part_sum(uint8_t *digest, uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len, gcry_md_hd_t hdl)
+{
+  gcry_md_reset(hdl);
+
+  gcry_md_write(hdl, data1, data1_len);
+  gcry_md_write(hdl, data2, data2_len);
+  gcry_md_final(hdl);
+
+  memcpy(digest, gcry_md_read(hdl, GCRY_MD_SHA1), SHA1_DIGEST_LENGTH);
+}
+
+static inline void
+increase_hashcash(uint8_t *data, int idx)
+{
+  while (++data[idx] == 0 && idx > 0)
+    idx--;
+}
+
+static void
+timespec_sub(struct timespec *a, struct timespec *b, struct timespec *result)
+{
+  result->tv_sec  = a->tv_sec  - b->tv_sec;
+  result->tv_nsec = a->tv_nsec - b->tv_nsec;
+  if (result->tv_nsec < 0)
+    {
+      --result->tv_sec;
+      result->tv_nsec += 1000000000L;
+    }
+}
+
+// Example challenge:
+// - loginctx 0300c798435c4b0beb91e3b1db591d0a7f2e32816744a007af41cc7c8043b9295e1ed8a13cc323e4af2d0a3c42463b7a358ed116c33695989e0bfade0dab9c6bc6f7f928df5d49069e8ca4c04c34034669fc97e93da1ca17a7c11b2ffbb9b85f2265b10f6c83f7ef672240cb535eb122265da9b6f8d1a55af522fcbb40efc4eb753756ea38a63aff95d3228219afb0ab887075ac2fe941f7920fd19d32226052fe0956c71f0cb63ba702dd72d50d769920cd99ec6a45e00c85af5287b5d0031d6be4072efe71c59dffa5baa4077cd2eab4f22143eff18c31c69b8647e7f517468c84ed9548943fb1ba6b750ef63cdf9ce0a0fd07cb22d19484f4baa8ee6fa35fc573d9
+// - prefix 48859603d6c16c3202292df155501c55
+// - length (difficulty) 10
+// Solution:
+// - suffix 7f7e558bd10c37d200000000000002c7
+int
+crypto_hashcash_solve(struct crypto_hashcash_solution *solution, struct crypto_hashcash_challenge *challenge, const char **errmsg)
+{
+  gcry_md_hd_t hdl;
+  struct timespec start_ts;
+  struct timespec stop_ts;
+  uint8_t digest[SHA1_DIGEST_LENGTH];
+  bool solution_found = false;
+  int i;
+
+  // 1. Hash loginctx
+  // 2. Create a 16 byte suffix, fill first 8 bytes with last 8 bytes of hash, last with zeroes
+  // 3. Hash challenge prefix + suffix
+  // 4. Check if X last bits of hash is zeroes, where X is challenge length
+  // 5. If not, increment both 8-byte parts of suffix and goto 3
+
+  memset(solution, 0, sizeof(struct crypto_hashcash_solution));
+
+  if (gcry_md_open(&hdl, GCRY_MD_SHA1, 0) != GPG_ERR_NO_ERROR)
+    {
+      *errmsg = "Error initialising SHA1 hasher";
+      return -1;
+    }
+
+  sha1_sum(digest, challenge->ctx, challenge->ctx_len, hdl);
+
+  memcpy(solution->suffix, digest + SHA1_DIGEST_LENGTH - 8, 8);
+
+  clock_gettime(CLOCK_MONOTONIC, &start_ts);
+
+  for (i = 0; i < challenge->max_iterations; i++)
+    {
+      sha1_two_part_sum(digest, challenge->prefix, sizeof(challenge->prefix), solution->suffix, sizeof(solution->suffix), hdl);
+
+      solution_found = (count_trailing_zero_bits(digest, SHA1_DIGEST_LENGTH) >= challenge->wanted_zero_bits);
+      if (solution_found)
+	break;
+
+      increase_hashcash(solution->suffix, 7);
+      increase_hashcash(solution->suffix + 8, 7);
+    }
+
+  clock_gettime(CLOCK_MONOTONIC, &stop_ts);
+
+  timespec_sub(&stop_ts, &start_ts, &solution->duration);
+
+  gcry_md_close(hdl);
+
+  if (!solution_found)
+    {
+      *errmsg = "Could not find a hashcash solution";
+      return -1;
+    }
+
+  return 0;
 }
