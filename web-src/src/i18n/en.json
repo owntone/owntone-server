@@ -440,12 +440,14 @@
     },
     "settings": {
       "artwork": {
-        "artwork": "Artwork",
+        "title": "Artwork",
         "coverartarchive": "Cover Art Archive",
         "discogs": "Discogs",
         "explanation-1": "OwnTone supports PNG and JPEG artwork which is either placed as separate image files in the library, embedded in the media files or made available online by radio stations.",
         "explanation-2": "In addition to that, you can enable fetching artwork from the following artwork providers:",
-        "spotify": "Spotify"
+        "show-coverart": "Show cover artwork in album list",
+        "spotify": "Spotify",
+        "streaming": "Ignore artwork provided by radio stations"
       },
       "devices": {
         "no-active-pairing": "No active pairing request.",
@@ -459,7 +461,6 @@
         "verify": "Verify"
       },
       "general": {
-        "album-lists": "Album Lists",
         "audiobooks": "Audiobooks",
         "files": "Files",
         "genres": "Genres",
@@ -481,7 +482,6 @@
         "show-composer-genres": "Show composer only for listed genres",
         "show-composer-info": "If enabled the composer of the current playing track is shown on the \"Now playing page\"",
         "show-composer": "Show composer",
-        "show-coverart": "Show cover artwork in album list",
         "show-path": "Show filepath on the \"Now playing\" page"
       },
       "services": {

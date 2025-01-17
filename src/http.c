@@ -36,6 +36,7 @@
 #include <libavutil/opt.h>
 
 #include <event2/event.h>
+#include <event2/keyvalq_struct.h>
 
 #include <curl/curl.h>
 
@@ -171,7 +172,7 @@ http_client_request(struct http_client_ctx *ctx, struct http_client_session *ses
   res = curl_easy_perform(curl);
   if (res != CURLE_OK)
     {
-      DPRINTF(E_LOG, L_HTTP, "Request to %s failed: %s\n", ctx->url, curl_easy_strerror(res));
+      DPRINTF(E_WARN, L_HTTP, "Request to %s failed: %s\n", ctx->url, curl_easy_strerror(res));
       curl_slist_free_all(headers);
       if (!session)
 	{
@@ -191,6 +192,41 @@ http_client_request(struct http_client_ctx *ctx, struct http_client_session *ses
     }
 
   return 0;
+}
+
+int
+http_form_urldecode(struct keyval *kv, const char *uri)
+{
+  struct evhttp_uri *ev_uri = NULL;
+  struct evkeyvalq ev_query = { 0 };
+  struct evkeyval *param;
+  const char *query;
+  int ret;
+
+  ev_uri = evhttp_uri_parse_with_flags(uri, EVHTTP_URI_NONCONFORMANT);
+  if (!ev_uri)
+    return -1;
+
+  query = evhttp_uri_get_query(ev_uri);
+  if (!query)
+    goto error;
+
+  ret = evhttp_parse_query_str(query, &ev_query);
+  if (ret < 0)
+    goto error;
+
+  // musl libc doesn't have sys/queue.h so don't use TAILQ_FOREACH
+  for (param = ev_query.tqh_first; param; param = param->next.tqe_next)
+    keyval_add(kv, param->key, param->value);
+
+  evhttp_uri_free(ev_uri);
+  evhttp_clear_headers(&ev_query);
+  return 0;
+
+ error:
+  evhttp_uri_free(ev_uri);
+  evhttp_clear_headers(&ev_query);
+  return -1;
 }
 
 char *
