@@ -16,7 +16,12 @@ endif
 
 BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE) $(SYSTEMD_TSERVICE_FILE)
 
-SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src htdocs
+if COND_WEBINTERFACE
+WEBINTERFACE_SRC_SUBDIR = web-src
+endif
+
+SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src $(WEBINTERFACE_SRC_SUBDIR)
+DIST_SUBDIRS = $(SUBDIRS)
 
 dist_man_MANS = owntone.8
 
@@ -105,3 +110,7 @@ $(CONF_FILE): $(srcdir)/$(CONF_FILE).in
 $(SYSTEMD_SERVICE_FILE): $(srcdir)/$(SYSTEMD_SERVICE_FILE).in
 
 $(SYSTEMD_TSERVICE_FILE): $(srcdir)/$(SYSTEMD_TSERVICE_FILE).in
+
+# Build the Vue.js application
+web:
+	$(MAKE) web -C web-src
