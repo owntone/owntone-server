@@ -573,7 +573,6 @@
   },
   "server": {
     "connection-failed": "Échec de connexion au serveur",
-    "missing-port": "Port websocket manquant",
     "request-failed": "La requête a échoué (status: {status} {cause} {url})",
     "queue-saved": "La file d’attente enregistrée dans la liste de lecture {name}",
     "appended-tracks": "{count} piste ajoutée à la file d’attente|{count} pistes ajoutées à la file d’attente",
