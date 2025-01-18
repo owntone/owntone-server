@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.60])
+AC_PREREQ([2.71])
 AC_INIT([owntone], [28.10])
 
 AC_CONFIG_SRCDIR([config.h.in])
@@ -31,6 +31,7 @@ If you modify any .gperf files, you will need to install it.]])],
 		[AC_MSG_ERROR([[GNU gperf required, please install it.]])])
 	])
 
+AC_PROG_LEX([noyywrap])
 AX_PROG_FLEX([AC_DEFINE([LEX], [flex], [flex found])],
 	[AS_IF([test ! -f "$srcdir/src/parsers/smartpl_lexer.c"],
 		[AC_MSG_ERROR([flex required, please install it])])
@@ -77,8 +78,8 @@ AC_SEARCH_LIBS([pthread_exit], [pthread], [],
 AC_SEARCH_LIBS([pthread_setname_np], [pthread],
 	[dnl Validate pthread_setname_np with 2 args (some have 1)
 	 AC_MSG_CHECKING([[for two-parameter pthread_setname_np]])
-	 AC_TRY_LINK([@%:@include <pthread.h>],
-		[pthread_setname_np(pthread_self(), "name");],
+	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@include <pthread.h>]],
+		[[pthread_setname_np(pthread_self(), "name");]])],
 		[AC_MSG_RESULT([yes])
 		 AC_DEFINE([HAVE_PTHREAD_SETNAME_NP], 1,
 			[Define to 1 if you have pthread_setname_np])],
