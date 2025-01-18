@@ -143,7 +143,13 @@ OWNTONE_MODULES_CHECK([COMMON], [SQLITE3], [sqlite3 >= 3.5.0],
 	])
 
 OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT], [libevent >= 2.1.4],
-	[event_base_new], [event2/event.h])
+	[event_base_new], [event2/event.h],
+	[dnl check for version 2.2 (with websocket server support)
+	 PKG_CHECK_EXISTS([libevent >= 2.2.1],
+	 	[AC_DEFINE([HAVE_LIBEVENT22], 1,
+			[Define to 1 if you have libevent > 2.2])],
+		[])
+	])
 OWNTONE_MODULES_CHECK([OWNTONE], [LIBEVENT_PTHREADS], [libevent_pthreads],
 	[evthread_use_pthreads], [event2/thread.h])
 

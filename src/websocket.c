@@ -48,9 +48,9 @@ static pthread_mutex_t websocket_write_event_lock;
 static short websocket_write_events;
 
 
-/* Thread: library (the thread the event occurred) */
+/* Thread: library, player, etc. (the thread the event occurred) */
 static void
-listener_cb(short event_mask)
+listener_cb(short event_mask, void *ctx)
 {
   pthread_mutex_lock(&websocket_write_event_lock);
   websocket_write_events |= event_mask;
@@ -133,7 +133,7 @@ process_notify_request(short *requested_events, void *in, size_t len)
 	  if (json_object_get_type(item) == json_type_string)
 	    {
 	      event_type = json_object_get_string(item);
-	      DPRINTF(E_DBG, L_WEB, "notify callback event received: %s\n", event_type);
+	      DPRINTF(E_SPAM, L_WEB, "notify callback event received: %s\n", event_type);
 
 	      if (0 == strcmp(event_type, "update"))
 		{
@@ -279,7 +279,7 @@ callback_notify(struct lws *wsi, enum lws_callback_reasons reason, void *user, v
   short events = 0;
   int ret = 0;
 
-  DPRINTF(E_DBG, L_WEB, "notify callback reason: %d\n", reason);
+  DPRINTF(E_SPAM, L_WEB, "notify callback reason: %d\n", reason);
 
   switch (reason)
   {
@@ -416,7 +416,7 @@ static void *
 websocket(void *arg)
 {
   listener_add(listener_cb, LISTENER_UPDATE | LISTENER_DATABASE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM | LISTENER_SPEAKER
-               | LISTENER_PLAYER | LISTENER_OPTIONS | LISTENER_VOLUME | LISTENER_QUEUE);
+               | LISTENER_PLAYER | LISTENER_OPTIONS | LISTENER_VOLUME | LISTENER_QUEUE, NULL);
 
   while(!websocket_exit)
   {
@@ -478,7 +478,11 @@ websocket_init(void)
 
   if (websocket_port <= 0)
     {
+#ifdef HAVE_LIBEVENT22
+      DPRINTF(E_DBG, L_WEB, "Libwebsocket disabled, using libevent websocket instead. To enable it, set websocket_port in config to a valid port number.\n");
+#else
       DPRINTF(E_LOG, L_WEB, "Websocket disabled. To enable it, set websocket_port in config to a valid port number.\n");
+#endif
       return 0;
     }
 
