@@ -120,6 +120,8 @@ web-update:
 	$(MAKE) web-update -C web-src
 web-serve:
 	$(MAKE) web-serve -C web-src
+web-check:
+	$(MAKE) web-check -C web-src
 web-lint:
 	$(MAKE) web-lint -C web-src
 web-format:

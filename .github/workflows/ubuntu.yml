@@ -36,6 +36,7 @@ jobs:
         make
         make check
         make distcheck
+        make web-check
 
     - name: Install
       run: |
