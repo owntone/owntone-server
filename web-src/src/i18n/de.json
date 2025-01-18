@@ -578,7 +578,6 @@
   },
   "server": {
     "connection-failed": "Fehler bei Verbindung zum OwnTone-Server",
-    "missing-port": "Fehlender Websocket-Port",
     "request-failed": "Anfrage gescheitert (Status: {status} {cause} {url})",
     "queue-saved": "Warteschlange zu Playlist {name} gesichert",
     "appended-tracks": "{count} Track an die Abspielliste angehängt|{count} Tracks an die Abspielliste angehängt",

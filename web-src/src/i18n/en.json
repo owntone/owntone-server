@@ -577,7 +577,6 @@
   },
   "server": {
     "connection-failed": "Failed to connect to OwnTone server",
-    "missing-port": "Missing websocket port",
     "request-failed": "Request failed (status: {status} {cause} {url})",
     "queue-saved": "Queue saved to playlist {name}",
     "appended-tracks": "{count} track appended to the queue|{count} tracks appended to the queue",

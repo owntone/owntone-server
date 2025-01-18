@@ -144,7 +144,7 @@ export default {
           this.configurationStore.$state = data
           this.uiStore.hide_singles = data.hide_singles
           document.title = data.library_name
-          this.open_ws()
+          this.open_websocket()
           this.$Progress.finish()
         })
         .catch(() => {
@@ -155,10 +155,8 @@ export default {
           })
         })
     },
-    open_ws() {
-      const wsPort = this.configurationStore.websocket_port
-      const socket = wsPort <= 0 ? this.create_websocket() : this.create_websocket_with_port(wsPort)
-
+    open_websocket() {
+      const socket = this.create_websocket()
       const vm = this
       socket.onopen = () => {
         vm.reconnect_attempts = 0
@@ -258,47 +256,18 @@ export default {
       }
     },
     create_websocket() {
-      // Create websocket connection on the same http connection
-      const wsHost = window.location.hostname
-      const wsPath = '/ws'
-      const wsPort = window.location.port
-
-      let wsProtocol = 'ws://'
-      if (window.location.protocol === 'https:') {
-        wsProtocol = 'wss://'
-      }
-
-      const wsUrl = `${wsProtocol}${wsHost}:${wsPort}${wsPath}`
-
-      const socket = new ReconnectingWebSocket(wsUrl, 'notify', {
+      const protocol = window.location.protocol.replace('http', 'ws')
+      const hostname =
+        (import.meta.env.DEV &&
+          URL.parse(import.meta.env.VITE_OWNTONE_URL)?.hostname) ||
+        window.location.hostname
+      const suffix =
+        this.configurationStore.websocket_port || `${window.location.port}/ws`
+      const url = `${protocol}${hostname}:${suffix}`
+      return new ReconnectingWebSocket(url, 'notify', {
         maxReconnectInterval: 2000,
         reconnectInterval: 1000
       })
-      return socket
-    },
-    create_websocket_with_port(port) {
-      // Create websocket connection on a separate http port
-      let protocol = 'ws://'
-      if (window.location.protocol === 'https:') {
-        protocol = 'wss://'
-      }
-
-      let wsUrl = `${protocol}${window.location.hostname}:${port}`
-
-      if (import.meta.env.DEV && import.meta.env.VITE_OWNTONE_URL) {
-        /*
-         * If we are running in development mode, construct the websocket
-         * url from the host of the environment variable VITE_OWNTONE_URL
-         */
-        const url = new URL(import.meta.env.VITE_OWNTONE_URL)
-        wsUrl = `${protocol}${url.hostname}:${port}`
-      }
-
-      const socket = new ReconnectingWebSocket(wsUrl, 'notify', {
-        maxReconnectInterval: 2000,
-        reconnectInterval: 1000
-      })
-      return socket
     },
     update_is_clipped() {
       if (this.show_burger_menu || this.show_player_menu) {
@@ -377,5 +346,3 @@ export default {
   template: '<App/>'
 }
 </script>
-
-<style></style>

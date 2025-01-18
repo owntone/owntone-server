@@ -577,7 +577,6 @@
   },
   "server": {
     "connection-failed": "无法连接到 OwnTone 服务器",
-    "missing-port": "缺少 websocket 端口",
     "request-failed": "请求失败 (状态：{status} {cause} {url})",
     "queue-saved": "清单以添加到播放列表 {name}",
     "appended-tracks": "已附加到队列的 {count} 只曲目|已附加到队列的 {count} 只曲目",
