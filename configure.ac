@@ -31,6 +31,7 @@ If you modify any .gperf files, you will need to install it.]])],
 		[AC_MSG_ERROR([[GNU gperf required, please install it.]])])
 	])
 
+dnl Avoid deprecation warning by specifying noyywrap explicitly.
 AC_PROG_LEX([noyywrap])
 AX_PROG_FLEX([AC_DEFINE([LEX], [flex], [flex found])],
 	[AS_IF([test ! -f "$srcdir/src/parsers/smartpl_lexer.c"],
