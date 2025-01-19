@@ -77,8 +77,8 @@ AC_SEARCH_LIBS([pthread_exit], [pthread], [],
 AC_SEARCH_LIBS([pthread_setname_np], [pthread],
 	[dnl Validate pthread_setname_np with 2 args (some have 1)
 	 AC_MSG_CHECKING([[for two-parameter pthread_setname_np]])
-	 AC_TRY_LINK([@%:@include <pthread.h>],
-		[pthread_setname_np(pthread_self(), "name");],
+	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@include <pthread.h>]],
+		[[pthread_setname_np(pthread_self(), "name");]])],
 		[AC_MSG_RESULT([yes])
 		 AC_DEFINE([HAVE_PTHREAD_SETNAME_NP], 1,
 			[Define to 1 if you have pthread_setname_np])],
