@@ -111,6 +111,16 @@ $(SYSTEMD_SERVICE_FILE): $(srcdir)/$(SYSTEMD_SERVICE_FILE).in
 
 $(SYSTEMD_TSERVICE_FILE): $(srcdir)/$(SYSTEMD_TSERVICE_FILE).in
 
-# Build the Vue.js application
+#
+# Convenience make goals for the web interface
+#
 web:
 	$(MAKE) web -C web-src
+web-update:
+	$(MAKE) web-update -C web-src
+web-serve:
+	$(MAKE) web-serve -C web-src
+web-lint:
+	$(MAKE) web-lint -C web-src
+web-format:
+	$(MAKE) web-format -C web-src

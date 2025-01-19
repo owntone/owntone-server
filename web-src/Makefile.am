@@ -185,6 +185,18 @@ htdocs: node_modules $(WEB_FILES)
 
 web: htdocs
 
+web-serve: node_modules
+	$(if $(NPM),$(NPM) run serve)
+
+web-update:
+	$(if $(NPM),$(NPM) update)
+
+web-lint: node_modules
+	$(if $(NPM),$(NPM) run lint)
+
+web-format: node_modules
+	$(if $(NPM),$(NPM) run format)
+
 all-local: htdocs
 
 install-data-local:
