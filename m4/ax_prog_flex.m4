@@ -45,7 +45,13 @@
 #serial 13
 
 AC_DEFUN([AX_PROG_FLEX], [
-  AC_REQUIRE([AM_PROG_LEX])
+  dnl --- Start of modified macro ---
+  dnl Original uses 'AC_REQUIRE([AM_PROG_LEX])', but that produces a deprecation
+  dnl warning since autoconf 2.70, because the underlying AC_PROG_LEX now
+  dnl requires an argument. However, we cannot specify it through AM_PROG_LEX
+  dnl until automake 1.17, so users with that will still get the warning.
+  AM_PROG_LEX([noyywrap])
+  dnl --- End of modified macro ---
   AC_REQUIRE([AC_PROG_EGREP])
 
   AC_CACHE_CHECK([if flex is the lexer generator],[ax_cv_prog_flex],[
