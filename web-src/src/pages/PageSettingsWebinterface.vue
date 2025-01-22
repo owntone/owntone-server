@@ -73,7 +73,7 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <p
+        <div
           class="title is-4"
           v-text="$t('page.settings.general.now-playing-page')"
         />
