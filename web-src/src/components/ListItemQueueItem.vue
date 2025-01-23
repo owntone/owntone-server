@@ -1,27 +1,26 @@
 <template>
   <div
     v-if="is_next || !show_only_next_items"
-    class="media is-align-items-center is-clickable mb-0"
-    @click="play"
+    class="media is-align-items-center"
   >
     <div v-if="edit_mode" class="media-left">
       <mdicon
-        class="icon has-text-grey is-movable"
+        class="icon has-text-grey fd-is-movable handle"
         name="drag-horizontal"
-        size="18"
+        size="16"
       />
     </div>
-    <div class="media-content">
-      <div
-        class="is-size-6 has-text-weight-bold"
+    <div class="media-content is-clickable is-clipped" @click="play">
+      <h1
+        class="title is-6"
         :class="{
           'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next
         }"
         v-text="item.title"
       />
-      <div
-        class="is-size-7 has-text-weight-bold"
+      <h2
+        class="subtitle is-7 has-text-weight-bold"
         :class="{
           'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next,
@@ -29,8 +28,8 @@
         }"
         v-text="item.artist"
       />
-      <div
-        class="is-size-7"
+      <h2
+        class="subtitle is-7"
         :class="{
           'has-text-primary': item.id === player.item_id,
           'has-text-grey-light': !is_next,
@@ -82,8 +81,4 @@ export default {
 }
 </script>
 
-<style scoped>
-.is-movable {
-  cursor: move;
-}
-</style>
+<style></style>

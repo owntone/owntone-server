@@ -1,33 +1,32 @@
 <template>
-  <control-switch v-model="setting.value" @update:model-value="update">
-    <template #label>
+  <div class="field">
+    <input
+      :id="setting.name"
+      v-model="setting.value"
+      type="checkbox"
+      class="switch is-rounded mr-2"
+      @change="update_setting"
+    />
+    <label class="pt-0" :for="setting.name">
       <slot name="label" />
-    </template>
-    <template #info>
-      <mdicon
-        v-if="isSuccess"
-        class="icon has-text-info"
-        name="check"
-        size="16"
-      />
-      <mdicon
-        v-if="isError"
-        class="icon has-text-danger"
-        name="close"
-        size="16"
-      />
-    </template>
-  </control-switch>
+    </label>
+    <i
+      class="is-size-7"
+      :class="{ 'has-text-info': is_success, 'has-text-danger': is_error }"
+      v-text="info"
+    />
+    <p v-if="$slots['info']" class="help">
+      <slot name="info" />
+    </p>
+  </div>
 </template>
 
 <script>
-import ControlSwitch from '@/components/ControlSwitch.vue'
 import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 export default {
   name: 'SettingsCheckbox',
-  components: { ControlSwitch },
   props: {
     category: { required: true, type: String },
     name: { required: true, type: String }
@@ -48,10 +47,18 @@ export default {
   },
 
   computed: {
-    isError() {
+    info() {
+      if (this.is_success) {
+        return this.$t('setting.saved')
+      } else if (this.is_error) {
+        return this.$t('setting.not-saved')
+      }
+      return ''
+    },
+    is_error() {
       return this.statusUpdate === 'error'
     },
-    isSuccess() {
+    is_success() {
       return this.statusUpdate === 'success'
     },
     setting() {
@@ -68,13 +75,13 @@ export default {
   },
 
   methods: {
-    clearStatus() {
+    clear_status() {
       if (this.is_error) {
         this.setting.value = !this.setting.value
       }
       this.statusUpdate = ''
     },
-    update() {
+    update_setting() {
       this.timerId = -1
       const setting = {
         category: this.category,
@@ -91,9 +98,11 @@ export default {
           this.statusUpdate = 'error'
         })
         .finally(() => {
-          this.timerId = window.setTimeout(this.clearStatus, this.timerDelay)
+          this.timerId = window.setTimeout(this.clear_status, this.timerDelay)
         })
     }
   }
 }
 </script>
+
+<style></style>

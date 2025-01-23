@@ -1,9 +1,9 @@
 <template>
   <a v-if="visible" :disabled="disabled" @click="seek">
     <mdicon
-      class="icon"
-      name="fast-forward-30"
-      :title="$t('player.button.seek-forward')"
+      name="rewind-10"
+      :size="icon_size"
+      :title="$t('player.button.seek-backward')"
     />
   </a>
 </template>
@@ -14,9 +14,10 @@ import { useQueueStore } from '@/stores/queue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'ControlPlayerForward',
+  name: 'PlayerButtonSeekBack',
   props: {
-    offset: { required: true, type: Number }
+    icon_size: { default: 16, type: Number },
+    seek_ms: { required: true, type: Number }
   },
 
   setup() {
@@ -51,7 +52,7 @@ export default {
   methods: {
     seek() {
       if (!this.disabled) {
-        webapi.player_seek(this.offset)
+        webapi.player_seek(this.seek_ms * -1)
       }
     }
   }

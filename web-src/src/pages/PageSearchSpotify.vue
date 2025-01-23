@@ -9,7 +9,7 @@
                 <input
                   ref="search_field"
                   v-model="search_query"
-                  class="input is-rounded"
+                  class="input is-rounded is-shadowless"
                   type="text"
                   :placeholder="$t('page.spotify.search.placeholder')"
                   autocomplete="off"
@@ -32,7 +32,7 @@
   </section>
   <tabs-search @search-library="search_library" @search-spotify="search" />
   <template v-for="[type, items] in results" :key="type">
-    <content-with-heading>
+    <content-with-heading class="pt-0">
       <template #heading-left>
         <p class="title is-4" v-text="$t(`page.spotify.search.${type}s`)" />
       </template>
@@ -55,7 +55,7 @@
         <nav v-if="show_all_button(items)" class="level">
           <p class="level-item">
             <a
-              class="button is-small is-rounded"
+              class="button is-light is-small is-rounded"
               @click="expand(type)"
               v-text="
                 $t(`page.spotify.search.show-${type}s`, items.total, {
@@ -227,3 +227,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

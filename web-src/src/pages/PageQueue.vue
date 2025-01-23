@@ -2,9 +2,9 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.queue.title')" />
-        <div
-          class="is-size-7 is-uppercase"
+        <p class="title is-4" v-text="$t('page.queue.title')" />
+        <p
+          class="heading"
           v-text="$t('page.queue.count', { count: queue.count })"
         />
       </template>
@@ -51,7 +51,12 @@
         </div>
       </template>
       <template #content>
-        <draggable v-model="queue_items" item-key="id" @end="move_item">
+        <draggable
+          v-model="queue_items"
+          handle=".handle"
+          item-key="id"
+          @end="move_item"
+        >
           <template #item="{ element, index }">
             <list-item-queue-item
               :item="element"
@@ -203,3 +208,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

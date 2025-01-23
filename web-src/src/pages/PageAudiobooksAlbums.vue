@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-audiobooks />
     <content-with-heading>
       <template #options>
@@ -8,7 +8,7 @@
       <template #heading-left>
         <p class="title is-4" v-text="$t('page.audiobooks.albums.title')" />
         <p
-          class="is-size-7 is-uppercase"
+          class="heading"
           v-text="$t('page.audiobooks.albums.count', { count: albums.count })"
         />
       </template>
@@ -61,3 +61,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

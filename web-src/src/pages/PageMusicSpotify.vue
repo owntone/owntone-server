@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
@@ -13,7 +13,7 @@
           <p class="level-item">
             <router-link
               :to="{ name: 'music-spotify-new-releases' }"
-              class="button is-small is-rounded"
+              class="button is-light is-small is-rounded"
             >
               {{ $t('page.spotify.music.show-more') }}
             </router-link>
@@ -36,7 +36,7 @@
           <p class="level-item">
             <router-link
               :to="{ name: 'music-spotify-featured-playlists' }"
-              class="button is-small is-rounded"
+              class="button is-light is-small is-rounded"
             >
               {{ $t('page.spotify.music.show-more') }}
             </router-link>
@@ -102,3 +102,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

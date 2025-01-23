@@ -1,10 +1,10 @@
 <template>
-  <a :class="{ 'is-info': is_shuffle }" @click="toggle">
+  <a :class="{ 'is-info': is_shuffle }" @click="toggle_shuffle_mode">
     <mdicon
       class="icon"
-      :name="icon"
-      :size="16"
-      :title="$t(`player.button.${icon}`)"
+      :name="icon_name"
+      :size="icon_size"
+      :title="$t(`player.button.${icon_name}`)"
     />
   </a>
 </template>
@@ -14,14 +14,20 @@ import { usePlayerStore } from '@/stores/player'
 import webapi from '@/webapi'
 
 export default {
-  name: 'ControlPlayerShuffle',
+  name: 'PlayerButtonShuffle',
+
+  props: {
+    icon_size: { default: 16, type: Number }
+  },
+
   setup() {
     return {
       playerStore: usePlayerStore()
     }
   },
+
   computed: {
-    icon() {
+    icon_name() {
       if (this.is_shuffle) {
         return 'shuffle'
       }
@@ -31,10 +37,13 @@ export default {
       return this.playerStore.shuffle
     }
   },
+
   methods: {
-    toggle() {
+    toggle_shuffle_mode() {
       webapi.player_shuffle(!this.is_shuffle)
     }
   }
 }
 </script>
+
+<style></style>

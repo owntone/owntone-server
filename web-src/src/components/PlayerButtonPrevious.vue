@@ -1,8 +1,8 @@
 <template>
   <a :disabled="disabled" @click="play_previous">
     <mdicon
-      class="icon"
       name="skip-backward"
+      :size="icon_size"
       :title="$t('player.button.skip-backward')"
     />
   </a>
@@ -13,7 +13,10 @@ import { useQueueStore } from '@/stores/queue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'ControlPlayerPrevious',
+  name: 'PlayerButtonPrevious',
+  props: {
+    icon_size: { default: 16, type: Number }
+  },
 
   setup() {
     return {
@@ -37,3 +40,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

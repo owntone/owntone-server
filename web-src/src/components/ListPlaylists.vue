@@ -1,12 +1,11 @@
 <template>
   <template v-for="item in items" :key="item.itemId">
-    <div
-      class="media is-align-items-center is-clickable mb-0"
-      @click="open(item.item)"
-    >
-      <mdicon class="media-left icon" :name="icon(item.item)" />
-      <div class="media-content">
-        <p class="title is-6" v-text="item.item.name" />
+    <div class="media is-align-items-center" @click="open(item.item)">
+      <figure class="media-left is-clickable">
+        <mdicon class="icon" :name="icon_name(item.item)" size="16" />
+      </figure>
+      <div class="media-content is-clickable is-clipped">
+        <h1 class="title is-6" v-text="item.item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item.item)">
@@ -40,7 +39,7 @@ export default {
   },
 
   methods: {
-    icon(item) {
+    icon_name(item) {
       if (item.type === 'folder') {
         return 'folder'
       } else if (item.type === 'rss') {
@@ -62,3 +61,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

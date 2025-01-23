@@ -5,29 +5,27 @@
         <index-button-list :indices="tracks.indices" />
         <div class="columns">
           <div class="column">
-            <p
-              class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.filter')"
-            />
-            <control-switch
-              v-if="spotify_enabled"
-              v-model="uiStore.hide_spotify"
-            >
-              <template #label>
-                <span v-text="$t('page.artist.hide-spotify')" />
-              </template>
-              <template #help>
-                <span v-text="$t('page.artist.hide-spotify-help')" />
-              </template>
-            </control-switch>
+            <p class="heading mb-5" v-text="$t('page.artist.filter')" />
+            <div v-if="spotify_enabled" class="field">
+              <div class="control">
+                <input
+                  id="switchHideSpotify"
+                  v-model="hide_spotify"
+                  type="checkbox"
+                  class="switch is-rounded"
+                />
+                <label
+                  for="switchHideSpotify"
+                  v-text="$t('page.artist.hide-spotify')"
+                />
+              </div>
+              <p class="help" v-text="$t('page.artist.hide-spotify-help')" />
+            </div>
           </div>
           <div class="column">
-            <p
-              class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.sort.title')"
-            />
+            <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />
             <control-dropdown
-              v-model:value="uiStore.artist_tracks_sort"
+              v-model:value="selected_grouping_id"
               :options="groupings"
             />
           </div>
@@ -35,16 +33,6 @@
       </template>
       <template #heading-left>
         <p class="title is-4" v-text="artist.name" />
-        <div class="is-size-7 is-uppercase">
-          <a
-            @click="open_artist"
-            v-text="$t('page.artist.album-count', { count: album_count })"
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <span
-            v-text="$t('page.artist.track-count', { count: tracks.count })"
-          />
-        </div>
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -61,6 +49,17 @@
         </div>
       </template>
       <template #content>
+        <p class="heading has-text-centered-mobile">
+          <a
+            class="has-text-link"
+            @click="open_artist"
+            v-text="$t('page.artist.album-count', { count: album_count })"
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <span
+            v-text="$t('page.artist.track-count', { count: tracks.count })"
+          />
+        </p>
         <list-tracks :items="tracks" :uris="track_uris" />
         <modal-dialog-artist
           :item="artist"
@@ -75,7 +74,6 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
-import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
@@ -103,7 +101,6 @@ export default {
   components: {
     ContentWithHeading,
     ControlDropdown,
-    ControlSwitch,
     IndexButtonList,
     ListTracks,
     ModalDialogArtist
@@ -150,6 +147,22 @@ export default {
           .map((track) => track.item.album_id)
       ).size
     },
+    hide_spotify: {
+      get() {
+        return this.uiStore.hide_spotify
+      },
+      set(value) {
+        this.uiStore.hide_spotify = value
+      }
+    },
+    selected_grouping_id: {
+      get() {
+        return this.uiStore.artist_tracks_sort
+      },
+      set(value) {
+        this.uiStore.artist_tracks_sort = value
+      }
+    },
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid
     },
@@ -158,10 +171,10 @@ export default {
     },
     tracks() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.artist_tracks_sort
+        (grouping) => grouping.id === this.selected_grouping_id
       )
       options.filters = [
-        (track) => !this.uiStore.hide_spotify || track.data_kind !== 'spotify'
+        (track) => !this.hide_spotify || track.data_kind !== 'spotify'
       ]
       return this.tracks_list.group(options)
     }
@@ -184,3 +197,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

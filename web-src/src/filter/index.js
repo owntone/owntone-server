@@ -32,7 +32,7 @@ export const filters = {
       .toLocaleString(DateTime.DATETIME_MED)
   },
   durationInDays(value) {
-    const minutes = Math.floor(value / 60)
+    const minutes = Math.floor(value / 60000)
     if (minutes > 1440) {
       return Duration.fromObject({ minutes })
         .shiftTo('days', 'hours', 'minutes')
@@ -53,6 +53,6 @@ export const filters = {
   },
   timeFromNow(value) {
     const diff = DateTime.now().diff(DateTime.fromISO(value))
-    return this.durationInDays(diff.as('seconds'))
+    return this.durationInDays(diff.as('milliseconds'))
   }
 }

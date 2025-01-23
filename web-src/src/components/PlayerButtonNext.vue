@@ -1,8 +1,8 @@
 <template>
   <a :disabled="disabled" @click="play_next">
     <mdicon
-      class="icon"
       name="skip-forward"
+      :size="icon_size"
       :title="$t('player.button.skip-forward')"
     />
   </a>
@@ -13,7 +13,10 @@ import { useQueueStore } from '@/stores/queue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'ControlPlayerNext',
+  name: 'PlayerButtonNext',
+  props: {
+    icon_size: { default: 16, type: Number }
+  },
 
   computed: {
     disabled() {
@@ -26,8 +29,11 @@ export default {
       if (this.disabled) {
         return
       }
+
       webapi.player_next()
     }
   }
 }
 </script>
+
+<style></style>

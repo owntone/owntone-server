@@ -5,17 +5,7 @@
         <index-button-list :indices="albums.indices" />
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="genre.name" />
-        <div class="is-size-7 is-uppercase">
-          <span
-            v-text="$t('page.genre.album-count', { count: genre.album_count })"
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <a
-            @click="open_tracks"
-            v-text="$t('page.genre.track-count', { count: genre.track_count })"
-          />
-        </div>
+        <p class="title is-4" v-text="genre.name" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -32,6 +22,17 @@
         </div>
       </template>
       <template #content>
+        <p class="heading has-text-centered-mobile">
+          <span
+            v-text="$t('page.genre.album-count', { count: genre.album_count })"
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <a
+            class="has-text-link"
+            @click="open_tracks"
+            v-text="$t('page.genre.track-count', { count: genre.track_count })"
+          />
+        </p>
         <list-albums :items="albums" />
         <modal-dialog-genre
           :item="genre"
@@ -108,3 +109,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

@@ -241,7 +241,6 @@
       "compiled-with": "Compilé avec les options {options}.",
       "library": "Bibliothèque",
       "more": "plus",
-      "name": "Nom",
       "total-playtime": "Durée totale de lecture",
       "tracks": "Pistes",
       "update": "Actualiser",
@@ -408,8 +407,8 @@
       "count": "{count} piste|{count} piste|{count} pistes",
       "edit": "Éditer",
       "hide-previous": "Masquer l’historique",
-      "save": "Enregistrer",
-      "title": "File d’attente"
+      "queue": "File d’attente",
+      "save": "Enregistrer"
     },
     "radio": {
       "count": "{count} station|{count} station|{count} stations",
@@ -495,7 +494,8 @@
         "spotify": {
           "no-support": "L’option Spotify n’est pas présente.",
           "logged-as": "Connecté en tant que ",
-          "requirements": "Vous devez posséder un compte Spotify Premium. L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
+          "requirements": "Vous devez posséder un compte Spotify Premium.",
+          "scopes": "L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
           "user": "Accès autorisé pour ",
           "authorize": "Autoriser l’accès à l’API",
           "grant-access": "Accordez l’accès à l’API de Spotify",
@@ -570,6 +570,10 @@
       "stop": "Arrêter la lecture",
       "toggle-lyrics": "Voir/Cacher les paroles"
     }
+  },
+  "setting": {
+    "not-saved": " (erreur à l’enregistrement du réglage)",
+    "saved": " (réglage enregistré)"
   },
   "server": {
     "connection-failed": "Échec de connexion au serveur",

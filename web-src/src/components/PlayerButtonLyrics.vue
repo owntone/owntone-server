@@ -1,9 +1,9 @@
 <template>
-  <a :class="{ 'is-info': is_active }" @click="toggle">
+  <a :class="{ 'is-info': is_active }" @click="toggle_lyrics">
     <mdicon
       class="icon"
-      :name="icon"
-      :size="16"
+      :name="icon_name"
+      :size="icon_size"
       :title="$t('player.button.toggle-lyrics')"
     />
   </a>
@@ -13,7 +13,10 @@
 import { useLyricsStore } from '@/stores/lyrics'
 
 export default {
-  name: 'ControlPlayerLyrics',
+  name: 'PlayerButtonLyrics',
+  props: {
+    icon_size: { default: 16, type: Number }
+  },
 
   setup() {
     return {
@@ -22,7 +25,7 @@ export default {
   },
 
   computed: {
-    icon() {
+    icon_name() {
       return this.is_active ? 'script-text-play' : 'script-text-outline'
     },
     is_active() {
@@ -31,9 +34,11 @@ export default {
   },
 
   methods: {
-    toggle() {
+    toggle_lyrics() {
       this.lyricsStore.pane = !this.lyricsStore.pane
     }
   }
 }
 </script>
+
+<style></style>

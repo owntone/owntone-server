@@ -1,32 +1,45 @@
 <template>
-  <base-modal :show="show" @close="$emit('close')">
-    <template #content>
-      <p class="title is-4" v-text="item" />
-    </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="queue_add">
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.directory.add')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="queue_add_next">
-        <mdicon class="icon" name="playlist-play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.directory.add-next')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.directory.play')" />
-      </a>
-    </template>
-  </base-modal>
+  <transition name="fade">
+    <div v-if="show" class="modal is-active">
+      <div class="modal-background" @click="$emit('close')" />
+      <div class="modal-content">
+        <div class="card">
+          <div class="card-content">
+            <p class="title is-4" v-text="item" />
+          </div>
+          <footer class="card-footer">
+            <a class="card-footer-item has-text-dark" @click="queue_add">
+              <mdicon class="icon" name="playlist-plus" size="16" />
+              <span class="is-size-7" v-text="$t('dialog.directory.add')" />
+            </a>
+            <a class="card-footer-item has-text-dark" @click="queue_add_next">
+              <mdicon class="icon" name="playlist-play" size="16" />
+              <span
+                class="is-size-7"
+                v-text="$t('dialog.directory.add-next')"
+              />
+            </a>
+            <a class="card-footer-item has-text-dark" @click="play">
+              <mdicon class="icon" name="play" size="16" />
+              <span class="is-size-7" v-text="$t('dialog.directory.play')" />
+            </a>
+          </footer>
+        </div>
+      </div>
+      <button
+        class="modal-close is-large"
+        aria-label="close"
+        @click="$emit('close')"
+      />
+    </div>
+  </transition>
 </template>
 
 <script>
-import BaseModal from '@/components/BaseModal.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogDirectory',
-  components: { BaseModal },
   props: { item: { required: true, type: String }, show: Boolean },
   emits: ['close'],
 
@@ -53,3 +66,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

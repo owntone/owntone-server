@@ -1,53 +1,60 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music />
     <content-with-heading>
       <template #options>
         <index-button-list :indices="artists.indices" />
         <div class="columns">
           <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('page.artists.filter')"
-            />
-            <control-switch v-model="uiStore.hide_singles">
-              <template #label>
-                <span v-text="$t('page.artists.hide-singles')" />
-              </template>
-              <template #help>
-                <span v-text="$t('page.artists.hide-singles-help')" />
-              </template>
-            </control-switch>
+            <p class="heading mb-5" v-text="$t('page.artists.filter')" />
+            <div class="field">
+              <div class="control">
+                <input
+                  id="switchHideSingles"
+                  v-model="hide_singles"
+                  type="checkbox"
+                  class="switch is-rounded"
+                />
+                <label
+                  for="switchHideSingles"
+                  v-text="$t('page.artists.hide-singles')"
+                />
+              </div>
+              <p class="help" v-text="$t('page.artists.hide-singles-help')" />
+            </div>
             <div v-if="spotify_enabled" class="field">
-              <control-switch v-model="uiStore.hide_spotify">
-                <template #label>
-                  <span v-text="$t('page.artists.hide-spotify')" />
-                </template>
-                <template #help>
-                  <span v-text="$t('page.artists.hide-spotify-help')" />
-                </template>
-              </control-switch>
+              <div class="control">
+                <input
+                  id="switchHideSpotify"
+                  v-model="hide_spotify"
+                  type="checkbox"
+                  class="switch is-rounded"
+                />
+                <label
+                  for="switchHideSpotify"
+                  v-text="$t('page.artists.hide-spotify')"
+                />
+              </div>
+              <p class="help" v-text="$t('page.artists.hide-spotify-help')" />
             </div>
           </div>
           <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('page.artists.sort.title')"
-            />
+            <p class="heading mb-5" v-text="$t('page.artists.sort.title')" />
             <control-dropdown
-              v-model:value="uiStore.artists_sort"
+              v-model:value="selected_grouping_id"
               :options="groupings"
             />
           </div>
         </div>
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.artists.title')" />
-        <div
-          class="is-size-7 is-uppercase"
+        <p class="title is-4" v-text="$t('page.artists.title')" />
+        <p
+          class="heading"
           v-text="$t('page.artists.count', { count: artists.count })"
         />
       </template>
+      <template #heading-right />
       <template #content>
         <list-artists :items="artists" />
       </template>
@@ -58,7 +65,6 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
-import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
@@ -82,7 +88,6 @@ export default {
   components: {
     ContentWithHeading,
     ControlDropdown,
-    ControlSwitch,
     IndexButtonList,
     ListArtists,
     TabsMusic
@@ -120,17 +125,41 @@ export default {
   },
 
   computed: {
+    // Wraps GroupedList and updates it if filter or sort changes
     artists() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.artists_sort
+        (grouping) => grouping.id === this.selected_grouping_id
       )
       options.filters = [
         (artist) =>
-          !this.uiStore.hide_singles ||
-          artist.track_count > artist.album_count * 2,
-        (artist) => !this.uiStore.hide_spotify || artist.data_kind !== 'spotify'
+          !this.hide_singles || artist.track_count > artist.album_count * 2,
+        (artist) => !this.hide_spotify || artist.data_kind !== 'spotify'
       ]
       return this.artists_list.group(options)
+    },
+    hide_singles: {
+      get() {
+        return this.uiStore.hide_singles
+      },
+      set(value) {
+        this.uiStore.hide_singles = value
+      }
+    },
+    hide_spotify: {
+      get() {
+        return this.uiStore.hide_spotify
+      },
+      set(value) {
+        this.uiStore.hide_spotify = value
+      }
+    },
+    selected_grouping_id: {
+      get() {
+        return this.uiStore.artists_sort
+      },
+      set(value) {
+        this.uiStore.artists_sort = value
+      }
     },
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid
@@ -138,3 +167,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

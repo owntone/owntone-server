@@ -241,7 +241,6 @@
       "compiled-with": "编译支持来自于 {options}",
       "library": "资料库",
       "more": "更多",
-      "name": "名称",
       "total-playtime": "总播放时长",
       "tracks": "曲目总数",
       "update": "更新",
@@ -408,8 +407,8 @@
       "count": "{count} 只曲目|{count} 只曲目",
       "edit": "编辑",
       "hide-previous": "隐藏历史",
-      "save": "保存",
-      "title": "清单"
+      "title": "清单",
+      "save": "保存"
     },
     "radio": {
       "count": "{count} 个电台|{count} 个电台",
@@ -495,7 +494,8 @@
         "spotify": {
           "no-support": "OwnTone的构建没有来自 Spotify 官方的支持，也未安装 libspotify",
           "logged-as": "登录为 ",
-          "requirements": "您必须拥有 Spotify付费帐户。访问 Spotify Web API 可以扫描您的 Spotify库。所需范围是：",
+          "requirements": "您必须拥有 Spotify付费帐户",
+          "scopes": "访问 Spotify Web API 可以扫描您的 Spotify库。所需范围是：",
           "user": "授予访问权限",
           "authorize": "授权 Web API 访问",
           "grant-access": "授予对 Spotify Web API 的访问权限",
@@ -570,6 +570,10 @@
       "stop": "停止",
       "toggle-lyrics": "显示/隐藏歌词"
     }
+  },
+  "setting": {
+    "not-saved": " (设置保存错误)",
+    "saved": " (设置已保存)"
   },
   "server": {
     "connection-failed": "无法连接到 OwnTone 服务器",

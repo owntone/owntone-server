@@ -1,62 +1,71 @@
 <template>
-  <base-modal :show="show" @close="$emit('close')">
-    <template #content>
-      <div class="title is-4">
-        <a @click="open_albums" v-text="item.name" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.composer.albums')"
-        />
-        <div class="title is-6">
-          <a @click="open_albums" v-text="item.album_count" />
+  <transition name="fade">
+    <div v-if="show" class="modal is-active">
+      <div class="modal-background" @click="$emit('close')" />
+      <div class="modal-content">
+        <div class="card">
+          <div class="card-content">
+            <p class="title is-4">
+              <a
+                class="has-text-link"
+                @click="open_albums"
+                v-text="item.name"
+              />
+            </p>
+            <p>
+              <span class="heading" v-text="$t('dialog.composer.albums')" />
+              <a
+                class="has-text-link is-6"
+                @click="open_albums"
+                v-text="item.album_count"
+              />
+            </p>
+            <p>
+              <span class="heading" v-text="$t('dialog.composer.tracks')" />
+              <a
+                class="has-text-link is-6"
+                @click="open_tracks"
+                v-text="item.track_count"
+              />
+            </p>
+            <p>
+              <span class="heading" v-text="$t('dialog.composer.duration')" />
+              <span
+                class="title is-6"
+                v-text="$filters.durationInHours(item.length_ms)"
+              />
+            </p>
+          </div>
+          <footer class="card-footer">
+            <a class="card-footer-item has-text-dark" @click="queue_add">
+              <mdicon class="icon" name="playlist-plus" size="16" />
+              <span class="is-size-7" v-text="$t('dialog.composer.add')" />
+            </a>
+            <a class="card-footer-item has-text-dark" @click="queue_add_next">
+              <mdicon class="icon" name="playlist-play" size="16" />
+              <span class="is-size-7" v-text="$t('dialog.composer.add-next')" />
+            </a>
+            <a class="card-footer-item has-text-dark" @click="play">
+              <mdicon class="icon" name="play" size="16" />
+              <span class="is-size-7" v-text="$t('dialog.composer.play')" />
+            </a>
+          </footer>
         </div>
       </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.composer.tracks')"
-        />
-        <div class="title is-6">
-          <a @click="open_tracks" v-text="item.track_count" />
-        </div>
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.composer.duration')"
-        />
-        <div
-          class="title is-6"
-          v-text="$filters.durationInHours(item.length_ms)"
-        />
-      </div>
-    </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="queue_add">
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.composer.add')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="queue_add_next">
-        <mdicon class="icon" name="playlist-play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.composer.add-next')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.composer.play')" />
-      </a>
-    </template>
-  </base-modal>
+      <button
+        class="modal-close is-large"
+        aria-label="close"
+        @click="$emit('close')"
+      />
+    </div>
+  </transition>
 </template>
 
 <script>
-import BaseModal from '@/components/BaseModal.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogComposer',
-  components: { BaseModal },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
@@ -96,3 +105,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

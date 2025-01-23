@@ -2,15 +2,7 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="artist.name" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="
-            $t('page.audiobooks.artist.album-count', {
-              count: artist.album_count
-            })
-          "
-        />
+        <p class="title is-4" v-text="artist.name" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -27,6 +19,14 @@
         </div>
       </template>
       <template #content>
+        <p
+          class="heading has-text-centered-mobile"
+          v-text="
+            $t('page.audiobooks.artist.album-count', {
+              count: artist.album_count
+            })
+          "
+        />
         <list-albums :items="albums" />
         <modal-dialog-artist
           :item="artist"
@@ -87,3 +87,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

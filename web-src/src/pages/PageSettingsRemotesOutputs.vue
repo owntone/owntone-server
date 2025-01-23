@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
@@ -50,14 +50,18 @@
           v-text="$t('page.settings.devices.speaker-pairing-info')"
         />
         <div v-for="output in outputs" :key="output.id">
-          <control-switch
-            v-model="output.selected"
-            @update:model-value="toggleOutput(output.id)"
-          >
-            <template #label>
-              <span v-text="output.name" />
-            </template>
-          </control-switch>
+          <div class="field">
+            <div class="control">
+              <input
+                :id="output.id"
+                v-model="output.selected"
+                type="checkbox"
+                class="switch is-rounded mr-2"
+                @change="output_toggle(output.id)"
+              />
+              <label :for="output.id" class="checkbox" v-text="output.name" />
+            </div>
+          </div>
           <form
             v-if="output.needs_auth_key"
             class="mb-5"
@@ -90,7 +94,6 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import ControlSwitch from '@/components/ControlSwitch.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useOutputsStore } from '@/stores/outputs'
 import { useRemotesStore } from '@/stores/remotes'
@@ -98,7 +101,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'PageSettingsRemotesOutputs',
-  components: { ContentWithHeading, ControlSwitch, TabsSettings },
+  components: { ContentWithHeading, TabsSettings },
 
   setup() {
     return { outputsStore: useOutputsStore(), remotesStore: useRemotesStore() }
@@ -124,12 +127,14 @@ export default {
     kickoff_pairing() {
       webapi.pairing_kickoff(this.pairing_req)
     },
-    kickoff_verification(identifier) {
-      webapi.output_update(identifier, this.verification_req)
+    kickoff_verification(outputId) {
+      webapi.output_update(outputId, this.verification_req)
     },
-    toggleOutput(identifier) {
-      webapi.output_toggle(identifier)
+    output_toggle(outputId) {
+      webapi.output_toggle(outputId)
     }
   }
 }
 </script>
+
+<style></style>

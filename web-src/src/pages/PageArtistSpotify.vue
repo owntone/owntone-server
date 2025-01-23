@@ -2,11 +2,7 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="artist.name" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('page.spotify.artist.album-count', { count: total })"
-        />
+        <p class="title is-4" v-text="artist.name" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -23,6 +19,10 @@
         </div>
       </template>
       <template #content>
+        <p
+          class="heading has-text-centered-mobile"
+          v-text="$t('page.spotify.artist.album-count', { count: total })"
+        />
         <list-albums-spotify :items="albums" />
         <VueEternalLoading v-if="offset < total" :load="load_next">
           <template #loading>
@@ -140,3 +140,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

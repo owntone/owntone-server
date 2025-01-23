@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="fd-page-with-tabs">
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
@@ -12,7 +12,7 @@
         <nav class="level">
           <p class="level-item">
             <router-link
-              class="button is-small is-rounded"
+              class="button is-light is-small is-rounded"
               :to="{ name: 'music-recently-added' }"
             >
               {{ $t('page.music.show-more') }}
@@ -32,7 +32,7 @@
         <nav class="level">
           <p class="level-item">
             <router-link
-              class="button is-small is-rounded"
+              class="button is-light is-small is-rounded"
               :to="{ name: 'music-recently-played' }"
             >
               {{ $t('page.music.show-more') }}
@@ -95,3 +95,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

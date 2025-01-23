@@ -5,35 +5,16 @@
         <index-button-list :indices="tracks.indices" />
         <div class="columns">
           <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.sort.title')"
-            />
+            <p class="heading mb-5" v-text="$t('page.artist.sort.title')" />
             <control-dropdown
-              v-model:value="uiStore.composer_tracks_sort"
+              v-model:value="selected_grouping_id"
               :options="groupings"
             />
           </div>
         </div>
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="composer.name" />
-        <div class="is-size-7 is-uppercase">
-          <a
-            @click="open_albums"
-            v-text="
-              $t('page.composer.album-count', {
-                count: composer.album_count
-              })
-            "
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <span
-            v-text="
-              $t('page.composer.track-count', { count: composer.track_count })
-            "
-          />
-        </div>
+        <p class="title is-4" v-text="composer.name" />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -50,6 +31,23 @@
         </div>
       </template>
       <template #content>
+        <p class="heading has-text-centered-mobile">
+          <a
+            class="has-text-link"
+            @click="open_albums"
+            v-text="
+              $t('page.composer.album-count', {
+                count: composer.album_count
+              })
+            "
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <span
+            v-text="
+              $t('page.composer.track-count', { count: composer.track_count })
+            "
+          />
+        </p>
         <list-tracks :items="tracks" :expression="expression" />
         <modal-dialog-composer
           :item="composer"
@@ -132,9 +130,17 @@ export default {
     expression() {
       return `composer is "${this.composer.name}" and media_kind is music`
     },
+    selected_grouping_id: {
+      get() {
+        return this.uiStore.composer_tracks_sort
+      },
+      set(value) {
+        this.uiStore.composer_tracks_sort = value
+      }
+    },
     tracks() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.composer_tracks_sort
+        (grouping) => grouping.id === this.selected_grouping_id
       )
       return this.tracks_list.group(options)
     }
@@ -154,3 +160,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

@@ -1,58 +1,76 @@
 <template>
-  <base-modal :show="show" @close="$emit('close')">
-    <template #content>
-      <div class="title is-4">
-        <a @click="open" v-text="item.name" />
+  <transition name="fade">
+    <div v-if="show" class="modal is-active">
+      <div class="modal-background" @click="$emit('close')" />
+      <div class="modal-content">
+        <div class="card">
+          <div class="card-content">
+            <p class="title is-4">
+              <a class="has-text-link" @click="open" v-text="item.name" />
+            </p>
+            <div class="content is-small">
+              <p>
+                <span
+                  class="heading"
+                  v-text="$t('dialog.spotify.playlist.owner')"
+                />
+                <span class="title is-6" v-text="item.owner.display_name" />
+              </p>
+              <p>
+                <span
+                  class="heading"
+                  v-text="$t('dialog.spotify.playlist.tracks')"
+                />
+                <span class="title is-6" v-text="item.tracks.total" />
+              </p>
+              <p>
+                <span
+                  class="heading"
+                  v-text="$t('dialog.spotify.playlist.path')"
+                />
+                <span class="title is-6" v-text="item.uri" />
+              </p>
+            </div>
+          </div>
+          <footer class="card-footer">
+            <a class="card-footer-item has-text-dark" @click="queue_add">
+              <mdicon class="icon" name="playlist-plus" size="16" />
+              <span
+                class="is-size-7"
+                v-text="$t('dialog.spotify.playlist.add')"
+              />
+            </a>
+            <a class="card-footer-item has-text-dark" @click="queue_add_next">
+              <mdicon class="icon" name="playlist-play" size="16" />
+              <span
+                class="is-size-7"
+                v-text="$t('dialog.spotify.playlist.add-next')"
+              />
+            </a>
+            <a class="card-footer-item has-text-dark" @click="play">
+              <mdicon class="icon" name="play" size="16" />
+              <span
+                class="is-size-7"
+                v-text="$t('dialog.spotify.playlist.play')"
+              />
+            </a>
+          </footer>
+        </div>
       </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.playlist.owner')"
-        />
-        <div class="title is-6" v-text="item.owner.display_name" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.playlist.tracks')"
-        />
-        <div class="title is-6" v-text="item.tracks.total" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.playlist.path')"
-        />
-        <div class="title is-6" v-text="item.uri" />
-      </div>
-    </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="queue_add">
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.spotify.playlist.add')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="queue_add_next">
-        <mdicon class="icon" name="playlist-play" size="16" />
-        <span
-          class="is-size-7"
-          v-text="$t('dialog.spotify.playlist.add-next')"
-        />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.spotify.playlist.play')" />
-      </a>
-    </template>
-  </base-modal>
+      <button
+        class="modal-close is-large"
+        aria-label="close"
+        @click="$emit('close')"
+      />
+    </div>
+  </transition>
 </template>
 
 <script>
-import BaseModal from '@/components/BaseModal.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogPlaylistSpotify',
-  components: { BaseModal },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
@@ -79,3 +97,5 @@ export default {
   }
 }
 </script>
+
+<style></style>

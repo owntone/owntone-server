@@ -2,11 +2,11 @@
   <div>
     <content-with-hero>
       <template #heading-left>
-        <div class="title is-5" v-text="album.name" />
-        <div class="subtitle is-6">
-          <a @click="open_artist" v-text="album.artist" />
-        </div>
-        <div class="buttons is-centered-mobile mt-5">
+        <h1 class="title is-5" v-text="album.name" />
+        <h2 class="subtitle is-6 has-text-link">
+          <a class="has-text-link" @click="open_artist" v-text="album.artist" />
+        </h2>
+        <div class="buttons fd-is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.audiobooks.album.play')" />
@@ -29,8 +29,8 @@
         />
       </template>
       <template #content>
-        <div
-          class="is-size-7 is-uppercase has-text-centered-mobile mt-5"
+        <p
+          class="heading has-text-centered-mobile mt-5"
           v-text="
             $t('page.audiobooks.album.track-count', {
               count: album.track_count
@@ -103,3 +103,5 @@ export default {
   }
 }
 </script>
+
+<style></style>
