@@ -1,203 +1,12 @@
 @charset "utf-8";
 
-@import 'bulma/bulma.sass';
-@import 'bulma-switch';
-
-@media (prefers-color-scheme: dark) {
-  body,
-  html,
-  .content table th,
-  td,
-  .fd-tabs-section {
-    background-color: $black-ter !important;
-    color: $grey-light;
-  }
-  .tabs ul {
-    border-bottom-color: $grey-dark;
-  }
-  .tabs a:hover {
-    border-bottom-color: $grey-lighter;
-    color: $grey-lighter !important;
-  }
-  a:hover,
-  a.has-text-dark:hover,
-  a.has-text-dark:focus {
-    color: $grey-lighter !important;
-  }
-  .media + .media {
-    border-top-color: $grey-dark !important;
-  }
-  .tabs a {
-    border-bottom-color: $grey-dark;
-  }
-  .tabs a,
-  .hero.is-light .title,
-  .title,
-  .subtitle,
-  .navbar.is-light .navbar-brand > .navbar-item,
-  .navbar-item,
-  .navbar.is-white .navbar-brand a.navbar-item,
-  .navbar.is-dark .navbar-brand .navbar-item,
-  .navbar.is-light .navbar-burger {
-    color: $grey-light;
-  }
-  .navbar-item.has-dropdown-up .navbar-dropdown {
-    border-bottom-color: $grey-dark;
-  }
-  .navbar-dropdown {
-    background-color: $grey-darker;
-    border-top-color: $grey-dark;
-  }
-  a.tag:hover,
-  a.tag.is-delete:hover,
-  a.dropdown-item:hover,
-  a.dropdown-item:focus,
-  a.navbar-item:hover,
-  a.navbar-item:focus,
-  a.navbar-item:active,
-  .button:hover,
-  .button.is-white:focus,
-  .button.is-white:hover,
-  .button.is-dark:hover,
-  .button.is-light:hover,
-  hr,
-  .navbar-burger:hover,
-  .navbar.is-white .navbar-brand > a.navbar-item:hover,
-  .navbar.is-light .navbar-brand > a.navbar-item:focus,
-  .navbar.is-light .navbar-brand > a.navbar-item:hover,
-  .navbar.is-dark .navbar-brand > a.navbar-item:focus,
-  .navbar.is-dark .navbar-brand > a.navbar-item:hover,
-  .navbar-dropdown a.navbar-item:hover,
-  .navbar-dropdown a.navbar-item:focus,
-  .modal-content .input,
-  .modal-content select,
-  .tabs.is-toggle a:hover {
-    background-color: $grey-dark;
-    color: $grey-lighter;
-  }
-  .card-footer .has-text-dark,
-  .media .has-text-dark {
-    color: $grey-light !important;
-  }
-  .navbar-menu,
-  .navbar-brand,
-  .notification,
-  .card {
-    background-color: $grey-darker;
-    color: $grey-light;
-  }
-  a.tag,
-  .button,
-  .button:active,
-  .button:focus,
-  .dropdown-content,
-  .dropdown-item,
-  .input,
-  .input .switch {
-    background-color: $grey-darker;
-    border-width: 0;
-    color: $grey-lighter;
-  }
-  .input::placeholder,
-  .control.has-icons-left .icon {
-    color: $grey;
-  }
-  .label,
-  .tabs a:hover,
-  .control.has-icons-left .input:focus ~ .icon {
-    color: $grey-lighter;
-  }
-  .tabs.is-toggle a:hover,
-  .navbar-item .buttons .button,
-  .modal-content select,
-  .modal-content select:hover {
-    border-color: $grey-dark;
-    border-width: 1px;
-  }
-  .tabs.is-toggle a {
-    background-color: $grey-darker;
-    border-color: $grey-darker;
-  }
-  .button.is-light,
-  .button.is-dark,
-  .button.is-white,
-  .button[disabled],
-  .button[disabled]:hover {
-    background-color: $grey-darker;
-    color: $grey-light;
-  }
-  .has-text-grey-light,
-  a.has-text-grey-light:hover {
-    color: $grey !important;
-  }
-  .table,
-  code {
-    background: transparent;
-  }
-  .card-footer {
-    border-top-color: $grey-dark;
-  }
-  .card-footer-item:not(:last-child) {
-    border-right-color: $grey-dark;
-  }
-  .hero.is-light.is-bold {
-    background-image: linear-gradient(
-      141deg,
-      $black-ter 0%,
-      $grey-darker 71%,
-      $grey-dark
-    );
-  }
-}
-
-/* Lyrics animation */
-@keyframes pop-color {
-  0% {
-    color: $black;
-  }
-  100% {
-    color: $success;
-  }
-}
-
-.media.with-progress h2:last-of-type {
-  margin-bottom: 6px;
-}
-
-.media.with-progress {
-  margin-top: 6px;
-}
-
-a.navbar-item {
-  padding: 0 1rem;
-}
-
-.fd-is-not-allowed {
-  cursor: not-allowed;
-}
-
-.fd-is-movable {
-  cursor: move;
-}
-
-.fd-is-square .button {
-  height: 27px;
-  min-width: 27px;
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
-}
-
-.fd-is-text-clipped {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+@use 'bulma/bulma';
+@use 'bulma/sass/utilities/mixins';
 
 .fd-tabs-section {
   padding-bottom: 0;
   padding-top: 0;
-  background: $white;
-  top: $navbar-height;
+  background: var(--bulma-body-background-color);
   z-index: 20;
   position: fixed;
   width: 100%;
@@ -205,16 +14,12 @@ a.navbar-item {
 
 .fd-has-shadow img {
   box-shadow:
-    0 4px 8px 0 rgba(0, 0, 0, 0.2),
-    0 6px 20px 0 rgba(0, 0, 0, 0.19);
-}
-
-.fd-page-with-tabs {
-  margin-top: $navbar-height !important;
+    0 0.25rem 0.5rem 0 var(--bulma-background-active),
+    0 0.375rem 1.25rem 0 var(--bulma-background-active);
 }
 
 .is-full-height {
-  min-height: calc(100vh - calc(2 * $navbar-height));
+  min-height: calc(100vh - calc(2 * var(--bulma-navbar-height)));
 }
 
 .is-disabled {
@@ -225,6 +30,11 @@ a.navbar-item {
   }
 }
 
+.navbar-item {
+  width: var(--bulma-navbar-height);
+  justify-content: center;
+}
+
 .fd-cover {
   align-items: center;
   display: flex;
@@ -233,28 +43,28 @@ a.navbar-item {
     width: 4rem;
     height: 4rem;
     img {
-      border-radius: $radius-small;
+      border-radius: var(--bulma-radius-small);
       max-width: 4rem;
       max-height: 4rem;
     }
   }
   &-medium-image {
-    @include from($tablet) {
+    @include mixins.tablet {
       justify-content: right;
     }
     img {
-      border-radius: $radius;
+      border-radius: var(--bulma-radius);
       max-height: calc(150px - 1.5rem);
     }
   }
   &-normal-image {
     img {
-      border-radius: $radius-large;
+      border-radius: var(--bulma-radius-large);
       width: 100%;
     }
   }
   &-big-image {
-    @include mobile {
+    @include mixins.mobile {
       @media screen and (orientation: landscape) {
         img {
           display: none;
@@ -262,7 +72,7 @@ a.navbar-item {
       }
     }
     img {
-      border-radius: $radius-large;
+      border-radius: var(--bulma-radius-large);
       max-height: calc(100vh - 26rem);
     }
     &.is-masked {
@@ -271,69 +81,22 @@ a.navbar-item {
   }
 }
 
-.sortable-chosen .media-right {
-  visibility: hidden;
-}
-.sortable-ghost h1,
-.sortable-ghost h2 {
-  color: $danger;
-}
-
 .media:first-of-type {
   padding-top: 1rem;
 }
 
-/* Transition effect */
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-active {
-  transition: opacity 0.5s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-.fade-enter-to,
-.fade-leave-from {
-  opacity: 1;
-}
-
-/* Add a little bit of spacing between title and subtitle */
-.title:not(.is-spaced) + .subtitle + .subtitle {
-  margin-top: -1.3rem !important;
-}
-
 /* Only scroll content if modal contains a card component */
 .modal-content .card-content {
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - calc(4 * var(--bulma-navbar-height)));
   overflow: auto;
 }
 
-.fd-width-auto {
-  min-width: auto;
-}
-
-/* Show scrollbar for navbar menu in desktop mode if content exceeds the screen size */
-@include desktop {
-  .navbar-dropdown {
-    max-height: calc(100vh - calc(2 * $navbar-height) - 2rem);
-    overflow: auto;
-  }
-}
-
-/* Limit the size of the bottom navbar menu to not be displayed behind the Safari browser menu on iOS */
-.fd-bottom-navbar .navbar-menu {
-  max-height: calc(100vh - calc(2 * $navbar-height) - 1rem);
-  overflow: scroll;
-}
-
 .buttons {
-  @include mobile {
-    &.fd-is-centered-mobile {
+  @include mixins.mobile {
+    &.is-centered-mobile {
       justify-content: center;
       &:not(.has-addons) {
-        .button:not(.is-fullwidth) {
+        .button {
           margin-left: 0.25rem;
           margin-right: 0.25rem;
         }
@@ -344,16 +107,16 @@ a.navbar-item {
 
 .column {
   &.fd-has-cover {
-    @include mobile {
+    @include mixins.mobile {
       margin: auto;
     }
-    @include from($tablet) {
+    @include mixins.tablet {
       margin-right: 0;
     }
   }
 }
 
-.fd-overlay-fullscreen {
+.overlay-fullscreen {
   @extend .is-overlay;
   z-index: 25;
   background-color: rgba(10, 10, 10, 0.2);
@@ -364,100 +127,13 @@ a.navbar-item {
   padding: 1.5rem !important;
 }
 
-/* Slider */
-@mixin thumb {
-  -webkit-appearance: none;
-  width: var(--th);
-  height: var(--th);
-  box-sizing: border-box;
-  border-radius: 50%;
-  background: $light;
-  border: 1px solid $grey-light;
-  @media (prefers-color-scheme: dark) {
-    background: $grey-light;
-    border: 1px solid $grey-dark;
+.dropdown-menu {
+  @include mixins.mobile {
+    width: 100vw;
   }
 }
 
-@mixin thumb-inactive {
-  box-sizing: border-box;
-  background-color: $light;
-  @media (prefers-color-scheme: dark) {
-    background-color: $grey-dark;
-    border: 1px solid $grey-darker;
-  }
-}
-
-@mixin track {
-  height: calc(var(--sh));
-  border-radius: calc(var(--sh) / 2);
-  background: linear-gradient(90deg, $dark var(--sx), $grey-light var(--sx));
-  @media (prefers-color-scheme: dark) {
-    background: linear-gradient(
-      90deg,
-      $grey-light var(--sx),
-      $grey-dark var(--sx)
-    );
-  }
-}
-
-@mixin track-inactive {
-  background: linear-gradient(90deg, $grey-light var(--sx), $light var(--sx));
-  @media (prefers-color-scheme: dark) {
-    background: linear-gradient(
-      90deg,
-      $grey-dark var(--sx),
-      $black-ter var(--sx)
-    );
-  }
-}
-
-input[type='range'].slider {
-  --sh: 0.25rem;
-  --th: calc(var(--sh) * 4);
-  background-color: transparent;
-  @include mobile {
-    --th: calc(var(--sh) * 5);
-  }
-  & {
-    --sx: calc(var(--th) / 2 + (var(--ratio) * (100% - var(--th))));
-    -webkit-appearance: none;
-    min-width: 250px;
-    height: calc(var(--sh) * 5);
-    width: 100% !important;
-    cursor: grab;
-  }
-  &:active {
-    cursor: grabbing;
-  }
-  &::-webkit-slider-thumb {
-    @include thumb;
-    & {
-      margin-top: calc((var(--th) - var(--sh)) / -2);
-    }
-  }
-  &::-moz-range-thumb {
-    @include thumb;
-  }
-  &::-webkit-slider-runnable-track {
-    @include track;
-  }
-  &::-moz-range-track {
-    @include track;
-  }
-  &.is-inactive {
-    cursor: var(--cursor, not-allowed);
-    &::-webkit-slider-thumb {
-      @include thumb-inactive;
-    }
-    &::-webkit-slider-runnable-track {
-      @include track-inactive;
-    }
-    &::-moz-range-thumb {
-      @include thumb-inactive;
-    }
-    &::-moz-range-track {
-      @include track-inactive;
-    }
-  }
+.dropdown-content {
+  max-height: calc(100vh - calc(2 * var(--bulma-navbar-height)));
+  overflow: auto;
 }

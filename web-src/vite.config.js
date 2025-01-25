@@ -22,6 +22,13 @@ export default defineConfig({
       }
     }
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern'
+      }
+    }
+  },
   plugins: [
     vue(),
     i18n({
