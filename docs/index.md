@@ -31,21 +31,21 @@ OwnTone is written in C with a web interface written in Vue.js.
 ## Features
 
 - Stream to :material-cast-variant: AirPlay (synchronized multiroom) and :material-cast:
-  Chromecast devices
+    Chromecast devices
 - :material-music-box-multiple-outline: Share local library with iTunes and Roku
 - :material-volume-high: Local audio playback with ALSA or PulseAudio
 - Supports multiple different clients:
 
-  - :material-cellphone: Remote apps like Apple Remote (iOS) or Retune (Android)
-  - :material-web: Integrated mobile friendly web interface
-  - :material-console: MPD clients
+    - :material-cellphone: Remote apps like Apple Remote (iOS) or Retune (Android)
+    - :material-web: Integrated mobile friendly web interface
+    - :material-console: MPD clients
 
 - Supports :material-music: music and :material-book-open-variant:
-  audiobook files, :material-microphone: podcast files and :material-rss: RSS
-  and :material-radio: internet radio
+    audiobook files, :material-microphone: podcast files and :material-rss: RSS
+    and :material-radio: internet radio
 - :material-file-music: Supports audio files in most formats
 - :material-spotify: Supports playing your Spotify library (requires
-  Spotify premium account)
+    Spotify premium account)
 - :material-raspberry-pi: Runs on low power devices like the Raspberry Pi
 
 ---
