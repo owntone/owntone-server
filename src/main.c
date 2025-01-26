@@ -72,6 +72,7 @@
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
+#include "listenbrainz.h"
 
 #define PIDFILE          STATEDIR "/run/" PACKAGE ".pid"
 #define WEB_ROOT         DATADIR "/htdocs"
@@ -833,6 +834,7 @@ main(int argc, char **argv)
 #ifdef LASTFM
   lastfm_init();
 #endif
+  listenbrainz_init();
 
   /* Start Remote pairing service */
   ret = remote_pairing_init();

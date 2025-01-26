@@ -72,6 +72,7 @@ enum query_type {
 #define DB_ADMIN_START_TIME "start_time"
 #define DB_ADMIN_LASTFM_SESSION_KEY "lastfm_sk"
 #define DB_ADMIN_SPOTIFY_REFRESH_TOKEN "spotify_refresh_token"
+#define DB_ADMIN_LISTENBRAINZ_TOKEN "listenbrainz_token"
 
 /* Max value for media_file_info->rating (valid range is from 0 to 100) */
 #define DB_FILES_RATING_MAX 100

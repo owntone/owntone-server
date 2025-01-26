@@ -91,6 +91,7 @@
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
+#include "listenbrainz.h"
 
 // The interval between each tick of the playback clock in ms. This means that
 // we read 10 ms frames from the input and pass to the output, so the clock
@@ -378,16 +379,17 @@ skipcount_inc_cb(void *arg)
   db_file_inc_skipcount(*id);
 }
 
-#ifdef LASTFM
 // Callback from the worker thread (async operation as it may block)
 static void
 scrobble_cb(void *arg)
 {
   int *id = arg;
 
+#ifdef LASTFM
   lastfm_scrobble(*id);
-}
 #endif
+  listenbrainz_scrobble(*id);
+}
 
 // This is just to be able to log the caller in a simple way
 #define status_update(x, y) status_update_impl((x), (y), __func__)
@@ -1072,9 +1074,7 @@ event_play_eof()
   if (id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
       worker_execute(playcount_inc_cb, &id, sizeof(int), 5);
-#ifdef LASTFM
       worker_execute(scrobble_cb, &id, sizeof(int), 8);
-#endif
       history_add(pb_session.playing_now->id, pb_session.playing_now->item_id);
     }
 
