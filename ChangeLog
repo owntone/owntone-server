@@ -1,6 +1,19 @@
 ChangeLog for OwnTone
 ---------------------
 
+version 28.11
+	- fix: retrieval of artwork from online sources
+	- fix: mpd speaker selection
+	- fix: autoconf warnings
+	- fix: Apple Music/iTunes not working on Airplay host
+	- web UI: Now Playing does not stop play progress updates when pausing
+	- web UI: add ability to access the server externally
+	- new: internet radio "Streamurl" options
+	- new: support libevent as WS server instead of libwebsockets
+	- new: template for VSCode
+	- new: mpd updates, version 0.23.0, e.g. getvol, readpicture, albumart
+	- new: API for setting skip_count and play_count directly
+
 version 28.10
 	- fix: playlist scanner ignoring lines starting with non-ascii chars
 	- fix: last seconds of a track sometimes being skipped
