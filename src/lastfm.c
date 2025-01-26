@@ -233,6 +233,7 @@ static int
 request_post(const char *url, struct keyval *kv, char **errmsg)
 {
   struct http_client_ctx ctx;
+  char *request_body;
   int ret;
 
   // API requires that we MD5 sign sorted param (without "format" param)
@@ -245,13 +246,14 @@ request_post(const char *url, struct keyval *kv, char **errmsg)
 
   memset(&ctx, 0, sizeof(struct http_client_ctx));
 
-  ctx.output_body = http_form_urlencode(kv);
-  if (!ctx.output_body)
+  request_body = http_form_urlencode(kv);
+  if (!request_body)
     {
       DPRINTF(E_LOG, L_LASTFM, "Aborting request, http_form_urlencode failed\n");
       return -1;
     }
 
+  ctx.output_body = request_body;
   ctx.url = url;
   ctx.input_body = evbuffer_new();
 
@@ -262,7 +264,7 @@ request_post(const char *url, struct keyval *kv, char **errmsg)
   ret = response_process(&ctx, errmsg);
 
  out_free_ctx:
-  free(ctx.output_body);
+  free(request_body);
   evbuffer_free(ctx.input_body);
 
   return ret;
