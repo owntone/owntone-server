@@ -1,569 +1,615 @@
-ChangeLog for OwnTone
----------------------
+# Changelog
 
-version 28.11
-	- fix: retrieval of artwork from online sources
-	- fix: mpd speaker selection
-	- fix: autoconf warnings
-	- fix: Apple Music/iTunes not working on Airplay host
-	- web UI: Now Playing does not stop play progress updates when pausing
-	- web UI: add ability to access the server externally
-	- new: internet radio "Streamurl" options
-	- new: support libevent as WS server instead of libwebsockets
-	- new: template for VSCode
-	- new: mpd updates, version 0.23.0, e.g. getvol, readpicture, albumart
-	- new: API for setting skip_count and play_count directly
+## Version 28.11 - 2025-01-26
 
-version 28.10
-	- fix: playlist scanner ignoring lines starting with non-ascii chars
-	- fix: last seconds of a track sometimes being skipped
-	- fix: Apple Music password-based auth
-	- fix: missing file scan when modified multiple times within a second
-	- fix: Roku M1001 crash
-	- fix: speakers changing IP addresses (error "Got RR type A size 16")
-	- fix: playlist rename not registered
-	- fix: problems with DAAP and old dates ("Integer value too large")
-	- fix: compability with ffmpeg 7 (fixes build error)
-	- web UI: many smaller improvements, e.g. sort by release date
-	- web UI: traditional Chinese translation
-	- new: ALAC transcoding for RSP/DAAP streaming
-	- new: ability to save id3 metadata
-	- config: change "trusted_networks" to have new value "lan" as default
-	- config: new option to announce a MPD httpd plugin (stream from server)
-	- config: set ipv6 to disabled by default due to unknown Airplay issue
-	- config: deprecate "cache_path", replaced by "cache_dir"
-	- dependency: libxml2 instead of mxml
+- fix: retrieval of artwork from online sources
+- fix: mpd speaker selection
+- fix: autoconf warnings
+- fix: Apple Music/iTunes not working on Airplay host
+- web UI: Now Playing does not stop play progress updates when pausing
+- web UI: add ability to access the server externally
+- new: internet radio "Streamurl" options
+- new: support libevent as WS server instead of libwebsockets
+- new: template for VSCode
+- new: mpd updates, version 0.23.0, e.g. getvol, readpicture, albumart
+- new: API for setting skip_count and play_count directly
 
-version 28.9
-	- web UI improvements:
-		display lyrics metadata
-		toggle Spotify on/off in some views
-		many minor improvements
-	- use compressed ALAC for Airplay for bandwidth + fixes esp32 issue
-	- don't merge Spotify albums with local albums
-	- handle playlist with Unicode BOM
-	- json API add tracks to queue returns info on added tracks
-	- replace syscall with gettid, syscall deprecated on MacOS
-	- fix issue where m3u genre doesn't override despite m3u_override = true
-	- fix possible crash from use-after-free
-	- fix FreeBSD possible crash
-	- fix crash when keys of incorrect length are used for legacy pairing
+## Version 28.10 - 2024-09-12
 
-version 28.8
-	- fix MacOS bind error: "Protocol wrong type for socket"
-	- fix BSD build error (no SYS_gettid)
-	- fix ALAC missing end tag causing ffmpeg decoder warnings
-	- fix crash if Spotify AP resolver is unavailable
-	- fix duplicates if file within library is replaced
-	- fix fatal error due to mutex being zeroed
+- fix: playlist scanner ignoring lines starting with non-ascii chars
+- fix: last seconds of a track sometimes being skipped
+- fix: Apple Music password-based auth
+- fix: missing file scan when modified multiple times within a second
+- fix: Roku M1001 crash
+- fix: speakers changing IP addresses (error "Got RR type A size 16")
+- fix: playlist rename not registered
+- fix: problems with DAAP and old dates ("Integer value too large")
+- fix: compability with ffmpeg 7 (fixes build error)
+- web UI: many smaller improvements, e.g. sort by release date
+- web UI: traditional Chinese translation
+- new: ALAC transcoding for RSP/DAAP streaming
+- new: ability to save id3 metadata
+- config: change "trusted_networks" to have new value "lan" as default
+- config: new option to announce a MPD httpd plugin (stream from server)
+- config: set ipv6 to disabled by default due to unknown Airplay issue
+- config: deprecate "cache_path", replaced by "cache_dir"
+- dependency: libxml2 instead of mxml
 
-version 28.7
-	- fix compability with ffmpeg 6
-	- web UI improvements:
-		easier volume sliders
-		incorrect display of genre
-		Chinese translation
-		fix removing RSS podcasts
-		sort by rating for composer, genre and artist tracks
-		(and much more)
-	- changes to artwork search orders (easier static artwork for pipes)
-	- major refactor of the http server improving mp3 streaming
-	- support for m3u8 playlist files
-	- allow mixed ipv4/ipv6 mdns
-	- fix issue with device name capitalization (TuneAero issue)
-	- drop support for libevent < 2.1.4
+## Version 28.9 - 2024-01-18
 
-version 28.6
-	- German translation of web UI
-	- web UI: fix error messages not displaying
-	- fix low resolution Spotify artwork
-	- fix incorrect display of date released pre 1970
-	- fix for Denon speakers when pausing
-	- support password authentication for Airplay 2
-	- support for user config ffmpeg audio filters
+- web UI improvements:
+    - display lyrics metadata
+    - toggle Spotify on/off in some views
+    - many minor improvements
+- use compressed ALAC for Airplay for bandwidth + fixes esp32 issue
+- don't merge Spotify albums with local albums
+- handle playlist with Unicode BOM
+- json API add tracks to queue returns info on added tracks
+- replace syscall with gettid, syscall deprecated on MacOS
+- fix issue where m3u genre doesn't override despite m3u_override = true
+- fix possible crash from use-after-free
+- fix FreeBSD possible crash
+- fix crash when keys of incorrect length are used for legacy pairing
 
-version 28.5
-	- French translation of web UI
-	- improved web UI loading of images
-	- add support for Airplay 2 password based auth
-	- fix some Airplay speakers turning on by themselves
-	- fix parsing of CRLF and NOT in smart playlists and allow larger sizes
-	- fix possible crash after Avahi restart
-	- fix for Remote - play item from 'up next' when stopped
-	- use configured bind_address to set mdns network interface
+## Version 28.8
 
-version 28.4
-	- fix broken Spotify after libspotify sunset
-	- remove antlr3 dependency, use bison/flex instead
-	- improve search by supporting diacritics and Unicode case folding
-	- add support for new output: Roku/Soundbridge RCP
-	- switch to MkDocs for documentation
-	- smart playlists fixups and new "this week" param
-	- fix 'add next' when in queue shuffle mode
-	- web UI improvements:
-		migration to Vue 3 and Vite
-		honor "radio_playlists" config setting
-		display of search results for composers and playlists
-		add album / track count to genre and composer pages
-		fix incorrect sorting of album/artist searches
-		minor UI fixes
-	- fix for Spotify config option album_override
-	- improved Spotify scan performance
-	- generic browse endpoints for the json api
-	- fix slow shutdown with some libwebsocket versions
+- fix MacOS bind error: "Protocol wrong type for socket"
+- fix BSD build error (no SYS_gettid)
+- fix ALAC missing end tag causing ffmpeg decoder warnings
+- fix crash if Spotify AP resolver is unavailable
+- fix duplicates if file within library is replaced
+- fix fatal error due to mutex being zeroed
 
-version 28.3
-	- web UI improvements, e.g.:
-		composer views
-		partial scan (e.g. only update RSS feeds)
-		fix http stream button not clickable in mobile view
-		fix Spotify playlists not showing
-		handling of not playable Spotify tracks
-		handling of podcast play counts
-	- support for Spotify podcasts
-	- updates for ffmpeg 5
-	- better Spotify logout
-	- user "usermark" field for user flagging of various track states
-	- fix for 0-byte files crashing ffmpeg
-	- fix metadata pipe deadlock and artwork memleak-on-error
-	- better handling of Spotify disconnects
-	- fix rare Airplay pairing error
-	- many minor error handling fixes
+## Version 28.7
 
-version 28.2
-	- add Spotify integration that doesn't depend on libspotify
-	- partial support for AirPlay events (Homepod buttons)
-	- web UI upgraded, now 1.1.0:
-		show "comment" field in track details
-		drop double login to Spotify when not using libspotify
-	- easier install by letting 'make install' add user and service files
-	- preserve existing conf file when running 'make install'
-	- support for "comment" field when making smart playlists
-	- fix support for dacp device-volume
-	- fix issue where source file sort tags where ignored
-	- fix for Roku (RSP) artist display issue
-	- fix bug when 'bind_address' option is used
-	- fix for CVE-2021-38383
-	- fix some minor time-of-check time-of-use bugs
+- fix compability with ffmpeg 6
+- web UI improvements:
+    - easier volume sliders
+    - incorrect display of genre
+    - Chinese translation
+    - fix removing RSS podcasts
+    - sort by rating for composer, genre and artist tracks
+    - (and much more)
+- changes to artwork search orders (easier static artwork for pipes)
+- major refactor of the http server improving mp3 streaming
+- support for m3u8 playlist files
+- allow mixed ipv4/ipv6 mdns
+- fix issue with device name capitalization (TuneAero issue)
+- drop support for libevent < 2.1.4
 
-version 28.1
-	- fix incompability in 28.0 with Debian Buster's libwebsockets 2.0
+## Version 28.6
 
-version 28.0
-	- rename forked-daapd to OwnTone + new logo
-	- fix web UI slow updates due to websockets 3.x changes
-	- support for ALAC sort tags
-	- support for remote pls/m3u with https streams
-	- add /api/queue?id=now_playing json API shortcut
-	- fix possible crash on Pulseaudio error callback
-	- fix possible segfault-on-exit
-	- fix websockets not working on FreeBSD
-	- refactor how the server binds to sockets (use dual stack ipv4/6)
-	- configurable interface/address binding
+- German translation of web UI
+- web UI: fix error messages not displaying
+- fix low resolution Spotify artwork
+- fix incorrect display of date released pre 1970
+- fix for Denon speakers when pausing
+- support password authentication for Airplay 2
+- support for user config ffmpeg audio filters
 
-version 27.4
-	- fix web server path traversal vulnerability
+## Version 28.5
 
-version 27.3
-	- support for AirPlay 2 speakers, incl. compressed ALAC
-	- web UI upgraded, now v0.8.5:
-		new design/layout
-		optimize "Recently added"
-		Spotify search dialogue improvements
-		drop separate admin web page, now integrated in main web
-		podcast deletion
-		make Radio a top level item
-		show release dates
-		new sorting options
-		prevent browser caching of playlists
-		additional settings
-	- improved Chromecast streaming (retransmisson, adaptive etc.)
-	- JSON api support for updating metadata of queue items
-	- JSON api new fields, e.g. time_added, time_played and seek
-	- fix for some Chromecasts disconnecting
-	- new algorithm for more natural ALSA volume adjustments
-	- new nickname option for AirPlay and Chromecast
-	- mpd fixes (nextsong, multiple commands)
-	- charset flexibility when getting ICY metadata from streams
-	- adaptive probing of radio streams
-	- libplist and libsodium now required
-	- fixes for library update events
-	- fixes to speaker selection and unintentional volume changes
-	- fix some minor memleaks
-	- support shairport-sync metadata pipe flush event
-	- misc logging fixup
+- French translation of web UI
+- improved web UI loading of images
+- add support for Airplay 2 password based auth
+- fix some Airplay speakers turning on by themselves
+- fix parsing of CRLF and NOT in smart playlists and allow larger sizes
+- fix possible crash after Avahi restart
+- fix for Remote - play item from 'up next' when stopped
+- use configured bind_address to set mdns network interface
 
-version 27.2
-	- web UI upgraded to v0.7.2:
-		show cover artwork in album pages and lazy loading of artwork
-		show playlist folders
-		use sass/scss for css files
-		add "Radio" tab to the music section
-		add settings for artwork sources
-		add pop up dialog for Remote pairing requests
-		support adding/removing podcast subscriptions
-		support marking all new podcast episodes/all episodes as played
-		support searching by smart pl queries
-		skip buttons for audiobooks and podcasts
-		show localized times/dates
-		generate colored placeholder image if cover artwork is missing
-		show "cast" icon for Chromecast outputs
-		styling changes of the navbars and moving the volume controls
-	- new speaker selection logic (persist user choice even after failure)
-	- speaker autoselect no longer enabled by default
-	- removed old admin page, not necessary any more
-	- fix/workaround for Apple TV's and HomePods that disconnect
-	- support for RSS feeds
-	- support for nested smart playlists (playlist folders)
-	- support for online artwork sources e.g. Discogs, Coverartarchive
-	- support for radio StreamUrl's that point to json with metadata
-	- fix incorrect artwork shown for unknown album/artists
-	- fix issue parsing shairport-sync progress metadata
-	- fix missing Spofity logout option
-	- fix for embedded artwork not working with ffmpeg 4.3+
-	- some smart PL improvements, e.g. support for more tags
-	- config option for Airplay timing/control ports (eases firewalling)
-	- quicker loading of radio streams (smaller probing)
-	- workaround for mxml 2.10 significant memleak
-	- some fixes for Roku (RSP)
-	- drop libspotify for artwork, doesn't work any more
-	- documentation improvements
+## Version 28.4
 
-version 27.1
-	- web UI upgraded to v0.6.0: settings page, display more Spotify data
-	- support for volumeup, volumedown and mutetoggle DACP commands
-	- support for multiple ALSA devices
-	- suppress repeated logging of same message to avoid log file bloat
-	- fix opening too many files due to looping with shairport-sync
-	- fix for genres with single quotes in name
-	- fix for incorrect update of time_added metadata
-	- fix some small memleaks and missing cleanup
+- fix broken Spotify after libspotify sunset
+- remove antlr3 dependency, use bison/flex instead
+- improve search by supporting diacritics and Unicode case folding
+- add support for new output: Roku/Soundbridge RCP
+- switch to MkDocs for documentation
+- smart playlists fixups and new "this week" param
+- fix 'add next' when in queue shuffle mode
+- web UI improvements:
+    - migration to Vue 3 and Vite
+    - honor "radio_playlists" config setting
+    - display of search results for composers and playlists
+    - add album / track count to genre and composer pages
+    - fix incorrect sorting of album/artist searches
+    - minor UI fixes
+- fix for Spotify config option album_override
+- improved Spotify scan performance
+- generic browse endpoints for the json api
+- fix slow shutdown with some libwebsocket versions
 
-version 27.0
-	- no fixed resampling to 44100/16, play source quality if possible
-	- Chromecast: quick start, better quality (48000/16 Opus encoded)
-	- performance enhancements: Remote and iTunes will load quicker
-	- alsa sync with variable sample rate, avoiding audible "clicks"
-	- web UI upgraded to v0.5.6, e.g. play non-library tracks, saving queue
-	- fix for Pebble mpd client (and possibly others)
-	- fix issue with some HLS radio stations
-	- support for https streams
-	- fix for artwork showing dithered
-	- ICY metadata in forked-daapd's mp3 stream
-	- support for Spotify collaborative playlists
-	- support for Shairport artwork via pipe
-	- configurable mp3 streaming quality
-	- json api improvements, e.g. for toggling speakers
-	- json api/web ui: Relative seeking
-	- support for some http seeking
-	- fix for macOS Catalina’s Apple Music
+## Version 28.3
 
-version 26.5
-	- json api/web ui: file view
-	- web ui: artwork support
-	- web ui: "Add next" and genre tab
-	- Airplay connection test improvements
-	- support for https streams in m3u's
-	- use Spotify web api for artwork instead of libspotify
-	- option to make Airplay devices permanent or excluded
-	- support for tracks and disc items in smart playlists
-	- db refactor, fix issues with play count, time played etc
-	- json api: more options available when adding items to the queue
-	- json api: player/toggle
-	- mpd version 0.20 support + support for "listfiles" command
-	- fix double http auth decline issue
+- web UI improvements, e.g.:
+    - composer views
+    - partial scan (e.g. only update RSS feeds)
+    - fix http stream button not clickable in mobile view
+    - fix Spotify playlists not showing
+    - handling of not playable Spotify tracks
+    - handling of podcast play counts
+- support for Spotify podcasts
+- updates for ffmpeg 5
+- better Spotify logout
+- user "usermark" field for user flagging of various track states
+- fix for 0-byte files crashing ffmpeg
+- fix metadata pipe deadlock and artwork memleak-on-error
+- better handling of Spotify disconnects
+- fix rare Airplay pairing error
+- many minor error handling fixes
 
-version 26.4:
-	- automatic rating
-	- fix issue in 26.3 causing invalid time_skipped values in the db
-	- improved fallback to ipv4 if ipv6 fails
-	- fix issue returning too many queue items to clients
-	- fix missing prompt for library password
+## Version 28.2
 
-version 26.3:
-	- fix AirPlay 2 devices (e.g. Sonos Beam and Airport Express)
-	- fix mdns problems with ATV4 and ipv6
-	- fix possible segfault if null user-agent
-	- new metadata: Skip Count and Times Skipped (incl iTunes XML mapping)
-	- iTunes XML mapping of Play Count and Play Date
-	- fix for crashes when client provides no User-Agent
-	- logging improvements
+- add Spotify integration that doesn't depend on libspotify
+- partial support for AirPlay events (Homepod buttons)
+- web UI upgraded, now 1.1.0:
+    - show "comment" field in track details
+    - drop double login to Spotify when not using libspotify
+- easier install by letting 'make install' add user and service files
+- preserve existing conf file when running 'make install'
+- support for "comment" field when making smart playlists
+- fix support for dacp device-volume
+- fix issue where source file sort tags where ignored
+- fix for Roku (RSP) artist display issue
+- fix bug when 'bind_address' option is used
+- fix for CVE-2021-38383
+- fix some minor time-of-check time-of-use bugs
 
-version 26.2:
-	- fix for db indexes not being used on fresh installs
+## Version 28.1
 
-version 26.1:
-	- player web interface
-	- support for Airplay speaker control commands
-	- add non-library items (e.g. radio stations) to the queue
-	- fix for keeping connection alive towards some devices e.g. old ApEx's
-	- extension of the JSON API
-	- under-the-hood improvements of Spotify integration
-	- fix for Android "Remote for iTunes"
-	- fix ffmpeg segfault when jpeg encoding
-	- performance improvements + misc
+- fix incompability in 28.0 with Debian Buster's libwebsockets 2.0
 
-version 26.0:
-	- added web interface
-	- added JSON API
-	- new mpd commands (e.g. sticker, urlhandlers, playlistfind)
-	- support for adding non-library urls to the playback queue
-	- support for id3 grouping tags
-	- support for filesystems with ACL's
-	- use Spotify web api to load all playlists
-	- improved client authentication options
-	- only rescan playlists if changed -> faster startup
-	- fix bug related to dacp/daap client revision number handling
-	- fix bugs related to import of iTunes XML playlists
-	- restore ATV4/tvOS11 support by removing requirement for timing_port
-	- fixes for Hyperfine Remote
-	- improve database performance
-	- make sure daemons listen on both ipv4 and ipv6 (for BSD)
-	- ffmpeg/transcoding refactored for new ffmpeg API
-	- and more...
+## Version 28.0
 
-version 25.0:
-	- improved playback resilience
-	- substitute packet skipping (producing audio "clicks") with start/stop
-	- support for MacOSX with macports and Bonjour mDNS
-	- Airplay device verification for Apple TV 4 w/tvOS 10.2 (uses libsodium)
-	- support for Spotify web api (saved tracks/albums + Discover Weekly)
-	- automatic playback of pipes + support for Shairport metadata pipes
-	- added pipe audio output (fifo)
-	- persistent queues (queue remains across server restart)
-	- support for browser based clients
-	- mpd sendmessage: set individual speaker volume, remote pairing
-	- mpd add http://path-to-radiostream (i.e. add non-library items)
-	- new options, e.g. exclude speakers from list
-	- fix for shuffle mode
-	- fix broken PNG artwork rescaling
-	- use friendly Chromecast name in speaker list
-	- support for libav/ffmpeg dual installs
-	- refactoring - added the input and library interface
-	- performance improvements
-	- and other fixing up...
+- rename forked-daapd to OwnTone + new logo
+- fix web UI slow updates due to websockets 3.x changes
+- support for ALAC sort tags
+- support for remote pls/m3u with https streams
+- add /api/queue?id=now_playing json API shortcut
+- fix possible crash on Pulseaudio error callback
+- fix possible segfault-on-exit
+- fix websockets not working on FreeBSD
+- refactor how the server binds to sockets (use dual stack ipv4/6)
+- configurable interface/address binding
 
-version 24.2:
-	- Pulseaudio support (can be used for Bluetooth speakers)
-	- new pipe/"fifo" audio output
-	- fix misc Chromecast audio bugs
-	- fix for Apple tvOS10 disconnecting after some minutes
-	- enable CORS headers
-	- LastFM scrobbling during regular DAAP streaming
-	- smart playlist support for file modification time
-	- misc MPD improvements, e.g. new outputsvolume command
-	- ignore ipv6 link-local addresses (announced by e.g. ATV4)
-	- better inter-thread command handling
-	- improved cache performance and use of gzip
-	- fix possible segfault on http timeouts
-	- fix possible segfault when adding items during playback
+## Version 27.4
 
-version 24.1:
-	- support for Monkey's audio
-	- fix build problems on some platforms (e.g. OpenWrt)
+- fix web server path traversal vulnerability
 
-version 24.0:
-	- support for Chromecast audio
-	- support more idv3 tags (eg. date released)
-	- support more DAAP tags (eg. datereleased, hasbeenplayed)
-	- fix problem with playlists not shown in correct order in Remote
-	- autoselect devices based on priorities + keep devices selected
-	- fix multiple FreeBSD filescanner bugs (like too many open files)
-	- ALSA audio refurbished (prevent underrun/overrun, better AirPlay sync)
-	- improved mpd command support (eg. lsinfo, move, queue autoplay start)
-	- better mpd performance
-	- timing changes to keep input and output in sync with player timer
-	- prevent cache bloat (unscaled artwork or artwork for deleted tracks)
-	- more intelligent Spotify artwork retrieval
-	- artwork handling refactored
-	- add generic output interface
-	- add systemd service file
-	- support for OSS4 dropped
-	- support for old ffmpeg dropped
-	- misc minor bugfixing
+## Version 27.3
 
-version 23.4:
-	- fix freeze problem on network stream disconnects
-	- support for mp3 streaming
-	- better ipv6 handling
-	- option to hide singles from album/artist lists
-	- misc MPD improvements, incl. new commands and zeroconf support
-	- queue handling and transcoding refactored
-	- libavresample/libswresample dependency changed to libavfilter
-	- improved pairinghelper.sh script
+- support for AirPlay 2 speakers, incl. compressed ALAC
+- web UI upgraded, now v0.8.5:
+    - new design/layout
+    - optimize "Recently added"
+    - Spotify search dialogue improvements
+    - drop separate admin web page, now integrated in main web
+    - podcast deletion
+    - make Radio a top level item
+    - show release dates
+    - new sorting options
+    - prevent browser caching of playlists
+    - additional settings
+- improved Chromecast streaming (retransmisson, adaptive etc.)
+- JSON api support for updating metadata of queue items
+- JSON api new fields, e.g. time_added, time_played and seek
+- fix for some Chromecasts disconnecting
+- new algorithm for more natural ALSA volume adjustments
+- new nickname option for AirPlay and Chromecast
+- mpd fixes (nextsong, multiple commands)
+- charset flexibility when getting ICY metadata from streams
+- adaptive probing of radio streams
+- libplist and libsodium now required
+- fixes for library update events
+- fixes to speaker selection and unintentional volume changes
+- fix some minor memleaks
+- support shairport-sync metadata pipe flush event
+- misc logging fixup
 
-version 23.3:
-	- fix issue where volume gets set to -1 on startup of raop devices
-	- plug various minor memleaks
-	- audiobook improvements, eg resuming playback from saved position
-	- live icy metadata
-	- libevent 1 support removed
-	- LastFM performance improvement
-	- drop legacy ffmpeg stuff
-	- drop legacy flac, musepack and wma scanner
+## Version 27.2
 
-version 23.2:
-	- fix db lock, m3u and Windows Phone bugs
-	- improvements for Spotify and mpd
-	- fixing bugs as always
-	- sorting of genres and composers
+- web UI upgraded to v0.7.2:
+    - show cover artwork in album pages and lazy loading of artwork
+    - show playlist folders
+    - use sass/scss for css files
+    - add "Radio" tab to the music section
+    - add settings for artwork sources
+    - add pop up dialog for Remote pairing requests
+    - support adding/removing podcast subscriptions
+    - support marking all new podcast episodes/all episodes as played
+    - support searching by smart pl queries
+    - skip buttons for audiobooks and podcasts
+    - show localized times/dates
+    - generate colored placeholder image if cover artwork is missing
+    - show "cast" icon for Chromecast outputs
+    - styling changes of the navbars and moving the volume controls
+- new speaker selection logic (persist user choice even after failure)
+- speaker autoselect no longer enabled by default
+- removed old admin page, not necessary any more
+- fix/workaround for Apple TV's and HomePods that disconnect
+- support for RSS feeds
+- support for nested smart playlists (playlist folders)
+- support for online artwork sources e.g. Discogs, Coverartarchive
+- support for radio StreamUrl's that point to json with metadata
+- fix incorrect artwork shown for unknown album/artists
+- fix issue parsing shairport-sync progress metadata
+- fix missing Spofity logout option
+- fix for embedded artwork not working with ffmpeg 4.3+
+- some smart PL improvements, e.g. support for more tags
+- config option for Airplay timing/control ports (eases firewalling)
+- quicker loading of radio streams (smaller probing)
+- workaround for mxml 2.10 significant memleak
+- some fixes for Roku (RSP)
+- drop libspotify for artwork, doesn't work any more
+- documentation improvements
 
-version 23.1:
-	- support for more mpd commands
+## Version 27.1
 
-version 23.0:
-	- add support for the mpd protocol
-	- add support for smart playlists
-	- playlist and internet stream overhaul
+- web UI upgraded to v0.6.0: settings page, display more Spotify data
+- support for volumeup, volumedown and mutetoggle DACP commands
+- support for multiple ALSA devices
+- suppress repeated logging of same message to avoid log file bloat
+- fix opening too many files due to looping with shairport-sync
+- fix for genres with single quotes in name
+- fix for incorrect update of time_added metadata
+- fix some small memleaks and missing cleanup
 
-version 22.2:
-	- fix for iTunes 12.1
-	- fix misc bugs
+## Version 27.0
 
-version 22.1:
-	- artwork cache
-	- some Spotify fixing up
+- no fixed resampling to 44100/16, play source quality if possible
+- Chromecast: quick start, better quality (48000/16 Opus encoded)
+- performance enhancements: Remote and iTunes will load quicker
+- alsa sync with variable sample rate, avoiding audible "clicks"
+- web UI upgraded to v0.5.6, e.g. play non-library tracks, saving queue
+- fix for Pebble mpd client (and possibly others)
+- fix issue with some HLS radio stations
+- support for https streams
+- fix for artwork showing dithered
+- ICY metadata in forked-daapd's mp3 stream
+- support for Spotify collaborative playlists
+- support for Shairport artwork via pipe
+- configurable mp3 streaming quality
+- json api improvements, e.g. for toggling speakers
+- json api/web ui: Relative seeking
+- support for some http seeking
+- fix for macOS Catalina’s Apple Music
 
-version 22.0:
-	- queue handling improvements
-	- added DAAP cache, good for low-power devices like the RPi
-	- support for LastFM scrobbling
-	- support for .pls playlists
-	- added compability with ffmpeg libswresample
-	- added options to modify the operation of the SQLite database
-	- stop init-rescan/full-rescan from running twice
-	- fix misc local audio problems
-	- fix some FreeBSD sound timing problems
-	- fix segfault on invalid utf8 while sorting
-	- fix misc bugs
+## Version 26.5
 
-version 21.0:
-	- filescanner performance enhancements (db transactions)
-	- support for queue editing
-	- support for showing history
-	- compability with libevent 2
-	- compability with libav 10
-	- support for Spotify
-	- fix for Seafile libraries
-	- support for permission changes in a library (IN_ATTRIB)
-	- some DAAP changes to align with iTunes
-	- properly show media kind shares in iTunes
-	- support for named pipes/fifos
-	- natural sorting and better handling of capitalization
-	- introduce .init-rescan and .full-rescan triggers
-	- fix for XBMC (libshairplay) crash
-	- fix missing songartistid (fixes some remotes)
-	- fix bug in m3u scanner
-	- ICY metadata fixes
+- json api/web ui: file view
+- web ui: artwork support
+- web ui: "Add next" and genre tab
+- Airplay connection test improvements
+- support for https streams in m3u's
+- use Spotify web api for artwork instead of libspotify
+- option to make Airplay devices permanent or excluded
+- support for tracks and disc items in smart playlists
+- db refactor, fix issues with play count, time played etc
+- json api: more options available when adding items to the queue
+- json api: player/toggle
+- mpd version 0.20 support + support for "listfiles" command
+- fix double http auth decline issue
 
-version 20.0:
-	- includes patch against timeouts
-	- configurable artwork file names
-	- support for Remote 3 and 4
-	- preference for album artist if it is available
-	- bug fix for certain Airport Express models
-	- bug fix for AirFoil Speakers
-	- added support for internet radio with m3u
-	- fixed fatal error when stopping player
-	- m3u and iTunes playlist scanner improvements
-	- improved compability with Hyperfine Remote for Android
-	- speaker selection and m3u bug fixes
-	- Shoutcast (icy) metadata support for internet radio
-	- fix for Apple TV update 6.0
-	- fix artwork memory leak
-	- basic support for podcasts, compilations and audiobooks
-	- user can tell file scanner to ignore certain file types
-	- fix for metadata on non-Apple airplay devices
-	- configurable library names
-	- sorting changes, ignore The/A/An
-	- fix for TunesRemote SE
-	- force library rescan with .force-rescan
-	- fix for the Retune remote on Android
-	- fix for AirBubble speakers (shairport)
-	- support for artwork in iTunes
-	- fixed ffmpeg/libav logging
-	- logging and documentation adjustments
-	- autoselect AirPlay device if none selected
-	- support for embedded artwork
-	- config option to disable startup scan
-	- config option for max volume for AirPlay devices
-	- support for embedded platforms without hi-res timers
-	- fix for WMA files
-	- fixes for video playback
-	- other fixes: non apple players, ffmpeg/libav updates...
+## Version 26.4
 
-version 0.19:
-	- more libav 0.7 updates.
-	- database speedups.
-	- fix for iTunes 30-minute timeout.
-	- fixes, big and small.
+- automatic rating
+- fix issue in 26.3 causing invalid time_skipped values in the db
+- improved fallback to ipv4 if ipv6 fails
+- fix issue returning too many queue items to clients
+- fix missing prompt for library password
 
-version 0.18:
-	- add config knob for ALSA mixer channel name.
-	- do not elevate privileges for reopening the log file; log file
+## Version 26.3
+
+- fix AirPlay 2 devices (e.g. Sonos Beam and Airport Express)
+- fix mdns problems with ATV4 and ipv6
+- fix possible segfault if null user-agent
+- new metadata: Skip Count and Times Skipped (incl iTunes XML mapping)
+- iTunes XML mapping of Play Count and Play Date
+- fix for crashes when client provides no User-Agent
+- logging improvements
+
+## Version 26.2
+
+- fix for db indexes not being used on fresh installs
+
+## Version 26.1
+
+- player web interface
+- support for Airplay speaker control commands
+- add non-library items (e.g. radio stations) to the queue
+- fix for keeping connection alive towards some devices e.g. old ApEx's
+- extension of the JSON API
+- under-the-hood improvements of Spotify integration
+- fix for Android "Remote for iTunes"
+- fix ffmpeg segfault when jpeg encoding
+- performance improvements + misc
+
+## Version 26.0
+
+- added web interface
+- added JSON API
+- new mpd commands (e.g. sticker, urlhandlers, playlistfind)
+- support for adding non-library urls to the playback queue
+- support for id3 grouping tags
+- support for filesystems with ACL's
+- use Spotify web api to load all playlists
+- improved client authentication options
+- only rescan playlists if changed -> faster startup
+- fix bug related to dacp/daap client revision number handling
+- fix bugs related to import of iTunes XML playlists
+- restore ATV4/tvOS11 support by removing requirement for timing_port
+- fixes for Hyperfine Remote
+- improve database performance
+- make sure daemons listen on both ipv4 and ipv6 (for BSD)
+- ffmpeg/transcoding refactored for new ffmpeg API
+- and more...
+
+## Version 25.0
+
+- improved playback resilience
+- substitute packet skipping (producing audio "clicks") with start/stop
+- support for MacOSX with macports and Bonjour mDNS
+- Airplay device verification for Apple TV 4 w/tvOS 10.2 (uses libsodium)
+- support for Spotify web api (saved tracks/albums + Discover Weekly)
+- automatic playback of pipes + support for Shairport metadata pipes
+- added pipe audio output (fifo)
+- persistent queues (queue remains across server restart)
+- support for browser based clients
+- mpd sendmessage: set individual speaker volume, remote pairing
+- mpd add http://path-to-radiostream (i.e. add non-library items)
+- new options, e.g. exclude speakers from list
+- fix for shuffle mode
+- fix broken PNG artwork rescaling
+- use friendly Chromecast name in speaker list
+- support for libav/ffmpeg dual installs
+- refactoring - added the input and library interface
+- performance improvements
+- and other fixing up...
+
+## Version 24.2
+
+- Pulseaudio support (can be used for Bluetooth speakers)
+- new pipe/"fifo" audio output
+- fix misc Chromecast audio bugs
+- fix for Apple tvOS10 disconnecting after some minutes
+- enable CORS headers
+- LastFM scrobbling during regular DAAP streaming
+- smart playlist support for file modification time
+- misc MPD improvements, e.g. new outputsvolume command
+- ignore ipv6 link-local addresses (announced by e.g. ATV4)
+- better inter-thread command handling
+- improved cache performance and use of gzip
+- fix possible segfault on http timeouts
+- fix possible segfault when adding items during playback
+
+## Version 24.1
+
+- support for Monkey's audio
+- fix build problems on some platforms (e.g. OpenWrt)
+
+## Version 24.0
+
+- support for Chromecast audio
+- support more idv3 tags (eg. date released)
+- support more DAAP tags (eg. datereleased, hasbeenplayed)
+- fix problem with playlists not shown in correct order in Remote
+- autoselect devices based on priorities + keep devices selected
+- fix multiple FreeBSD filescanner bugs (like too many open files)
+- ALSA audio refurbished (prevent underrun/overrun, better AirPlay sync)
+- improved mpd command support (eg. lsinfo, move, queue autoplay start)
+- better mpd performance
+- timing changes to keep input and output in sync with player timer
+- prevent cache bloat (unscaled artwork or artwork for deleted tracks)
+- more intelligent Spotify artwork retrieval
+- artwork handling refactored
+- add generic output interface
+- add systemd service file
+- support for OSS4 dropped
+- support for old ffmpeg dropped
+- misc minor bugfixing
+
+## Version 23.4
+
+- fix freeze problem on network stream disconnects
+- support for mp3 streaming
+- better ipv6 handling
+- option to hide singles from album/artist lists
+- misc MPD improvements, incl. new commands and zeroconf support
+- queue handling and transcoding refactored
+- libavresample/libswresample dependency changed to libavfilter
+- improved pairinghelper.sh script
+
+## Version 23.3
+
+- fix issue where volume gets set to -1 on startup of raop devices
+- plug various minor memleaks
+- audiobook improvements, eg resuming playback from saved position
+- live icy metadata
+- libevent 1 support removed
+- LastFM performance improvement
+- drop legacy ffmpeg stuff
+- drop legacy flac, musepack and wma scanner
+
+## Version 23.2
+
+- fix db lock, m3u and Windows Phone bugs
+- improvements for Spotify and mpd
+- fixing bugs as always
+- sorting of genres and composers
+
+## Version 23.1
+
+- support for more mpd commands
+
+## Version 23.0
+
+- add support for the mpd protocol
+- add support for smart playlists
+- playlist and internet stream overhaul
+
+## Version 22.2
+
+- fix for iTunes 12.1
+- fix misc bugs
+
+## Version 22.1
+
+- artwork cache
+- some Spotify fixing up
+
+## Version 22.0
+
+- queue handling improvements
+- added DAAP cache, good for low-power devices like the RPi
+- support for LastFM scrobbling
+- support for .pls playlists
+- added compability with ffmpeg libswresample
+- added options to modify the operation of the SQLite database
+- stop init-rescan/full-rescan from running twice
+- fix misc local audio problems
+- fix some FreeBSD sound timing problems
+- fix segfault on invalid utf8 while sorting
+- fix misc bugs
+
+## Version 21.0
+
+- filescanner performance enhancements (db transactions)
+- support for queue editing
+- support for showing history
+- compability with libevent 2
+- compability with libav 10
+- support for Spotify
+- fix for Seafile libraries
+- support for permission changes in a library (IN_ATTRIB)
+- some DAAP changes to align with iTunes
+- properly show media kind shares in iTunes
+- support for named pipes/fifos
+- natural sorting and better handling of capitalization
+- introduce .init-rescan and .full-rescan triggers
+- fix for XBMC (libshairplay) crash
+- fix missing songartistid (fixes some remotes)
+- fix bug in m3u scanner
+- ICY metadata fixes
+
+## Version 20.0
+
+- includes patch against timeouts
+- configurable artwork file names
+- support for Remote 3 and 4
+- preference for album artist if it is available
+- bug fix for certain Airport Express models
+- bug fix for AirFoil Speakers
+- added support for internet radio with m3u
+- fixed fatal error when stopping player
+- m3u and iTunes playlist scanner improvements
+- improved compability with Hyperfine Remote for Android
+- speaker selection and m3u bug fixes
+- Shoutcast (icy) metadata support for internet radio
+- fix for Apple TV update 6.0
+- fix artwork memory leak
+- basic support for podcasts, compilations and audiobooks
+- user can tell file scanner to ignore certain file types
+- fix for metadata on non-Apple airplay devices
+- configurable library names
+- sorting changes, ignore The/A/An
+- fix for TunesRemote SE
+- force library rescan with .force-rescan
+- fix for the Retune remote on Android
+- fix for AirBubble speakers (shairport)
+- support for artwork in iTunes
+- fixed ffmpeg/libav logging
+- logging and documentation adjustments
+- autoselect AirPlay device if none selected
+- support for embedded artwork
+- config option to disable startup scan
+- config option for max volume for AirPlay devices
+- support for embedded platforms without hi-res timers
+- fix for WMA files
+- fixes for video playback
+- other fixes: non apple players, ffmpeg/libav updates...
+
+## Version 0.19
+
+- more libav 0.7 updates.
+- database speedups.
+- fix for iTunes 30-minute timeout.
+- fixes, big and small.
+
+## Version 0.18
+
+- add config knob for ALSA mixer channel name.
+- do not elevate privileges for reopening the log file; log file
 	  will now be owned by the user forked-daapd runs as.
-	- fixes, big and small.
+- fixes, big and small.
 
-version 0.17:
-	- support for libav 0.7
-	- fixes, big and small.
+## Version 0.17
 
-version 0.16:
-	- fix issue with non-UTF-8 metadata while scanning.
-	- use proper file size in HTTP streaming code.
-	- fix DAAP songlist bug with sort tags.
-	- small code fixes.
+- support for libav 0.7
+- fixes, big and small.
 
-version 0.15:
-	- add support for sending metadata to AppleTV during AirTunes streaming.
-	- support DOS-encoded Remote pairing files.
-	- rework album_artist_sort handling.
-	- enable RAOP to queue RTSP requests.
-	- speedup DAAP & RSP filters processing.
-	- speedup DAAP songlist generation.
-	- artwork can handle and send out both PNG and JPEG.
-	- fixes, big and small.
+## Version 0.16
 
-version 0.14:
-	- sort headers/tags handling improvements.
-	- better handling of tags for TV shows.
-	- better handling of DRM-afflicted files.
-	- configurable IPv6 support.
-	- fix scanning of URL files.
-	- fixes, big and small.
+- fix issue with non-UTF-8 metadata while scanning.
+- use proper file size in HTTP streaming code.
+- fix DAAP songlist bug with sort tags.
+- small code fixes.
 
-version 0.13:
-	- add Remote v2 support; Remote v1 is not supported anymore.
-	- add per-speaker volume support.
-	- implement RAOP retransmission.
-	- implement per-device quirks in RAOP.
-	- improve compatibility with 802.11g AirPort Express.
-	- improve mDNS address resolution, making IPv4 usable again.
-	- fix Murmur Hash bug on 32bit platforms.
-	- add support for JPEG artwork and alternative filenames.
-	- disable session expiration that was causing issues.
-	- FFmpeg 0.6 support.
-	- fixes, big and small.
+## Version 0.15
 
-version 0.12:
-	- add AirTunes v2 streaming.
-	- add Remote support.
-	- add gzipped replies.
-	- add IPv6 support.
-	- check for UTF-8 correctness of metadata.
-	- fixes, big and small.
+- add support for sending metadata to AppleTV during AirTunes streaming.
+- support DOS-encoded Remote pairing files.
+- rework album_artist_sort handling.
+- enable RAOP to queue RTSP requests.
+- speedup DAAP & RSP filters processing.
+- speedup DAAP songlist generation.
+- artwork can handle and send out both PNG and JPEG.
+- fixes, big and small.
 
-version 0.11:
-	- support iTunes 9.
-	- add iTunes XML playlist scanner.
-	- add support for TV shows.
-	- add FreeBSD and GNU/kFreeBSD support.
-	- add support for DAAP groups.
-	- add support for artwork.
-	- rework metdata extraction, better support for ID3 tags.
-	- database code rework.
-	- preliminary support for Remote (pairing, browsing).
-	- fixes, big and small.
+## Version 0.14
 
-version 0.10:
-	- initial release.
+- sort headers/tags handling improvements.
+- better handling of tags for TV shows.
+- better handling of DRM-afflicted files.
+- configurable IPv6 support.
+- fix scanning of URL files.
+- fixes, big and small.
+
+## Version 0.13
+
+- add Remote v2 support; Remote v1 is not supported anymore.
+- add per-speaker volume support.
+- implement RAOP retransmission.
+- implement per-device quirks in RAOP.
+- improve compatibility with 802.11g AirPort Express.
+- improve mDNS address resolution, making IPv4 usable again.
+- fix Murmur Hash bug on 32bit platforms.
+- add support for JPEG artwork and alternative filenames.
+- disable session expiration that was causing issues.
+- FFmpeg 0.6 support.
+- fixes, big and small.
+
+## Version 0.12
+
+- add AirTunes v2 streaming.
+- add Remote support.
+- add gzipped replies.
+- add IPv6 support.
+- check for UTF-8 correctness of metadata.
+- fixes, big and small.
+
+## Version 0.11
+
+- support iTunes 9.
+- add iTunes XML playlist scanner.
+- add support for TV shows.
+- add FreeBSD and GNU/kFreeBSD support.
+- add support for DAAP groups.
+- add support for artwork.
+- rework metdata extraction, better support for ID3 tags.
+- database code rework.
+- preliminary support for Remote (pairing, browsing).
+- fixes, big and small.
+
+## Version 0.10
+
+- initial release.
