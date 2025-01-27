@@ -21,7 +21,6 @@ WEBINTERFACE_SRC_SUBDIR = web-src
 endif
 
 SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src $(WEBINTERFACE_SRC_SUBDIR)
-DIST_SUBDIRS = $(SUBDIRS)
 
 dist_man_MANS = owntone.8
 
