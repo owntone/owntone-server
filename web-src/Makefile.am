@@ -177,19 +177,19 @@ node_modules: $(PACKAGE_JSON)
 			cp "$$src_path" "$$dest_path"; \
 		done; \
 	fi
-	$(if $(NPM),$(NPM) clean-install)
+	$(if $(BUILD_WEBINTERFACE),$(NPM) clean-install)
 
 # Build the Vue.js application
 htdocs: node_modules $(WEB_FILES)
-	$(if $(NPM),$(NPM) run build)
+	$(if $(BUILD_WEBINTERFACE),$(NPM) run build)
 
 web: htdocs
 
 web-serve: node_modules
-	$(if $(NPM),$(NPM) run serve)
+	$(if $(BUILD_WEBINTERFACE),$(NPM) run serve)
 
 web-update:
-	$(if $(NPM),$(NPM) update)
+	$(if $(BUILD_WEBINTERFACE),$(NPM) update)
 
 web-check:
 	@echo "Verifying that all source files in 'src' and 'public' are listed in WEB_FILES ..."
@@ -208,10 +208,10 @@ web-check:
 	fi
 
 web-lint: node_modules
-	$(if $(NPM),$(NPM) run lint --no-fix)
+	$(if $(BUILD_WEBINTERFACE),$(NPM) run lint --no-fix)
 
 web-format: node_modules
-	$(if $(NPM),$(NPM) run format)
+	$(if $(BUILD_WEBINTERFACE),$(NPM) run format)
 
 all-local: htdocs
 
