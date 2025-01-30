@@ -13,7 +13,7 @@ export const useSettingsStore = defineStore('SettingsStore', {
       state.setting('webinterface', 'show_composer_now_playing')?.value ??
       false,
     show_cover_artwork_in_album_lists: (state) =>
-      state.setting('webinterface', 'show_cover_artwork_in_album_lists')
+      state.setting('artwork', 'show_cover_artwork_in_album_lists')
         ?.value ?? false,
     show_filepath_now_playing: (state) =>
       state.setting('webinterface', 'show_filepath_now_playing')?.value ??
