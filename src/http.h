@@ -21,7 +21,7 @@ struct http_client_ctx
    */
   const char *url;
   struct keyval *output_headers;
-  char *output_body;
+  const char *output_body;
 
   /* A keyval/evbuf to store response headers and body.
    * Can be set to NULL to ignore that part of the response.
@@ -37,10 +37,6 @@ struct http_client_ctx
 
   /* HTTP Response code */
   int response_code;
-
-  /* Private */
-  int ret;
-  void *evbase;
 };
 
 struct http_icy_metadata

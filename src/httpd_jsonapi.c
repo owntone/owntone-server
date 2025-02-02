@@ -47,6 +47,7 @@
 # include "lastfm.h"
 #endif
 #include "library.h"
+#include "listenbrainz.h"
 #include "logger.h"
 #include "misc.h"
 #include "misc_json.h"
@@ -1444,6 +1445,77 @@ jsonapi_reply_lastfm_logout(struct httpd_request *hreq)
 #ifdef LASTFM
   lastfm_logout();
 #endif
+  return HTTP_NOCONTENT;
+}
+
+static int
+jsonapi_reply_listenbrainz(struct httpd_request *hreq)
+{
+  struct listenbrainz_status status;
+  json_object *jreply;
+
+  listenbrainz_status_get(&status);
+
+  CHECK_NULL(L_WEB, jreply = json_object_new_object());
+
+  json_object_object_add(jreply, "enabled", json_object_new_boolean(!status.disabled));
+  json_object_object_add(jreply, "token_valid", json_object_new_boolean(status.token_valid));
+  if (status.user_name)
+    json_object_object_add(jreply, "user_name", json_object_new_string(status.user_name));
+  if (status.message)
+    json_object_object_add(jreply, "message", json_object_new_string(status.message));
+
+
+  CHECK_ERRNO(L_WEB, evbuffer_add_printf(hreq->out_body, "%s", json_object_to_json_string(jreply)));
+
+  jparse_free(jreply);
+  listenbrainz_status_free(&status, true);
+
+  return HTTP_OK;
+}
+
+static int
+jsonapi_reply_listenbrainz_token_add(struct httpd_request *hreq)
+{
+  json_object *request;
+  const char *token;
+  int ret;
+
+  request = jparse_obj_from_evbuffer(hreq->in_body);
+  if (!request)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
+      return HTTP_BADREQUEST;
+    }
+
+  token = jparse_str_from_obj(request, "token");
+
+  ret = listenbrainz_token_set(token);
+
+  jparse_free(request);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to set ListenBrainz token\n");
+      return HTTP_INTERNAL;
+    }
+
+  return HTTP_NOCONTENT;
+}
+
+static int
+jsonapi_reply_listenbrainz_token_delete(struct httpd_request *hreq)
+{
+  int ret;
+  
+  ret = listenbrainz_token_delete();
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Failed to delete ListenBrainz token\n");
+      return HTTP_INTERNAL;
+    }
+
   return HTTP_NOCONTENT;
 }
 
@@ -4657,6 +4729,10 @@ static struct httpd_uri_map adm_handlers[] =
     { HTTPD_METHOD_PUT,    "^/api/library/backup$",                        jsonapi_reply_library_backup },
 
     { HTTPD_METHOD_GET,    "^/api/search$",                                jsonapi_reply_search },
+
+    { HTTPD_METHOD_GET,    "^/api/listenbrainz$",                          jsonapi_reply_listenbrainz },
+    { HTTPD_METHOD_POST,   "^/api/listenbrainz/token$",                    jsonapi_reply_listenbrainz_token_add },
+    { HTTPD_METHOD_DELETE, "^/api/listenbrainz/token$",                    jsonapi_reply_listenbrainz_token_delete },
 
     { 0, NULL, NULL }
   };
