@@ -26,9 +26,9 @@ struct sp_credentials
   char username[64];
   char password[32];
 
-  uint8_t stored_cred[256]; // Actual size is 146, but leave room for some more
+  uint8_t stored_cred[512]; // Actual size is 146, but leave room for some more
   size_t stored_cred_len;
-  uint8_t token[256]; // Actual size is ?
+  uint8_t token[512]; // Actual size is 270 for family accounts
   size_t token_len;
 };
 
