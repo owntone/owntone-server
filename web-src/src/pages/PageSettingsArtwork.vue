@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
@@ -10,24 +10,24 @@
           class="content"
           v-text="$t('page.settings.artwork.explanation-1')"
         />
-        <settings-checkbox category="artwork" name="streamurl_ignore">
+        <control-setting-switch category="artwork" name="streamurl_ignore">
           <template #label>
             <span v-text="$t('page.settings.artwork.streaming')" />
           </template>
-        </settings-checkbox>
-        <settings-checkbox
+        </control-setting-switch>
+        <control-setting-switch
           category="artwork"
           name="show_cover_artwork_in_album_lists"
         >
           <template #label>
             <span v-text="$t('page.settings.artwork.show-coverart')" />
           </template>
-        </settings-checkbox>
+        </control-setting-switch>
         <div
           class="content"
           v-text="$t('page.settings.artwork.explanation-2')"
         />
-        <settings-checkbox
+        <control-setting-switch
           v-if="spotify.spotify_logged_in"
           category="artwork"
           name="use_artwork_source_spotify"
@@ -38,16 +38,19 @@
               <span class="icon"><mdicon name="open-in-new" size="16" /></span>
             </a>
           </template>
-        </settings-checkbox>
-        <settings-checkbox category="artwork" name="use_artwork_source_discogs">
+        </control-setting-switch>
+        <control-setting-switch
+          category="artwork"
+          name="use_artwork_source_discogs"
+        >
           <template #label>
             <span v-text="$t('page.settings.artwork.discogs')" />
             <a href="https://www.discogs.com/" target="_blank">
               <span class="icon"><mdicon name="open-in-new" size="16" /></span>
             </a>
           </template>
-        </settings-checkbox>
-        <settings-checkbox
+        </control-setting-switch>
+        <control-setting-switch
           category="artwork"
           name="use_artwork_source_coverartarchive"
         >
@@ -57,7 +60,7 @@
               <span class="icon"><mdicon name="open-in-new" size="16" /></span>
             </a>
           </template>
-        </settings-checkbox>
+        </control-setting-switch>
       </template>
     </content-with-heading>
   </div>
@@ -65,13 +68,13 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
+import ControlSettingSwitch from '@/components/ControlSettingSwitch.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useServicesStore } from '@/stores/services'
 
 export default {
   name: 'PageSettingsArtwork',
-  components: { ContentWithHeading, SettingsCheckbox, TabsSettings },
+  components: { ContentWithHeading, ControlSettingSwitch, TabsSettings },
 
   setup() {
     return { servicesStore: useServicesStore() }
@@ -84,5 +87,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

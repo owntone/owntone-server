@@ -3,6 +3,10 @@
     <content-with-heading>
       <template #heading-left>
         <div class="title is-4" v-text="playlist.name" />
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('page.playlist.track-count', { count: tracks.count })"
+        />
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -19,10 +23,6 @@
         </div>
       </template>
       <template #content>
-        <p
-          class="heading has-text-centered-mobile"
-          v-text="$t('page.playlist.track-count', { count: tracks.count })"
-        />
         <list-tracks :items="tracks" :uris="uris" />
         <modal-dialog-playlist
           :item="playlist"
@@ -90,5 +90,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

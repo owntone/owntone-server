@@ -241,6 +241,7 @@
       "compiled-with": "Compiliert mit Unterstützung von {options}.",
       "library": "Bibliothek",
       "more": "mehr",
+      "name": "Name",
       "total-playtime": "Gesamte Spielzeit",
       "tracks": "Tracks",
       "update": "Neu einlesen",
@@ -407,8 +408,8 @@
       "count": "{count} Track|{count} Track|{count} Tracks",
       "edit": "Bearbeiten",
       "hide-previous": "Vorherige verbergen",
-      "title": "Warteschlange",
-      "save": "Speichern"
+      "save": "Speichern",
+      "title": "Warteschlange"
     },
     "radio": {
       "count": "{count} Station|{count} Station|{count} Stationen",
@@ -445,6 +446,7 @@
         "discogs": "Discogs",
         "explanation-1": "OwnTone verarbeitet PNG- und JPEG-Artwork, welches in einer eigenen Datei in der Bibliothek, in die Dateien eingebettet oder online von Radiostationen bereitgestellt werden kann.",
         "explanation-2": "Zusätzlich kann auf folgende Artwork-Anbieter zugegriffen werden:",
+        "show-coverart": "Zeige Cover-Artwork in der Albumliste",
         "spotify": "Spotify",
         "streaming": "Bereitgestellte Artwork von Radiostationen ignorieren"
       },
@@ -460,7 +462,6 @@
         "verify": "Verifizieren"
       },
       "general": {
-        "album-lists": "Album-Listen",
         "audiobooks": "Hörbücher",
         "files": "Dateien",
         "genres": "Genres",
@@ -473,17 +474,16 @@
         "playlists": "Playlisten",
         "podcasts": "Podcasts",
         "radio": "Radio",
-        "recently-added-page-info": "Beschränkte die Zahl der Alben auf der \"kürzlich hinzugefügt\"-Seite",
+        "recently-added-page-info": "Beschränkte die Zahl der Alben",
         "recently-added-page": "Kürzlich hinzugefügt-Seite",
         "search": "Suche",
-        "show-composer-genres-info-1": "Komma-separierte Liste der Genres, wo der Komponist auf der \"Aktuell läuft\"-Seite angezeigt werden soll",
-        "show-composer-genres-info-2": "Leer lassen, um ihn immer anzuzeigen.",
+        "show-composer-genres-info-1": "Komma getrennte Liste der Genres, für die der Komponist angezeigt werden soll.",
+        "show-composer-genres-info-2": "Leer lassen, um den Komponisten immer anzuzeigen.",
         "show-composer-genres-info-3": "Der Genre-Tag des aktuellen Tracks wird abgeglichen als Teil-String des Genre-Tags. Z.B. \"classical, soundtrack\" wird den Komponisten beim Genre-Tag \"Contemporary Classical\" anzeigen",
         "show-composer-genres": "Zeige den Komponisten für die aufgelisteten Genres an",
-        "show-composer-info": "Wenn aktiviert, wird der Komponist auf der \"Aktuell läuft\"-Seite angezeigt.",
+        "show-composer-info": "Wenn aktiviert, wird der Komponist angezeigt.",
         "show-composer": "Komponisten anzeigen",
-        "show-coverart": "Zeige Cover-Artwork in der Albumliste",
-        "show-path": "Dateipfad auf der \"Aktuell läuft\"-Seite anzeigen"
+        "show-path": "Dateipfad anzeigen"
       },
       "services": {
         "lastfm": {
@@ -495,8 +495,7 @@
         "spotify": {
           "no-support": "OwnTone wurde entweder ohne Unterstützung für Spotify erstellt oder libspotify ist nicht installiert.",
           "logged-as": "Angemeldet als ",
-          "requirements": "Spotify Premium Abo erforderlich.",
-          "scopes": "Zugriff auf die Spotify Web-Api ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: ",
+          "requirements": "Spotify Premium Abo erforderlich. Zugriff auf die Spotify Web-Api ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: ",
           "user": "Zugriff gestattet für ",
           "authorize": "Authorisiere Web-API-Zugriff",
           "grant-access": "Zugriff auf die Spotify Web-API gestatten",
@@ -571,10 +570,6 @@
       "stop": "Wiedergabe stoppen",
       "toggle-lyrics": "Liedtexte anzeigen/verbergen"
     }
-  },
-  "setting": {
-    "not-saved": " (Fehler beim Speichern der Einstellungen)",
-    "saved": " (Einstellungen gesichert)"
   },
   "server": {
     "connection-failed": "Fehler bei Verbindung zum OwnTone-Server",

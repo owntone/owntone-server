@@ -3,18 +3,18 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <section v-if="$slots.options">
-            <div ref="options" style="height: 1px" />
-            <slot name="options" />
-            <nav class="buttons is-centered mt-4 mb-2">
-              <router-link class="button is-small is-white" :to="position">
-                <mdicon class="icon is-small" :name="icon_name" size="16" />
-              </router-link>
-            </nav>
+          <section v-if="$slots.options" ref="options">
+            <div :class="{ 'is-hidden': hidden }">
+              <slot name="options" />
+            </div>
+            <div class="buttons is-centered">
+              <button class="button is-small" @click="hidden = !hidden">
+                <mdicon class="icon" :name="icon" size="16" />
+              </button>
+            </div>
           </section>
-          <div :class="{ 'is-full-height': $slots.options }">
-            <nav id="top" class="level is-clipped">
-              <!-- Left side -->
+          <div>
+            <nav class="level is-clipped">
               <div class="level-left is-flex-shrink-1">
                 <div
                   class="level-item is-flex-shrink-1 has-text-centered-mobile"
@@ -24,7 +24,6 @@
                   </div>
                 </div>
               </div>
-              <!-- Right side -->
               <div class="level-right has-text-centered-mobile">
                 <slot name="heading-right" />
               </div>
@@ -45,40 +44,13 @@ export default {
   name: 'ContentWithHeading',
   data() {
     return {
-      options_visible: false
+      hidden: true
     }
   },
   computed: {
-    icon_name() {
-      return this.options_visible ? 'chevron-up' : 'chevron-down'
-    },
-    position() {
-      return {
-        hash: this.options_visible ? '#top' : '#app',
-        query: this.$route.query
-      }
-    }
-  },
-  mounted() {
-    if (this.$slots.options) {
-      this.observer = new IntersectionObserver(this.onElementObserved, {
-        rootMargin: '-82px 0px 0px 0px',
-        threshold: 1.0
-      })
-      this.observer.observe(this.$refs.options)
-    }
-  },
-  methods: {
-    onElementObserved(entries) {
-      entries.forEach(({ isIntersecting }) => {
-        this.options_visible = isIntersecting
-      })
-    },
-    visibilityChanged(isVisible) {
-      this.options_visible = isVisible
+    icon() {
+      return this.hidden ? 'chevron-down' : 'chevron-up'
     }
   }
 }
 </script>
-
-<style></style>

@@ -2,7 +2,21 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="composer.name" />
+        <div class="title is-4" v-text="composer.name" />
+        <div class="is-size-7 is-uppercase">
+          <span
+            v-text="
+              $t('page.composer.album-count', { count: composer.album_count })
+            "
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <a
+            @click="open_tracks"
+            v-text="
+              $t('page.composer.track-count', { count: composer.track_count })
+            "
+          />
+        </div>
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -19,21 +33,6 @@
         </div>
       </template>
       <template #content>
-        <p class="heading has-text-centered-mobile">
-          <span
-            v-text="
-              $t('page.composer.album-count', { count: composer.album_count })
-            "
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <a
-            class="has-text-link"
-            @click="open_tracks"
-            v-text="
-              $t('page.composer.track-count', { count: composer.track_count })
-            "
-          />
-        </p>
         <list-albums :items="albums" />
         <modal-dialog-composer
           :item="composer"
@@ -104,5 +103,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

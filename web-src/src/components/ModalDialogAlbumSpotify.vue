@@ -1,90 +1,66 @@
 <template>
-  <transition name="fade">
-    <div v-if="show" class="modal is-active">
-      <div class="modal-background" @click="$emit('close')" />
-      <div class="modal-content">
-        <div class="card">
-          <div class="card-content">
-            <cover-artwork
-              :url="artwork_url(item)"
-              :artist="item.artist"
-              :album="item.name"
-              class="fd-has-shadow fd-cover fd-cover-normal-image mb-5"
-              @load="artwork_loaded"
-              @error="artwork_error"
-            />
-            <p class="title is-4">
-              <a class="has-text-link" @click="open" v-text="item.name" />
-            </p>
-            <div class="content is-small">
-              <p>
-                <span
-                  class="heading"
-                  v-text="$t('dialog.spotify.album.album-artist')"
-                />
-                <a
-                  class="title is-6 has-text-link"
-                  @click="open_artist"
-                  v-text="item.artists[0].name"
-                />
-              </p>
-              <p>
-                <span
-                  class="heading"
-                  v-text="$t('dialog.spotify.album.release-date')"
-                />
-                <span
-                  class="title is-6"
-                  v-text="$filters.date(item.release_date)"
-                />
-              </p>
-              <p>
-                <span
-                  class="heading"
-                  v-text="$t('dialog.spotify.album.type')"
-                />
-                <span class="title is-6" v-text="item.album_type" />
-              </p>
-            </div>
-          </div>
-          <footer class="card-footer">
-            <a class="card-footer-item has-text-dark" @click="queue_add">
-              <mdicon class="icon" name="playlist-plus" size="16" />
-              <span class="is-size-7" v-text="$t('dialog.spotify.album.add')" />
-            </a>
-            <a class="card-footer-item has-text-dark" @click="queue_add_next">
-              <mdicon class="icon" name="playlist-play" size="16" />
-              <span
-                class="is-size-7"
-                v-text="$t('dialog.spotify.album.add-next')"
-              />
-            </a>
-            <a class="card-footer-item has-text-dark" @click="play">
-              <mdicon class="icon" name="play" size="16" />
-              <span
-                class="is-size-7"
-                v-text="$t('dialog.spotify.album.play')"
-              />
-            </a>
-          </footer>
+  <modal-dialog :show="show" @close="$emit('close')">
+    <template #content>
+      <div class="title is-4">
+        <a @click="open" v-text="item.name" />
+      </div>
+      <cover-artwork
+        :url="artwork_url(item)"
+        :artist="item.artist"
+        :album="item.name"
+        class="fd-has-shadow fd-cover fd-cover-normal-image mb-3"
+        @load="artwork_loaded"
+        @error="artwork_error"
+      />
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.album.album-artist')"
+        />
+        <div class="title is-6">
+          <a @click="open_artist" v-text="item.artists[0].name" />
         </div>
       </div>
-      <button
-        class="modal-close is-large"
-        aria-label="close"
-        @click="$emit('close')"
-      />
-    </div>
-  </transition>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.album.release-date')"
+        />
+        <div class="title is-6" v-text="$filters.date(item.release_date)" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.spotify.album.type')"
+        />
+        <div class="title is-6" v-text="item.album_type" />
+      </div>
+    </template>
+    <template #footer>
+      <a class="card-footer-item has-text-dark" @click="queue_add">
+        <mdicon class="icon" name="playlist-plus" size="16" />
+        <span class="is-size-7" v-text="$t('dialog.spotify.album.add')" />
+      </a>
+      <a class="card-footer-item has-text-dark" @click="queue_add_next">
+        <mdicon class="icon" name="playlist-play" size="16" />
+        <span class="is-size-7" v-text="$t('dialog.spotify.album.add-next')" />
+      </a>
+      <a class="card-footer-item has-text-dark" @click="play">
+        <mdicon class="icon" name="play" size="16" />
+        <span class="is-size-7" v-text="$t('dialog.spotify.album.play')" />
+      </a>
+    </template>
+  </modal-dialog>
 </template>
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAlbumSpotify',
-  components: { CoverArtwork },
+  components: { ModalDialog, CoverArtwork },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
@@ -133,5 +109,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

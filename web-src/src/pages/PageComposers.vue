@@ -1,14 +1,14 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-music />
     <content-with-heading>
       <template #options>
         <index-button-list :indices="composers.indices" />
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.composers.title')" />
-        <p
-          class="heading"
+        <div class="title is-4" v-text="$t('page.composers.title')" />
+        <div
+          class="is-size-7 is-uppercase"
           v-text="$t('page.composers.count', { count: composers.total })"
         />
       </template>
@@ -56,5 +56,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

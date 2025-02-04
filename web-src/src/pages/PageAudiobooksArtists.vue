@@ -1,18 +1,17 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-audiobooks />
     <content-with-heading>
       <template #options>
         <index-button-list :indices="artists.indices" />
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.audiobooks.artists.title')" />
-        <p
-          class="heading"
+        <div class="title is-4" v-text="$t('page.audiobooks.artists.title')" />
+        <div
+          class="is-size-7 is-uppercase"
           v-text="$t('page.audiobooks.artists.count', { count: artists.count })"
         />
       </template>
-      <template #heading-right />
       <template #content>
         <list-artists :items="artists" />
       </template>
@@ -62,5 +61,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

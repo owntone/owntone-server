@@ -2,15 +2,11 @@
   <div>
     <content-with-hero>
       <template #heading-left>
-        <h1 class="title is-5" v-text="album.name" />
-        <h2 class="subtitle is-6 has-text-link">
-          <a
-            class="has-text-link"
-            @click="open_artist"
-            v-text="album.artists[0].name"
-          />
-        </h2>
-        <div class="buttons fd-is-centered-mobile mt-5">
+        <div class="title is-5" v-text="album.name" />
+        <div class="subtitle is-6">
+          <a @click="open_artist" v-text="album.artists[0].name" />
+        </div>
+        <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.spotify.album.shuffle')" />
@@ -33,8 +29,8 @@
         />
       </template>
       <template #content>
-        <p
-          class="heading has-text-centered-mobile mt-5"
+        <div
+          class="is-size-7 is-uppercase has-text-centered-mobile mt-5"
           v-text="
             $t('page.spotify.album.track-count', { count: album.tracks.total })
           "
@@ -127,5 +123,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

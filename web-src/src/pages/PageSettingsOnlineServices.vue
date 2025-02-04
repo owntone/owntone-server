@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
@@ -9,18 +9,19 @@
         />
       </template>
       <template #content>
-        <div v-if="!spotify.spotify_installed" class="notification is-size-7">
+        <div v-if="!spotify.spotify_installed" class="notification help">
           <p v-text="$t('page.settings.services.spotify.no-support')" />
         </div>
         <div v-if="spotify.spotify_installed">
-          <div class="notification is-size-7">
-            <span v-text="$t('page.settings.services.spotify.requirements')" />
-          </div>
-          <div class="mt-5">
+          <div>
             <p
               class="content"
               v-text="$t('page.settings.services.spotify.grant-access')"
             />
+            <div class="notification help">
+              <p v-text="$t('page.settings.services.spotify.requirements')" />
+              <p v-text="spotify_required_scope.join(', ')" />
+            </div>
             <p v-if="spotify.webapi_token_valid">
               <span v-text="$t('page.settings.services.spotify.user')" />
               <code v-text="spotify.webapi_user" />
@@ -29,25 +30,21 @@
               <span v-text="$t('page.settings.services.spotify.reauthorize')" />
               <code v-text="spotify_missing_scope.join()" />
             </p>
-            <div class="field mt-5">
+            <div
+              v-if="
+                !spotify.webapi_token_valid || spotify_missing_scope.length > 0
+              "
+              class="field"
+            >
               <div class="control">
                 <a
                   class="button"
-                  :class="{
-                    'is-info':
-                      !spotify.webapi_token_valid ||
-                      spotify_missing_scope.length > 0
-                  }"
                   :href="spotify.oauth_uri"
                   v-text="$t('page.settings.services.spotify.authorize')"
                 />
               </div>
             </div>
-            <p class="help">
-              <span v-text="$t('page.settings.services.spotify.scopes')" />
-              <code v-text="spotify_required_scope.join(', ')" />
-            </p>
-            <div v-if="spotify.webapi_token_valid" class="field mt-5">
+            <div v-if="spotify.webapi_token_valid" class="field">
               <div class="control">
                 <a
                   class="button is-danger"
@@ -204,5 +201,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

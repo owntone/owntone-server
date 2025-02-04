@@ -5,16 +5,29 @@
         <index-button-list :indices="tracks.indices" />
         <div class="columns">
           <div class="column">
-            <p class="heading mb-5" v-text="$t('page.genre.sort.title')" />
+            <div
+              class="is-size-7 is-uppercase"
+              v-text="$t('page.genre.sort.title')"
+            />
             <control-dropdown
-              v-model:value="selected_grouping_id"
+              v-model:value="uiStore.genre_tracks_sort"
               :options="groupings"
             />
           </div>
         </div>
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="genre.name" />
+        <div class="title is-4" v-text="genre.name" />
+        <div class="is-size-7 is-uppercase">
+          <a
+            @click="open_genre"
+            v-text="$t('page.genre.album-count', { count: genre.album_count })"
+          />
+          <span>&nbsp;|&nbsp;</span>
+          <span
+            v-text="$t('page.genre.track-count', { count: genre.track_count })"
+          />
+        </div>
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
@@ -31,17 +44,6 @@
         </div>
       </template>
       <template #content>
-        <p class="heading has-text-centered-mobile">
-          <a
-            class="has-text-link"
-            @click="open_genre"
-            v-text="$t('page.genre.album-count', { count: genre.album_count })"
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <span
-            v-text="$t('page.genre.track-count', { count: genre.track_count })"
-          />
-        </p>
         <list-tracks :items="tracks" :expression="expression" />
         <modal-dialog-genre
           :item="genre"
@@ -126,17 +128,9 @@ export default {
     expression() {
       return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
     },
-    selected_grouping_id: {
-      get() {
-        return this.uiStore.genre_tracks_sort
-      },
-      set(value) {
-        this.uiStore.genre_tracks_sort = value
-      }
-    },
     tracks() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.selected_grouping_id
+        (grouping) => grouping.id === this.uiStore.genre_tracks_sort
       )
       return this.tracks_list.group(options)
     }
@@ -157,5 +151,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

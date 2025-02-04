@@ -241,6 +241,7 @@
       "compiled-with": "Compilé avec les options {options}.",
       "library": "Bibliothèque",
       "more": "plus",
+      "name": "Nom",
       "total-playtime": "Durée totale de lecture",
       "tracks": "Pistes",
       "update": "Actualiser",
@@ -407,8 +408,8 @@
       "count": "{count} piste|{count} piste|{count} pistes",
       "edit": "Éditer",
       "hide-previous": "Masquer l’historique",
-      "queue": "File d’attente",
-      "save": "Enregistrer"
+      "save": "Enregistrer",
+      "title": "File d’attente"
     },
     "radio": {
       "count": "{count} station|{count} station|{count} stations",
@@ -473,16 +474,16 @@
         "playlists": "Listes de lecture",
         "podcasts": "Podcasts",
         "radio": "Radio",
-        "recently-added-page-info": "Limiter le nombre d’albums affichés dans la section « Ajouts récents »",
+        "recently-added-page-info": "Limiter le nombre d’albums affichés",
         "recently-added-page": "Page « Ajouts récents »",
         "search": "Recherche",
-        "show-composer-genres-info-1": "Liste des genres, séparés par des virgules, que le compositeur doit afficher sur la page « En cours de lecture ».",
+        "show-composer-genres-info-1": "Liste de genres séparés par des virgules pour lesquels le compositeur doit être affiché.",
         "show-composer-genres-info-2": "Laissez vide pour toujours afficher le compositeur.",
         "show-composer-genres-info-3": "L’étiquette de genre de la piste actuelle est comparée en vérifiant si l’un des genres définis est inclus. Par exemple, en choisissant \"classique, bande sonore\", le compositeur pour les pistes dont l’étiquette de genre est \"classique contemporain\" sera affiché.",
         "show-composer-genres": "Afficher le compositeur uniquement pour les genres listés",
-        "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché sur la page « En cours de lecture »",
+        "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché",
         "show-composer": "Afficher le compositeur",
-        "show-path": "Afficher le chemin du fichier sur la page « En cours de lecture »"
+        "show-path": "Afficher le chemin du fichier"
       },
       "services": {
         "lastfm": {
@@ -494,8 +495,7 @@
         "spotify": {
           "no-support": "L’option Spotify n’est pas présente.",
           "logged-as": "Connecté en tant que ",
-          "requirements": "Vous devez posséder un compte Spotify Premium.",
-          "scopes": "L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
+          "requirements": "Vous devez posséder un compte Spotify Premium. L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
           "user": "Accès autorisé pour ",
           "authorize": "Autoriser l’accès à l’API",
           "grant-access": "Accordez l’accès à l’API de Spotify",
@@ -570,10 +570,6 @@
       "stop": "Arrêter la lecture",
       "toggle-lyrics": "Voir/Cacher les paroles"
     }
-  },
-  "setting": {
-    "not-saved": " (erreur à l’enregistrement du réglage)",
-    "saved": " (réglage enregistré)"
   },
   "server": {
     "connection-failed": "Échec de connexion au serveur",

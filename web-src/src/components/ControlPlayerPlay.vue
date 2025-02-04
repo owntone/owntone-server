@@ -1,10 +1,6 @@
 <template>
-  <a :disabled="disabled" @click="toggle_play_pause">
-    <mdicon
-      :name="icon_name"
-      :size="icon_size"
-      :title="$t(`player.button.${icon_name}`)"
-    />
+  <a :disabled="disabled" @click="toggle">
+    <mdicon class="icon" :name="icon" :title="$t(`player.button.${icon}`)" />
   </a>
 </template>
 
@@ -15,9 +11,8 @@ import { useQueueStore } from '@/stores/queue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'PlayerButtonPlayPause',
+  name: 'ControlPlayerPlay',
   props: {
-    icon_size: { default: 16, type: Number },
     show_disabled_message: Boolean
   },
 
@@ -33,7 +28,7 @@ export default {
     disabled() {
       return this.queueStore?.count <= 0
     },
-    icon_name() {
+    icon() {
       if (!this.is_playing) {
         return 'play'
       } else if (this.is_pause_allowed) {
@@ -51,7 +46,7 @@ export default {
   },
 
   methods: {
-    toggle_play_pause() {
+    toggle() {
       if (this.disabled) {
         if (this.show_disabled_message) {
           this.notificationsStore.add({
@@ -74,5 +69,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

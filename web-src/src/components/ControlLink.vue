@@ -1,5 +1,5 @@
 <template>
-  <a class="navbar-item" :href="href" @click.stop.prevent="open">
+  <a :href="href" @click.stop.prevent="open">
     <slot />
   </a>
 </template>
@@ -8,7 +8,7 @@
 import { useUIStore } from '@/stores/ui'
 
 export default {
-  name: 'NavbarItemLink',
+  name: 'ControlLink',
   props: {
     to: { required: true, type: Object }
   },

@@ -241,6 +241,7 @@
       "compiled-with": "编译支持来自于 {options}",
       "library": "资料库",
       "more": "更多",
+      "name": "名称",
       "total-playtime": "总播放时长",
       "tracks": "曲目总数",
       "update": "更新",
@@ -407,8 +408,8 @@
       "count": "{count} 只曲目|{count} 只曲目",
       "edit": "编辑",
       "hide-previous": "隐藏历史",
-      "title": "清单",
-      "save": "保存"
+      "save": "保存",
+      "title": "清单"
     },
     "radio": {
       "count": "{count} 个电台|{count} 个电台",
@@ -473,16 +474,16 @@
         "playlists": "播放列表",
         "podcasts": "播客",
         "radio": "广播电台",
-        "recently-added-page-info": "限制“最近添加”页面上显示的专辑数量",
+        "recently-added-page-info": "限制显示的相册数量",
         "recently-added-page": "“最近添加”页面",
         "search": "搜索",
-        "show-composer-genres-info-1": "以逗号分隔流派，作曲家会在“正在播放的页面”上显示",
+        "show-composer-genres-info-1": "以逗号分隔的流派列表，必须显示作曲家所属的流派",
         "show-composer-genres-info-2": "留空以始终显示作曲家",
         "show-composer-genres-info-3": "通过检查是否包含定义的流派之一来匹配当前曲目的流派标签。例如，设置为“古典、原声带”将显示流派标签为“当代古典”的曲目的作曲家",
         "show-composer-genres": "仅显示列出的流派的作曲家",
-        "show-composer-info": "如果启用，当前播放曲目的作曲家将显示在“正在播放页面”上",
+        "show-composer-info": "如果启用，则会显示当前播放曲目的作曲家",
         "show-composer": "显示作曲家",
-        "show-path": "在“正在播放”页面显示文件路径"
+        "show-path": "显示文件路径"
       },
       "services": {
         "lastfm": {
@@ -494,8 +495,7 @@
         "spotify": {
           "no-support": "OwnTone的构建没有来自 Spotify 官方的支持，也未安装 libspotify",
           "logged-as": "登录为 ",
-          "requirements": "您必须拥有 Spotify付费帐户",
-          "scopes": "访问 Spotify Web API 可以扫描您的 Spotify库。所需范围是：",
+          "requirements": "您必须拥有 Spotify付费帐户。访问 Spotify Web API 可以扫描您的 Spotify库。所需范围是：",
           "user": "授予访问权限",
           "authorize": "授权 Web API 访问",
           "grant-access": "授予对 Spotify Web API 的访问权限",
@@ -570,10 +570,6 @@
       "stop": "停止",
       "toggle-lyrics": "显示/隐藏歌词"
     }
-  },
-  "setting": {
-    "not-saved": " (设置保存错误)",
-    "saved": " (设置已保存)"
   },
   "server": {
     "connection-failed": "无法连接到 OwnTone 服务器",

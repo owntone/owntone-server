@@ -241,6 +241,7 @@
       "compiled-with": "Compiled with support for {options}.",
       "library": "Library",
       "more": "more",
+      "name": "Name",
       "total-playtime": "Total playtime",
       "tracks": "Tracks",
       "update": "Update",
@@ -407,8 +408,8 @@
       "count": "{count} track|{count} track|{count} tracks",
       "edit": "Edit",
       "hide-previous": "Hide previous",
-      "title": "Queue",
-      "save": "Save"
+      "save": "Save",
+      "title": "Queue"
     },
     "radio": {
       "count": "{count} station|{count} station|{count} stations",
@@ -473,16 +474,16 @@
         "playlists": "Playlists",
         "podcasts": "Podcasts",
         "radio": "Radio",
-        "recently-added-page-info": "Limit the number of albums shown on the \"Recently Added\" page",
+        "recently-added-page-info": "Limit the number of albums displayed",
         "recently-added-page": "Recently added page",
         "search": "Search",
-        "show-composer-genres-info-1": "Comma separated list of genres the composer should be displayed on the \"Now playing page\"",
-        "show-composer-genres-info-2": "Leave empty to always show the composer.",
+        "show-composer-genres-info-1": "Comma-separated list of genres, for which the composer must be displayed",
+        "show-composer-genres-info-2": "Leave empty to always show the composer",
         "show-composer-genres-info-3": "The genre tag of the current track is matched by checking, if one of the defined genres are included. For example setting to \"classical, soundtrack\" will show the composer for tracks with a genre tag of \"Contemporary Classical\"",
         "show-composer-genres": "Show composer only for listed genres",
-        "show-composer-info": "If enabled the composer of the current playing track is shown on the \"Now playing page\"",
+        "show-composer-info": "If enabled, the composer of the current playing track is displayed",
         "show-composer": "Show composer",
-        "show-path": "Show filepath on the \"Now playing\" page"
+        "show-path": "Show filepath"
       },
       "services": {
         "lastfm": {
@@ -494,8 +495,7 @@
         "spotify": {
           "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",
           "logged-as": "Logged in as ",
-          "requirements": "You must have a Spotify premium account.",
-          "scopes": "Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
+          "requirements": "You must have a Spotify premium account. Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
           "user": "Access granted for ",
           "authorize": "Authorize Web API access",
           "grant-access": "Grant access to the Spotify Web API",
@@ -570,10 +570,6 @@
       "stop": "Stop",
       "toggle-lyrics": "Toggle lyrics"
     }
-  },
-  "setting": {
-    "not-saved": " (error saving setting)",
-    "saved": " (setting saved)"
   },
   "server": {
     "connection-failed": "Failed to connect to OwnTone server",

@@ -1,37 +1,35 @@
 <template>
   <template v-for="item in items" :key="item.itemId">
-    <div v-if="!item.isItem" class="mt-6 mb-5 py-2">
+    <div v-if="!item.isItem" class="py-5">
       <span
         :id="`index_${item.index}`"
-        class="tag is-info is-light is-small has-text-weight-bold"
+        class="tag is-small has-text-weight-bold"
         v-text="item.index"
       />
     </div>
-    <div v-else class="media is-align-items-center" @click="open(item.item)">
-      <div
+    <div
+      v-else
+      class="media is-align-items-center is-clickable mb-0"
+      @click="open(item.item)"
+    >
+      <cover-artwork
         v-if="settingsStore.show_cover_artwork_in_album_lists"
-        class="media-left"
-      >
-        <cover-artwork
-          :url="item.item.artwork_url"
-          :artist="item.item.artist"
-          :album="item.item.name"
-          class="is-clickable fd-has-shadow fd-cover fd-cover-small-image"
+        :url="item.item.artwork_url"
+        :artist="item.item.artist"
+        :album="item.item.name"
+        class="media-left fd-has-shadow fd-cover fd-cover-small-image"
+      />
+      <div class="media-content">
+        <div class="is-size-6 has-text-weight-bold" v-text="item.item.name" />
+        <div
+          class="is-size-7 has-text-grey has-text-weight-bold"
+          v-text="item.item.artist"
         />
-      </div>
-      <div class="media-content is-clickable is-clipped">
-        <div>
-          <h1 class="title is-6" v-text="item.item.name" />
-          <h2
-            class="subtitle is-7 has-text-grey has-text-weight-bold"
-            v-text="item.item.artist"
-          />
-          <h2
-            v-if="item.item.date_released && item.item.media_kind === 'music'"
-            class="subtitle is-7 has-text-grey"
-            v-text="$filters.date(item.item.date_released)"
-          />
-        </div>
+        <div
+          v-if="item.item.date_released && item.item.media_kind === 'music'"
+          class="is-size-7 has-text-grey"
+          v-text="$filters.date(item.item.date_released)"
+        />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item.item)">
@@ -49,7 +47,7 @@
       @remove-podcast="open_remove_podcast_dialog()"
       @play-count-changed="play_count_changed()"
     />
-    <modal-dialog
+    <modal-dialog-action
       :close_action="$t('page.podcast.cancel')"
       :delete_action="$t('page.podcast.remove')"
       :show="show_remove_podcast_modal"
@@ -64,20 +62,20 @@
           <b v-text="rss_playlist_to_remove.name" />)
         </p>
       </template>
-    </modal-dialog>
+    </modal-dialog-action>
   </teleport>
 </template>
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 export default {
   name: 'ListAlbums',
-  components: { CoverArtwork, ModalDialog, ModalDialogAlbum },
+  components: { CoverArtwork, ModalDialogAction, ModalDialogAlbum },
   props: {
     items: { required: true, type: Object },
     media_kind: { default: '', type: String }
@@ -148,5 +146,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

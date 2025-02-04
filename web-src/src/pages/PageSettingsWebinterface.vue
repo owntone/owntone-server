@@ -1,5 +1,5 @@
 <template>
-  <div class="fd-page-with-tabs">
+  <div>
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
@@ -25,50 +25,62 @@
           class="notification is-size-7"
           v-text="$t('page.settings.general.navigation-item-selection-info')"
         />
-        <settings-checkbox
+        <control-setting-switch
           category="webinterface"
           name="show_menu_item_playlists"
         >
           <template #label>
             <span v-text="$t('page.settings.general.playlists')" />
           </template>
-        </settings-checkbox>
-        <settings-checkbox category="webinterface" name="show_menu_item_music">
+        </control-setting-switch>
+        <control-setting-switch
+          category="webinterface"
+          name="show_menu_item_music"
+        >
           <template #label>
             <span v-text="$t('page.settings.general.music')" />
           </template>
-        </settings-checkbox>
-        <settings-checkbox
+        </control-setting-switch>
+        <control-setting-switch
           category="webinterface"
           name="show_menu_item_podcasts"
         >
           <template #label>
             <span v-text="$t('page.settings.general.podcasts')" />
           </template>
-        </settings-checkbox>
-        <settings-checkbox
+        </control-setting-switch>
+        <control-setting-switch
           category="webinterface"
           name="show_menu_item_audiobooks"
         >
           <template #label>
             <span v-text="$t('page.settings.general.audiobooks')" />
           </template>
-        </settings-checkbox>
-        <settings-checkbox category="webinterface" name="show_menu_item_radio">
+        </control-setting-switch>
+        <control-setting-switch
+          category="webinterface"
+          name="show_menu_item_radio"
+        >
           <template #label>
             <span v-text="$t('page.settings.general.radio')" />
           </template>
-        </settings-checkbox>
-        <settings-checkbox category="webinterface" name="show_menu_item_files">
+        </control-setting-switch>
+        <control-setting-switch
+          category="webinterface"
+          name="show_menu_item_files"
+        >
           <template #label>
             <span v-text="$t('page.settings.general.files')" />
           </template>
-        </settings-checkbox>
-        <settings-checkbox category="webinterface" name="show_menu_item_search">
+        </control-setting-switch>
+        <control-setting-switch
+          category="webinterface"
+          name="show_menu_item_search"
+        >
           <template #label>
             <span v-text="$t('page.settings.general.search')" />
           </template>
-        </settings-checkbox>
+        </control-setting-switch>
       </template>
     </content-with-heading>
     <content-with-heading>
@@ -79,18 +91,26 @@
         />
       </template>
       <template #content>
-        <settings-checkbox
+        <control-setting-switch
+          category="webinterface"
+          name="show_filepath_now_playing"
+        >
+          <template #label>
+            <span v-text="$t('page.settings.general.show-path')" />
+          </template>
+        </control-setting-switch>
+        <control-setting-switch
           category="webinterface"
           name="show_composer_now_playing"
         >
           <template #label>
             <span v-text="$t('page.settings.general.show-composer')" />
           </template>
-          <template #info>
+          <template #help>
             <span v-text="$t('page.settings.general.show-composer-info')" />
           </template>
-        </settings-checkbox>
-        <settings-textfield
+        </control-setting-switch>
+        <control-setting-text-field
           category="webinterface"
           name="show_composer_for_genre"
           :disabled="!settingsStore.show_composer_now_playing"
@@ -99,7 +119,7 @@
           <template #label>
             <span v-text="$t('page.settings.general.show-composer-genres')" />
           </template>
-          <template #info>
+          <template #help>
             <p
               class="help"
               v-text="$t('page.settings.general.show-composer-genres-info-1')"
@@ -113,15 +133,7 @@
               v-text="$t('page.settings.general.show-composer-genres-info-3')"
             />
           </template>
-        </settings-textfield>
-        <settings-checkbox
-          category="webinterface"
-          name="show_filepath_now_playing"
-        >
-          <template #label>
-            <span v-text="$t('page.settings.general.show-path')" />
-          </template>
-        </settings-checkbox>
+        </control-setting-text-field>
       </template>
     </content-with-heading>
     <content-with-heading>
@@ -132,13 +144,16 @@
         />
       </template>
       <template #content>
-        <settings-intfield category="webinterface" name="recently_added_limit">
+        <control-setting-integer-field
+          category="webinterface"
+          name="recently_added_limit"
+        >
           <template #label>
             <span
               v-text="$t('page.settings.general.recently-added-page-info')"
             />
           </template>
-        </settings-intfield>
+        </control-setting-integer-field>
       </template>
     </content-with-heading>
   </div>
@@ -147,9 +162,9 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
-import SettingsCheckbox from '@/components/SettingsCheckbox.vue'
-import SettingsIntfield from '@/components/SettingsIntfield.vue'
-import SettingsTextfield from '@/components/SettingsTextfield.vue'
+import ControlSettingIntegerField from '@/components/ControlSettingIntegerField.vue'
+import ControlSettingSwitch from '@/components/ControlSettingSwitch.vue'
+import ControlSettingTextField from '@/components/ControlSettingTextField.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -158,9 +173,9 @@ export default {
   components: {
     ContentWithHeading,
     ControlDropdown,
-    SettingsCheckbox,
-    SettingsIntfield,
-    SettingsTextfield,
+    ControlSettingIntegerField,
+    ControlSettingSwitch,
+    ControlSettingTextField,
     TabsSettings
   },
 
@@ -200,5 +215,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

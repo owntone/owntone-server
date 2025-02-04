@@ -2,11 +2,11 @@
   <div>
     <content-with-hero>
       <template #heading-left>
-        <h1 class="title is-5" v-text="album.name" />
-        <h2 class="subtitle is-6">
+        <div class="title is-5" v-text="album.name" />
+        <div class="subtitle is-6">
           <br />
-        </h2>
-        <div class="buttons fd-is-centered-mobile mt-5">
+        </div>
+        <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-dark is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.podcast.play')" />
@@ -29,8 +29,8 @@
         />
       </template>
       <template #content>
-        <p
-          class="heading has-text-centered-mobile mt-5"
+        <div
+          class="is-size-7 is-uppercase has-text-centered-mobile my-5"
           v-text="$t('page.podcast.track-count', { count: album.track_count })"
         />
         <list-tracks
@@ -46,7 +46,7 @@
           @play-count-changed="reload_tracks"
           @remove-podcast="open_remove_podcast_dialog"
         />
-        <modal-dialog
+        <modal-dialog-action
           :show="show_remove_podcast_modal"
           :title="$t('page.podcast.remove-podcast')"
           :close_action="$t('page.podcast.cancel')"
@@ -61,7 +61,7 @@
               <b v-text="rss_playlist_to_remove.name" />)
             </p>
           </template>
-        </modal-dialog>
+        </modal-dialog-action>
       </template>
     </content-with-hero>
   </div>
@@ -72,7 +72,7 @@ import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'
 
@@ -96,7 +96,7 @@ export default {
     ContentWithHero,
     CoverArtwork,
     ListTracks,
-    ModalDialog,
+    ModalDialogAction,
     ModalDialogAlbum
   },
 
@@ -147,5 +147,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

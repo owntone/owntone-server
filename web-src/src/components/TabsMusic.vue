@@ -1,5 +1,5 @@
 <template>
-  <section class="section fd-tabs-section">
+  <section class="section tabs-section">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
@@ -129,5 +129,3 @@ export default {
   }
 }
 </script>
-
-<style></style>

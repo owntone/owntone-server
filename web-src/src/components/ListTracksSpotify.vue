@@ -1,29 +1,29 @@
 <template>
   <template v-for="item in items" :key="item.id">
-    <div class="media is-align-items-center">
+    <div class="media is-align-items-center mb-0">
       <div
-        class="media-content is-clipped"
+        class="media-content"
         :class="{
           'is-clickable': item.is_playable,
-          'fd-is-not-allowed': !item.is_playable
+          'is-not-allowed': !item.is_playable
         }"
         @click="play(item)"
       >
-        <h1
-          class="title is-6"
+        <div
+          class="is-size-6 has-text-weight-bold"
           :class="{ 'has-text-grey-light': !item.is_playable }"
           v-text="item.name"
         />
-        <h2
-          class="subtitle is-7 has-text-weight-bold"
+        <div
+          class="is-size-7 has-text-weight-bold"
           :class="{
             'has-text-grey': item.is_playable,
             'has-text-grey-light': !item.is_playable
           }"
           v-text="item.artists[0].name"
         />
-        <h2 class="subtitle is-7 has-text-grey" v-text="item.album.name" />
-        <h2 v-if="!item.is_playable" class="subtitle is-7">
+        <div class="is-size-7 has-text-grey" v-text="item.album.name" />
+        <div v-if="!item.is_playable" class="is-size-7 has-text-grey">
           (<span v-text="$t('list.spotify.not-playable-track')" />
           <span
             v-if="item.restrictions?.reason"
@@ -33,7 +33,7 @@
               })
             "
           />)
-        </h2>
+        </div>
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">
@@ -83,4 +83,8 @@ export default {
 }
 </script>
 
-<style></style>
+<style scoped>
+.is-not-allowed {
+  cursor: not-allowed;
+}
+</style>

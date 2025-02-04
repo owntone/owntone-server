@@ -41,8 +41,7 @@ import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
 import { useUIStore } from '@/stores/ui'
 
-const TOP_WITH_TABS = 140
-const TOP_WITHOUT_TABS = 110
+const TOP_WITH_TABS = 100
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -70,7 +69,7 @@ export const router = createRouter({
     },
     {
       component: PageAlbums,
-      meta: { has_index: true, has_tabs: true, show_progress: true },
+      meta: { has_index: true, show_progress: true },
       name: 'music-albums',
       path: '/music/albums'
     },
@@ -88,7 +87,7 @@ export const router = createRouter({
     },
     {
       component: PageArtists,
-      meta: { has_index: true, has_tabs: true, show_progress: true },
+      meta: { has_index: true, show_progress: true },
       name: 'music-artists',
       path: '/music/artists'
     },
@@ -106,7 +105,7 @@ export const router = createRouter({
     },
     {
       component: PageAudiobooksAlbums,
-      meta: { has_index: true, has_tabs: true, show_progress: true },
+      meta: { has_index: true, show_progress: true },
       name: 'audiobooks-albums',
       path: '/audiobooks/albums'
     },
@@ -118,13 +117,13 @@ export const router = createRouter({
     },
     {
       component: PageAudiobooksArtists,
-      meta: { has_index: true, has_tabs: true, show_progress: true },
+      meta: { has_index: true, show_progress: true },
       name: 'audiobooks-artists',
       path: '/audiobooks/artists'
     },
     {
       component: PageAudiobooksGenres,
-      meta: { has_index: true, has_tabs: true, show_progress: true },
+      meta: { has_index: true, show_progress: true },
       name: 'audiobooks-genres',
       path: '/audiobooks/genres'
     },
@@ -140,55 +139,55 @@ export const router = createRouter({
     },
     {
       component: PageMusic,
-      meta: { has_tabs: true, show_progress: true },
+      meta: { show_progress: true },
       name: 'music-history',
       path: '/music/history'
     },
     {
       component: PageMusicRecentlyAdded,
-      meta: { has_tabs: true, show_progress: true },
+      meta: { show_progress: true },
       name: 'music-recently-added',
       path: '/music/recently-added'
     },
     {
       component: PageMusicRecentlyPlayed,
-      meta: { has_tabs: true, show_progress: true },
+      meta: { show_progress: true },
       name: 'music-recently-played',
       path: '/music/recently-played'
     },
     {
       component: PageMusicSpotify,
-      meta: { has_tabs: true, show_progress: true },
+      meta: { show_progress: true },
       name: 'music-spotify',
       path: '/music/spotify'
     },
     {
       component: PageMusicSpotifyFeaturedPlaylists,
-      meta: { has_tabs: true, show_progress: true },
+      meta: { show_progress: true },
       name: 'music-spotify-featured-playlists',
       path: '/music/spotify/featured-playlists'
     },
     {
       component: PageMusicSpotifyNewReleases,
-      meta: { has_tabs: true, show_progress: true },
+      meta: { show_progress: true },
       name: 'music-spotify-new-releases',
       path: '/music/spotify/new-releases'
     },
     {
       component: PageComposerAlbums,
-      meta: { has_index: true, show_progress: true },
+      meta: { show_progress: true },
       name: 'music-composer-albums',
       path: '/music/composers/:name/albums'
     },
     {
       component: PageComposerTracks,
-      meta: { has_index: true, show_progress: true },
+      meta: { show_progress: true },
       name: 'music-composer-tracks',
       path: '/music/composers/:name/tracks'
     },
     {
       component: PageComposers,
-      meta: { has_index: true, has_tabs: true, show_progress: true },
+      meta: { has_index: true, show_progress: true },
       name: 'music-composers',
       path: '/music/composers'
     },
@@ -212,7 +211,7 @@ export const router = createRouter({
     },
     {
       component: PageGenres,
-      meta: { has_index: true, has_tabs: true, show_progress: true },
+      meta: { has_index: true, show_progress: true },
       name: 'music-genres',
       path: '/music/genres'
     },
@@ -313,30 +312,16 @@ export const router = createRouter({
        * Staying on the same page and jumping to an anchor (e. g. index nav)
        * As there is no transition, there is no timeout added
        */
-      const top = to.meta.has_tabs ? TOP_WITH_TABS : TOP_WITHOUT_TABS
-      return { behavior: 'smooth', el: to.hash, top }
+      return { behavior: 'smooth', el: to.hash, top: TOP_WITH_TABS }
     }
     if (to.hash) {
       // We are navigating to an anchor of a new page, add a timeout to let the transition effect finish before scrolling
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          resolve({ el: to.hash, top: 120 })
+          resolve({ el: to.hash, top: TOP_WITH_TABS })
         }, delay)
       })
     }
-    if (to.meta.has_index) {
-      /*
-       * Navigate to a page with index nav that should be hidden automatically
-       * If a tab navigation exists, an offset to the "top" anchor is added
-       */
-      return new Promise((resolve, reject) => {
-        const top = to.meta.has_tabs ? TOP_WITH_TABS : TOP_WITHOUT_TABS
-        setTimeout(() => {
-          resolve({ el: '#top', top })
-        }, delay)
-      })
-    }
-
     return { left: 0, top: 0 }
   }
 })

@@ -1,146 +1,141 @@
 <template>
-  <transition name="fade">
-    <div v-if="show" class="modal is-active">
-      <div class="modal-background" @click="$emit('close')" />
-      <div class="modal-content">
-        <div class="card">
-          <div class="card-content">
-            <p class="title is-4" v-text="item.title" />
-            <p class="subtitle" v-text="item.artist" />
-            <div class="content is-small">
-              <p v-if="item.album">
-                <span class="heading" v-text="$t('dialog.queue-item.album')" />
-                <a
-                  class="title is-6 has-text-link"
-                  @click="open_album"
-                  v-text="item.album"
-                />
-              </p>
-              <p v-if="item.album_artist">
-                <span
-                  class="heading"
-                  v-text="$t('dialog.queue-item.album-artist')"
-                />
-                <a
-                  class="title is-6 has-text-link"
-                  @click="open_album_artist"
-                  v-text="item.album_artist"
-                />
-              </p>
-              <p v-if="item.composer">
-                <span
-                  class="heading"
-                  v-text="$t('dialog.queue-item.composer')"
-                />
-                <span class="title is-6" v-text="item.composer" />
-              </p>
-              <p v-if="item.year">
-                <span class="heading" v-text="$t('dialog.queue-item.year')" />
-                <span class="title is-6" v-text="item.year" />
-              </p>
-              <p v-if="item.genre">
-                <span class="heading" v-text="$t('dialog.queue-item.genre')" />
-                <a
-                  class="title is-6 has-text-link"
-                  @click="open_genre"
-                  v-text="item.genre"
-                />
-              </p>
-              <p v-if="item.disc_number">
-                <span
-                  class="heading"
-                  v-text="$t('dialog.queue-item.position')"
-                />
-                <span
-                  class="title is-6"
-                  v-text="[item.disc_number, item.track_number].join(' / ')"
-                />
-              </p>
-              <p v-if="item.length_ms">
-                <span
-                  class="heading"
-                  v-text="$t('dialog.queue-item.duration')"
-                />
-                <span
-                  class="title is-6"
-                  v-text="$filters.durationInHours(item.length_ms)"
-                />
-              </p>
-              <p>
-                <span class="heading" v-text="$t('dialog.queue-item.path')" />
-                <span class="title is-6" v-text="item.path" />
-              </p>
-              <p>
-                <span class="heading" v-text="$t('dialog.queue-item.type')" />
-                <span class="title is-6">
-                  <span
-                    v-text="
-                      `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
-                    "
-                  />
-                </span>
-              </p>
-              <p v-if="item.samplerate">
-                <span
-                  class="heading"
-                  v-text="$t('dialog.queue-item.quality')"
-                />
-                <span class="title is-6">
-                  <span v-text="item.type" />
-                  <span
-                    v-if="item.samplerate"
-                    v-text="
-                      $t('dialog.queue-item.samplerate', {
-                        rate: item.samplerate
-                      })
-                    "
-                  />
-                  <span
-                    v-if="item.channels"
-                    v-text="
-                      $t('dialog.queue-item.channels', {
-                        channels: $filters.channels(item.channels)
-                      })
-                    "
-                  />
-                  <span
-                    v-if="item.bitrate"
-                    v-text="
-                      $t('dialog.queue-item.bitrate', { rate: item.bitrate })
-                    "
-                  />
-                </span>
-              </p>
-            </div>
-          </div>
-          <footer class="card-footer">
-            <a class="card-footer-item has-text-dark" @click="remove">
-              <mdicon class="icon" name="delete" size="16" />
-              <span class="is-size-7" v-text="$t('dialog.queue-item.remove')" />
-            </a>
-            <a class="card-footer-item has-text-dark" @click="play">
-              <mdicon class="icon" name="play" size="16" />
-              <span class="is-size-7" v-text="$t('dialog.queue-item.play')" />
-            </a>
-          </footer>
+  <modal-dialog :show="show" @close="$emit('close')">
+    <template #content>
+      <div class="title is-4" v-text="item.title" />
+      <div class="subtitle" v-text="item.artist" />
+      <div v-if="item.album" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.album')"
+        />
+        <div class="title is-6">
+          <a @click="open_album" v-text="item.album" />
         </div>
       </div>
-      <button
-        class="modal-close is-large"
-        aria-label="close"
-        @click="$emit('close')"
-      />
-    </div>
-  </transition>
+      <div v-if="item.album_artist" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.album-artist')"
+        />
+        <div class="title is-6">
+          <a @click="open_album_artist" v-text="item.album_artist" />
+        </div>
+      </div>
+      <div v-if="item.composer" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.composer')"
+        />
+        <div class="title is-6" v-text="item.composer" />
+      </div>
+      <div v-if="item.year" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.year')"
+        />
+        <div class="title is-6" v-text="item.year" />
+      </div>
+      <div v-if="item.genre" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.genre')"
+        />
+        <div class="title is-6">
+          <a @click="open_genre" v-text="item.genre" />
+        </div>
+      </div>
+      <div v-if="item.disc_number" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.position')"
+        />
+        <div
+          class="title is-6"
+          v-text="[item.disc_number, item.track_number].join(' / ')"
+        />
+      </div>
+      <div v-if="item.length_ms" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.duration')"
+        />
+        <div
+          class="title is-6"
+          v-text="$filters.durationInHours(item.length_ms)"
+        />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.path')"
+        />
+        <div class="title is-6" v-text="item.path" />
+      </div>
+      <div class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.type')"
+        />
+        <div class="title is-6">
+          <span
+            v-text="
+              `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
+            "
+          />
+        </div>
+      </div>
+      <div v-if="item.samplerate" class="mb-3">
+        <div
+          class="is-size-7 is-uppercase"
+          v-text="$t('dialog.queue-item.quality')"
+        />
+        <div class="title is-6">
+          <span v-text="item.type" />
+          <span
+            v-if="item.samplerate"
+            v-text="
+              $t('dialog.queue-item.samplerate', {
+                rate: item.samplerate
+              })
+            "
+          />
+          <span
+            v-if="item.channels"
+            v-text="
+              $t('dialog.queue-item.channels', {
+                channels: $filters.channels(item.channels)
+              })
+            "
+          />
+          <span
+            v-if="item.bitrate"
+            v-text="$t('dialog.queue-item.bitrate', { rate: item.bitrate })"
+          />
+        </div>
+      </div>
+    </template>
+    <template #footer>
+      <a class="card-footer-item has-text-dark" @click="remove">
+        <mdicon class="icon" name="delete" size="16" />
+        <span class="is-size-7" v-text="$t('dialog.queue-item.remove')" />
+      </a>
+      <a class="card-footer-item has-text-dark" @click="play">
+        <mdicon class="icon" name="play" size="16" />
+        <span class="is-size-7" v-text="$t('dialog.queue-item.play')" />
+      </a>
+    </template>
+  </modal-dialog>
 </template>
 
 <script>
+import ModalDialog from '@/components/ModalDialog.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogQueueItem',
+  components: { ModalDialog },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
 
@@ -233,5 +228,3 @@ export default {
   }
 }
 </script>
-
-<style></style>
