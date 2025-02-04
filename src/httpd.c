@@ -54,6 +54,7 @@
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
+#include "listenbrainz.h"
 #ifdef HAVE_LIBWEBSOCKETS
 # include "websocket.h"
 #endif
@@ -162,16 +163,17 @@ playcount_inc_cb(void *arg)
   db_file_inc_playcount(*id);
 }
 
-#ifdef LASTFM
 /* Callback from the worker thread (async operation as it may block) */
 static void
 scrobble_cb(void *arg)
 {
   int *id = arg;
 
+#ifdef LASTFM
   lastfm_scrobble(*id);
-}
 #endif
+  listenbrainz_scrobble(*id);
+}
 
 static const char *
 content_type_from_ext(const char *ext)
@@ -672,9 +674,7 @@ stream_end_register(struct stream_ctx *st)
     {
       st->no_register_playback = true;
       worker_execute(playcount_inc_cb, &st->id, sizeof(int), 0);
-#ifdef LASTFM
       worker_execute(scrobble_cb, &st->id, sizeof(int), 1);
-#endif
     }
 }
 

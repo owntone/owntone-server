@@ -28,7 +28,7 @@
 #define L_DMAP        19
 #define L_DBPERF      20
 #define L_SPOTIFY     21
-#define L_LASTFM      22
+#define L_SCROBBLE    22
 #define L_CACHE       23
 #define L_MPD         24
 #define L_STREAMING   25

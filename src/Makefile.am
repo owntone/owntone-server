@@ -126,6 +126,7 @@ owntone_SOURCES = main.c \
 	evthr.c evthr.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \
+	listenbrainz.c listenbrainz.h \
 	$(MPD_SRC) \
 	listener.c listener.h \
 	commands.c commands.h \
