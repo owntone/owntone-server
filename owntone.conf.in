@@ -124,9 +124,10 @@ library {
 #	hide_singles = false
 
 	# Internet streams in your playlists will by default be shown in the
-	# "Radio" library, like iTunes does. However, some clients (like
+	# "Radio" library, like iTunes does. However, some DAAP clients (like
 	# TunesRemote+) won't show the "Radio" library. If you would also like
 	# to have them shown like normal playlists, you can enable this option.
+	# Note this option is only for DAAP clients (so not the web interface).
 #	radio_playlists = false
 
 	# These are the default playlists. If you want them to have other names,
