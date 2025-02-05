@@ -3172,7 +3172,7 @@ mpd_command_xoutput(struct mpd_command_output *out, struct mpd_command_input *in
   if (ret < 0)
     RETURN_ERROR(ACK_ERROR_ARG, "Unknown output");
 
-  if ((spk.selected && strcasecmp(action, "enable") == 0) || (!spk.selected && strcasecmp(action, "disable") == 0))
+  if ((spk.selected && strcasecmp(action, "enableoutput") == 0) || (!spk.selected && strcasecmp(action, "disableoutput") == 0))
     return 0; // Nothing to do
 
   ret = spk.selected ? player_speaker_disable(spk.id) : player_speaker_enable(spk.id);
