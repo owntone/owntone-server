@@ -8,7 +8,7 @@
         :url="artwork_url(item)"
         :artist="item.artist"
         :album="item.name"
-        class="fd-has-shadow fd-cover fd-cover-normal-image mb-3"
+        class="is-normal mb-3"
         @load="artwork_loaded"
         @error="artwork_error"
       />

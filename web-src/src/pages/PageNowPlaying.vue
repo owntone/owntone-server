@@ -7,7 +7,7 @@
             :url="track.artwork_url"
             :artist="track.artist"
             :album="track.album"
-            class="is-clickable fd-has-shadow fd-cover-big-image"
+            class="is-clickable is-big"
             :class="{ 'is-masked': lyricsStore.pane }"
             @click="open_dialog(track)"
           />

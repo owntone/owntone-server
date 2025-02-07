@@ -5,7 +5,7 @@
         <div class="columns is-centered">
           <div class="column is-four-fifths">
             <div class="columns is-flex-direction-row-reverse">
-              <div class="column fd-has-cover">
+              <div class="column has-cover">
                 <slot name="heading-right" />
               </div>
               <div
@@ -23,14 +23,10 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <!-- Slot content -->
           <slot name="content" />
-          <!-- Slot footer -->
           <slot name="footer" />
         </div>
       </div>
     </div>
   </section>
 </template>
-
-<script></script>

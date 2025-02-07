@@ -17,7 +17,7 @@
         :url="item.item.artwork_url"
         :artist="item.item.artist"
         :album="item.item.name"
-        class="media-left fd-has-shadow fd-cover fd-cover-small-image"
+        class="media-left is-small"
       />
       <div class="media-content">
         <div class="is-size-6 has-text-weight-bold" v-text="item.item.name" />

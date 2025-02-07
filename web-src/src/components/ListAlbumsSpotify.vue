@@ -12,7 +12,7 @@
           :url="artwork_url(item)"
           :artist="item.artist"
           :album="item.name"
-          class="fd-has-shadow fd-cover fd-cover-small-image"
+          class="is-small"
         />
       </div>
       <div class="media-content">

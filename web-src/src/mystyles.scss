@@ -12,12 +12,6 @@
   width: 100%;
 }
 
-.fd-has-shadow img {
-  box-shadow:
-    0 0.25rem 0.5rem 0 var(--bulma-background-active),
-    0 0.375rem 1.25rem 0 var(--bulma-background-active);
-}
-
 .is-full-height {
   min-height: calc(100vh - calc(2 * var(--bulma-navbar-height)));
 }
@@ -33,52 +27,6 @@
 .navbar-item {
   width: var(--bulma-navbar-height);
   justify-content: center;
-}
-
-.fd-cover {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  &-small-image {
-    width: 4rem;
-    height: 4rem;
-    img {
-      border-radius: var(--bulma-radius-small);
-      max-width: 4rem;
-      max-height: 4rem;
-    }
-  }
-  &-medium-image {
-    @include mixins.tablet {
-      justify-content: right;
-    }
-    img {
-      border-radius: var(--bulma-radius);
-      max-height: calc(150px - 1.5rem);
-    }
-  }
-  &-normal-image {
-    img {
-      border-radius: var(--bulma-radius-large);
-      width: 100%;
-    }
-  }
-  &-big-image {
-    @include mixins.mobile {
-      @media screen and (orientation: landscape) {
-        img {
-          display: none;
-        }
-      }
-    }
-    img {
-      border-radius: var(--bulma-radius-large);
-      max-height: calc(100vh - 26rem);
-    }
-    &.is-masked {
-      filter: blur(0.5rem) opacity(0.2);
-    }
-  }
 }
 
 .media:first-of-type {
@@ -106,7 +54,7 @@
 }
 
 .column {
-  &.fd-has-cover {
+  &.has-cover {
     @include mixins.mobile {
       margin: auto;
     }

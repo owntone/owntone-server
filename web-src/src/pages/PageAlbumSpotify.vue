@@ -24,7 +24,7 @@
           :url="artwork_url(album)"
           :artist="album.artists[0].name"
           :album="album.name"
-          class="is-clickable fd-has-shadow fd-cover fd-cover-medium-image"
+          class="is-clickable is-medium"
           @click="show_details_modal = true"
         />
       </template>

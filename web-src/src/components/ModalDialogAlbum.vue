@@ -8,7 +8,7 @@
         :url="item.artwork_url"
         :artist="item.artist"
         :album="item.name"
-        class="fd-has-shadow fd-cover fd-cover-normal-image mb-3"
+        class="is-normal mb-3"
       />
       <div v-if="media_kind_resolved === 'podcast'" class="buttons">
         <a
