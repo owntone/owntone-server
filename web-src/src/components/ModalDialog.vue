@@ -7,7 +7,7 @@
           <div class="card-content">
             <slot name="content" />
           </div>
-          <footer class="card-footer is-clipped">
+          <footer class="card-footer">
             <slot name="footer" />
           </footer>
         </div>
