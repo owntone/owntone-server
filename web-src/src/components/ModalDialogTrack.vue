@@ -1,6 +1,13 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    @add="queue_add"
+    @add-next="queue_add_next"
+    @close="$emit('close')"
+    @play="play"
+  >
+    <template #modal-content>
       <p class="title is-4" v-text="item.title" />
       <p class="subtitle" v-text="item.artist" />
       <div v-if="item.media_kind === 'podcast'" class="buttons">
@@ -150,45 +157,49 @@
         <div class="title is-6" v-text="item.comment" />
       </div>
     </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="queue_add">
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.track.add')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="queue_add_next">
-        <mdicon class="icon" name="playlist-play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.track.add-next')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.track.play')" />
-      </a>
-    </template>
-  </modal-dialog>
+  </modal-dialog-action>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrack',
-  components: { ModalDialog },
+  components: { ModalDialogAction },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close', 'play-count-changed'],
-
   setup() {
     return { servicesStore: useServicesStore() }
   },
-
   data() {
     return {
       spotify_track: {}
     }
   },
-
+  computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('dialog.track.add'),
+          event: 'add',
+          icon: 'playlist-plus'
+        },
+        {
+          label: this.$t('dialog.track.add-next'),
+          event: 'add-next',
+          icon: 'playlist-play'
+        },
+        {
+          label: this.$t('dialog.track.play'),
+          event: 'play',
+          icon: 'play'
+        }
+      ]
+    }
+  },
   watch: {
     item() {
       if (
@@ -208,7 +219,6 @@ export default {
       }
     }
   },
-
   methods: {
     mark_new() {
       webapi

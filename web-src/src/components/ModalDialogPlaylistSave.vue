@@ -1,6 +1,12 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    @cancel="$emit('close')"
+    @close="$emit('close')"
+    @save="save"
+  >
+    <template #modal-content>
       <form @submit.prevent="save">
         <p class="title is-4" v-text="$t('dialog.playlist.save.title')" />
         <div class="field">
@@ -21,39 +27,18 @@
         </div>
       </form>
     </template>
-    <template v-if="loading" #footer>
-      <a class="card-footer-item has-text-dark">
-        <mdicon class="icon" name="web" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.playlist.save.saving')" />
-      </a>
-    </template>
-    <template v-else #footer>
-      <a class="card-footer-item has-text-danger" @click="$emit('close')">
-        <mdicon class="icon" name="cancel" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.playlist.save.cancel')" />
-      </a>
-      <a
-        :class="{ 'is-disabled': disabled }"
-        class="card-footer-item has-text-weight-bold"
-        @click="save"
-      >
-        <mdicon class="icon" name="content-save" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.playlist.save.save')" />
-      </a>
-    </template>
-  </modal-dialog>
+  </modal-dialog-action>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogPlaylistSave',
-  components: { ModalDialog },
+  components: { ModalDialogAction },
   props: { show: Boolean },
   emits: ['close'],
-
   data() {
     return {
       disabled: true,
@@ -61,7 +46,23 @@ export default {
       playlist_name: ''
     }
   },
-
+  actions() {
+    if (loading) {
+      return [{ label: this.$t('dialog.playlist.save.saving'), icon: 'web' }]
+    }
+    return [
+      {
+        label: this.$t('dialog.playlist.save.cancel'),
+        event: 'cancel',
+        icon: 'cancel'
+      },
+      {
+        label: this.$t('dialog.playlist.save.save'),
+        event: 'content-save',
+        icon: 'save'
+      }
+    ]
+  },
   watch: {
     show() {
       if (this.show) {
@@ -73,7 +74,6 @@ export default {
       }
     }
   },
-
   methods: {
     check_name(event) {
       const { validity } = event.target

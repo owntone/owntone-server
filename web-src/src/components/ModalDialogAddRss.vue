@@ -1,6 +1,12 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    @cancel="$emit('close')"
+    @close="$emit('close')"
+    @add="add"
+  >
+    <template #modal-content>
       <p class="title is-4" v-text="$t('dialog.add.rss.title')" />
       <div class="field">
         <p class="control has-icons-left">
@@ -20,39 +26,18 @@
         <p class="help" v-text="$t('dialog.add.rss.help')" />
       </div>
     </template>
-    <template v-if="loading" #footer>
-      <a class="card-footer-item has-text-dark">
-        <mdicon class="icon" name="web" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.add.rss.processing')" />
-      </a>
-    </template>
-    <template v-else #footer>
-      <a class="card-footer-item has-text-dark" @click="$emit('close')">
-        <mdicon class="icon" name="cancel" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.add.rss.cancel')" />
-      </a>
-      <a
-        :class="{ 'is-disabled': disabled }"
-        class="card-footer-item"
-        @click="add_stream"
-      >
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.add.rss.add')" />
-      </a>
-    </template>
-  </modal-dialog>
+  </modal-dialog-action>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAddRss',
-  components: { ModalDialog },
+  components: { ModalDialogAction },
   props: { show: Boolean },
   emits: ['close', 'podcast-added'],
-
   data() {
     return {
       disabled: true,
@@ -60,7 +45,26 @@ export default {
       url: ''
     }
   },
-
+  computed: {
+    actions() {
+      if (this.loading) {
+        return [{ label: this.$t('dialog.add.rss.processing'), icon: 'web' }]
+      }
+      return [
+        {
+          label: this.$t('dialog.add.rss.cancel'),
+          event: 'cancel',
+          icon: 'cancel'
+        },
+        {
+          label: this.$t('dialog.add.rss.add'),
+          disabled: this.disabled,
+          event: 'add',
+          icon: 'playlist-plus'
+        }
+      ]
+    }
+  },
   watch: {
     show() {
       if (this.show) {
@@ -72,9 +76,8 @@ export default {
       }
     }
   },
-
   methods: {
-    add_stream() {
+    add() {
       this.loading = true
       webapi
         .library_add(this.url)

@@ -1,6 +1,13 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    @add="queue_add"
+    @add-next="queue_add_next"
+    @close="$emit('close')"
+    @play="play"
+  >
+    <template #modal-content>
       <p class="title is-4" v-text="item.name" />
       <p class="subtitle" v-text="item.artists[0].name" />
       <div class="mb-3">
@@ -59,33 +66,39 @@
         <div class="title is-6" v-text="item.uri" />
       </div>
     </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="queue_add">
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.spotify.track.add')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="queue_add_next">
-        <mdicon class="icon" name="playlist-play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.spotify.track.add-next')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.spotify.track.play')" />
-      </a>
-    </template>
-  </modal-dialog>
+  </modal-dialog-action>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrackSpotify',
-  components: { ModalDialog },
+  components: { ModalDialogAction },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
-
+  computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('dialog.spotify.track.add'),
+          event: 'add',
+          icon: 'playlist-plus'
+        },
+        {
+          label: this.$t('dialog.spotify.track.add-next'),
+          event: 'add-next',
+          icon: 'playlist-play'
+        },
+        {
+          label: this.$t('dialog.spotify.track.play'),
+          event: 'play',
+          icon: 'play'
+        }
+      ]
+    }
+  },
   methods: {
     open_album() {
       this.$emit('close')

@@ -1,6 +1,12 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    @remove="remove"
+    @close="$emit('close')"
+    @play="play"
+  >
+    <template #modal-content>
       <div class="title is-4" v-text="item.title" />
       <div class="subtitle" v-text="item.artist" />
       <div v-if="item.album" class="mb-3">
@@ -114,41 +120,44 @@
         </div>
       </div>
     </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="remove">
-        <mdicon class="icon" name="delete" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.queue-item.remove')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.queue-item.play')" />
-      </a>
-    </template>
-  </modal-dialog>
+  </modal-dialog-action>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogQueueItem',
-  components: { ModalDialog },
+  components: { ModalDialogAction },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
-
   setup() {
     return { servicesStore: useServicesStore() }
   },
-
   data() {
     return {
       spotify_track: {}
     }
   },
-
+  computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('dialog.queue-item.remove'),
+          event: 'remove',
+          icon: 'delete'
+        },
+        {
+          label: this.$t('dialog.queue-item.play'),
+          event: 'play',
+          icon: 'play'
+        }
+      ]
+    }
+  },
   watch: {
     item() {
       if (this.item?.data_kind === 'spotify') {
@@ -164,7 +173,6 @@ export default {
       }
     }
   },
-
   methods: {
     open_album() {
       if (this.item.data_kind === 'spotify') {

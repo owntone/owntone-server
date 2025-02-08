@@ -48,12 +48,11 @@
       @play-count-changed="play_count_changed()"
     />
     <modal-dialog-action
-      :close_action="$t('page.podcast.cancel')"
-      :delete_action="$t('page.podcast.remove')"
+      :actions="actions"
       :show="show_remove_podcast_modal"
       :title="$t('page.podcast.remove-podcast')"
-      @close="show_remove_podcast_modal = false"
-      @delete="remove_podcast"
+      @cancel="show_remove_podcast_modal = false"
+      @remove="remove_podcast"
     >
       <template #modal-content>
         <i18n-t keypath="list.albums.info" tag="p" scope="global">
@@ -99,6 +98,20 @@ export default {
   },
 
   computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('page.podcast.cancel'),
+          event: 'cancel',
+          icon: 'cancel'
+        },
+        {
+          label: this.$t('page.podcast.remove'),
+          event: 'remove',
+          icon: 'delete'
+        }
+      ]
+    },
     media_kind_resolved() {
       return this.media_kind || this.selected_item.media_kind
     }

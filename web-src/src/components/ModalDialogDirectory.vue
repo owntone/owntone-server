@@ -1,35 +1,45 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
-      <p class="title is-4" v-text="item" />
-    </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="queue_add">
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.directory.add')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="queue_add_next">
-        <mdicon class="icon" name="playlist-play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.directory.add-next')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.directory.play')" />
-      </a>
-    </template>
-  </modal-dialog>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    :title="item"
+    @add="queue_add"
+    @add-next="queue_add_next"
+    @close="$emit('close')"
+    @play="play"
+  />
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogDirectory',
-  components: { ModalDialog },
+  components: { ModalDialogAction },
   props: { item: { required: true, type: String }, show: Boolean },
   emits: ['close'],
-
+  computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('dialog.directory.add'),
+          event: 'add',
+          icon: 'playlist-plus'
+        },
+        {
+          label: this.$t('dialog.directory.add-next'),
+          event: 'add-next',
+          icon: 'playlist-play'
+        },
+        {
+          label: this.$t('dialog.directory.play'),
+          event: 'play',
+          icon: 'play'
+        }
+      ]
+    }
+  },
   methods: {
     play() {
       this.$emit('close')

@@ -1,6 +1,13 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    @add="queue_add"
+    @add-next="queue_add_next"
+    @close="$emit('close')"
+    @play="play"
+  >
+    <template #modal-content>
       <div class="title is-4">
         <a @click="open" v-text="item.name" />
       </div>
@@ -77,31 +84,17 @@
         <div class="title is-6" v-text="$filters.datetime(item.time_added)" />
       </div>
     </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="queue_add">
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.album.add')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="queue_add_next">
-        <mdicon class="icon" name="playlist-play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.album.add-next')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.album.play')" />
-      </a>
-    </template>
-  </modal-dialog>
+  </modal-dialog-action>
 </template>
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAlbum',
-  components: { ModalDialog, CoverArtwork },
+  components: { ModalDialogAction, CoverArtwork },
   props: {
     item: { required: true, type: Object },
     media_kind: { default: '', type: String },
@@ -116,6 +109,25 @@ export default {
   },
 
   computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('dialog.album.add'),
+          event: 'add',
+          icon: 'playlist-plus'
+        },
+        {
+          label: this.$t('dialog.album.add-next'),
+          event: 'add-next',
+          icon: 'playlist-play'
+        },
+        {
+          label: this.$t('dialog.album.play'),
+          event: 'play',
+          icon: 'play'
+        }
+      ]
+    },
     media_kind_resolved() {
       return this.media_kind || this.item.media_kind
     }

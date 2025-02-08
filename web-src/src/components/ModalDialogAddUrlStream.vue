@@ -1,6 +1,13 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    @add="add"
+    @cancel="$emit('close')"
+    @close="$emit('close')"
+    @play="play"
+  >
+    <template #modal-content>
       <form @submit.prevent="play">
         <p class="title is-4" v-text="$t('dialog.add.stream.title')" />
         <div class="field">
@@ -21,47 +28,18 @@
         </div>
       </form>
     </template>
-    <template v-if="loading" #footer>
-      <a class="card-footer-item has-text-dark">
-        <mdicon class="icon" name="web" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.add.stream.loading')" />
-      </a>
-    </template>
-    <template v-else #footer>
-      <a class="card-footer-item has-text-dark" @click="$emit('close')">
-        <mdicon class="icon" name="cancel" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.add.stream.cancel')" />
-      </a>
-      <a
-        :class="{ 'is-disabled': disabled }"
-        class="card-footer-item has-text-dark"
-        @click="add_stream"
-      >
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.add.stream.add')" />
-      </a>
-      <a
-        :class="{ 'is-disabled': disabled }"
-        class="card-footer-item has-text-dark"
-        @click="play"
-      >
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.add.stream.play')" />
-      </a>
-    </template>
-  </modal-dialog>
+  </modal-dialog-action>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAddUrlStream',
-  components: { ModalDialog },
+  components: { ModalDialogAction },
   props: { show: Boolean },
   emits: ['close'],
-
   data() {
     return {
       disabled: true,
@@ -69,7 +47,32 @@ export default {
       url: ''
     }
   },
-
+  computed: {
+    actions() {
+      if (this.loading) {
+        return [{ label: this.$t('dialog.add.stream.processing'), icon: 'web' }]
+      }
+      return [
+        {
+          label: this.$t('dialog.add.stream.cancel'),
+          event: 'cancel',
+          icon: 'cancel'
+        },
+        {
+          label: this.$t('dialog.add.stream.add'),
+          disabled: this.disabled,
+          event: 'add',
+          icon: 'playlist-plus'
+        },
+        {
+          label: this.$t('dialog.add.stream.play'),
+          disabled: this.disabled,
+          event: 'play',
+          icon: 'play'
+        }
+      ]
+    }
+  },
   watch: {
     show() {
       if (this.show) {
@@ -81,9 +84,8 @@ export default {
       }
     }
   },
-
   methods: {
-    add_stream() {
+    add() {
       this.loading = true
       webapi
         .queue_add(this.url)

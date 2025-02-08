@@ -1,21 +1,19 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
+  <modal-dialog :show="show">
     <template #content>
       <p v-if="title" class="title is-4" v-text="title" />
       <slot name="modal-content" />
     </template>
     <template #footer>
-      <a class="card-footer-item has-text-dark" @click="$emit('close')">
-        <mdicon class="icon" name="cancel" size="16" />
-        <span class="is-size-7" v-text="close_action" />
-      </a>
-      <a v-if="delete_action" class="card-footer-item" @click="$emit('delete')">
-        <mdicon class="icon" name="delete" size="16" />
-        <span class="is-size-7" v-text="delete_action" />
-      </a>
-      <a v-if="ok_action" class="card-footer-item" @click="$emit('ok')">
-        <mdicon class="icon" name="check" size="16" />
-        <span class="is-size-7" v-text="ok_action" />
+      <a
+        v-for="action in actions"
+        :key="action.event"
+        class="card-footer-item"
+        :class="{ 'is-disabled': action.disabled }"
+        @click="$emit(action.event)"
+      >
+        <mdicon class="icon" :name="action.icon" size="16" />
+        <span class="is-size-7" v-text="action.label" />
       </a>
     </template>
   </modal-dialog>
@@ -28,13 +26,10 @@ export default {
   name: 'ModalDialogAction',
   components: { ModalDialog },
   props: {
-    close_action: { default: '', type: String },
-    delete_action: { default: '', type: String },
-    ok_action: { default: '', type: String },
+    actions: { type: Array, required: true },
     show: Boolean,
-    title: { required: true, type: String }
+    title: { default: '', type: String }
   },
-  emits: ['delete', 'close', 'ok'],
   watch: {
     show() {
       const { classList } = document.querySelector('html')

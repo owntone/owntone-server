@@ -47,12 +47,11 @@
           @remove-podcast="open_remove_podcast_dialog"
         />
         <modal-dialog-action
+          :actions="actions"
           :show="show_remove_podcast_modal"
           :title="$t('page.podcast.remove-podcast')"
-          :close_action="$t('page.podcast.cancel')"
-          :delete_action="$t('page.podcast.remove')"
-          @close="show_remove_podcast_modal = false"
-          @delete="remove_podcast"
+          @cancel="show_remove_podcast_modal = false"
+          @remove="remove_podcast"
         >
           <template #modal-content>
             <i18n-t keypath="page.podcast.remove-info" tag="p" scope="global">
@@ -118,7 +117,22 @@ export default {
       tracks: new GroupedList()
     }
   },
-
+  computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('page.podcast.cancel'),
+          event: 'cancel',
+          icon: 'cancel'
+        },
+        {
+          label: this.$t('page.podcast.remove'),
+          event: 'remove',
+          icon: 'delete'
+        }
+      ]
+    }
+  },
   methods: {
     open_remove_podcast_dialog() {
       webapi

@@ -1,11 +1,10 @@
 <template>
   <modal-dialog-action
+    :actions="actions"
     :show="show"
     :title="$t('dialog.update.title')"
-    :ok_action="libraryStore.updating ? '' : $t('dialog.update.rescan')"
-    :close_action="$t('dialog.update.cancel')"
-    @ok="update_library"
-    @close="close()"
+    @analyse="update_library"
+    @cancel="close()"
   >
     <template #modal-content>
       <div v-if="!libraryStore.updating">
@@ -70,6 +69,22 @@ export default {
   },
 
   computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('dialog.update.cancel'),
+          event: 'cancel',
+          icon: 'cancel'
+        },
+        {
+          label: this.libraryStore.updating
+            ? 'In progress'
+            : this.$t('dialog.update.rescan'),
+          event: 'analyse',
+          icon: 'check'
+        }
+      ]
+    },
     rss() {
       return this.libraryStore.rss
     },

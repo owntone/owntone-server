@@ -1,6 +1,13 @@
 <template>
-  <modal-dialog :show="show" @close="$emit('close')">
-    <template #content>
+  <modal-dialog-action
+    :actions="actions"
+    :show="show"
+    @add="queue_add"
+    @add-next="queue_add_next"
+    @close="$emit('close')"
+    @play="play"
+  >
+    <template #modal-content>
       <div class="title is-4">
         <a @click="open" v-text="item.name" />
       </div>
@@ -29,38 +36,42 @@
         />
       </div>
     </template>
-    <template #footer>
-      <a class="card-footer-item has-text-dark" @click="queue_add">
-        <mdicon class="icon" name="playlist-plus" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.genre.add')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="queue_add_next">
-        <mdicon class="icon" name="playlist-play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.genre.add-next')" />
-      </a>
-      <a class="card-footer-item has-text-dark" @click="play">
-        <mdicon class="icon" name="play" size="16" />
-        <span class="is-size-7" v-text="$t('dialog.genre.play')" />
-      </a>
-    </template>
-  </modal-dialog>
+  </modal-dialog-action>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogAction from '@/components/ModalDialogAction.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogGenre',
-  components: { ModalDialog },
+  components: { ModalDialogAction },
   props: {
     item: { required: true, type: Object },
     media_kind: { required: true, type: String },
     show: Boolean
   },
   emits: ['close'],
-
   computed: {
+    actions() {
+      return [
+        {
+          label: this.$t('dialog.genre.add'),
+          event: 'add',
+          icon: 'playlist-plus'
+        },
+        {
+          label: this.$t('dialog.genre.add-next'),
+          event: 'add-next',
+          icon: 'playlist-play'
+        },
+        {
+          label: this.$t('dialog.genre.play'),
+          event: 'play',
+          icon: 'play'
+        }
+      ]
+    },
     expression() {
       return `genre is "${this.item.name}" and media_kind is ${this.media_kind}`
     }
