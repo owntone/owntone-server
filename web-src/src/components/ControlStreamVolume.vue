@@ -21,7 +21,6 @@
       </div>
       <control-slider
         v-model:value="volume"
-        :cursor="cursor"
         :disabled="!playing"
         :max="100"
         @change="changeVolume"
