@@ -33,7 +33,6 @@
 <script>
 import ControlSlider from '@/components/ControlSlider.vue'
 import audio from '@/lib/Audio'
-import { mdiCancel } from '@mdi/js'
 
 export default {
   name: 'ControlStreamVolume',
@@ -41,7 +40,6 @@ export default {
   emits: ['change', 'mute'],
   data() {
     return {
-      cursor: mdiCancel,
       loading: false,
       playing: false,
       volume: 10

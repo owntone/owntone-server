@@ -8,7 +8,6 @@
     type="range"
     :style="{
       '--ratio': ratio,
-      '--cursor': $filters.cursor(cursor)
     }"
     @input="$emit('update:value', $event.target.valueAsNumber)"
   />
@@ -18,7 +17,6 @@
 export default {
   name: 'ControlSlider',
   props: {
-    cursor: { default: '', type: String },
     disabled: Boolean,
     max: { required: true, type: Number },
     value: { required: true, type: Number }
@@ -125,7 +123,7 @@ input[type='range'].slider {
     @include track;
   }
   &.is-inactive {
-    cursor: var(--cursor, not-allowed);
+    cursor: not-allowed;
     &::-webkit-slider-thumb {
       @include thumb-inactive;
     }

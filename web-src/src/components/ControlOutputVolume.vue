@@ -19,7 +19,6 @@
         v-model:value="volume"
         :disabled="!output.selected"
         :max="100"
-        :cursor="cursor"
         @change="changeVolume"
       />
     </div>
@@ -28,7 +27,6 @@
 
 <script>
 import ControlSlider from '@/components/ControlSlider.vue'
-import { mdiCancel } from '@mdi/js'
 import webapi from '@/webapi'
 
 export default {
@@ -40,7 +38,6 @@ export default {
 
   data() {
     return {
-      cursor: mdiCancel,
       volume: this.output.selected ? this.output.volume : 0
     }
   },

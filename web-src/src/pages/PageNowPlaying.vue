@@ -17,7 +17,6 @@
             class="mt-5"
             :disabled="is_live"
             :max="track_progress_max"
-            :cursor="cursor"
             @change="seek"
             @mousedown="start_dragging"
             @mouseup="end_dragging"
@@ -59,7 +58,6 @@ import ControlSlider from '@/components/ControlSlider.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import LyricsPane from '@/components/LyricsPane.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
-import { mdiCancel } from '@mdi/js'
 import { useLyricsStore } from '@/stores/lyrics'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
@@ -89,7 +87,6 @@ export default {
   data() {
     return {
       INTERVAL,
-      cursor: mdiCancel,
       interval_id: 0,
       is_dragged: false,
       selected_item: {},

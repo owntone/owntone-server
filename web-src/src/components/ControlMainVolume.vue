@@ -9,7 +9,6 @@
       <div class="is-size-7 is-uppercase" v-text="$t('navigation.volume')" />
       <control-slider
         v-model:value="player.volume"
-        :cursor="cursor"
         :max="100"
         @change="changeVolume"
       />
@@ -19,7 +18,6 @@
 
 <script>
 import ControlSlider from '@/components/ControlSlider.vue'
-import { mdiCancel } from '@mdi/js'
 import { usePlayerStore } from '@/stores/player'
 import webapi from '@/webapi'
 
@@ -33,7 +31,6 @@ export default {
   },
   data() {
     return {
-      cursor: mdiCancel,
       old_volume: 0
     }
   },
