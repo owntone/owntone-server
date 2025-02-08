@@ -7,7 +7,7 @@
     :max="max"
     type="range"
     :style="{
-      '--ratio': ratio,
+      '--ratio': ratio
     }"
     @input="$emit('update:value', $event.target.valueAsNumber)"
   />

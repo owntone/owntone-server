@@ -195,8 +195,7 @@
   },
   "list": {
     "albums": {
-      "info-1": "Diesen Podcast dauerhaft aus der Bibliothek löschen?",
-      "info-2": "Dies wir auch RSS-Playlisten löschen ",
+      "info": "Diesen Podcast dauerhaft aus der Bibliothek löschen?{separator}(Damit wird auch die RSS-Playliste {name} gelöscht)",
       "remove": "Entfernen",
       "remove-podcast": "Entferne podcast"
     },
@@ -389,8 +388,7 @@
       "cancel": "Abbrechen",
       "play": "Spielen",
       "remove": "Entfernen",
-      "remove-info-1": "Diesen Podcast wirklich dauerhaft aus der Bibliothek löschen?",
-      "remove-info-2": "Damit wird auch die RSS-Playliste gelöscht. ",
+      "remove-info": "Diesen Podcast dauerhaft aus der Bibliothek löschen?{separator}(Damit wird auch die RSS-Playliste {name} gelöscht)",
       "remove-podcast": "Entferne podcast",
       "track-count": "{count} Track|{count} Track|{count} Tracks"
     },
@@ -477,9 +475,7 @@
         "recently-added-page-info": "Beschränkte die Zahl der Alben",
         "recently-added-page": "Kürzlich hinzugefügt-Seite",
         "search": "Suche",
-        "show-composer-genres-info-1": "Komma getrennte Liste der Genres, für die der Komponist angezeigt werden soll.",
-        "show-composer-genres-info-2": "Leer lassen, um den Komponisten immer anzuzeigen.",
-        "show-composer-genres-info-3": "Der Genre-Tag des aktuellen Tracks wird abgeglichen als Teil-String des Genre-Tags. Z.B. \"classical, soundtrack\" wird den Komponisten beim Genre-Tag \"Contemporary Classical\" anzeigen",
+        "show-composer-genres-help": "Komma getrennte Liste der Genres, für die der Komponist angezeigt werden soll.{0}Leer lassen, um den Komponisten immer anzuzeigen.{0}Der Genre-Tag des aktuellen Tracks wird abgeglichen als Teil-String des Genre-Tags. Z.B. \"classical, soundtrack\" wird den Komponisten beim Genre-Tag \"Contemporary Classical\" anzeigen",
         "show-composer-genres": "Zeige den Komponisten für die aufgelisteten Genres an",
         "show-composer-info": "Wenn aktiviert, wird der Komponist angezeigt.",
         "show-composer": "Komponisten anzeigen",

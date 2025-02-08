@@ -195,8 +195,7 @@
   },
   "list": {
     "albums": {
-      "info-1": "從資料庫中永久移除該Podcast嗎？",
-      "info-2": "這也將移除RSS播放列表 ",
+      "info": "從資料庫中永久移除該Podcast嗎？{separator}(這也將移除RSS播放列表 {name})",
       "remove": "移除",
       "remove-podcast": "移除Podcast"
     },
@@ -389,8 +388,7 @@
       "cancel": "取消",
       "play": "播放",
       "remove": "移除",
-      "remove-info-1": "從資料庫中永久移除該Podcast？",
-      "remove-info-2": "這也將移除該PodcastRSS列表 ",
+      "remove-info": "從資料庫中永久移除該Podcast？{separator}(這也將移除該PodcastRSS列表 {name})",
       "remove-podcast": "移除Podcast",
       "track-count": "{count} 首曲目|{count} 首曲目"
     },
@@ -477,9 +475,7 @@
         "recently-added-page-info": "限制顯示的相簿數量",
         "recently-added-page": "“最近新增”頁面",
         "search": "搜尋",
-        "show-composer-genres-info-1": "以逗號分隔的音樂類型清單，將顯示作曲家的音樂類型",
-        "show-composer-genres-info-2": "留空以始終顯示作曲家",
-        "show-composer-genres-info-3": "通過檢查是否包含定義的音樂類型之一來匹配當前曲目的音樂類型標籤。例如，設定為“古典、原聲帶”將顯示音樂類型標籤為“當代古典”的曲目的作曲家",
+        "show-composer-genres-help": "以逗號分隔的音樂類型清單，將顯示作曲家的音樂類型{0}留空以始終顯示作曲家{0}通過檢查是否包含定義的音樂類型之一來匹配當前曲目的音樂類型標籤。例如，設定為“古典、原聲帶”將顯示音樂類型標籤為“當代古典”的曲目的作曲家",
         "show-composer-genres": "僅顯示列出的音樂類型的作曲家",
         "show-composer-info": "如果啟用，則會顯示目前播放曲目的作曲家",
         "show-composer": "顯示作曲家",

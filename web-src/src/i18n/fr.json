@@ -195,8 +195,7 @@
   },
   "list": {
     "albums": {
-      "info-1": "Supprimer définitivement ce podcast de votre bibliothèque ?",
-      "info-2": "Cela supprimera également la liste de lecture RSS ",
+      "info": "Supprimer définitivement ce podcast de votre bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})",
       "remove": "Supprimer",
       "remove-podcast": "Supprimer le podcast"
     },
@@ -389,8 +388,7 @@
       "cancel": "Annuler",
       "play": "Lire",
       "remove": "Supprimer",
-      "remove-info-1": "Supprimer ce podcast de manière permanente de la bibliothèque ?",
-      "remove-info-2": "Cela supprimera également la liste de lecture RSS ",
+      "remove-info": "Supprimer ce podcast de manière permanente de la bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})",
       "remove-podcast": "Supprimer le podcast",
       "track-count": "{count} piste|{count} piste|{count} pistes"
     },
@@ -477,9 +475,7 @@
         "recently-added-page-info": "Limiter le nombre d’albums affichés",
         "recently-added-page": "Page « Ajouts récents »",
         "search": "Recherche",
-        "show-composer-genres-info-1": "Liste de genres séparés par des virgules pour lesquels le compositeur doit être affiché.",
-        "show-composer-genres-info-2": "Laissez vide pour toujours afficher le compositeur.",
-        "show-composer-genres-info-3": "L’étiquette de genre de la piste actuelle est comparée en vérifiant si l’un des genres définis est inclus. Par exemple, en choisissant \"classique, bande sonore\", le compositeur pour les pistes dont l’étiquette de genre est \"classique contemporain\" sera affiché.",
+        "show-composer-genres-help": "Liste de genres séparés par des virgules pour lesquels le compositeur doit être affiché.{0}Laissez vide pour toujours afficher le compositeur.{0}L’étiquette de genre de la piste actuelle est comparée en vérifiant si l’un des genres définis est inclus. Par exemple, en choisissant \"classique, bande sonore\", le compositeur pour les pistes dont l’étiquette de genre est \"classique contemporain\" sera affiché.",
         "show-composer-genres": "Afficher le compositeur uniquement pour les genres listés",
         "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché",
         "show-composer": "Afficher le compositeur",

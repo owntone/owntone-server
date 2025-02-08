@@ -195,8 +195,7 @@
   },
   "list": {
     "albums": {
-      "info-1": "从资料库中永久移除该播客吗？",
-      "info-2": "这也将移除RSS播放列表 ",
+      "info": "从资料库中永久移除该播客吗？{separator}(这也将移除RSS播放列表 {name})",
       "remove": "移除",
       "remove-podcast": "移除播客"
     },
@@ -389,8 +388,7 @@
       "cancel": "取消",
       "play": "播放",
       "remove": "移除",
-      "remove-info-1": "从资料库中永久移除该播客？",
-      "remove-info-2": "这也将移除该播客RSS列表 ",
+      "remove-info": "从资料库中永久移除该播客？{separator}(这也将移除该播客RSS列表 {name})",
       "remove-podcast": "移除播客",
       "track-count": "{count} 只曲目|{count} 只曲目"
     },
@@ -477,9 +475,7 @@
         "recently-added-page-info": "限制显示的相册数量",
         "recently-added-page": "“最近添加”页面",
         "search": "搜索",
-        "show-composer-genres-info-1": "以逗号分隔的流派列表，必须显示作曲家所属的流派",
-        "show-composer-genres-info-2": "留空以始终显示作曲家",
-        "show-composer-genres-info-3": "通过检查是否包含定义的流派之一来匹配当前曲目的流派标签。例如，设置为“古典、原声带”将显示流派标签为“当代古典”的曲目的作曲家",
+        "show-composer-genres-help": "以逗号分隔的流派列表，必须显示作曲家所属的流派{0}留空以始终显示作曲家{0}通过检查是否包含定义的流派之一来匹配当前曲目的流派标签。例如，设置为“古典、原声带”将显示流派标签为“当代古典”的曲目的作曲家",
         "show-composer-genres": "仅显示列出的流派的作曲家",
         "show-composer-info": "如果启用，则会显示当前播放曲目的作曲家",
         "show-composer": "显示作曲家",

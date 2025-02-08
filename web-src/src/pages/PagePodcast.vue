@@ -55,11 +55,14 @@
           @delete="remove_podcast"
         >
           <template #modal-content>
-            <p v-text="$t('page.podcast.remove-info-1')" />
-            <p class="is-size-7">
-              (<span v-text="$t('page.podcast.remove-info-2')" />
-              <b v-text="rss_playlist_to_remove.name" />)
-            </p>
+            <i18n-t keypath="page.podcast.remove-info" tag="p" scope="global">
+              <template #separator>
+                <br />
+              </template>
+              <template #name>
+                <b v-text="rss_playlist_to_remove.name" />
+              </template>
+            </i18n-t>
           </template>
         </modal-dialog-action>
       </template>

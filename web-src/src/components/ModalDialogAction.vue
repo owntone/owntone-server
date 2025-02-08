@@ -9,11 +9,7 @@
         <mdicon class="icon" name="cancel" size="16" />
         <span class="is-size-7" v-text="close_action" />
       </a>
-      <a
-        v-if="delete_action"
-        class="card-footer-item has-background-danger"
-        @click="$emit('delete')"
-      >
+      <a v-if="delete_action" class="card-footer-item" @click="$emit('delete')">
         <mdicon class="icon" name="delete" size="16" />
         <span class="is-size-7" v-text="delete_action" />
       </a>

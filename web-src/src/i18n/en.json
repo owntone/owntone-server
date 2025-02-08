@@ -195,8 +195,7 @@
   },
   "list": {
     "albums": {
-      "info-1": "Permanently remove this podcast from your library?",
-      "info-2": "This will also remove the RSS playlist ",
+      "info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})",
       "remove": "Remove",
       "remove-podcast": "Remove podcast"
     },
@@ -389,8 +388,7 @@
       "cancel": "Cancel",
       "play": "Play",
       "remove": "Remove",
-      "remove-info-1": "Permanently remove this podcast from your library?",
-      "remove-info-2": "This will also remove the RSS playlist ",
+      "remove-info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})",
       "remove-podcast": "Remove podcast",
       "track-count": "{count} track|{count} track|{count} tracks"
     },
@@ -477,9 +475,7 @@
         "recently-added-page-info": "Limit the number of albums displayed",
         "recently-added-page": "Recently added page",
         "search": "Search",
-        "show-composer-genres-info-1": "Comma-separated list of genres, for which the composer must be displayed",
-        "show-composer-genres-info-2": "Leave empty to always show the composer",
-        "show-composer-genres-info-3": "The genre tag of the current track is matched by checking, if one of the defined genres are included. For example setting to \"classical, soundtrack\" will show the composer for tracks with a genre tag of \"Contemporary Classical\"",
+        "show-composer-genres-help": "Comma-separated list of genres, for which the composer must be displayed.{0}Leave empty to always show the composer.{0}The genre tag of the current track is matched by checking, if one of the defined genres are included. For example setting to \"classical, soundtrack\" will show the composer for tracks with a genre tag of \"Contemporary Classical\"",
         "show-composer-genres": "Show composer only for listed genres",
         "show-composer-info": "If enabled, the composer of the current playing track is displayed",
         "show-composer": "Show composer",

@@ -120,18 +120,14 @@
             <span v-text="$t('page.settings.general.show-composer-genres')" />
           </template>
           <template #help>
-            <p
+            <i18n-t
+              keypath="page.settings.general.show-composer-genres-help"
+              tag="p"
               class="help"
-              v-text="$t('page.settings.general.show-composer-genres-info-1')"
-            />
-            <p
-              class="help"
-              v-text="$t('page.settings.general.show-composer-genres-info-2')"
-            />
-            <p
-              class="help"
-              v-text="$t('page.settings.general.show-composer-genres-info-3')"
-            />
+              scope="global"
+            >
+              <br />
+            </i18n-t>
           </template>
         </control-setting-text-field>
       </template>
