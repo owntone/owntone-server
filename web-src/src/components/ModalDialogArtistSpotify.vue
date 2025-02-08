@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog-action
+  <modal-dialog
     :actions="actions"
     :show="show"
     @add="queue_add"
@@ -29,16 +29,16 @@
         <div class="title is-6" v-text="item.genres.join(', ')" />
       </div>
     </template>
-  </modal-dialog-action>
+  </modal-dialog>
 </template>
 
 <script>
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogArtistSpotify',
-  components: { ModalDialogAction },
+  components: { ModalDialog },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
   computed: {

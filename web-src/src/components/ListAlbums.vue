@@ -47,7 +47,7 @@
       @remove-podcast="open_remove_podcast_dialog()"
       @play-count-changed="play_count_changed()"
     />
-    <modal-dialog-action
+    <modal-dialog
       :actions="actions"
       :show="show_remove_podcast_modal"
       :title="$t('page.podcast.remove-podcast')"
@@ -64,20 +64,20 @@
           </template>
         </i18n-t>
       </template>
-    </modal-dialog-action>
+    </modal-dialog>
   </teleport>
 </template>
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 export default {
   name: 'ListAlbums',
-  components: { CoverArtwork, ModalDialogAction, ModalDialogAlbum },
+  components: { CoverArtwork, ModalDialog, ModalDialogAlbum },
   props: {
     items: { required: true, type: Object },
     media_kind: { default: '', type: String }

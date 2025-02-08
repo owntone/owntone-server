@@ -1,8 +1,8 @@
 <template>
-  <modal-dialog-action
+  <modal-dialog
     :actions="actions"
     :show="show"
-    @cancel="cancel"
+    @cancel="$emit('close')"
     @close="$emit('close')"
     @pair="pair"
   >
@@ -24,17 +24,17 @@
         </div>
       </form>
     </template>
-  </modal-dialog-action>
+  </modal-dialog>
 </template>
 
 <script>
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import { useRemotesStore } from '@/stores/remotes'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogRemotePairing',
-  components: { ModalDialogAction },
+  components: { ModalDialog },
   props: { show: Boolean },
   emits: ['close'],
   setup() {

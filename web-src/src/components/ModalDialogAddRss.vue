@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog-action
+  <modal-dialog
     :actions="actions"
     :show="show"
     @cancel="$emit('close')"
@@ -26,16 +26,16 @@
         <p class="help" v-text="$t('dialog.add.rss.help')" />
       </div>
     </template>
-  </modal-dialog-action>
+  </modal-dialog>
 </template>
 
 <script>
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAddRss',
-  components: { ModalDialogAction },
+  components: { ModalDialog },
   props: { show: Boolean },
   emits: ['close', 'podcast-added'],
   data() {

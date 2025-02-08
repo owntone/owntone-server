@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog-action
+  <modal-dialog
     :actions="actions"
     :show="show"
     @add="queue_add"
@@ -157,18 +157,18 @@
         <div class="title is-6" v-text="item.comment" />
       </div>
     </template>
-  </modal-dialog-action>
+  </modal-dialog>
 </template>
 
 <script>
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrack',
-  components: { ModalDialogAction },
+  components: { ModalDialog },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close', 'play-count-changed'],
   setup() {

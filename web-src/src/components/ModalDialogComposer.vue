@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog-action
+  <modal-dialog
     :actions="actions"
     :show="show"
     @add="queue_add"
@@ -40,16 +40,16 @@
         />
       </div>
     </template>
-  </modal-dialog-action>
+  </modal-dialog>
 </template>
 
 <script>
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogComposer',
-  components: { ModalDialogAction },
+  components: { ModalDialog },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
   computed: {

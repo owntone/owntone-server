@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog-action
+  <modal-dialog
     :actions="actions"
     :show="show"
     @add="queue_add"
@@ -43,17 +43,17 @@
         <div class="title is-6" v-text="item.album_type" />
       </div>
     </template>
-  </modal-dialog-action>
+  </modal-dialog>
 </template>
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAlbumSpotify',
-  components: { ModalDialogAction, CoverArtwork },
+  components: { ModalDialog, CoverArtwork },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
   data() {

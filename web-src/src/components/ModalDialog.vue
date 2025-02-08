@@ -5,10 +5,20 @@
       <div class="modal-content">
         <div class="card">
           <div class="card-content">
-            <slot name="content" />
+            <p v-if="title" class="title is-4" v-text="title" />
+            <slot name="modal-content" />
           </div>
           <footer class="card-footer">
-            <slot name="footer" />
+            <a
+              v-for="action in actions"
+              :key="action.event"
+              class="card-footer-item"
+              :class="{ 'is-disabled': action.disabled }"
+              @click="$emit(action.event)"
+            >
+              <mdicon class="icon" :name="action.icon" size="16" />
+              <span class="is-size-7" v-text="action.label" />
+            </a>
           </footer>
         </div>
       </div>
@@ -18,9 +28,11 @@
 
 <script>
 export default {
-  name: 'ModalDialog',
+  name: 'ModalDialogCombined',
   props: {
-    show: Boolean
+    show: Boolean,
+    title: { type: String, default: '' },
+    actions: { type: Array, required: true }
   },
   emits: ['close'],
   watch: {

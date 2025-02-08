@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog-action
+  <modal-dialog
     :actions="actions"
     :show="show"
     :title="$t('dialog.update.title')"
@@ -39,19 +39,19 @@
         <p class="mb-3" v-text="$t('dialog.update.progress')" />
       </div>
     </template>
-  </modal-dialog-action>
+  </modal-dialog>
 </template>
 
 <script>
 import ControlSwitch from '@/components/ControlSwitch.vue'
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import { useLibraryStore } from '@/stores/library'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogUpdate',
-  components: { ControlSwitch, ModalDialogAction },
+  components: { ControlSwitch, ModalDialog },
   props: { show: Boolean },
   emits: ['close'],
 

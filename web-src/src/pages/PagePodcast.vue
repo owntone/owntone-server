@@ -46,7 +46,7 @@
           @play-count-changed="reload_tracks"
           @remove-podcast="open_remove_podcast_dialog"
         />
-        <modal-dialog-action
+        <modal-dialog
           :actions="actions"
           :show="show_remove_podcast_modal"
           :title="$t('page.podcast.remove-podcast')"
@@ -63,7 +63,7 @@
               </template>
             </i18n-t>
           </template>
-        </modal-dialog-action>
+        </modal-dialog>
       </template>
     </content-with-hero>
   </div>
@@ -74,7 +74,7 @@ import ContentWithHero from '@/templates/ContentWithHero.vue'
 import CoverArtwork from '@/components/CoverArtwork.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'
 
@@ -98,7 +98,7 @@ export default {
     ContentWithHero,
     CoverArtwork,
     ListTracks,
-    ModalDialogAction,
+    ModalDialog,
     ModalDialogAlbum
   },
 

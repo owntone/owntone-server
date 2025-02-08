@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog-action
+  <modal-dialog
     :actions="actions"
     :show="show"
     :title="item"
@@ -11,12 +11,12 @@
 </template>
 
 <script>
-import ModalDialogAction from '@/components/ModalDialogAction.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogDirectory',
-  components: { ModalDialogAction },
+  components: { ModalDialog },
   props: { item: { required: true, type: String }, show: Boolean },
   emits: ['close'],
   computed: {
