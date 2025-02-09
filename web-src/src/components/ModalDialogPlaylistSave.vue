@@ -1,8 +1,12 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog
+    :actions="actions"
+    :show="show"
+    :title="$t('dialog.playlist.save.title')"
+    @close="$emit('close')"
+  >
     <template #content>
       <form @submit.prevent="save">
-        <p class="title is-4" v-text="$t('dialog.playlist.save.title')" />
         <div class="field">
           <p class="control has-icons-left">
             <input

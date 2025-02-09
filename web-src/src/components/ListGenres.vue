@@ -44,14 +44,12 @@ export default {
     items: { required: true, type: Object },
     media_kind: { required: true, type: String }
   },
-
   data() {
     return {
       selected_item: {},
       show_details_modal: false
     }
   },
-
   methods: {
     open(item) {
       this.$router.push({

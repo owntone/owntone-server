@@ -1,8 +1,7 @@
 <template>
   <modal-dialog-playable
-    :expression="expression"
+    :item="playable"
     :show="show"
-    :title="item"
     @close="$emit('close')"
   />
 </template>
@@ -16,8 +15,11 @@ export default {
   props: { item: { required: true, type: String }, show: Boolean },
   emits: ['close'],
   computed: {
-    expression() {
-      return `path starts with "${this.item}" order by path asc`
+    playable() {
+      return {
+        name: this.item,
+        expression: `path starts with "${this.item}" order by path asc`
+      }
     }
   }
 }

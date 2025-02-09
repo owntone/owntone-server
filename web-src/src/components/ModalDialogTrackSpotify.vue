@@ -1,65 +1,9 @@
 <template>
-  <modal-dialog-playable :item="item" :show="show" @close="$emit('close')">
-    <template #content>
-      <p class="title is-4" v-text="item.name" />
-      <p class="subtitle" v-text="item.artists[0].name" />
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.track.album')"
-        />
-        <div class="title is-6">
-          <a @click="open_album" v-text="item.album.name" />
-        </div>
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.track.album-artist')"
-        />
-        <div class="title is-6">
-          <a @click="open_artist" v-text="item.artists[0].name" />
-        </div>
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.track.release-date')"
-        />
-        <div
-          class="title is-6"
-          v-text="$filters.date(item.album.release_date)"
-        />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.track.position')"
-        />
-        <div
-          class="title is-6"
-          v-text="[item.disc_number, item.track_number].join(' / ')"
-        />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.track.duration')"
-        />
-        <div
-          class="title is-6"
-          v-text="$filters.durationInHours(item.duration_ms)"
-        />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.track.path')"
-        />
-        <div class="title is-6" v-text="item.uri" />
-      </div>
-    </template>
-  </modal-dialog-playable>
+  <modal-dialog-playable
+    :item="playable"
+    :show="show"
+    @close="$emit('close')"
+  />
 </template>
 
 <script>
@@ -70,6 +14,39 @@ export default {
   components: { ModalDialogPlayable },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
+  computed: {
+    playable() {
+      return {
+        name: this.item.name,
+        subtitle: this.item.artists[0].name,
+        properties: [
+          {
+            label: 'dialog.spotify.track.album',
+            value: this.item.album.name,
+            action: this.open_album
+          },
+          {
+            label: 'dialog.spotify.track.album-artist',
+            value: this.item.artists[0].name,
+            action: this.open_artist
+          },
+          {
+            label: 'dialog.spotify.track.release-date',
+            value: this.$filters.date(item.album.release_date)
+          },
+          {
+            label: 'dialog.spotify.track.position',
+            value: [item.disc_number, item.track_number].join(' / ')
+          },
+          {
+            label: 'dialog.spotify.track.duration',
+            value: this.$filters.durationInHours(item.duration_ms)
+          },
+          { label: 'dialog.spotify.track.path', value: this.item.uri }
+        ]
+      }
+    }
+  },
   methods: {
     open_album() {
       this.$emit('close')

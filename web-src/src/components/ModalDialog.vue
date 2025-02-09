@@ -11,7 +11,7 @@
           <footer v-if="actions.length" class="card-footer">
             <a
               v-for="action in actions"
-              :key="action.event"
+              :key="action.label"
               class="card-footer-item"
               :class="{ 'is-disabled': action.disabled }"
               @click="action.handler"

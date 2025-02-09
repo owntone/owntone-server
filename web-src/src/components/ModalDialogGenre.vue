@@ -1,39 +1,9 @@
 <template>
   <modal-dialog-playable
-    :expression="expression"
+    :item="playable"
     :show="show"
     @close="$emit('close')"
-  >
-    <template #content>
-      <div class="title is-4">
-        <a @click="open" v-text="item.name" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.genre.albums')"
-        />
-        <div class="title is-6" v-text="item.album_count" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.genre.tracks')"
-        />
-        <div class="title is-6" v-text="item.track_count" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.genre.duration')"
-        />
-        <div
-          class="title is-6"
-          v-text="$filters.durationInHours(item.length_ms)"
-        />
-      </div>
-    </template>
-  </modal-dialog-playable>
+  />
 </template>
 
 <script>
@@ -49,8 +19,26 @@ export default {
   },
   emits: ['close'],
   computed: {
-    expression() {
-      return `genre is "${this.item.name}" and media_kind is ${this.media_kind}`
+    playable() {
+      return {
+        name: this.item.name,
+        action: this.open,
+        expression: `genre is "${this.item.name}" and media_kind is ${this.media_kind}`,
+        properties: [
+          {
+            label: 'dialog.genre.albums',
+            value: this.item.album_count
+          },
+          {
+            label: 'dialog.genre.tracks',
+            value: this.item.track_count
+          },
+          {
+            label: 'dialog.genre.duration',
+            value: this.$filters.durationInHours(this.item.length_ms)
+          }
+        ]
+      }
     }
   },
   methods: {

@@ -1,32 +1,9 @@
 <template>
-  <modal-dialog-playable :item="item" :show="show" @close="$emit('close')">
-    <template #content>
-      <div class="title is-4">
-        <a @click="open" v-text="item.name" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.playlist.owner')"
-        />
-        <div class="title is-6" v-text="item.owner.display_name" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.playlist.tracks')"
-        />
-        <div class="title is-6" v-text="item.tracks.total" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.playlist.path')"
-        />
-        <div class="title is-6" v-text="item.uri" />
-      </div>
-    </template>
-  </modal-dialog-playable>
+  <modal-dialog-playable
+    :item="playable"
+    :show="show"
+    @close="$emit('close')"
+  />
 </template>
 
 <script>
@@ -37,6 +14,25 @@ export default {
   components: { ModalDialogPlayable },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
+  computed: {
+    playable() {
+      return {
+        name: this.item.name,
+        action: this.open,
+        properties: [
+          {
+            label: 'dialog.spotify.playlist.owner',
+            value: this.item.owner?.display_name
+          },
+          {
+            label: 'dialog.spotify.playlist.tracks',
+            value: this.item.tracks?.total
+          },
+          { label: 'dialog.spotify.playlist.path', value: this.item.uri }
+        ]
+      }
+    }
+  },
   methods: {
     open() {
       this.$emit('close')

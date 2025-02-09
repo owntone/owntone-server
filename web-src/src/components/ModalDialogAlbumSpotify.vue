@@ -1,55 +1,46 @@
 <template>
-  <modal-dialog-playable :item="item" :show="show" @close="$emit('close')">
-    <template #content>
-      <div class="title is-4">
-        <a @click="open" v-text="item.name" />
-      </div>
-      <cover-artwork
-        :url="artwork_url(item)"
-        :artist="item.artist"
-        :album="item.name"
-        class="is-normal mb-3"
-      />
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.album.album-artist')"
-        />
-        <div class="title is-6">
-          <a @click="open_artist" v-text="item.artists[0].name" />
-        </div>
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.album.release-date')"
-        />
-        <div class="title is-6" v-text="$filters.date(item.release_date)" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.album.type')"
-        />
-        <div class="title is-6" v-text="item.album_type" />
-      </div>
-    </template>
-  </modal-dialog-playable>
+  <modal-dialog-playable
+    :item="playable"
+    :show="show"
+    @close="$emit('close')"
+  />
 </template>
 
 <script>
-import CoverArtwork from '@/components/CoverArtwork.vue'
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 
 export default {
   name: 'ModalDialogAlbumSpotify',
-  components: { ModalDialogPlayable, CoverArtwork },
+  components: { ModalDialogPlayable },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
+  computed: {
+    playable() {
+      return {
+        name: this.item.name || '',
+        image: this.item?.images?.[0]?.url || '',
+        artist: this.item.artist || '',
+        album: this.item.name || '',
+        action: this.open,
+        properties: [
+          {
+            label: 'dialog.spotify.album.album-artist',
+            value: this.item?.artists?.[0]?.name,
+            action: this.open_artist
+          },
+          {
+            label: 'dialog.spotify.album.release-date',
+            value: this.$filters.date(this.item.release_date)
+          },
+          {
+            label: 'dialog.spotify.album.type',
+            value: this.item.album_type
+          }
+        ]
+      }
+    }
+  },
   methods: {
-    artwork_url(item) {
-      return item.images?.[0]?.url || ''
-    },
     open() {
       this.$emit('close')
       this.$router.push({

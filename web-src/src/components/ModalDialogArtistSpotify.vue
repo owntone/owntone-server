@@ -1,28 +1,9 @@
 <template>
-  <modal-dialog-playable :item="item" :show="show" @close="$emit('close')">
-    <template #content>
-      <div class="title is-4">
-        <a @click="open" v-text="item.name" />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.artist.popularity')"
-        />
-        <div
-          class="title is-6"
-          v-text="[item.popularity, item.followers.total].join(' / ')"
-        />
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.spotify.artist.genres')"
-        />
-        <div class="title is-6" v-text="item.genres.join(', ')" />
-      </div>
-    </template>
-  </modal-dialog-playable>
+  <modal-dialog-playable
+    :item="playable"
+    :show="show"
+    @close="$emit('close')"
+  />
 </template>
 
 <script>
@@ -33,6 +14,26 @@ export default {
   components: { ModalDialogPlayable },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
+  computed: {
+    playable() {
+      return {
+        name: this.item.name,
+        action: this.open,
+        properties: [
+          {
+            label: 'dialog.spotify.artist.popularity',
+            value: [this.item.popularity, this.item.followers?.total].join(
+              ' / '
+            )
+          },
+          {
+            label: 'dialog.spotify.artist.genres',
+            value: this.item.genres?.join(', ')
+          }
+        ]
+      }
+    }
+  },
   methods: {
     open() {
       this.$emit('close')

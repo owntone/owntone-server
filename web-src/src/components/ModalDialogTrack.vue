@@ -1,156 +1,9 @@
 <template>
-  <modal-dialog-playable :item="item" :show="show" @close="$emit('close')">
-    <template #content>
-      <p class="title is-4" v-text="item.title" />
-      <p class="subtitle" v-text="item.artist" />
-      <div v-if="item.media_kind === 'podcast'" class="buttons">
-        <a
-          v-if="item.play_count > 0"
-          class="button is-small"
-          @click="mark_new"
-          v-text="$t('dialog.track.mark-as-new')"
-        />
-        <a
-          v-if="item.play_count === 0"
-          class="button is-small"
-          @click="mark_played"
-          v-text="$t('dialog.track.mark-as-played')"
-        />
-      </div>
-      <div v-if="item.album" class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.album')" />
-        <div class="title is-6">
-          <a @click="open_album" v-text="item.album" />
-        </div>
-      </div>
-      <div
-        v-if="item.album_artist && item.media_kind !== 'audiobook'"
-        class="mb-3"
-      >
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.album-artist')"
-        />
-        <div class="title is-6">
-          <a @click="open_album_artist" v-text="item.album_artist" />
-        </div>
-      </div>
-      <div v-if="item.composer" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.composer')"
-        />
-        <div class="title is-6" v-text="item.composer" />
-      </div>
-      <div v-if="item.date_released" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.release-date')"
-        />
-        <div class="title is-6" v-text="$filters.date(item.date_released)" />
-      </div>
-      <div v-else-if="item.year" class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.year')" />
-        <div class="title is-6" v-text="item.year" />
-      </div>
-      <div v-if="item.genre" class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.genre')" />
-        <div class="title is-6">
-          <a @click="open_genre" v-text="item.genre" />
-        </div>
-      </div>
-      <div v-if="item.disc_number" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.position')"
-        />
-        <div
-          class="title is-6"
-          v-text="[item.disc_number, item.track_number].join(' / ')"
-        />
-      </div>
-      <div v-if="item.length_ms" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.duration')"
-        />
-        <div
-          class="title is-6"
-          v-text="$filters.durationInHours(item.length_ms)"
-        />
-      </div>
-      <div class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.path')" />
-        <div class="title is-6" v-text="item.path" />
-      </div>
-      <div class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('dialog.track.type')" />
-        <div
-          class="title is-6"
-          v-text="
-            `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
-          "
-        />
-      </div>
-      <div v-if="item.samplerate" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.quality')"
-        />
-        <div class="title is-6">
-          <span v-text="item.type" />
-          <span
-            v-if="item.samplerate"
-            v-text="
-              $t('dialog.track.samplerate', {
-                rate: item.samplerate
-              })
-            "
-          />
-          <span
-            v-if="item.channels"
-            v-text="
-              $t('dialog.track.channels', {
-                channels: $filters.channels(item.channels)
-              })
-            "
-          />
-          <span
-            v-if="item.bitrate"
-            v-text="$t('dialog.track.bitrate', { rate: item.bitrate })"
-          />
-        </div>
-      </div>
-      <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.added-on')"
-        />
-        <div class="title is-6" v-text="$filters.datetime(item.time_added)" />
-      </div>
-      <div>
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.rating')"
-        />
-        <div
-          class="title is-6"
-          v-text="
-            $t('dialog.track.rating-value', {
-              rating: Math.floor(item.rating / 10)
-            })
-          "
-        />
-      </div>
-      <div v-if="item.comment" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.track.comment')"
-        />
-        <div class="title is-6" v-text="item.comment" />
-      </div>
-    </template>
-  </modal-dialog-playable>
+  <modal-dialog-playable
+    :item="playable"
+    :show="show"
+    @close="$emit('close')"
+  />
 </template>
 
 <script>
@@ -170,6 +23,78 @@ export default {
   data() {
     return {
       spotify_track: {}
+    }
+  },
+  computed: {
+    buttons() {
+      if (this.item.media_kind === 'podcast') {
+        if (this.item.play_count > 0) {
+          return [{ label: 'dialog.track.mark-as-new', action: this.mark_new }]
+        }
+        if (this.item.play_count === 0) {
+          return [
+            { label: 'dialog.track.mark-as-played', action: this.mark_played }
+          ]
+        }
+      }
+      return []
+    },
+    playable() {
+      return {
+        name: this.item.title,
+        properties: [
+          {
+            label: 'dialog.track.album',
+            value: this.item.album,
+            action: this.open_album
+          },
+          {
+            label: 'dialog.track.album-artist',
+            value: this.item.album_artist,
+            action: this.open_artist
+          },
+          { label: 'dialog.track.composer', value: this.item.composer },
+          {
+            label: 'dialog.track.release-date',
+            value: this.$filters.date(this.item.date_released)
+          },
+          { label: 'dialog.track.year', value: this.item.year },
+          { label: 'dialog.track.genre', value: this.item.genre },
+          {
+            label: 'dialog.track.position',
+            value: [this.item.disc_number, this.item.track_number].join(' / ')
+          },
+          {
+            label: 'dialog.track.duration',
+            value: this.$filters.durationInHours(this.item.length_ms)
+          },
+          {
+            label: 'dialog.track.type',
+            value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
+          },
+          {
+            label: 'dialog.track.quality',
+            value: this.$t('dialog.track.quality-value', {
+              format: this.item.type,
+              bitrate: this.item.bitrate,
+              channels: this.$filters.channels(this.item.channels),
+              samplerate: this.item.samplerate
+            })
+          },
+          {
+            label: 'dialog.track.added-on',
+            value: this.$filters.datetime(this.item.time_added)
+          },
+          {
+            label: 'dialog.track.rating',
+            value: this.$t('dialog.track.rating-value', {
+              rating: Math.floor(this.item.rating / 10)
+            })
+          },
+          { label: 'dialog.track.comment', value: this.item.comment },
+          { label: 'dialog.track.path', value: this.item.path }
+        ]
+      }
     }
   },
   watch: {
@@ -234,7 +159,7 @@ export default {
         })
       }
     },
-    open_album_artist() {
+    open_artist() {
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
           name: 'music-spotify-artist',

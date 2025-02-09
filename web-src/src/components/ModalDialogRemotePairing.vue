@@ -1,7 +1,11 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog
+    :actions="actions"
+    :show="show"
+    :title="$t('dialog.remote-pairing.title')"
+    @close="$emit('close')"
+  >
     <template #content>
-      <p class="title is-4" v-text="$t('dialog.remote-pairing.title')" />
       <form @submit.prevent="pair">
         <label class="label" v-text="pairing.remote" />
         <div class="field">

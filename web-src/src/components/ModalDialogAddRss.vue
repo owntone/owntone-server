@@ -1,7 +1,11 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog
+    :actions="actions"
+    :show="show"
+    :title="$t('dialog.add.rss.title')"
+    @close="$emit('close')"
+  >
     <template #content>
-      <p class="title is-4" v-text="$t('dialog.add.rss.title')" />
       <div class="field">
         <p class="control has-icons-left">
           <input

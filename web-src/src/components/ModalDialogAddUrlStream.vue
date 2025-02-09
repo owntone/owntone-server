@@ -1,8 +1,12 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog
+    :actions="actions"
+    :show="show"
+    :title="$t('dialog.add.stream.title')"
+    @close="$emit('close')"
+  >
     <template #content>
       <form @submit.prevent="play">
-        <p class="title is-4" v-text="$t('dialog.add.stream.title')" />
         <div class="field">
           <p class="control has-icons-left">
             <input
