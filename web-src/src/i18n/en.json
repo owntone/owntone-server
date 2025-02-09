@@ -27,13 +27,10 @@
       }
     },
     "album": {
-      "add-next": "Add Next",
-      "add": "Add",
       "added-on": "Added on",
       "artist": "Album artist",
       "duration": "Duration",
       "mark-as-played": "Mark as played",
-      "play": "Play",
       "release-date": "Release date",
       "remove-podcast": "Remove podcast",
       "tracks": "Tracks",
@@ -41,34 +38,25 @@
       "year": "Year"
     },
     "artist": {
-      "add-next": "Add Next",
-      "add": "Add",
       "added-on": "Added On",
       "albums": "Albums",
-      "play": "Play",
       "tracks": "Tracks",
       "type": "Type"
     },
     "composer": {
-      "add-next": "Add Next",
-      "add": "Add",
       "albums": "Albums",
       "duration": "Duration",
-      "play": "Play",
       "tracks": "Tracks"
     },
-    "directory": {
+    "genre": {
+      "albums": "Albums",
+      "duration": "Duration",
+      "tracks": "Tracks"
+    },
+    "playable": {
       "add-next": "Add Next",
       "add": "Add",
       "play": "Play"
-    },
-    "genre": {
-      "add-next": "Add Next",
-      "add": "Add",
-      "albums": "Albums",
-      "duration": "Duration",
-      "play": "Play",
-      "tracks": "Tracks"
     },
     "playlist": {
       "add-next": "Add Next",
@@ -112,43 +100,29 @@
     },
     "spotify": {
       "album": {
-        "add-next": "Add Next",
-        "add": "Add",
         "album-artist": "Album Artist",
-        "play": "Play",
         "release-date": "Release Date",
         "type": "Type"
       },
       "artist": {
-        "add-next": "Add Next",
-        "add": "Add",
         "genres": "Genres",
-        "play": "Play",
         "popularity": "Popularity / Followers"
       },
       "playlist": {
-        "add-next": "Add Next",
-        "add": "Add",
         "owner": "Owner",
         "path": "Path",
-        "play": "Play",
         "tracks": "Tracks"
       },
       "track": {
-        "add-next": "Add Next",
-        "add": "Add",
         "album-artist": "Album Artist",
         "album": "Album",
         "duration": "Duration",
         "path": "Path",
-        "play": "Play",
         "position": "Disc / Track",
         "release-date": "Release Date"
       }
     },
     "track": {
-      "add-next": "Add Next",
-      "add": "Add",
       "added-on": "Added On",
       "album-artist": "Album Artist",
       "album": "Album",
@@ -161,7 +135,6 @@
       "mark-as-new": "Mark as new",
       "mark-as-played": "Mark as played",
       "path": "Path",
-      "play": "Play",
       "position": "Disc / Track",
       "quality": "Quality",
       "rating-value": "{rating} / 10",

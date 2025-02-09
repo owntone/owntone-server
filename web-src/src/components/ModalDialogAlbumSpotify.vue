@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog-playable :item="item" :show="show" @close="$emit('close')">
     <template #content>
       <div class="title is-4">
         <a @click="open" v-text="item.name" />
@@ -36,43 +36,21 @@
         <div class="title is-6" v-text="item.album_type" />
       </div>
     </template>
-  </modal-dialog>
+  </modal-dialog-playable>
 </template>
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import ModalDialog from '@/components/ModalDialog.vue'
-import webapi from '@/webapi'
+import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 
 export default {
   name: 'ModalDialogAlbumSpotify',
-  components: { ModalDialog, CoverArtwork },
+  components: { ModalDialogPlayable, CoverArtwork },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
   data() {
     return {
       artwork_visible: false
-    }
-  },
-  computed: {
-    actions() {
-      return [
-        {
-          label: this.$t('dialog.spotify.album.add'),
-          handler: this.queue_add,
-          icon: 'playlist-plus'
-        },
-        {
-          label: this.$t('dialog.spotify.album.add-next'),
-          handler: this.queue_add_next,
-          icon: 'playlist-play'
-        },
-        {
-          label: this.$t('dialog.spotify.album.play'),
-          handler: this.play,
-          icon: 'play'
-        }
-      ]
     }
   },
   methods: {
@@ -98,18 +76,6 @@ export default {
         name: 'music-spotify-artist',
         params: { id: this.item.artists[0].id }
       })
-    },
-    play() {
-      this.$emit('close')
-      webapi.player_play_uri(this.item.uri, false)
-    },
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_add(this.item.uri)
-    },
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_add_next(this.item.uri)
     }
   }
 }

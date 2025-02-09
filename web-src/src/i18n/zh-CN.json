@@ -27,13 +27,10 @@
       }
     },
     "album": {
-      "add-next": "插播",
-      "add": "添加",
       "added-on": "添加时间",
       "artist": "专辑艺人",
       "duration": "时长",
       "mark-as-played": "标记为已播",
-      "play": "播放",
       "release-date": "发行日期",
       "remove-podcast": "移除播客",
       "tracks": "只曲目",
@@ -41,34 +38,25 @@
       "year": "年份"
     },
     "artist": {
-      "add-next": "插播",
-      "add": "添加",
       "added-on": "添加时间",
       "albums": "张专辑",
-      "play": "播放",
       "tracks": "只曲目",
       "type": "类型"
     },
     "composer": {
-      "add-next": "插播",
-      "add": "添加",
       "albums": "张专辑",
       "duration": "时长",
-      "play": "播放",
       "tracks": "只曲目"
     },
-    "directory": {
+    "genre": {
+      "albums": "张专辑",
+      "duration": "时长",
+      "tracks": "只曲目"
+    },
+    "playable": {
       "add-next": "插播",
       "add": "添加",
       "play": "播放"
-    },
-    "genre": {
-      "add-next": "插播",
-      "add": "添加",
-      "albums": "张专辑",
-      "duration": "时长",
-      "play": "播放",
-      "tracks": "只曲目"
     },
     "playlist": {
       "add-next": "插播",
@@ -112,43 +100,29 @@
     },
     "spotify": {
       "album": {
-        "add-next": "插播",
-        "add": "添加",
         "album-artist": "专辑艺人",
-        "play": "播放",
         "release-date": "发行日期",
         "type": "类型"
       },
       "artist": {
-        "add-next": "插播",
-        "add": "添加",
         "genres": "流派",
-        "play": "播放",
         "popularity": "流行度 / 粉丝数"
       },
       "playlist": {
-        "add-next": "插播",
-        "add": "添加",
         "owner": "所有者",
         "path": "路径",
-        "play": "播放",
         "tracks": "曲目"
       },
       "track": {
-        "add-next": "插播",
-        "add": "添加",
         "album-artist": "专辑艺人",
         "album": "专辑",
         "duration": "时长",
         "path": "路径",
-        "play": "播放",
         "position": "盘符 / 曲目",
         "release-date": "发行日期"
       }
     },
     "track": {
-      "add-next": "插播",
-      "add": "添加",
       "added-on": "添加时间",
       "album-artist": "专辑艺人",
       "album": "专辑",
@@ -161,7 +135,6 @@
       "mark-as-new": "标记为最新",
       "mark-as-played": "标记为已播放",
       "path": "路径",
-      "play": "播放",
       "position": "盘符 / 曲目",
       "quality": "质量",
       "rating-value": "{rating} / 10",

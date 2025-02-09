@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog-playable :item="item" :show="show" @close="$emit('close')">
     <template #content>
       <p class="title is-4" v-text="item.title" />
       <p class="subtitle" v-text="item.artist" />
@@ -150,18 +150,18 @@
         <div class="title is-6" v-text="item.comment" />
       </div>
     </template>
-  </modal-dialog>
+  </modal-dialog-playable>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogTrack',
-  components: { ModalDialog },
+  components: { ModalDialogPlayable },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close', 'play-count-changed'],
   setup() {
@@ -170,27 +170,6 @@ export default {
   data() {
     return {
       spotify_track: {}
-    }
-  },
-  computed: {
-    actions() {
-      return [
-        {
-          label: this.$t('dialog.track.add'),
-          handler: this.queue_add,
-          icon: 'playlist-plus'
-        },
-        {
-          label: this.$t('dialog.track.add-next'),
-          handler: this.queue_add_next,
-          icon: 'playlist-play'
-        },
-        {
-          label: this.$t('dialog.track.play'),
-          handler: this.play,
-          icon: 'play'
-        }
-      ]
     }
   },
   watch: {
@@ -282,18 +261,6 @@ export default {
         params: { name: this.item.genre },
         query: { media_kind: this.item.media_kind }
       })
-    },
-    play() {
-      this.$emit('close')
-      webapi.player_play_uri(this.item.uri, false)
-    },
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_add(this.item.uri)
-    },
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_add_next(this.item.uri)
     }
   }
 }

@@ -1,5 +1,5 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog-playable :item="item" :show="show" @close="$emit('close')">
     <template #content>
       <div class="title is-4">
         <a @click="open" v-text="item.name" />
@@ -77,17 +77,17 @@
         <div class="title is-6" v-text="$filters.datetime(item.time_added)" />
       </div>
     </template>
-  </modal-dialog>
+  </modal-dialog-playable>
 </template>
 
 <script>
 import CoverArtwork from '@/components/CoverArtwork.vue'
-import ModalDialog from '@/components/ModalDialog.vue'
+import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAlbum',
-  components: { ModalDialog, CoverArtwork },
+  components: { ModalDialogPlayable, CoverArtwork },
   props: {
     item: { required: true, type: Object },
     media_kind: { default: '', type: String },
@@ -100,25 +100,6 @@ export default {
     }
   },
   computed: {
-    actions() {
-      return [
-        {
-          label: this.$t('dialog.album.add'),
-          handler: this.queue_add,
-          icon: 'playlist-plus'
-        },
-        {
-          label: this.$t('dialog.album.add-next'),
-          handler: this.queue_add_next,
-          icon: 'playlist-play'
-        },
-        {
-          label: this.$t('dialog.album.play'),
-          handler: this.play,
-          icon: 'play'
-        }
-      ]
-    },
     media_kind_resolved() {
       return this.media_kind || this.item.media_kind
     }
@@ -161,18 +142,6 @@ export default {
           params: { id: this.item.artist_id }
         })
       }
-    },
-    play() {
-      this.$emit('close')
-      webapi.player_play_uri(this.item.uri, false)
-    },
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_add(this.item.uri)
-    },
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_add_next(this.item.uri)
     }
   }
 }

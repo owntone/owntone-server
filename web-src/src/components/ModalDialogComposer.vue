@@ -1,5 +1,9 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog-playable
+    :expression="expression"
+    :show="show"
+    @close="$emit('close')"
+  >
     <template #content>
       <div class="title is-4">
         <a @click="open_albums" v-text="item.name" />
@@ -33,37 +37,20 @@
         />
       </div>
     </template>
-  </modal-dialog>
+  </modal-dialog-playable>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
-import webapi from '@/webapi'
+import ModalDialogPlayable from './ModalDialogPlayable.vue'
 
 export default {
   name: 'ModalDialogComposer',
-  components: { ModalDialog },
+  components: { ModalDialogPlayable },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
   computed: {
-    actions() {
-      return [
-        {
-          label: this.$t('dialog.composer.add'),
-          handler: this.queue_add,
-          icon: 'playlist-plus'
-        },
-        {
-          label: this.$t('dialog.composer.add-next'),
-          handler: this.queue_add_next,
-          icon: 'playlist-play'
-        },
-        {
-          label: this.$t('dialog.composer.play'),
-          handler: this.play,
-          icon: 'play'
-        }
-      ]
+    expression() {
+      return `composer is "${this.item.name}" and media_kind is music`
     }
   },
   methods: {
@@ -79,25 +66,6 @@ export default {
         name: 'music-composer-tracks',
         params: { name: this.item.name }
       })
-    },
-    play() {
-      this.$emit('close')
-      webapi.player_play_expression(
-        `composer is "${this.item.name}" and media_kind is music`,
-        false
-      )
-    },
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_expression_add(
-        `composer is "${this.item.name}" and media_kind is music`
-      )
-    },
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_expression_add_next(
-        `composer is "${this.item.name}" and media_kind is music`
-      )
     }
   }
 }

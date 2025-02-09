@@ -27,13 +27,10 @@
       }
     },
     "album": {
-      "add-next": "Ajouter ensuite",
-      "add": "Ajouter",
       "added-on": "Ajouté le",
       "artist": "Artiste de l’album",
       "duration": "Durée",
       "mark-as-played": "Marquer comme lu",
-      "play": "Lire",
       "release-date": "Date de sortie",
       "remove-podcast": "Supprimer le podcast",
       "tracks": "Pistes",
@@ -41,34 +38,25 @@
       "year": "Année"
     },
     "artist": {
-      "add-next": "Ajouter ensuite",
-      "add": "Ajouter",
       "added-on": "Ajouté le",
       "albums": "Albums",
-      "play": "Lire",
       "tracks": "Pistes",
       "type": "Type"
     },
     "composer": {
-      "add-next": "Ajouter ensuite",
-      "add": "Ajouter",
       "albums": "Albums",
       "duration": "Durée",
-      "play": "Lire",
       "tracks": "Pistes"
     },
-    "directory": {
+    "genre": {
+      "albums": "Albums",
+      "duration": "Durée",
+      "tracks": "Pistes"
+    },
+    "playable": {
       "add-next": "Ajouter ensuite",
       "add": "Ajouter",
       "play": "Lire"
-    },
-    "genre": {
-      "add-next": "Ajouter ensuite",
-      "add": "Ajouter",
-      "albums": "Albums",
-      "duration": "Durée",
-      "play": "Lire",
-      "tracks": "Pistes"
     },
     "playlist": {
       "add-next": "Ajouter ensuite",
@@ -112,43 +100,29 @@
     },
     "spotify": {
       "album": {
-        "add-next": "Ajouter ensuite",
-        "add": "Ajouter",
         "album-artist": "Artiste de l’album",
-        "play": "Lire",
         "release-date": "Date de sortie",
         "type": "Type"
       },
       "artist": {
-        "add-next": "Ajouter ensuite",
-        "add": "Ajouter",
         "genres": "Genres",
-        "play": "Lire",
         "popularity": "Popularité / Abonnements"
       },
       "playlist": {
-        "add-next": "Ajouter ensuite",
-        "add": "Ajouter",
         "owner": "Propriétaire",
         "path": "Emplacement",
-        "play": "Lire",
         "tracks": "Pistes"
       },
       "track": {
-        "add-next": "Ajouter ensuite",
-        "add": "Ajouter",
         "album-artist": "Artiste de l’album",
         "album": "Album",
         "duration": "Durée",
         "path": "Emplacement",
-        "play": "Lire",
         "position": "Disque / Piste",
         "release-date": "Date de sortie"
       }
     },
     "track": {
-      "add-next": "Ajouter ensuite",
-      "add": "Ajouter",
       "added-on": "Ajouté le",
       "album-artist": "Artiste de l’album",
       "album": "Album",
@@ -161,7 +135,6 @@
       "mark-as-new": "Marquer comme nouveau",
       "mark-as-played": "Marquer comme lu",
       "path": "Emplacement",
-      "play": "Lire",
       "position": "Disque / Piste",
       "quality": "Qualité",
       "rating-value": "{rating} / 10",

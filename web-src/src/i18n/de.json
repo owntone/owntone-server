@@ -27,13 +27,10 @@
       }
     },
     "album": {
-      "add-next": "Als nächstes hinzufügen",
-      "add": "Hinzufügen",
       "added-on": "Hinzugefügt am",
       "artist": "Album Künstler",
       "duration": "Dauer",
       "mark-as-played": "Markiere als gespielt",
-      "play": "Spielen",
       "release-date": "Erscheinungsdatum",
       "remove-podcast": "Entferne podcast",
       "tracks": "Track Nummer",
@@ -41,34 +38,25 @@
       "year": "Jahr"
     },
     "artist": {
-      "add-next": "Als nächstes hinzufügen",
-      "add": "Hinzufügen",
       "added-on": "Hinzugefügt am",
       "albums": "Alben",
-      "play": "Spielen",
       "tracks": "Tracks",
       "type": "Art"
     },
     "composer": {
-      "add-next": "Als nächstes hinzufügen",
-      "add": "Hinzufügen",
       "albums": "Alben",
       "duration": "Dauer",
-      "play": "Spielen",
       "tracks": "Tracks"
     },
-    "directory": {
+    "genre": {
+      "albums": "Alben",
+      "duration": "Dauer",
+      "tracks": "Tracks"
+    },
+    "playable": {
       "add-next": "Als nächstes hinzufügen",
       "add": "Hinzufügen",
       "play": "Spielen"
-    },
-    "genre": {
-      "add-next": "Als nächstes hinzufügen",
-      "add": "Hinzufügen",
-      "albums": "Alben",
-      "duration": "Dauer",
-      "play": "Spielen",
-      "tracks": "Tracks"
     },
     "playlist": {
       "add-next": "Als nächstes hinzufügen",
@@ -112,43 +100,29 @@
     },
     "spotify": {
       "album": {
-        "add-next": "Als nächstes hinzufügen",
-        "add": "Hinzufügen",
         "album-artist": "Album-Künstler",
-        "play": "Spielen",
         "release-date": "Erscheinungsdatum",
         "type": "Art"
       },
       "artist": {
-        "add-next": "Als nächstes hinzufügen",
-        "add": "Hinzufügen",
         "genres": "Genres",
-        "play": "Spielen",
         "popularity": "Popularität / Followers"
       },
       "playlist": {
-        "add-next": "Als nächstes hinzufügen",
-        "add": "Hinzufügen",
         "owner": "Besitzer",
         "path": "Pfad",
-        "play": "Spielen",
         "tracks": "Tracks"
       },
       "track": {
-        "add-next": "Als nächstes hinzufügen",
-        "add": "Hinzufügen",
         "album-artist": "Album-Künstler",
         "album": "Album",
         "duration": "Dauer",
         "path": "Pfad",
-        "play": "Spielen",
         "position": "Disc / Track",
         "release-date": "Erscheinungsdatum"
       }
     },
     "track": {
-      "add-next": "Als nächstes hinzufügen",
-      "add": "Hinzufügen",
       "added-on": "Hinzugefügt am",
       "album-artist": "Album-Künstler",
       "album": "Album",
@@ -161,7 +135,6 @@
       "mark-as-new": "Markiere als neu",
       "mark-as-played": "Markiere als gespielt",
       "path": "Pfad",
-      "play": "Spielen",
       "position": "Disc / Track",
       "quality": "Qualität",
       "rating-value": "{rating} / 10",

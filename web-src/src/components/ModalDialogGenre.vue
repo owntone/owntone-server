@@ -1,5 +1,9 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog-playable
+    :expression="expression"
+    :show="show"
+    @close="$emit('close')"
+  >
     <template #content>
       <div class="title is-4">
         <a @click="open" v-text="item.name" />
@@ -29,16 +33,15 @@
         />
       </div>
     </template>
-  </modal-dialog>
+  </modal-dialog-playable>
 </template>
 
 <script>
-import ModalDialog from '@/components/ModalDialog.vue'
-import webapi from '@/webapi'
+import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 
 export default {
   name: 'ModalDialogGenre',
-  components: { ModalDialog },
+  components: { ModalDialogPlayable },
   props: {
     item: { required: true, type: Object },
     media_kind: { required: true, type: String },
@@ -46,25 +49,6 @@ export default {
   },
   emits: ['close'],
   computed: {
-    actions() {
-      return [
-        {
-          label: this.$t('dialog.genre.add'),
-          handler: this.queue_add,
-          icon: 'playlist-plus'
-        },
-        {
-          label: this.$t('dialog.genre.add-next'),
-          handler: this.queue_add_next,
-          icon: 'playlist-play'
-        },
-        {
-          label: this.$t('dialog.genre.play'),
-          handler: this.play,
-          icon: 'play'
-        }
-      ]
-    },
     expression() {
       return `genre is "${this.item.name}" and media_kind is ${this.media_kind}`
     }
@@ -77,18 +61,6 @@ export default {
         params: { name: this.item.name },
         query: { media_kind: this.media_kind }
       })
-    },
-    play() {
-      this.$emit('close')
-      webapi.player_play_expression(this.expression, false)
-    },
-    queue_add() {
-      this.$emit('close')
-      webapi.queue_expression_add(this.expression)
-    },
-    queue_add_next() {
-      this.$emit('close')
-      webapi.queue_expression_add_next(this.expression)
     }
   }
 }
