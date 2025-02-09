@@ -17,14 +17,20 @@ export const filters = {
     return t('filter.channels', { value })
   },
   date(value) {
-    return DateTime.fromISO(value)
-      .setLocale(locale.value)
-      .toLocaleString(DateTime.DATE_FULL)
+    if (value) {
+      return DateTime.fromISO(value, { locale: locale.value }).toLocaleString(
+        DateTime.DATE_FULL
+      )
+    }
+    return null
   },
   datetime(value) {
-    return DateTime.fromISO(value)
-      .setLocale(locale.value)
-      .toLocaleString(DateTime.DATETIME_MED)
+    if (value) {
+      return DateTime.fromISO(value, { locale: locale.value }).toLocaleString(
+        DateTime.DATETIME_MED
+      )
+    }
+    return null
   },
   durationInDays(value) {
     const minutes = Math.floor(value / 60)
