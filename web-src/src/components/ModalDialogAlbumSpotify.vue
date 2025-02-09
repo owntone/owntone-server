@@ -9,8 +9,6 @@
         :artist="item.artist"
         :album="item.name"
         class="is-normal mb-3"
-        @load="artwork_loaded"
-        @error="artwork_error"
       />
       <div class="mb-3">
         <div
@@ -48,18 +46,7 @@ export default {
   components: { ModalDialogPlayable, CoverArtwork },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
-  data() {
-    return {
-      artwork_visible: false
-    }
-  },
   methods: {
-    artwork_error() {
-      this.artwork_visible = false
-    },
-    artwork_loaded() {
-      this.artwork_visible = true
-    },
     artwork_url(item) {
       return item.images?.[0]?.url || ''
     },
