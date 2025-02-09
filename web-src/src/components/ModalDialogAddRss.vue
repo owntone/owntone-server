@@ -1,12 +1,6 @@
 <template>
-  <modal-dialog
-    :actions="actions"
-    :show="show"
-    @cancel="$emit('close')"
-    @close="$emit('close')"
-    @add="add"
-  >
-    <template #modal-content>
+  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+    <template #content>
       <p class="title is-4" v-text="$t('dialog.add.rss.title')" />
       <div class="field">
         <p class="control has-icons-left">
@@ -53,13 +47,13 @@ export default {
       return [
         {
           label: this.$t('dialog.add.rss.cancel'),
-          event: 'cancel',
+          handler: this.cancel,
           icon: 'cancel'
         },
         {
           label: this.$t('dialog.add.rss.add'),
           disabled: this.disabled,
-          event: 'add',
+          handler: this.add,
           icon: 'playlist-plus'
         }
       ]
@@ -89,6 +83,9 @@ export default {
         .catch(() => {
           this.loading = false
         })
+    },
+    cancel() {
+      this.$emit('close')
     },
     check_url(event) {
       const { validity } = event.target

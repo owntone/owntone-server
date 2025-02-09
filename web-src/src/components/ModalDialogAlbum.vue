@@ -1,13 +1,6 @@
 <template>
-  <modal-dialog
-    :actions="actions"
-    :show="show"
-    @add="queue_add"
-    @add-next="queue_add_next"
-    @close="$emit('close')"
-    @play="play"
-  >
-    <template #modal-content>
+  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+    <template #content>
       <div class="title is-4">
         <a @click="open" v-text="item.name" />
       </div>
@@ -101,29 +94,27 @@ export default {
     show: Boolean
   },
   emits: ['close', 'remove-podcast', 'play-count-changed'],
-
   data() {
     return {
       artwork_visible: false
     }
   },
-
   computed: {
     actions() {
       return [
         {
           label: this.$t('dialog.album.add'),
-          event: 'add',
+          handler: this.queue_add,
           icon: 'playlist-plus'
         },
         {
           label: this.$t('dialog.album.add-next'),
-          event: 'add-next',
+          handler: this.queue_add_next,
           icon: 'playlist-play'
         },
         {
           label: this.$t('dialog.album.play'),
-          event: 'play',
+          handler: this.play,
           icon: 'play'
         }
       ]
@@ -132,7 +123,6 @@ export default {
       return this.media_kind || this.item.media_kind
     }
   },
-
   methods: {
     mark_played() {
       webapi

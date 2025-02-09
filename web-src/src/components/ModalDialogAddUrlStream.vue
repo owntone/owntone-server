@@ -1,13 +1,6 @@
 <template>
-  <modal-dialog
-    :actions="actions"
-    :show="show"
-    @add="add"
-    @cancel="$emit('close')"
-    @close="$emit('close')"
-    @play="play"
-  >
-    <template #modal-content>
+  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+    <template #content>
       <form @submit.prevent="play">
         <p class="title is-4" v-text="$t('dialog.add.stream.title')" />
         <div class="field">
@@ -55,19 +48,19 @@ export default {
       return [
         {
           label: this.$t('dialog.add.stream.cancel'),
-          event: 'cancel',
+          handler: this.cancel,
           icon: 'cancel'
         },
         {
           label: this.$t('dialog.add.stream.add'),
           disabled: this.disabled,
-          event: 'add',
+          handler: this.add,
           icon: 'playlist-plus'
         },
         {
           label: this.$t('dialog.add.stream.play'),
           disabled: this.disabled,
-          event: 'play',
+          handler: this.play,
           icon: 'play'
         }
       ]
@@ -97,10 +90,14 @@ export default {
           this.loading = false
         })
     },
+    cancel() {
+      this.$emit('close')
+    },
     check_url(event) {
       const { validity } = event.target
       this.disabled = validity.patternMismatch || validity.valueMissing
     },
+
     play() {
       this.loading = true
       webapi

@@ -33,12 +33,6 @@
   padding-top: 1rem;
 }
 
-/* Only scroll content if modal contains a card component */
-.modal-content .card-content {
-  max-height: calc(100vh - calc(4 * var(--bulma-navbar-height)));
-  overflow: auto;
-}
-
 .buttons {
   @include mixins.mobile {
     &.is-centered-mobile {

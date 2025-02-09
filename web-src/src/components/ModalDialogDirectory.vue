@@ -3,10 +3,7 @@
     :actions="actions"
     :show="show"
     :title="item"
-    @add="queue_add"
-    @add-next="queue_add_next"
     @close="$emit('close')"
-    @play="play"
   />
 </template>
 
@@ -24,17 +21,17 @@ export default {
       return [
         {
           label: this.$t('dialog.directory.add'),
-          event: 'add',
+          handler: this.queue_add,
           icon: 'playlist-plus'
         },
         {
           label: this.$t('dialog.directory.add-next'),
-          event: 'add-next',
+          handler: this.queue_add_next,
           icon: 'playlist-play'
         },
         {
           label: this.$t('dialog.directory.play'),
-          event: 'play',
+          handler: this.play,
           icon: 'play'
         }
       ]

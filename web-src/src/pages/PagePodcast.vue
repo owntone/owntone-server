@@ -53,7 +53,7 @@
           @cancel="show_remove_podcast_modal = false"
           @remove="remove_podcast"
         >
-          <template #modal-content>
+          <template #content>
             <i18n-t keypath="page.podcast.remove-info" tag="p" scope="global">
               <template #separator>
                 <br />
@@ -122,12 +122,12 @@ export default {
       return [
         {
           label: this.$t('page.podcast.cancel'),
-          event: 'cancel',
+          handler: 'cancel',
           icon: 'cancel'
         },
         {
           label: this.$t('page.podcast.remove'),
-          event: 'remove',
+          handler: 'remove',
           icon: 'delete'
         }
       ]

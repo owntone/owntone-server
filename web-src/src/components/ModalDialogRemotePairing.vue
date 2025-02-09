@@ -1,12 +1,6 @@
 <template>
-  <modal-dialog
-    :actions="actions"
-    :show="show"
-    @cancel="$emit('close')"
-    @close="$emit('close')"
-    @pair="pair"
-  >
-    <template #modal-content>
+  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+    <template #content>
       <p class="title is-4" v-text="$t('dialog.remote-pairing.title')" />
       <form @submit.prevent="pair">
         <label class="label" v-text="pairing.remote" />
@@ -50,12 +44,12 @@ export default {
       return [
         {
           label: this.$t('dialog.remote-pairing.cancel'),
-          event: 'cancel',
+          handler: this.cancel,
           icon: 'cancel'
         },
         {
           label: this.$t('dialog.remote-pairing.pair'),
-          event: 'pair',
+          handler: this.pair,
           icon: 'cellphone'
         }
       ]
@@ -76,6 +70,9 @@ export default {
     }
   },
   methods: {
+    cancel() {
+      this.$emit('close')
+    },
     pair() {
       webapi.pairing_kickoff(this.pairing_req).then(() => {
         this.pairing_req.pin = ''

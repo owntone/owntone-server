@@ -3,10 +3,9 @@
     :actions="actions"
     :show="show"
     :title="$t('dialog.update.title')"
-    @analyse="update_library"
-    @cancel="close()"
+    @close="$emit('close')"
   >
-    <template #modal-content>
+    <template #content>
       <div v-if="!libraryStore.updating">
         <div v-if="spotify_enabled || rss.tracks > 0" class="field">
           <label class="label" v-text="$t('dialog.update.info')" />
@@ -54,33 +53,30 @@ export default {
   components: { ControlSwitch, ModalDialog },
   props: { show: Boolean },
   emits: ['close'],
-
   setup() {
     return {
       libraryStore: useLibraryStore(),
       servicesStore: useServicesStore()
     }
   },
-
   data() {
     return {
       rescan_metadata: false
     }
   },
-
   computed: {
     actions() {
       return [
         {
           label: this.$t('dialog.update.cancel'),
-          event: 'cancel',
+          handler: this.cancel,
           icon: 'cancel'
         },
         {
           label: this.libraryStore.updating
-            ? 'In progress'
+            ? this.$t('dialog.update.progress')
             : this.$t('dialog.update.rescan'),
-          event: 'analyse',
+          handler: this.analyse,
           icon: 'check'
         }
       ]
@@ -92,13 +88,12 @@ export default {
       return this.servicesStore.spotify.webapi_token_valid
     }
   },
-
   methods: {
-    close() {
-      this.libraryStore.update_dialog_scan_kind = ''
+    cancel() {
       this.$emit('close')
+      this.libraryStore.update_dialog_scan_kind = ''
     },
-    update_library() {
+    analyse() {
       if (this.rescan_metadata) {
         webapi.library_rescan(this.libraryStore.update_dialog_scan_kind)
       } else {

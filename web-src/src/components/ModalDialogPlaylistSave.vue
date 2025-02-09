@@ -1,12 +1,6 @@
 <template>
-  <modal-dialog
-    :actions="actions"
-    :show="show"
-    @cancel="$emit('close')"
-    @close="$emit('close')"
-    @save="save"
-  >
-    <template #modal-content>
+  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+    <template #content>
       <form @submit.prevent="save">
         <p class="title is-4" v-text="$t('dialog.playlist.save.title')" />
         <div class="field">
@@ -53,12 +47,12 @@ export default {
     return [
       {
         label: this.$t('dialog.playlist.save.cancel'),
-        event: 'cancel',
+        handler: this.cancel,
         icon: 'cancel'
       },
       {
         label: this.$t('dialog.playlist.save.save'),
-        event: 'content-save',
+        handler: this.save,
         icon: 'save'
       }
     ]
@@ -75,6 +69,9 @@ export default {
     }
   },
   methods: {
+    cancel() {
+      this.$emit('close')
+    },
     check_name(event) {
       const { validity } = event.target
       this.disabled = validity.patternMismatch || validity.valueMissing

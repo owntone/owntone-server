@@ -1,13 +1,6 @@
 <template>
-  <modal-dialog
-    :actions="actions"
-    :show="show"
-    @add="queue_add"
-    @add-next="queue_add_next"
-    @close="$emit('close')"
-    @play="play"
-  >
-    <template #modal-content>
+  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+    <template #content>
       <div class="title is-4">
         <a @click="open" v-text="item.name" />
       </div>
@@ -55,17 +48,17 @@ export default {
         return [
           {
             label: this.$t('dialog.playlist.add'),
-            event: 'add',
+            handler: this.queue_add,
             icon: 'playlist-plus'
           },
           {
             label: this.$t('dialog.playlist.add-next'),
-            event: 'add-next',
+            handler: this.queue_add_next,
             icon: 'playlist-play'
           },
           {
             label: this.$t('dialog.playlist.play'),
-            event: 'play',
+            handler: this.play,
             icon: 'play'
           }
         ]

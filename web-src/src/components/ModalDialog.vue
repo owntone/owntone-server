@@ -6,15 +6,15 @@
         <div class="card">
           <div class="card-content">
             <p v-if="title" class="title is-4" v-text="title" />
-            <slot name="modal-content" />
+            <slot name="content" />
           </div>
-          <footer class="card-footer">
+          <footer v-if="actions.length" class="card-footer">
             <a
               v-for="action in actions"
               :key="action.event"
               class="card-footer-item"
               :class="{ 'is-disabled': action.disabled }"
-              @click="$emit(action.event)"
+              @click="action.handler"
             >
               <mdicon class="icon" :name="action.icon" size="16" />
               <span class="is-size-7" v-text="action.label" />
@@ -28,11 +28,11 @@
 
 <script>
 export default {
-  name: 'ModalDialogCombined',
+  name: 'ModalDialog',
   props: {
+    actions: { type: Array, required: true },
     show: Boolean,
-    title: { type: String, default: '' },
-    actions: { type: Array, required: true }
+    title: { type: String, default: '' }
   },
   emits: ['close'],
   watch: {
@@ -62,5 +62,9 @@ export default {
 .fade-enter-to,
 .fade-leave-from {
   opacity: 1;
+}
+.card-content {
+  max-height: calc(100vh - calc(4 * var(--bulma-navbar-height)));
+  overflow: auto;
 }
 </style>

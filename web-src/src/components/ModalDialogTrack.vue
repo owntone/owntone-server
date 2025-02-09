@@ -1,13 +1,6 @@
 <template>
-  <modal-dialog
-    :actions="actions"
-    :show="show"
-    @add="queue_add"
-    @add-next="queue_add_next"
-    @close="$emit('close')"
-    @play="play"
-  >
-    <template #modal-content>
+  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+    <template #content>
       <p class="title is-4" v-text="item.title" />
       <p class="subtitle" v-text="item.artist" />
       <div v-if="item.media_kind === 'podcast'" class="buttons">
@@ -184,17 +177,17 @@ export default {
       return [
         {
           label: this.$t('dialog.track.add'),
-          event: 'add',
+          handler: this.queue_add,
           icon: 'playlist-plus'
         },
         {
           label: this.$t('dialog.track.add-next'),
-          event: 'add-next',
+          handler: this.queue_add_next,
           icon: 'playlist-play'
         },
         {
           label: this.$t('dialog.track.play'),
-          event: 'play',
+          handler: this.play,
           icon: 'play'
         }
       ]

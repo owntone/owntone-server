@@ -1,12 +1,6 @@
 <template>
-  <modal-dialog
-    :actions="actions"
-    :show="show"
-    @remove="remove"
-    @close="$emit('close')"
-    @play="play"
-  >
-    <template #modal-content>
+  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+    <template #content>
       <div class="title is-4" v-text="item.title" />
       <div class="subtitle" v-text="item.artist" />
       <div v-if="item.album" class="mb-3">
@@ -147,12 +141,12 @@ export default {
       return [
         {
           label: this.$t('dialog.queue-item.remove'),
-          event: 'remove',
+          handler: this.remove,
           icon: 'delete'
         },
         {
           label: this.$t('dialog.queue-item.play'),
-          event: 'play',
+          handler: this.play,
           icon: 'play'
         }
       ]
