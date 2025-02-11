@@ -1,5 +1,6 @@
 <template>
   <modal-dialog-playable
+    :buttons="buttons"
     :item="playable"
     :show="show"
     @close="$emit('close')"
@@ -22,7 +23,7 @@ export default {
   computed: {
     buttons() {
       if (this.media_kind_resolved === 'podcast') {
-        if (item.data_kind === 'url') {
+        if (this.item.data_kind === 'url') {
           return [
             { label: 'dialog.album.mark-as-played', action: this.mark_played },
             {

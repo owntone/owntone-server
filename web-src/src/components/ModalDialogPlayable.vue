@@ -10,10 +10,16 @@
         :url="item.image"
         :artist="item.artist"
         :album="item.name"
-        class="is-normal mb-3"
+        class="is-normal mb-5"
       />
-      <div v-for="button in buttons" :key="button.label" class="buttons">
-        <a v-t="button.label" class="button is-small" @click="button.action" />
+      <div class="buttons">
+        <a
+          v-for="button in buttons"
+          :key="button.label"
+          v-t="button.label"
+          class="button is-small"
+          @click="button.action"
+        />
       </div>
       <div
         v-for="property in item.properties?.filter((p) => p.value)"

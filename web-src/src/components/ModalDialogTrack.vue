@@ -1,5 +1,6 @@
 <template>
   <modal-dialog-playable
+    :buttons="buttons"
     :item="playable"
     :show="show"
     @close="$emit('close')"
