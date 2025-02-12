@@ -22,15 +22,15 @@ export default {
     playable() {
       return {
         name: this.item.name,
-        action: this.open,
+        handler: this.open,
         uris: this.uris,
         properties: [
-          { label: 'dialog.playlist.tracks', value: this.item.item_count },
+          { label: 'property.tracks', value: this.item.item_count },
           {
-            label: 'dialog.playlist.type',
+            label: 'property.type',
             value: this.$t(`playlist.type.${this.item.type}`)
           },
-          { label: 'dialog.playlist.path', value: this.item.path }
+          { label: 'property.path', value: this.item.path }
         ]
       }
     }

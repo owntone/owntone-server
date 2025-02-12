@@ -2,7 +2,7 @@
   <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
     <template #content>
       <div class="title is-4">
-        <a v-if="item.action" @click="item.action" v-text="item.name"></a>
+        <a v-if="item.handler" @click="item.handler" v-text="item.name"></a>
         <span v-else v-text="item.name" />
       </div>
       <cover-artwork
@@ -18,7 +18,7 @@
           :key="button.label"
           v-t="button.label"
           class="button is-small"
-          @click="button.action"
+          @click="button.handler"
         />
       </div>
       <div
@@ -29,8 +29,8 @@
         <div v-t="property.label" class="is-size-7 is-uppercase" />
         <div class="title is-6">
           <a
-            v-if="property.action"
-            @click="property.action"
+            v-if="property.handler"
+            @click="property.handler"
             v-text="property.value"
           />
           <span v-else class="title is-6" v-text="property.value" />

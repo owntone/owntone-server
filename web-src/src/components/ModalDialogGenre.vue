@@ -22,19 +22,19 @@ export default {
     playable() {
       return {
         name: this.item.name,
-        action: this.open,
+        handler: this.open,
         expression: `genre is "${this.item.name}" and media_kind is ${this.media_kind}`,
         properties: [
           {
-            label: 'dialog.genre.albums',
+            label: 'property.albums',
             value: this.item.album_count
           },
           {
-            label: 'dialog.genre.tracks',
+            label: 'property.tracks',
             value: this.item.track_count
           },
           {
-            label: 'dialog.genre.duration',
+            label: 'property.duration',
             value: this.$filters.durationInHours(this.item.length_ms)
           }
         ]

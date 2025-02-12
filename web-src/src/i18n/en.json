@@ -27,31 +27,8 @@
       }
     },
     "album": {
-      "added-on": "Added on",
-      "artist": "Album artist",
-      "duration": "Duration",
       "mark-as-played": "Mark as played",
-      "release-date": "Release date",
-      "remove-podcast": "Remove podcast",
-      "tracks": "Tracks",
-      "type": "Type",
-      "year": "Year"
-    },
-    "artist": {
-      "added-on": "Added On",
-      "albums": "Albums",
-      "tracks": "Tracks",
-      "type": "Type"
-    },
-    "composer": {
-      "albums": "Albums",
-      "duration": "Duration",
-      "tracks": "Tracks"
-    },
-    "genre": {
-      "albums": "Albums",
-      "duration": "Duration",
-      "tracks": "Tracks"
+      "remove-podcast": "Remove podcast"
     },
     "playable": {
       "add-next": "Add Next",
@@ -62,9 +39,6 @@
       "add-next": "Add Next",
       "add": "Add",
       "play": "Play",
-      "path": "Path",
-      "tracks": "Tracks",
-      "type": "Type",
       "save": {
         "cancel": "Cancel",
         "playlist-name": "Playlist name",
@@ -74,23 +48,9 @@
       }
     },
     "queue-item": {
-      "album-artist": "Album Artist",
-      "album": "Album",
-      "bitrate": " {'|'} {rate} kbit/s",
-      "channels": " {'|'} {channels}",
-      "composer": "Composer",
-      "duration": "Duration",
-      "genre": "Genre",
-      "path": "Path",
       "play": "Play",
-      "position": "Disc / Track",
-      "quality": "Quality",
-      "remove": "Remove",
-      "samplerate": " {'|'} {rate} Hz",
-      "spotify-album": "album",
-      "spotify-artist": "artist",
-      "type": "Type",
-      "year": "Year"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
+      "remove": "Remove"
     },
     "remote-pairing": {
       "cancel": "Cancel",
@@ -98,51 +58,11 @@
       "pairing-code": "Pairing code",
       "title": "Remote pairing request"
     },
-    "spotify": {
-      "album": {
-        "album-artist": "Album Artist",
-        "release-date": "Release Date",
-        "type": "Type"
-      },
-      "artist": {
-        "genres": "Genres",
-        "popularity": "Popularity / Followers"
-      },
-      "playlist": {
-        "owner": "Owner",
-        "path": "Path",
-        "tracks": "Tracks"
-      },
-      "track": {
-        "album-artist": "Album Artist",
-        "album": "Album",
-        "duration": "Duration",
-        "path": "Path",
-        "position": "Disc / Track",
-        "release-date": "Release Date"
-      }
-    },
     "track": {
-      "added-on": "Added On",
-      "album-artist": "Album Artist",
-      "album": "Album",
-      "comment": "Comment",
-      "composer": "Composer",
-      "duration": "Duration",
-      "genre": "Genre",
       "mark-as-new": "Mark as new",
       "mark-as-played": "Mark as played",
-      "path": "Path",
-      "position": "Disc / Track",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
-      "quality": "Quality",
-      "rating-value": "{rating} / 10",
-      "rating": "Rating",
-      "release-date": "Release Date",
-      "spotify-album": "album",
-      "spotify-artist": "artist",
-      "type": "Type",
-      "year": "Year"
+      "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "Update everything",
@@ -537,6 +457,28 @@
       "stop": "Stop",
       "toggle-lyrics": "Toggle lyrics"
     }
+  },
+  "property": {
+    "added-on": "Added On",
+    "album": "Album",
+    "albums": "Albums",
+    "album-artist": "Album Artist",
+    "artist": "Artist",
+    "comment": "Comment",
+    "composer": "Composer",
+    "duration": "Duration",
+    "genre": "Genre",
+    "genres": "Genres",
+    "owner": "Owner",
+    "path": "Path",
+    "popularity": "Popularity / Followers",
+    "position": "Disc / Track",
+    "quality": "Quality",
+    "rating": "Rating",
+    "release-date": "Release Date",
+    "tracks": "Tracks",
+    "type": "Type",
+    "year": "Year"
   },
   "server": {
     "connection-failed": "Failed to connect to OwnTone server",

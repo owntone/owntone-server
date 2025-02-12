@@ -4,10 +4,7 @@
       <div class="title is-4" v-text="item.title" />
       <div class="subtitle" v-text="item.artist" />
       <div v-if="item.album" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.album')"
-        />
+        <div v-t="'property.album'" class="is-size-7 is-uppercase" />
         <div class="title is-6">
           <a @click="open_album" v-text="item.album" />
         </div>
@@ -15,7 +12,7 @@
       <div v-if="item.album_artist" class="mb-3">
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.album-artist')"
+          v-text="$t('property.album-artist')"
         />
         <div class="title is-6">
           <a @click="open_album_artist" v-text="item.album_artist" />
@@ -45,73 +42,45 @@
         </div>
       </div>
       <div v-if="item.disc_number" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.position')"
-        />
+        <div class="is-size-7 is-uppercase" v-text="$t('property.position')" />
         <div
           class="title is-6"
           v-text="[item.disc_number, item.track_number].join(' / ')"
         />
       </div>
       <div v-if="item.length_ms" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.duration')"
-        />
+        <div class="is-size-7 is-uppercase" v-text="$t('property.duration')" />
         <div
           class="title is-6"
           v-text="$filters.durationInHours(item.length_ms)"
         />
       </div>
       <div class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.path')"
-        />
+        <div class="is-size-7 is-uppercase" v-text="$t('property.path')" />
         <div class="title is-6" v-text="item.path" />
       </div>
       <div class="mb-3">
+        <div class="is-size-7 is-uppercase" v-text="$t('property.type')" />
         <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.type')"
+          class="title is-6"
+          v-text="
+            `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
+          "
         />
-        <div class="title is-6">
-          <span
-            v-text="
-              `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
-            "
-          />
-        </div>
       </div>
       <div v-if="item.samplerate" class="mb-3">
+        <div class="is-size-7 is-uppercase" v-text="$t('property.quality')" />
         <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.quality')"
+          class="title is-6"
+          v-text="
+            $t('dialog.track.quality-value', {
+              format: item.type,
+              bitrate: item.bitrate,
+              channels: $filters.channels(item.channels),
+              samplerate: item.samplerate
+            })
+          "
         />
-        <div class="title is-6">
-          <span v-text="item.type" />
-          <span
-            v-if="item.samplerate"
-            v-text="
-              $t('dialog.queue-item.samplerate', {
-                rate: item.samplerate
-              })
-            "
-          />
-          <span
-            v-if="item.channels"
-            v-text="
-              $t('dialog.queue-item.channels', {
-                channels: $filters.channels(item.channels)
-              })
-            "
-          />
-          <span
-            v-if="item.bitrate"
-            v-text="$t('dialog.queue-item.bitrate', { rate: item.bitrate })"
-          />
-        </div>
       </div>
     </template>
   </modal-dialog>

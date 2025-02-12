@@ -27,31 +27,8 @@
       }
     },
     "album": {
-      "added-on": "新增時間",
-      "artist": "專輯藝人",
-      "duration": "時長",
       "mark-as-played": "標記為已播",
-      "release-date": "發行日期",
-      "remove-podcast": "移除Podcast",
-      "tracks": "首曲目",
-      "type": "類型",
-      "year": "年份"
-    },
-    "artist": {
-      "added-on": "新增時間",
-      "albums": "張專輯",
-      "tracks": "首曲目",
-      "type": "類型"
-    },
-    "composer": {
-      "albums": "張專輯",
-      "duration": "時長",
-      "tracks": "首曲目"
-    },
-    "genre": {
-      "albums": "張專輯",
-      "duration": "時長",
-      "tracks": "首曲目"
+      "remove-podcast": "移除Podcast"
     },
     "playable": {
       "add-next": "插播",
@@ -62,9 +39,6 @@
       "add-next": "插播",
       "add": "新增",
       "play": "播放",
-      "path": "路徑",
-      "tracks": "首曲目",
-      "type": "類型",
       "save": {
         "cancel": "取消",
         "playlist-name": "播放列表名稱",
@@ -74,23 +48,9 @@
       }
     },
     "queue-item": {
-      "album-artist": "專輯藝人",
-      "album": "專輯",
-      "bitrate": " {'|'} {rate} kbit/s",
-      "channels": " {'|'} {channels}",
-      "composer": "作曲",
-      "duration": "時長",
-      "genre": "音樂類型",
-      "path": "路徑",
       "play": "播放",
-      "position": "盤符 / 曲目",
-      "quality": "品質",
-      "remove": "移除",
-      "samplerate": " {'|'} {rate} Hz",
-      "spotify-album": "專輯",
-      "spotify-artist": "藝人",
-      "type": "類型",
-      "year": "年份"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
+      "remove": "移除"
     },
     "remote-pairing": {
       "cancel": "取消",
@@ -98,51 +58,11 @@
       "pairing-code": "配對碼",
       "title": "請求遙控配對"
     },
-    "spotify": {
-      "album": {
-        "album-artist": "專輯藝人",
-        "release-date": "發行日期",
-        "type": "類型"
-      },
-      "artist": {
-        "genres": "音樂類型",
-        "popularity": "流行度 / 粉絲數"
-      },
-      "playlist": {
-        "owner": "所有者",
-        "path": "路徑",
-        "tracks": "曲目"
-      },
-      "track": {
-        "album-artist": "專輯藝人",
-        "album": "專輯",
-        "duration": "時長",
-        "path": "路徑",
-        "position": "盤符 / 曲目",
-        "release-date": "發行日期"
-      }
-    },
     "track": {
-      "added-on": "新增時間",
-      "album-artist": "專輯藝人",
-      "album": "專輯",
-      "comment": "評論",
-      "composer": "作曲家",
-      "duration": "時長",
-      "genre": "音樂類型",
       "mark-as-new": "標記為最新",
       "mark-as-played": "標記為已播放",
-      "path": "路徑",
-      "position": "盤符 / 曲目",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
-      "quality": "品質",
-      "rating-value": "{rating} / 10",
-      "rating": "評級",
-      "release-date": "發行日期",
-      "spotify-album": "專輯",
-      "spotify-artist": "藝人",
-      "type": "類型",
-      "year": "年份"
+      "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "更新所有內容",
@@ -537,6 +457,28 @@
       "stop": "停止",
       "toggle-lyrics": "顯示/隱藏歌詞"
     }
+  },
+  "property": {
+    "added-on": "新增時間",
+    "album": "專輯",
+    "albums": "張專輯",
+    "album-artist": "專輯藝人",
+    "artist": "專輯藝人",
+    "comment": "評論",
+    "composer": "作曲家",
+    "duration": "時長",
+    "genre": "音樂類型",
+    "genres": "音樂類型",
+    "owner": "所有者",
+    "path": "路徑",
+    "popularity": "流行度 / 粉絲數",
+    "position": "盤符 / 曲目",
+    "quality": "品質",
+    "rating": "評級",
+    "release-date": "發行日期",
+    "tracks": "曲目",
+    "type": "類型",
+    "year": "年份"
   },
   "server": {
     "connection-failed": "無法連接到 OwnTone 伺服器",

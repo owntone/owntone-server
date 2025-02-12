@@ -18,17 +18,17 @@ export default {
     playable() {
       return {
         name: this.item.name,
-        action: this.open,
+        handler: this.open,
         properties: [
           {
-            label: 'dialog.spotify.playlist.owner',
+            label: 'property.owner',
             value: this.item.owner?.display_name
           },
           {
-            label: 'dialog.spotify.playlist.tracks',
+            label: 'property.tracks',
             value: this.item.tracks?.total
           },
-          { label: 'dialog.spotify.playlist.path', value: this.item.uri }
+          { label: 'property.path', value: this.item.uri }
         ]
       }
     }

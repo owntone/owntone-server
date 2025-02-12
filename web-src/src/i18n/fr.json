@@ -27,31 +27,8 @@
       }
     },
     "album": {
-      "added-on": "Ajouté le",
-      "artist": "Artiste de l’album",
-      "duration": "Durée",
       "mark-as-played": "Marquer comme lu",
-      "release-date": "Date de sortie",
-      "remove-podcast": "Supprimer le podcast",
-      "tracks": "Pistes",
-      "type": "Type",
-      "year": "Année"
-    },
-    "artist": {
-      "added-on": "Ajouté le",
-      "albums": "Albums",
-      "tracks": "Pistes",
-      "type": "Type"
-    },
-    "composer": {
-      "albums": "Albums",
-      "duration": "Durée",
-      "tracks": "Pistes"
-    },
-    "genre": {
-      "albums": "Albums",
-      "duration": "Durée",
-      "tracks": "Pistes"
+      "remove-podcast": "Supprimer le podcast"
     },
     "playable": {
       "add-next": "Ajouter ensuite",
@@ -62,9 +39,6 @@
       "add-next": "Ajouter ensuite",
       "add": "Ajouter",
       "play": "Lire",
-      "path": "Emplacement",
-      "tracks": "Pistes",
-      "type": "Type",
       "save": {
         "cancel": "Annuler",
         "playlist-name": "Nom de la liste de lecture",
@@ -74,23 +48,9 @@
       }
     },
     "queue-item": {
-      "album-artist": "Artiste de l’album",
-      "album": "Album",
-      "bitrate": " {'|'} {rate} kbit/s",
-      "channels": " {'|'} {channels}",
-      "composer": "Compositeur",
-      "duration": "Durée",
-      "genre": "Genre",
-      "path": "Emplacement",
       "play": "Lire",
-      "position": "Disque / Piste",
-      "quality": "Qualité",
-      "remove": "Supprimer",
-      "samplerate": " {'|'} {rate} Hz",
-      "spotify-album": "album",
-      "spotify-artist": "artiste",
-      "type": "Type",
-      "year": "Année"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
+      "remove": "Supprimer"
     },
     "remote-pairing": {
       "cancel": "Annuler",
@@ -98,51 +58,11 @@
       "pairing-code": "Code de jumelage",
       "title": "Demande de jumelage de télécommande"
     },
-    "spotify": {
-      "album": {
-        "album-artist": "Artiste de l’album",
-        "release-date": "Date de sortie",
-        "type": "Type"
-      },
-      "artist": {
-        "genres": "Genres",
-        "popularity": "Popularité / Abonnements"
-      },
-      "playlist": {
-        "owner": "Propriétaire",
-        "path": "Emplacement",
-        "tracks": "Pistes"
-      },
-      "track": {
-        "album-artist": "Artiste de l’album",
-        "album": "Album",
-        "duration": "Durée",
-        "path": "Emplacement",
-        "position": "Disque / Piste",
-        "release-date": "Date de sortie"
-      }
-    },
     "track": {
-      "added-on": "Ajouté le",
-      "album-artist": "Artiste de l’album",
-      "album": "Album",
-      "comment": "Commentaire",
-      "composer": "Compositeur",
-      "duration": "Durée",
-      "genre": "Genre",
       "mark-as-new": "Marquer comme nouveau",
       "mark-as-played": "Marquer comme lu",
-      "path": "Emplacement",
-      "position": "Disque / Piste",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
-      "quality": "Qualité",
-      "rating-value": "{rating} / 10",
-      "rating": "Classement",
-      "release-date": "Date de sortie",
-      "spotify-album": "album",
-      "spotify-artist": "artiste",
-      "type": "Type",
-      "year": "Année"
+      "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "Tout actualiser",
@@ -537,6 +457,28 @@
       "stop": "Arrêter la lecture",
       "toggle-lyrics": "Voir/Cacher les paroles"
     }
+  },
+  "property": {
+    "added-on": "Ajouté le",
+    "album": "Album",
+    "albums": "Albums",
+    "album-artist": "Artiste de l’album",
+    "artist": "Artiste",
+    "comment": "Commentaire",
+    "composer": "Compositeur",
+    "duration": "Durée",
+    "genre": "Genre",
+    "genres": "Genres",
+    "owner": "Propriétaire",
+    "path": "Emplacement",
+    "popularity": "Popularité / Abonnements",
+    "position": "Disque / Piste",
+    "quality": "Qualité",
+    "rating": "Classement",
+    "release-date": "Date de sortie",
+    "tracks": "Pistes",
+    "type": "Type",
+    "year": "Année"
   },
   "server": {
     "connection-failed": "Échec de connexion au serveur",

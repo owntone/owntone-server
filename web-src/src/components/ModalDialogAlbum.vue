@@ -25,15 +25,15 @@ export default {
       if (this.media_kind_resolved === 'podcast') {
         if (this.item.data_kind === 'url') {
           return [
-            { label: 'dialog.album.mark-as-played', action: this.mark_played },
+            { label: 'dialog.album.mark-as-played', handler: this.mark_played },
             {
               label: 'dialog.album.remove-podcast',
-              action: this.remove_podcast
+              handler: this.remove_podcast
             }
           ]
         }
         return [
-          { label: 'dialog.album.mark-as-played', action: this.mark_played }
+          { label: 'dialog.album.mark-as-played', handler: this.mark_played }
         ]
       }
       return []
@@ -44,32 +44,32 @@ export default {
     playable() {
       return {
         name: this.item.name,
-        action: this.open,
+        handler: this.open,
         image: this.item.artwork_url,
         artist: this.item.artist,
         album: this.item.name,
         properties: [
           {
-            label: 'dialog.album.artist',
+            label: 'property.artist',
             value: this.item.artist,
-            action: this.open_artist
+            handler: this.open_artist
           },
           {
-            label: 'dialog.album.release-date',
+            label: 'property.release-date',
             value: this.$filters.date(this.item.date_released)
           },
-          { label: 'dialog.album.year', value: this.item.year },
-          { label: 'dialog.album.tracks', value: this.item.track_count },
+          { label: 'property.year', value: this.item.year },
+          { label: 'property.tracks', value: this.item.track_count },
           {
-            label: 'dialog.album.duration',
+            label: 'property.duration',
             value: this.$filters.durationInHours(this.item.length_ms)
           },
           {
-            label: 'dialog.album.type',
+            label: 'property.type',
             value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
           },
           {
-            label: 'dialog.album.added-on',
+            label: 'property.added-on',
             value: this.$filters.datetime(this.item.time_added)
           }
         ]

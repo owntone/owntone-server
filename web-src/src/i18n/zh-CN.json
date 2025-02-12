@@ -27,31 +27,8 @@
       }
     },
     "album": {
-      "added-on": "添加时间",
-      "artist": "专辑艺人",
-      "duration": "时长",
       "mark-as-played": "标记为已播",
-      "release-date": "发行日期",
-      "remove-podcast": "移除播客",
-      "tracks": "只曲目",
-      "type": "类型",
-      "year": "年份"
-    },
-    "artist": {
-      "added-on": "添加时间",
-      "albums": "张专辑",
-      "tracks": "只曲目",
-      "type": "类型"
-    },
-    "composer": {
-      "albums": "张专辑",
-      "duration": "时长",
-      "tracks": "只曲目"
-    },
-    "genre": {
-      "albums": "张专辑",
-      "duration": "时长",
-      "tracks": "只曲目"
+      "remove-podcast": "移除播客"
     },
     "playable": {
       "add-next": "插播",
@@ -62,9 +39,6 @@
       "add-next": "插播",
       "add": "添加",
       "play": "播放",
-      "path": "路径",
-      "tracks": "只曲目",
-      "type": "类型",
       "save": {
         "cancel": "取消",
         "playlist-name": "播放列表名称",
@@ -74,23 +48,9 @@
       }
     },
     "queue-item": {
-      "album-artist": "专辑艺人",
-      "album": "专辑",
-      "bitrate": " {'|'} {rate} kbit/s",
-      "channels": " {'|'} {channels}",
-      "composer": "作曲家",
-      "duration": "时长",
-      "genre": "流派",
-      "path": "路径",
       "play": "播放",
-      "position": "盘符 / 曲目",
-      "quality": "质量",
-      "remove": "移除",
-      "samplerate": " {'|'} {rate} Hz",
-      "spotify-album": "专辑",
-      "spotify-artist": "艺人",
-      "type": "类型",
-      "year": "年份"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
+      "remove": "移除"
     },
     "remote-pairing": {
       "cancel": "取消",
@@ -98,51 +58,11 @@
       "pairing-code": "配对码",
       "title": "请求遥控配对"
     },
-    "spotify": {
-      "album": {
-        "album-artist": "专辑艺人",
-        "release-date": "发行日期",
-        "type": "类型"
-      },
-      "artist": {
-        "genres": "流派",
-        "popularity": "流行度 / 粉丝数"
-      },
-      "playlist": {
-        "owner": "所有者",
-        "path": "路径",
-        "tracks": "曲目"
-      },
-      "track": {
-        "album-artist": "专辑艺人",
-        "album": "专辑",
-        "duration": "时长",
-        "path": "路径",
-        "position": "盘符 / 曲目",
-        "release-date": "发行日期"
-      }
-    },
     "track": {
-      "added-on": "添加时间",
-      "album-artist": "专辑艺人",
-      "album": "专辑",
-      "comment": "评论",
-      "composer": "作曲家",
-      "duration": "时长",
-      "genre": "流派",
       "mark-as-new": "标记为最新",
       "mark-as-played": "标记为已播放",
-      "path": "路径",
-      "position": "盘符 / 曲目",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
-      "quality": "质量",
-      "rating-value": "{rating} / 10",
-      "rating": "评级",
-      "release-date": "发行日期",
-      "spotify-album": "专辑",
-      "spotify-artist": "艺人",
-      "type": "类型",
-      "year": "年份"
+      "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "更新所有内容",
@@ -537,6 +457,28 @@
       "stop": "停止",
       "toggle-lyrics": "显示/隐藏歌词"
     }
+  },
+  "property": {
+    "added-on": "添加时间",
+    "album": "专辑",
+    "albums": "张专辑",
+    "album-artist": "专辑艺人",
+    "artist": "专辑艺人",
+    "comment": "评论",
+    "composer": "作曲家",
+    "duration": "时长",
+    "genre": "流派",
+    "genres": "流派",
+    "owner": "所有者",
+    "path": "路径",
+    "popularity": "流行度 / 粉丝数",
+    "position": "盘符 / 曲目",
+    "quality": "质量",
+    "rating": "评级",
+    "release-date": "发行日期",
+    "tracks": "只曲目",
+    "type": "类型",
+    "year": "年份"
   },
   "server": {
     "connection-failed": "无法连接到 OwnTone 服务器",

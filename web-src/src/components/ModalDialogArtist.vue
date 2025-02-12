@@ -18,16 +18,16 @@ export default {
     playable() {
       return {
         name: this.item.name,
-        action: this.open,
+        handler: this.open,
         properties: [
-          { label: 'dialog.artist.albums', value: this.item.album_count },
-          { label: 'dialog.artist.tracks', value: this.item.track_count },
+          { label: 'property.albums', value: this.item.album_count },
+          { label: 'property.tracks', value: this.item.track_count },
           {
-            label: 'dialog.artist.type',
+            label: 'property.type',
             value: this.$t(`data.kind.${this.item.data_kind}`)
           },
           {
-            label: 'dialog.artist.added-on',
+            label: 'property.added-on',
             value: this.$filters.datetime(this.item.time_added)
           }
         ]

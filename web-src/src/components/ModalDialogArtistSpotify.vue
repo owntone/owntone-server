@@ -18,16 +18,16 @@ export default {
     playable() {
       return {
         name: this.item.name,
-        action: this.open,
+        handler: this.open,
         properties: [
           {
-            label: 'dialog.spotify.artist.popularity',
+            label: 'property.popularity',
             value: [this.item.popularity, this.item.followers?.total].join(
               ' / '
             )
           },
           {
-            label: 'dialog.spotify.artist.genres',
+            label: 'property.genres',
             value: this.item.genres?.join(', ')
           }
         ]

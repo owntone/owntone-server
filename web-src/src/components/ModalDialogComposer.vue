@@ -17,22 +17,22 @@ export default {
   computed: {
     playable() {
       return {
-        action: this.open_albums,
         name: this.item.name,
+        handler: this.open_albums,
         expression: `composer is "${this.item.name}" and media_kind is music`,
         properties: [
           {
-            label: 'dialog.composer.albums',
+            label: 'property.albums',
             value: this.item.album_count,
-            action: this.open_albums
+            handler: this.open_albums
           },
           {
-            label: 'dialog.composer.tracks',
+            label: 'property.tracks',
             value: this.item.track_count,
-            action: this.open_tracks
+            handler: this.open_tracks
           },
           {
-            label: 'dialog.composer.duration',
+            label: 'property.duration',
             value: this.$filters.durationInHours(this.item.length_ms)
           }
         ]

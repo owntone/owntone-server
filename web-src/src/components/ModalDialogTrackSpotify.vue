@@ -21,28 +21,28 @@ export default {
         subtitle: this.item.artists[0].name,
         properties: [
           {
-            label: 'dialog.spotify.track.album',
+            label: 'property.album',
             value: this.item.album.name,
-            action: this.open_album
+            handler: this.open_album
           },
           {
-            label: 'dialog.spotify.track.album-artist',
+            label: 'property.album-artist',
             value: this.item.artists[0].name,
-            action: this.open_artist
+            handler: this.open_artist
           },
           {
-            label: 'dialog.spotify.track.release-date',
+            label: 'property.release-date',
             value: this.$filters.date(item.album.release_date)
           },
           {
-            label: 'dialog.spotify.track.position',
+            label: 'property.position',
             value: [item.disc_number, item.track_number].join(' / ')
           },
           {
-            label: 'dialog.spotify.track.duration',
+            label: 'property.duration',
             value: this.$filters.durationInHours(item.duration_ms)
           },
-          { label: 'dialog.spotify.track.path', value: this.item.uri }
+          { label: 'property.path', value: this.item.uri }
         ]
       }
     }

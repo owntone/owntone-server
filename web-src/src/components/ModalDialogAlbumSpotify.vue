@@ -21,19 +21,19 @@ export default {
         image: this.item?.images?.[0]?.url || '',
         artist: this.item.artist || '',
         album: this.item.name || '',
-        action: this.open,
+        handler: this.open,
         properties: [
           {
-            label: 'dialog.spotify.album.album-artist',
+            label: 'property.album-artist',
             value: this.item?.artists?.[0]?.name,
-            action: this.open_artist
+            handler: this.open_artist
           },
           {
-            label: 'dialog.spotify.album.release-date',
+            label: 'property.release-date',
             value: this.$filters.date(this.item.release_date)
           },
           {
-            label: 'dialog.spotify.album.type',
+            label: 'property.type',
             value: this.item.album_type
           }
         ]

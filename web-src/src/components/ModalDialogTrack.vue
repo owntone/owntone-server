@@ -30,11 +30,11 @@ export default {
     buttons() {
       if (this.item.media_kind === 'podcast') {
         if (this.item.play_count > 0) {
-          return [{ label: 'dialog.track.mark-as-new', action: this.mark_new }]
+          return [{ label: 'dialog.track.mark-as-new', handler: this.mark_new }]
         }
         if (this.item.play_count === 0) {
           return [
-            { label: 'dialog.track.mark-as-played', action: this.mark_played }
+            { label: 'dialog.track.mark-as-played', handler: this.mark_played }
           ]
         }
       }
@@ -45,36 +45,36 @@ export default {
         name: this.item.title,
         properties: [
           {
-            label: 'dialog.track.album',
+            label: 'property.album',
             value: this.item.album,
-            action: this.open_album
+            handler: this.open_album
           },
           {
-            label: 'dialog.track.album-artist',
+            label: 'property.album-artist',
             value: this.item.album_artist,
-            action: this.open_artist
+            handler: this.open_artist
           },
-          { label: 'dialog.track.composer', value: this.item.composer },
+          { label: 'property.composer', value: this.item.composer },
           {
-            label: 'dialog.track.release-date',
+            label: 'property.release-date',
             value: this.$filters.date(this.item.date_released)
           },
-          { label: 'dialog.track.year', value: this.item.year },
-          { label: 'dialog.track.genre', value: this.item.genre },
+          { label: 'property.year', value: this.item.year },
+          { label: 'property.genre', value: this.item.genre },
           {
-            label: 'dialog.track.position',
+            label: 'property.position',
             value: [this.item.disc_number, this.item.track_number].join(' / ')
           },
           {
-            label: 'dialog.track.duration',
+            label: 'property.duration',
             value: this.$filters.durationInHours(this.item.length_ms)
           },
           {
-            label: 'dialog.track.type',
+            label: 'property.type',
             value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
           },
           {
-            label: 'dialog.track.quality',
+            label: 'property.quality',
             value: this.$t('dialog.track.quality-value', {
               format: this.item.type,
               bitrate: this.item.bitrate,
@@ -83,17 +83,17 @@ export default {
             })
           },
           {
-            label: 'dialog.track.added-on',
+            label: 'property.added-on',
             value: this.$filters.datetime(this.item.time_added)
           },
           {
-            label: 'dialog.track.rating',
+            label: 'property.rating',
             value: this.$t('dialog.track.rating-value', {
               rating: Math.floor(this.item.rating / 10)
             })
           },
-          { label: 'dialog.track.comment', value: this.item.comment },
-          { label: 'dialog.track.path', value: this.item.path }
+          { label: 'property.comment', value: this.item.comment },
+          { label: 'property.path', value: this.item.path }
         ]
       }
     }

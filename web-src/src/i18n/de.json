@@ -27,31 +27,8 @@
       }
     },
     "album": {
-      "added-on": "Hinzugefügt am",
-      "artist": "Album Künstler",
-      "duration": "Dauer",
       "mark-as-played": "Markiere als gespielt",
-      "release-date": "Erscheinungsdatum",
-      "remove-podcast": "Entferne podcast",
-      "tracks": "Track Nummer",
-      "type": "Art",
-      "year": "Jahr"
-    },
-    "artist": {
-      "added-on": "Hinzugefügt am",
-      "albums": "Alben",
-      "tracks": "Tracks",
-      "type": "Art"
-    },
-    "composer": {
-      "albums": "Alben",
-      "duration": "Dauer",
-      "tracks": "Tracks"
-    },
-    "genre": {
-      "albums": "Alben",
-      "duration": "Dauer",
-      "tracks": "Tracks"
+      "remove-podcast": "Entferne podcast"
     },
     "playable": {
       "add-next": "Als nächstes hinzufügen",
@@ -61,10 +38,7 @@
     "playlist": {
       "add-next": "Als nächstes hinzufügen",
       "add": "Hinzufügen",
-      "path": "Pfad",
       "play": "Spielen",
-      "tracks": "Tracks",
-      "type": "Art",
       "save": {
         "cancel": "Abbrechen",
         "playlist-name": "Playlistname",
@@ -74,23 +48,9 @@
       }
     },
     "queue-item": {
-      "album-artist": "Album-Künstler",
-      "album": "Album",
-      "bitrate": "{'|'} {rate} kbit/s",
-      "channels": "{'|'} {channels}",
-      "composer": "Komponist",
-      "duration": "Dauer",
-      "genre": "Genre",
-      "path": "Pfad",
       "play": "Spielen",
-      "position": "Disc / Track",
-      "quality": "Qualität",
-      "remove": "Entfernen",
-      "samplerate": "{'|'} {rate} Hz",
-      "spotify-album": "Album",
-      "spotify-artist": "Künstler",
-      "type": "Art",
-      "year": "Jahr"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
+      "remove": "Entfernen"
     },
     "remote-pairing": {
       "cancel": "Abbrechen",
@@ -98,51 +58,11 @@
       "pairing-code": "Pairing-Code",
       "title": "Remote-Paarungs-Anfrage"
     },
-    "spotify": {
-      "album": {
-        "album-artist": "Album-Künstler",
-        "release-date": "Erscheinungsdatum",
-        "type": "Art"
-      },
-      "artist": {
-        "genres": "Genres",
-        "popularity": "Popularität / Followers"
-      },
-      "playlist": {
-        "owner": "Besitzer",
-        "path": "Pfad",
-        "tracks": "Tracks"
-      },
-      "track": {
-        "album-artist": "Album-Künstler",
-        "album": "Album",
-        "duration": "Dauer",
-        "path": "Pfad",
-        "position": "Disc / Track",
-        "release-date": "Erscheinungsdatum"
-      }
-    },
     "track": {
-      "added-on": "Hinzugefügt am",
-      "album-artist": "Album-Künstler",
-      "album": "Album",
-      "comment": "Kommentar",
-      "composer": "Komponist",
-      "duration": "Dauer",
-      "genre": "Genre",
       "mark-as-new": "Markiere als neu",
       "mark-as-played": "Markiere als gespielt",
-      "path": "Pfad",
-      "position": "Disc / Track",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
-      "quality": "Qualität",
-      "rating-value": "{rating} / 10",
-      "rating": "Bewertung",
-      "release-date": "Erscheinungsdatum",
-      "spotify-album": "Album",
-      "spotify-artist": "Künstler",
-      "type": "Art",
-      "year": "Jahr"
+      "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "Alles neu einlesen",
@@ -537,6 +457,28 @@
       "stop": "Wiedergabe stoppen",
       "toggle-lyrics": "Liedtexte anzeigen/verbergen"
     }
+  },
+  "property": {
+    "added-on": "Hinzugefügt am",
+    "album": "Album",
+    "albums": "Alben",
+    "album-artist": "Album-Künstler",
+    "artist": "Album Künstler",
+    "comment": "Kommentar",
+    "composer": "Komponist",
+    "duration": "Dauer",
+    "genre": "Genre",
+    "genres": "Genres",
+    "owner": "Besitzer",
+    "path": "Pfad",
+    "popularity": "Popularität / Followers",
+    "position": "Disc / Track",
+    "quality": "Qualität",
+    "rating": "Bewertung",
+    "release-date": "Erscheinungsdatum",
+    "tracks": "Tracks",
+    "type": "Art",
+    "year": "Jahr"
   },
   "server": {
     "connection-failed": "Fehler bei Verbindung zum OwnTone-Server",
