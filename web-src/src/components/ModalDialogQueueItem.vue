@@ -1,92 +1,13 @@
 <template>
   <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
     <template #content>
-      <div class="title is-4" v-text="item.title" />
-      <div class="subtitle" v-text="item.artist" />
-      <div v-if="item.album" class="mb-3">
-        <div v-t="'property.album'" class="is-size-7 is-uppercase" />
-        <div class="title is-6">
-          <a @click="open_album" v-text="item.album" />
-        </div>
-      </div>
-      <div v-if="item.album_artist" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('property.album-artist')"
-        />
-        <div class="title is-6">
-          <a @click="open_album_artist" v-text="item.album_artist" />
-        </div>
-      </div>
-      <div v-if="item.composer" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.composer')"
-        />
-        <div class="title is-6" v-text="item.composer" />
-      </div>
-      <div v-if="item.year" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.year')"
-        />
-        <div class="title is-6" v-text="item.year" />
-      </div>
-      <div v-if="item.genre" class="mb-3">
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('dialog.queue-item.genre')"
-        />
-        <div class="title is-6">
-          <a @click="open_genre" v-text="item.genre" />
-        </div>
-      </div>
-      <div v-if="item.disc_number" class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('property.position')" />
-        <div
-          class="title is-6"
-          v-text="[item.disc_number, item.track_number].join(' / ')"
-        />
-      </div>
-      <div v-if="item.length_ms" class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('property.duration')" />
-        <div
-          class="title is-6"
-          v-text="$filters.durationInHours(item.length_ms)"
-        />
-      </div>
-      <div class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('property.path')" />
-        <div class="title is-6" v-text="item.path" />
-      </div>
-      <div class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('property.type')" />
-        <div
-          class="title is-6"
-          v-text="
-            `${$t(`media.kind.${item.media_kind}`)} - ${$t(`data.kind.${item.data_kind}`)}`
-          "
-        />
-      </div>
-      <div v-if="item.samplerate" class="mb-3">
-        <div class="is-size-7 is-uppercase" v-text="$t('property.quality')" />
-        <div
-          class="title is-6"
-          v-text="
-            $t('dialog.track.quality-value', {
-              format: item.type,
-              bitrate: item.bitrate,
-              channels: $filters.channels(item.channels),
-              samplerate: item.samplerate
-            })
-          "
-        />
-      </div>
+      <list-properties :item="playable" />
     </template>
   </modal-dialog>
 </template>
 
 <script>
+import ListProperties from '@/components/ListProperties.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import { useServicesStore } from '@/stores/services'
@@ -94,7 +15,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogQueueItem',
-  components: { ModalDialog },
+  components: { ListProperties, ModalDialog },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
   setup() {
@@ -119,6 +40,52 @@ export default {
           icon: 'play'
         }
       ]
+    },
+    playable() {
+      return {
+        name: this.item.title,
+        properties: [
+          {
+            label: 'property.album',
+            value: this.item.album,
+            handler: this.open_album
+          },
+          {
+            label: 'property.album-artist',
+            value: this.item.album_artist,
+            handler: this.open_album_artist
+          },
+          { label: 'property.composer', value: this.item.composer },
+          { label: 'property.year', value: this.item.year },
+          {
+            label: 'property.genre',
+            value: this.item.genre,
+            handler: this.open_genre
+          },
+          {
+            label: 'property.position',
+            value: [this.item.disc_number, this.item.track_number].join(' / ')
+          },
+          {
+            label: 'property.duration',
+            value: this.$filters.durationInHours(this.item.length_ms)
+          },
+          { label: 'property.path', value: this.item.path },
+          {
+            label: 'property.type',
+            value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
+          },
+          {
+            label: 'property.quality',
+            value: this.$t('dialog.track.quality-value', {
+              format: this.item.type,
+              bitrate: this.item.bitrate,
+              channels: this.$filters.channels(this.item.channels),
+              samplerate: this.item.samplerate
+            })
+          }
+        ]
+      }
     }
   },
   watch: {

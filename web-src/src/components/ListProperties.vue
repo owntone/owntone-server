@@ -1,0 +1,50 @@
+<template>
+  <div class="title is-4">
+    <a v-if="item.handler" @click="item.handler" v-text="item.name"></a>
+    <span v-else v-text="item.name" />
+  </div>
+  <cover-artwork
+    v-if="item.image"
+    :url="item.image"
+    :artist="item.artist"
+    :album="item.name"
+    class="is-normal mb-5"
+  />
+  <div class="buttons">
+    <a
+      v-for="button in buttons"
+      :key="button.label"
+      v-t="button.label"
+      class="button is-small"
+      @click="button.handler"
+    />
+  </div>
+  <div
+    v-for="property in item.properties?.filter((p) => p.value)"
+    :key="property.label"
+    class="mb-3"
+  >
+    <div v-t="property.label" class="is-size-7 is-uppercase" />
+    <div class="title is-6">
+      <a
+        v-if="property.handler"
+        @click="property.handler"
+        v-text="property.value"
+      />
+      <span v-else class="title is-6" v-text="property.value" />
+    </div>
+  </div>
+</template>
+
+<script>
+import CoverArtwork from '@/components/CoverArtwork.vue'
+
+export default {
+  name: 'ListProperties',
+  components: { CoverArtwork },
+  props: {
+    buttons: { default: () => [], type: Array },
+    item: { required: true, type: Object }
+  }
+}
+</script>
