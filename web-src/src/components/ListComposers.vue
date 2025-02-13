@@ -39,15 +39,10 @@ import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 export default {
   name: 'ListComposers',
   components: { ModalDialogComposer },
-  props: {
-    items: { required: true, type: Object }
-  },
+  props: { items: { required: true, type: Object } },
 
   data() {
-    return {
-      selected_item: {},
-      show_details_modal: false
-    }
+    return { selected_item: {}, show_details_modal: false }
   },
 
   methods: {

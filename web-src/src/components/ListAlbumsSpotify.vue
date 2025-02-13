@@ -4,17 +4,13 @@
       class="media is-align-items-center is-clickable mb-0"
       @click="open(item)"
     >
-      <div
+      <cover-artwork
         v-if="settingsStore.show_cover_artwork_in_album_lists"
-        class="media-left"
-      >
-        <cover-artwork
-          :url="artwork_url(item)"
-          :artist="item.artist"
-          :album="item.name"
-          class="is-small"
-        />
-      </div>
+        :url="item.images?.[0]?.url ?? ''"
+        :artist="item.artist"
+        :album="item.name"
+        class="media-left is-small"
+      />
       <div class="media-content">
         <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
         <div
@@ -51,19 +47,13 @@ export default {
   name: 'ListAlbumsSpotify',
   components: { CoverArtwork, ModalDialogAlbumSpotify },
   props: { items: { required: true, type: Object } },
-
   setup() {
     return { settingsStore: useSettingsStore() }
   },
-
   data() {
     return { selected_item: {}, show_details_modal: false }
   },
-
   methods: {
-    artwork_url(item) {
-      return item.images?.[0]?.url ?? ''
-    },
     open(item) {
       this.$router.push({
         name: 'music-spotify-album',

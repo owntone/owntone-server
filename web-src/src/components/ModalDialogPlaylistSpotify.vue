@@ -19,6 +19,7 @@ export default {
       return {
         name: this.item.name,
         handler: this.open,
+        uri: this.item.uri,
         properties: [
           {
             label: 'property.owner',

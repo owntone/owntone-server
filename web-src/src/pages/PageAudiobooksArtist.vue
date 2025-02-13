@@ -15,12 +15,12 @@
       <template #heading-right>
         <div class="buttons is-centered">
           <a
-            class="button is-small is-light is-rounded"
+            class="button is-small is-rounded"
             @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
-          <a class="button is-small is-dark is-rounded" @click="play">
+          <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.audiobooks.artist.play')" />
           </a>
@@ -52,7 +52,6 @@ const dataObject = {
       webapi.library_artist_albums(to.params.id)
     ])
   },
-
   set(vm, response) {
     vm.artist = response[0].data
     vm.albums = new GroupedList(response[1].data)
@@ -62,13 +61,11 @@ const dataObject = {
 export default {
   name: 'PageAudiobooksArtist',
   components: { ContentWithHeading, ListAlbums, ModalDialogArtist },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       albums: new GroupedList(),
@@ -76,7 +73,6 @@ export default {
       show_details_modal: false
     }
   },
-
   methods: {
     play() {
       webapi.player_play_uri(

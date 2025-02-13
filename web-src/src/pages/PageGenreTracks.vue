@@ -32,12 +32,12 @@
       <template #heading-right>
         <div class="buttons is-centered">
           <a
-            class="button is-small is-light is-rounded"
+            class="button is-small is-rounded"
             @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
-          <a class="button is-small is-dark is-rounded" @click="play">
+          <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.genre.shuffle')" />
           </a>
@@ -89,17 +89,14 @@ export default {
     ListTracks,
     ModalDialogGenre
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
     return { uiStore: useUIStore() }
   },
-
   data() {
     return {
       genre: {},
@@ -123,7 +120,6 @@ export default {
       tracks_list: new GroupedList()
     }
   },
-
   computed: {
     expression() {
       return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
@@ -135,7 +131,6 @@ export default {
       return this.tracks_list.group(options)
     }
   },
-
   methods: {
     open_genre() {
       this.show_details_modal = false

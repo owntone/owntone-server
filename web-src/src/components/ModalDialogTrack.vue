@@ -43,6 +43,7 @@ export default {
     playable() {
       return {
         name: this.item.title,
+        uri: this.item.uri,
         properties: [
           {
             label: 'property.album',

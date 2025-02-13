@@ -23,9 +23,7 @@ export default {
   name: 'NotificationList',
 
   setup() {
-    return {
-      notificationsStore: useNotificationsStore()
-    }
+    return { notificationsStore: useNotificationsStore() }
   },
 
   computed: {

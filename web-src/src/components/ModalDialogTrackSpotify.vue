@@ -16,9 +16,12 @@ export default {
   emits: ['close'],
   computed: {
     playable() {
+      if (!this.item.artists) {
+        return {}
+      }
       return {
         name: this.item.name,
-        subtitle: this.item.artists[0].name,
+        uri: this.item.uri,
         properties: [
           {
             label: 'property.album',
@@ -27,20 +30,20 @@ export default {
           },
           {
             label: 'property.album-artist',
-            value: this.item.artists[0].name,
+            value: this.item.artists[0]?.name,
             handler: this.open_artist
           },
           {
             label: 'property.release-date',
-            value: this.$filters.date(item.album.release_date)
+            value: this.$filters.date(this.item.album.release_date)
           },
           {
             label: 'property.position',
-            value: [item.disc_number, item.track_number].join(' / ')
+            value: [this.item.disc_number, this.item.track_number].join(' / ')
           },
           {
             label: 'property.duration',
-            value: this.$filters.durationInHours(item.duration_ms)
+            value: this.$filters.durationInHours(this.item.duration_ms)
           },
           { label: 'property.path', value: this.item.uri }
         ]

@@ -315,53 +315,50 @@ export default {
     return axios.get('./api/queue')
   },
 
-  queue_add(uri) {
-    return axios.post(`./api/queue/items/add?uris=${uri}`).then((response) => {
-      useNotificationsStore().add({
-        text: t('server.appended-tracks', { count: response.data.count }),
-        timeout: 2000,
-        type: 'info'
-      })
-      return Promise.resolve(response)
+  async queue_add(uri) {
+    const response = await axios.post(`./api/queue/items/add?uris=${uri}`)
+    useNotificationsStore().add({
+      text: t('server.appended-tracks', { count: response.data.count }),
+      timeout: 2000,
+      type: 'info'
     })
+    return await Promise.resolve(response)
   },
 
-  queue_add_next(uri) {
+  async queue_add_next(uri) {
     let position = 0
     const { current } = useQueueStore()
     if (current?.id) {
       position = current.position + 1
     }
-    return axios
-      .post(`./api/queue/items/add?uris=${uri}&position=${position}`)
-      .then((response) => {
-        useNotificationsStore().add({
-          text: t('server.appended-tracks', { count: response.data.count }),
-          timeout: 2000,
-          type: 'info'
-        })
-        return Promise.resolve(response)
-      })
+    const response = await axios.post(
+      `./api/queue/items/add?uris=${uri}&position=${position}`
+    )
+    useNotificationsStore().add({
+      text: t('server.appended-tracks', { count: response.data.count }),
+      timeout: 2000,
+      type: 'info'
+    })
+    return await Promise.resolve(response)
   },
 
   queue_clear() {
     return axios.put('./api/queue/clear')
   },
 
-  queue_expression_add(expression) {
-    return axios
-      .post('./api/queue/items/add', null, { params: { expression } })
-      .then((response) => {
-        useNotificationsStore().add({
-          text: t('server.appended-tracks', { count: response.data.count }),
-          timeout: 2000,
-          type: 'info'
-        })
-        return Promise.resolve(response)
-      })
+  async queue_expression_add(expression) {
+    const response = await axios.post('./api/queue/items/add', null, {
+      params: { expression }
+    })
+    useNotificationsStore().add({
+      text: t('server.appended-tracks', { count: response.data.count }),
+      timeout: 2000,
+      type: 'info'
+    })
+    return await Promise.resolve(response)
   },
 
-  queue_expression_add_next(expression) {
+  async queue_expression_add_next(expression) {
     const params = {}
     params.expression = expression
     params.position = 0
@@ -369,16 +366,13 @@ export default {
     if (current?.id) {
       params.position = current.position + 1
     }
-    return axios
-      .post('./api/queue/items/add', null, { params })
-      .then((response) => {
-        useNotificationsStore().add({
-          text: t('server.appended-tracks', { count: response.data.count }),
-          timeout: 2000,
-          type: 'info'
-        })
-        return Promise.resolve(response)
-      })
+    const response = await axios.post('./api/queue/items/add', null, { params })
+    useNotificationsStore().add({
+      text: t('server.appended-tracks', { count: response.data.count }),
+      timeout: 2000,
+      type: 'info'
+    })
+    return await Promise.resolve(response)
   },
 
   queue_move(itemId, position) {
@@ -389,17 +383,16 @@ export default {
     return axios.delete(`./api/queue/items/${itemId}`)
   },
 
-  queue_save_playlist(name) {
-    return axios
-      .post('./api/queue/save', null, { params: { name } })
-      .then((response) => {
-        useNotificationsStore().add({
-          text: t('server.queue-saved', { name }),
-          timeout: 2000,
-          type: 'info'
-        })
-        return Promise.resolve(response)
-      })
+  async queue_save_playlist(name) {
+    const response = await axios.post('./api/queue/save', null, {
+      params: { name }
+    })
+    useNotificationsStore().add({
+      text: t('server.queue-saved', { name }),
+      timeout: 2000,
+      type: 'info'
+    })
+    return await Promise.resolve(response)
   },
 
   search(params) {

@@ -23,6 +23,7 @@ export default {
       return {
         name: this.item.name,
         handler: this.open,
+        uri: this.item.uri,
         uris: this.uris,
         properties: [
           { label: 'property.tracks', value: this.item.item_count },

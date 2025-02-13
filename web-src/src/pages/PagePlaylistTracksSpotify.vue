@@ -13,12 +13,12 @@
       <template #heading-right>
         <div class="buttons is-centered">
           <a
-            class="button is-small is-light is-rounded"
+            class="button is-small is-rounded"
             @click="show_playlist_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
-          <a class="button is-small is-dark is-rounded" @click="play">
+          <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.spotify.playlist.shuffle')" />
           </a>

@@ -7,12 +7,12 @@
       <template #heading-right>
         <div class="buttons is-centered">
           <a
-            class="button is-small is-light is-rounded"
+            class="button is-small is-rounded"
             @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
-          <a class="button is-small is-dark is-rounded" @click="play">
+          <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.files.play')" />
           </a>
@@ -22,7 +22,7 @@
         <list-directories :items="directories" />
         <list-playlists :items="playlists" />
         <list-tracks
-          :expression="play_expression"
+          :expression="expression"
           :items="tracks"
           :show_icon="true"
         />
@@ -83,26 +83,22 @@ export default {
     ListTracks,
     ModalDialogDirectory
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   beforeRouteUpdate(to, from, next) {
     dataObject.load(to).then((response) => {
       dataObject.set(this, response)
       next()
     })
   },
-
   setup() {
     return {
       configurationStore: useConfigurationStore()
     }
   },
-
   data() {
     return {
       directories: [],
@@ -111,7 +107,6 @@ export default {
       tracks: new GroupedList()
     }
   },
-
   computed: {
     current() {
       return this.$route.query?.directory || '/'
@@ -122,14 +117,13 @@ export default {
       }
       return this.$t('page.files.title')
     },
-    play_expression() {
+    expression() {
       return `path starts with "${this.current}" order by path asc`
     }
   },
-
   methods: {
     play() {
-      webapi.player_play_expression(this.play_expression, false)
+      webapi.player_play_expression(this.expression, false)
     },
     transform(path) {
       return { name: path.slice(path.lastIndexOf('/') + 1), path }

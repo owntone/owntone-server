@@ -60,9 +60,7 @@ export default {
   },
 
   setup() {
-    return {
-      playerStore: usePlayerStore()
-    }
+    return { playerStore: usePlayerStore() }
   },
 
   computed: {

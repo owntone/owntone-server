@@ -69,10 +69,7 @@ export default {
   emits: ['play-count-changed'],
 
   data() {
-    return {
-      selected_item: {},
-      show_details_modal: false
-    }
+    return { selected_item: {}, show_details_modal: false }
   },
 
   methods: {

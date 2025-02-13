@@ -46,8 +46,7 @@ export default {
         name: this.item.name,
         handler: this.open,
         image: this.item.artwork_url,
-        artist: this.item.artist,
-        album: this.item.name,
+        uri: this.item.uri,
         properties: [
           {
             label: 'property.artist',

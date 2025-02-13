@@ -41,9 +41,7 @@ export default {
   emits: ['search-library', 'search-spotify'],
 
   setup() {
-    return {
-      servicesStore: useServicesStore()
-    }
+    return { servicesStore: useServicesStore() }
   },
 
   computed: {

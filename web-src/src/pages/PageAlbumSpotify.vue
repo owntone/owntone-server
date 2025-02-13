@@ -7,12 +7,12 @@
           <a @click="open_artist" v-text="album.artists[0].name" />
         </div>
         <div class="buttons is-centered-mobile mt-5">
-          <a class="button is-small is-dark is-rounded" @click="play">
+          <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.spotify.album.shuffle')" />
           </a>
           <a
-            class="button is-small is-light is-rounded"
+            class="button is-small is-rounded"
             @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
@@ -21,7 +21,7 @@
       </template>
       <template #heading-right>
         <cover-artwork
-          :url="artwork_url(album)"
+          :url="album.images?.[0]?.url ?? ''"
           :artist="album.artists[0].name"
           :album="album.name"
           class="is-clickable is-medium"
@@ -63,7 +63,6 @@ const dataObject = {
       market: useServicesStore().spotify.webapi_country
     })
   },
-
   set(vm, response) {
     vm.album = response
   }
@@ -77,26 +76,20 @@ export default {
     ListTracksSpotify,
     ModalDialogAlbumSpotify
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
-    return {
-      servicesStore: useServicesStore()
-    }
+    return { servicesStore: useServicesStore() }
   },
-
   data() {
     return {
       album: { artists: [{}], tracks: {} },
       show_details_modal: false
     }
   },
-
   computed: {
     tracks() {
       const { album } = this
@@ -107,9 +100,6 @@ export default {
     }
   },
   methods: {
-    artwork_url(album) {
-      return album.images?.[0]?.url ?? ''
-    },
     open_artist() {
       this.$router.push({
         name: 'music-spotify-artist',

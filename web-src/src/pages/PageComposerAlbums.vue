@@ -21,12 +21,12 @@
       <template #heading-right>
         <div class="buttons is-centered">
           <a
-            class="button is-small is-light is-rounded"
+            class="button is-small is-rounded"
             @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />
           </a>
-          <a class="button is-small is-dark is-rounded" @click="play">
+          <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
             <span v-text="$t('page.composer.shuffle')" />
           </a>
@@ -72,13 +72,11 @@ export default {
     ListAlbums,
     ModalDialogComposer
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       albums: new GroupedList(),
@@ -86,7 +84,11 @@ export default {
       show_details_modal: false
     }
   },
-
+  computed: {
+    expression() {
+      return `composer is "${this.composer.name}" and media_kind is music`
+    }
+  },
   methods: {
     open_tracks() {
       this.$router.push({
@@ -95,10 +97,7 @@ export default {
       })
     },
     play() {
-      webapi.player_play_expression(
-        `composer is "${this.composer.name}" and media_kind is music`,
-        true
-      )
+      webapi.player_play_expression(this.expression, true)
     }
   }
 }

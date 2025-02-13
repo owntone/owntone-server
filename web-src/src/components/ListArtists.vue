@@ -1,13 +1,11 @@
 <template>
   <template v-for="item in items" :key="item.itemId">
     <div v-if="!item.isItem" class="py-5">
-      <div class="media-content">
-        <span
-          :id="`index_${item.index}`"
-          class="tag is-small has-text-weight-bold"
-          v-text="item.index"
-        />
-      </div>
+      <span
+        :id="`index_${item.index}`"
+        class="tag is-small has-text-weight-bold"
+        v-text="item.index"
+      />
     </div>
     <div
       v-else
@@ -39,15 +37,10 @@ import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 export default {
   name: 'ListArtists',
   components: { ModalDialogArtist },
-  props: {
-    items: { required: true, type: Object }
-  },
+  props: { items: { required: true, type: Object } },
 
   data() {
-    return {
-      selected_item: {},
-      show_details_modal: false
-    }
+    return { selected_item: {}, show_details_modal: false }
   },
 
   methods: {

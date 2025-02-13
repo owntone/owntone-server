@@ -54,10 +54,7 @@ export default {
   props: { items: { required: true, type: Array } },
 
   data() {
-    return {
-      selected_item: '',
-      show_details_modal: false
-    }
+    return { selected_item: '', show_details_modal: false }
   },
 
   computed: {

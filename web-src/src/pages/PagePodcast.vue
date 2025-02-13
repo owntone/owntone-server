@@ -7,12 +7,12 @@
           <br />
         </div>
         <div class="buttons is-centered-mobile mt-5">
-          <a class="button is-small is-dark is-rounded" @click="play">
+          <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
             <span v-text="$t('page.podcast.play')" />
           </a>
           <a
-            class="button is-small is-light is-rounded"
+            class="button is-small is-rounded"
             @click="show_details_modal = true"
           >
             <mdicon class="icon" name="dots-horizontal" size="16" />

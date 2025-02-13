@@ -19,12 +19,11 @@ export default {
       return {
         name: this.item.name || '',
         image: this.item?.images?.[0]?.url || '',
-        artist: this.item.artist || '',
-        album: this.item.name || '',
         handler: this.open,
+        uri: this.item.uri,
         properties: [
           {
-            label: 'property.album-artist',
+            label: 'property.artist',
             value: this.item?.artists?.[0]?.name,
             handler: this.open_artist
           },

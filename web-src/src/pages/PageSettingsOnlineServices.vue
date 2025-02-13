@@ -22,7 +22,7 @@
               <p v-text="$t('page.settings.services.spotify.requirements')" />
               <p v-text="spotify_required_scope.join(', ')" />
             </div>
-            <p v-if="spotify.webapi_token_valid">
+            <p v-if="spotify.webapi_token_valid" class="content">
               <span v-text="$t('page.settings.services.spotify.user')" />
               <code v-text="spotify.webapi_user" />
             </p>
