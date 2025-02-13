@@ -13,7 +13,7 @@ const target = process.env.VITE_OWNTONE_URL ?? 'http://localhost:3689'
 
 export default defineConfig({
   build: {
-    outDir: '../htdocs',
+    outDir: './htdocs',
     rollupOptions: {
       output: {
         assetFileNames: `assets/[name].[ext]`,

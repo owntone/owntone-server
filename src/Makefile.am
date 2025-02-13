@@ -155,7 +155,7 @@ EXTRA_DIST = \
 # Rule for generating lexer headers. $@ is an automatic variable that is equal
 # to the particular target name, so a header file name.
 $(LEXER_SRC:.l=.h): $(LEXER_SRC)
-	$(LEX) --header-file=$@ --stdout $(@:.h=.l) > /dev/null
+	$(LEX) --header-file=$@ --stdout $(srcdir)/$(@:.h=.l) > /dev/null
 
 # Anything built by make should be cleaned by make clean, but when it comes to
 # flex/bison automake's support leaves something to be desired

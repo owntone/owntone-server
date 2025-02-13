@@ -16,7 +16,11 @@ endif
 
 BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE) $(SYSTEMD_TSERVICE_FILE)
 
-SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src htdocs
+if COND_WEBINTERFACE
+WEBINTERFACE_SRC_SUBDIR = web-src
+endif
+
+SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src $(WEBINTERFACE_SRC_SUBDIR)
 
 dist_man_MANS = owntone.8
 
@@ -105,3 +109,19 @@ $(CONF_FILE): $(srcdir)/$(CONF_FILE).in
 $(SYSTEMD_SERVICE_FILE): $(srcdir)/$(SYSTEMD_SERVICE_FILE).in
 
 $(SYSTEMD_TSERVICE_FILE): $(srcdir)/$(SYSTEMD_TSERVICE_FILE).in
+
+#
+# Convenience make goals for the web interface
+#
+web:
+	$(MAKE) web -C web-src
+web-update:
+	$(MAKE) web-update -C web-src
+web-serve:
+	$(MAKE) web-serve -C web-src
+web-check:
+	$(MAKE) web-check -C web-src
+web-lint:
+	$(MAKE) web-lint -C web-src
+web-format:
+	$(MAKE) web-format -C web-src

@@ -322,12 +322,41 @@ dnl MPD support
 OWNTONE_ARG_DISABLE([MPD client protocol support], [mpd], [MPD])
 AM_CONDITIONAL([COND_MPD], [[test "x$enable_mpd" = "xyes"]])
 
+AC_PATH_PROG([NPM], [[npm]])
+
 dnl Include default webinterface
 OWNTONE_ARG_DISABLE([include default web interface], [webinterface], [WEBINTERFACE],
-	[AS_IF([[test "x$with_libwebsockets" = "xno"]],
-		[AC_MSG_ERROR([[Web interface requires libwebsockets >= 2.0.2 (or use --disable-webinterface)]])])
-	])
+	[AS_IF(
+		[[test "x$with_libwebsockets" = "xno"]],
+			[AC_MSG_ERROR([[Web interface requires libwebsockets >= 2.0.2 (or use --disable-webinterface)]])],
+		[[test -z "$NPM"]],
+			[AS_IF([[test -f "$srcdir/web-src/htdocs/index.html"]],
+				[AM_MISSING_PROG([NPM], [[npm]])
+				AC_MSG_NOTICE([[
+npm not found, but a prebuilt web interface is present.
+If you modify any web interface source files, you will need to install npm.
+				]])],
+				[AC_MSG_ERROR([[npm required, please install it.]])])
+			]
+	)])
 AM_CONDITIONAL([COND_WEBINTERFACE], [[test "x$enable_webinterface" = "xyes"]])
+
+dnl Use prebuilt webinterface even if npm is available
+AC_ARG_WITH([prebuilt-webinterface],
+	[AS_HELP_STRING([--with-prebuilt-webinterface],
+		[Use prebuilt webinterface even if npm is available (default=no)]
+	)],
+	[AS_IF([[test -f "$srcdir/web-src/htdocs/index.html"]],
+		[[with_prebuilt_webinterface=yes]],
+		[AC_MSG_ERROR([[No prebuilt web interface found.]])]
+	)],
+	[[with_prebuilt_webinterface=]])
+if test "x$with_prebuilt_webinterface" = "xyes"; then
+	BUILD_WEBINTERFACE=
+else
+	BUILD_WEBINTERFACE=true
+fi
+AC_SUBST([BUILD_WEBINTERFACE])
 
 dnl Creating and defining users and groups
 OWNTONE_ARG_ENABLE([having 'make install' add user/group and 'make uninstall' delete], [install_user], [INSTALL_USER],
@@ -379,10 +408,240 @@ AC_CONFIG_SUBDIRS([
 ])
 
 AC_CONFIG_FILES([
+	web-src/Makefile
 	src/Makefile
 	sqlext/Makefile
-	htdocs/Makefile
 	Makefile
 	owntone.spec
 ])
+
+WEBSRC_SUBDIRS="\
+	public \
+	src \
+	src/components \
+	src/filter \
+	src/i18n \
+	src/lib \
+	src/pages \
+	src/router \
+	src/stores \
+	src/templates \
+	src/webapi"
+AC_SUBST([WEBSRC_SUBDIRS])
+
+WEBSRC_SOURCE_FILES="\
+	public/android-chrome-512x512.png \
+	public/mstile-150x150.png \
+	public/browserconfig.xml \
+	public/site.webmanifest \
+	public/favicon.ico \
+	public/android-chrome-192x192.png \
+	public/safari-pinned-tab.svg \
+	public/apple-touch-icon.png \
+	public/favicon-16x16.png \
+	public/logo.svg \
+	public/favicon-32x32.png \
+	src/components/ModalDialogAddRss.vue \
+	src/components/ModalDialogPlaylistSpotify.vue \
+	src/components/ListPlaylistsSpotify.vue \
+	src/components/ListArtistsSpotify.vue \
+	src/components/ModalDialogComposer.vue \
+	src/components/ListArtists.vue \
+	src/components/ControlSlider.vue \
+	src/components/ModalDialogArtist.vue \
+	src/components/ListPlaylists.vue \
+	src/components/ModalDialogArtistSpotify.vue \
+	src/components/ModalDialogPlaylistSave.vue \
+	src/components/ModalDialogGenre.vue \
+	src/components/ModalDialogTrackSpotify.vue \
+	src/components/ListTracks.vue \
+	src/components/ListGenres.vue \
+	src/components/ModalDialogAlbumSpotify.vue \
+	src/components/TabsAudiobooks.vue \
+	src/components/IndexButtonList.vue \
+	src/components/TabsSettings.vue \
+	src/components/ModalDialogAddUrlStream.vue \
+	src/components/ModalDialogDirectory.vue \
+	src/components/ListComposers.vue \
+	src/components/CoverArtwork.vue \
+	src/components/NavbarItemOutput.vue \
+	src/components/ModalDialogAlbum.vue \
+	src/components/ControlDropdown.vue \
+	src/components/ModalDialogPlaylist.vue \
+	src/components/ListDirectories.vue \
+	src/components/ModalDialog.vue \
+	src/components/ListAlbums.vue \
+	src/components/ListAlbumsSpotify.vue \
+	src/components/ListItemQueueItem.vue \
+	src/components/ListTracksSpotify.vue \
+	src/components/LyricsPane.vue \
+	src/components/ModalDialogQueueItem.vue \
+	src/components/ModalDialogRemotePairing.vue \
+	src/components/ModalDialogTrack.vue \
+	src/components/ModalDialogUpdate.vue \
+	src/components/NavbarBottom.vue \
+	src/components/NavbarItemLink.vue \
+	src/components/NavbarTop.vue \
+	src/components/NotificationList.vue \
+	src/components/PlayerButtonConsume.vue \
+	src/components/PlayerButtonLyrics.vue \
+	src/components/PlayerButtonNext.vue \
+	src/components/PlayerButtonPlayPause.vue \
+	src/components/PlayerButtonPrevious.vue \
+	src/components/PlayerButtonRepeat.vue \
+	src/components/PlayerButtonSeekBack.vue \
+	src/components/PlayerButtonSeekForward.vue \
+	src/components/PlayerButtonShuffle.vue \
+	src/components/SettingsCheckbox.vue \
+	src/components/SettingsIntfield.vue \
+	src/components/SettingsTextfield.vue \
+	src/components/TabsMusic.vue \
+	src/components/TabsSearch.vue \
+	src/filter/index.js \
+	src/i18n/index.js \
+	src/i18n/de.json \
+	src/i18n/en.json \
+	src/i18n/fr.json \
+	src/i18n/zh-CN.json \
+	src/i18n/zh-TW.json \
+	src/lib/Audio.js \
+	src/lib/SVGRenderer.js \
+	src/lib/GroupedList.js \
+	src/pages/PageMusicRecentlyPlayed.vue \
+	src/pages/PageMusicSpotifyFeaturedPlaylists.vue \
+	src/pages/PageAudiobooksArtists.vue \
+	src/pages/PageAudiobooksGenres.vue \
+	src/pages/PageAlbum.vue \
+	src/pages/PageComposerAlbums.vue \
+	src/pages/PageMusicSpotify.vue \
+	src/pages/PagePlaylistTracks.vue \
+	src/pages/PagePodcast.vue \
+	src/pages/PageMusicSpotifyNewReleases.vue \
+	src/pages/PageRadioStreams.vue \
+	src/pages/PageAudiobooksAlbums.vue \
+	src/pages/PageComposers.vue \
+	src/pages/PageAudiobooksArtist.vue \
+	src/pages/PageGenres.vue \
+	src/pages/PageMusic.vue \
+	src/pages/PageGenreAlbums.vue \
+	src/pages/PageAbout.vue \
+	src/pages/PageAlbumSpotify.vue \
+	src/pages/PageAlbums.vue \
+	src/pages/PageArtist.vue \
+	src/pages/PageArtistSpotify.vue \
+	src/pages/PageArtistTracks.vue \
+	src/pages/PageArtists.vue \
+	src/pages/PageComposerTracks.vue \
+	src/pages/PageFiles.vue \
+	src/pages/PageGenreTracks.vue \
+	src/pages/PageMusicRecentlyAdded.vue \
+	src/pages/PagePlaylistFolder.vue \
+	src/pages/PagePlaylistTracksSpotify.vue \
+	src/pages/PagePodcasts.vue \
+	src/pages/PageQueue.vue \
+	src/pages/PageSearchLibrary.vue \
+	src/pages/PageSearchSpotify.vue \
+	src/pages/PageSettingsOnlineServices.vue \
+	src/pages/PageSettingsRemotesOutputs.vue \
+	src/pages/PageAudiobooksAlbum.vue \
+	src/pages/PageNowPlaying.vue \
+	src/pages/PageSettingsArtwork.vue \
+	src/pages/PageSettingsWebinterface.vue \
+	src/router/index.js \
+	src/stores/configuration.js \
+	src/stores/library.js \
+	src/stores/lyrics.js \
+	src/stores/notifications.js \
+	src/stores/outputs.js \
+	src/stores/player.js \
+	src/stores/queue.js \
+	src/stores/remotes.js \
+	src/stores/search.js \
+	src/stores/services.js \
+	src/stores/settings.js \
+	src/stores/ui.js \
+	src/templates/ContentWithHeading.vue \
+	src/templates/ContentWithHero.vue \
+	src/webapi/index.js \
+	src/App.vue \
+	src/icons.js \
+	src/main.js \
+	src/mystyles.scss \
+	.prettierrc.json \
+	eslint.config.js \
+	index.html \
+	jsconfig.json \
+	package-lock.json \
+	package.json \
+	vite.config.js"
+AC_SUBST([WEBSRC_SOURCE_FILES])
+
+AC_CONFIG_COMMANDS([web-src],
+	[
+		if test "x$enable_webinterface" = "xyes"; then
+			websrc_builddir="$ac_abs_builddir/web-src"
+			websrc_srcdir="$ac_abs_srcdir/web-src"
+			if test "$websrc_srcdir" != "$websrc_builddir"; then
+				echo "web-src: out-of-tree build, copy web-src to build dir ($websrc_srcdir = $websrc_builddir)"
+				for dir in $dirs; do
+					mkdir -p "$websrc_builddir/$dir"
+					echo "web-src: created dir $websrc_builddir/$dir"
+				done
+				for file in $files; do
+					cp "$websrc_srcdir/$file" "$websrc_builddir/$file"
+					echo "web-src: copied $file from '$websrc_srcdir' to '$websrc_builddir'"
+				done
+			else
+				echo "web-src: in-tree build, nothing to prepare ($websrc_srcdir = $websrc_builddir)"
+			fi
+		fi
+	], [
+		dirs="$WEBSRC_SUBDIRS"
+		files="$WEBSRC_SOURCE_FILES"
+		enable_webinterface="$enable_webinterface"
+	])
+
+HTDOCS_FILES="\
+	index.html \
+	android-chrome-192x192.png \
+	android-chrome-512x512.png \
+	apple-touch-icon.png \
+	browserconfig.xml \
+	favicon.ico \
+	favicon-16x16.png \
+	favicon-32x32.png \
+	mstile-150x150.png \
+	safari-pinned-tab.svg \
+	site.webmanifest \
+	assets/index.css \
+	assets/index.js"
+AC_SUBST([WEBSRC_BUILD_FILES])
+
+AC_CONFIG_COMMANDS([htdocs],
+	[
+		if test "x$enable_webinterface" = "xyes"; then
+			websrc_builddir="$ac_abs_builddir/web-src/htdocs"
+			websrc_srcdir="$ac_abs_srcdir/web-src/htdocs"
+			if test "$websrc_srcdir" != "$websrc_builddir"; then
+				echo "htdocs: out-of-tree build, copy prebuilt htdocs to build dir ($websrc_srcdir = $websrc_builddir)"
+				if test -d "$websrc_srcdir/htdocs"; then
+					mkdir -p "$websrc_builddir"
+					mkdir -p "$websrc_builddir/assets"
+					for file in $files; do
+						cp "$websrc_srcdir/$file" "$websrc_builddir/$file"
+						echo "htdocs: copied $file from '$websrc_srcdir' to '$websrc_builddir'"
+					done
+					echo "htdocs: copied prebuilt htdocs from '$websrc_srcdir' to '$websrc_builddir'"
+				else
+					echo "htdocs: no prebuilt htdocs found, nothing to prepare"
+				fi
+			else
+				echo "htdocs: in-tree build, nothing to prepare ($websrc_srcdir = $websrc_builddir)"
+			fi
+		fi
+	], [
+		files="$HTDOCS_FILES"
+		enable_webinterface="$enable_webinterface"
+	])
+
 AC_OUTPUT

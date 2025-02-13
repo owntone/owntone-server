@@ -28,7 +28,7 @@ jobs:
       uses: vmactions/freebsd-vm@v1
       with:
         prepare: |
-          pkg install -y gmake autoconf automake libtool pkgconf gettext gperf glib ffmpeg libconfuse libevent libxml2 libgcrypt libunistring libiconv curl libplist libinotify avahi sqlite3 alsa-lib libsodium json-c libwebsockets protobuf-c bison flex
+          pkg install -y gmake autoconf automake libtool pkgconf gettext gperf glib ffmpeg libconfuse libevent libxml2 libgcrypt libunistring libiconv curl libplist libinotify avahi sqlite3 alsa-lib libsodium json-c libwebsockets protobuf-c bison flex node npm
           pw user add owntone -m -d /usr/local/var/cache/owntone
 
         run: |
