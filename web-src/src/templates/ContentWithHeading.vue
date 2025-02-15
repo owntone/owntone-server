@@ -1,10 +1,10 @@
 <template>
-  <section class="section">
+  <section class="section" :class="{ 'pt-0': $slots.options }">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <div v-if="$slots.options">
-            <div :class="{ 'is-hidden': hidden }">
+          <div v-if="$slots.options" class="mb-2">
+            <div :class="{ 'is-hidden': hidden }" class="mb-2">
               <slot name="options" />
             </div>
             <div class="buttons is-centered">
