@@ -3,7 +3,7 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <section v-if="$slots.options" ref="options">
+          <div v-if="$slots.options">
             <div :class="{ 'is-hidden': hidden }">
               <slot name="options" />
             </div>
@@ -12,7 +12,7 @@
                 <mdicon class="icon" :name="icon" size="16" />
               </button>
             </div>
-          </section>
+          </div>
           <div>
             <nav class="level is-clipped">
               <div class="level-left is-flex-shrink-1">
