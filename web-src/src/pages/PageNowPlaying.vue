@@ -193,3 +193,9 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.is-full-height {
+  min-height: calc(100vh - calc(2 * var(--bulma-navbar-height)));
+}
+</style>
