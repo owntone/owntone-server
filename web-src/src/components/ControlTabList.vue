@@ -14,7 +14,11 @@
               >
                 <li :class="{ 'is-active': isActive }">
                   <a @click="navigate" @keypress.enter="navigate">
-                    <mdicon class="icon is-small" :name="link.icon" size="16" />
+                    <mdicon
+                      v-if="link.icon"
+                      class="icon is-small"
+                      :name="link.icon"
+                    />
                     <span class="is-hidden-mobile" v-text="$t(link.label)" />
                   </a>
                 </li>
