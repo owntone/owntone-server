@@ -1296,7 +1296,7 @@ online_source_history_update(const struct online_source *src, int id, uint32_t r
 static int
 auth_header_add(struct keyval *headers, const struct online_source *src)
 {
-  char auth_header[256];
+  char auth_header[512];
   char *auth_key;
   char *auth_secret;
   int ret;
