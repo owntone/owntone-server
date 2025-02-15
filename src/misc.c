@@ -1820,7 +1820,7 @@ thread_getnametid(char *buf, size_t len)
   pthread_t p = pthread_self();
 
   thread_getname(p, thread_name, sizeof(thread_name));
-  tid = thread_gettid();
+  tid = thread_gettid() % 10000;
   snprintf(buf, len, "%s (%d)", thread_name, tid);
 }
 
