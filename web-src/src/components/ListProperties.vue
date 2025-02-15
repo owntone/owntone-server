@@ -10,15 +10,7 @@
     :album="item.name"
     class="is-normal mb-5"
   />
-  <div class="buttons">
-    <a
-      v-for="button in buttons"
-      :key="button.label"
-      v-t="button.label"
-      class="button is-small"
-      @click="button.handler"
-    />
-  </div>
+  <slot v-if="$slots.buttons" name="buttons" />
   <div
     v-for="property in item.properties?.filter((p) => p.value)"
     :key="property.label"
@@ -43,7 +35,6 @@ export default {
   name: 'ListProperties',
   components: { CoverArtwork },
   props: {
-    buttons: { default: () => [], type: Array },
     item: { required: true, type: Object }
   }
 }

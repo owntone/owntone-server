@@ -1,7 +1,19 @@
 <template>
   <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
     <template #content>
-      <list-properties :buttons="buttons" :item="item" />
+      <list-properties :item="item">
+        <template #buttons>
+          <div class="buttons">
+            <a
+              v-for="button in buttons"
+              :key="button.label"
+              v-t="button.label"
+              class="button is-small"
+              @click="button.handler"
+            />
+          </div>
+        </template>
+      </list-properties>
     </template>
   </modal-dialog>
 </template>
@@ -15,7 +27,7 @@ export default {
   name: 'ModalDialogPlayable',
   components: { ListProperties, ModalDialog },
   props: {
-    buttons: { default: () => [], type: Array },
+    buttons: { default: null, type: Array },
     item: { required: true, type: Object },
     show: Boolean
   },
