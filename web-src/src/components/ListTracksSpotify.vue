@@ -37,7 +37,7 @@
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">
-          <mdicon class="icon has-text-dark" name="dots-vertical" size="16" />
+          <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>

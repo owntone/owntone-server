@@ -63,7 +63,7 @@
               <template #actions>
                 <a v-if="!edit_mode" @click.prevent.stop="open_dialog(element)">
                   <mdicon
-                    class="icon has-text-dark"
+                    class="icon has-text-grey"
                     name="dots-vertical"
                     size="16"
                   />
