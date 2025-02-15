@@ -4,7 +4,7 @@
       <router-link
         v-for="index in indices"
         :key="index"
-        class="button is-small is-square"
+        class="button px-2 is-small is-square"
         :to="{ hash: `#index_${index}`, query: $route.query }"
       >
         {{ index }}
@@ -24,7 +24,5 @@ export default {
 .is-square {
   height: 1.75rem;
   min-width: 1.75rem;
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
 }
 </style>
