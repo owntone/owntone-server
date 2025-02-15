@@ -3,8 +3,8 @@
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
-          <div v-if="$slots.options" class="mb-2">
-            <div :class="{ 'is-hidden': hidden }" class="mb-2">
+          <div v-if="$slots.options" class="my-2">
+            <div :class="{ 'is-hidden': hidden }" class="mt-4">
               <slot name="options" />
             </div>
             <div class="buttons is-centered">
@@ -56,7 +56,7 @@ export default {
 </script>
 
 <style scope>
-section:not(.is-tabs) + section {
+section:not(.tabs-section) + section {
   padding-top: 0;
 }
 </style>

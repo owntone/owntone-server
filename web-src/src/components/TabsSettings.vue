@@ -1,8 +1,8 @@
 <template>
   <section class="section tabs-section">
     <div class="container">
-      <div class="columns is-centered">
-        <div class="column is-four-fifths">
+      <div class="columns is-centered my-0">
+        <div class="column is-four-fifths py-0">
           <div class="tabs is-centered is-small">
             <ul>
               <router-link
