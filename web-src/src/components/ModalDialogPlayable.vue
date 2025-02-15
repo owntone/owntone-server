@@ -2,7 +2,7 @@
   <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
     <template #content>
       <list-properties :item="item">
-        <template #buttons>
+        <template v-if="buttons.length" #buttons>
           <div class="buttons">
             <a
               v-for="button in buttons"
@@ -27,7 +27,7 @@ export default {
   name: 'ModalDialogPlayable',
   components: { ListProperties, ModalDialog },
   props: {
-    buttons: { default: null, type: Array },
+    buttons: { default: () => [], type: Array },
     item: { required: true, type: Object },
     show: Boolean
   },

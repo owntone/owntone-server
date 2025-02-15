@@ -28,17 +28,12 @@ export default {
   },
   computed: {
     buttons() {
-      if (this.item.media_kind === 'podcast') {
-        if (this.item.play_count > 0) {
-          return [{ label: 'dialog.track.mark-as-new', handler: this.mark_new }]
-        }
-        if (this.item.play_count === 0) {
-          return [
-            { label: 'dialog.track.mark-as-played', handler: this.mark_played }
-          ]
-        }
+      if (this.item.media_kind !== 'podcast') {
+        return []
       }
-      return []
+      return this.item.play_count > 0
+        ? [{ label: 'dialog.track.mark-as-new', handler: this.mark_new }]
+        : [{ label: 'dialog.track.mark-as-played', handler: this.mark_played }]
     },
     playable() {
       return {
