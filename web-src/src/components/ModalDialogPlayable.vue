@@ -7,7 +7,7 @@
             <a
               v-for="button in buttons"
               :key="button.label"
-              class="button is-small"
+              class="button is-small is-rounded"
               @click="button.handler"
               v-text="$t(button.label)"
             />

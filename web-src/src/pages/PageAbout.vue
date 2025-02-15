@@ -13,13 +13,13 @@
               <div class="level-right">
                 <div v-if="library.updating">
                   <a
-                    class="button is-small is-loading"
+                    class="button is-small is-rounded is-loading"
                     v-text="$t('page.about.update')"
                   />
                 </div>
                 <div v-else>
                   <a
-                    class="button is-small"
+                    class="button is-small is-rounded"
                     @click="showUpdateDialog()"
                     v-text="$t('page.about.update')"
                   />

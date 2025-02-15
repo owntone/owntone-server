@@ -6,7 +6,7 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a class="button is-small" @click="mark_all_played">
+          <a class="button is-small is-rounded" @click="mark_all_played">
             <mdicon class="icon" name="pencil" size="16" />
             <span v-text="$t('page.podcasts.mark-all-played')" />
           </a>
@@ -30,11 +30,18 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a v-if="rss.tracks > 0" class="button is-small" @click="update_rss">
+          <a
+            v-if="rss.tracks > 0"
+            class="button is-small is-rounded"
+            @click="update_rss"
+          >
             <mdicon class="icon" name="refresh" size="16" />
             <span v-text="$t('page.podcasts.update')" />
           </a>
-          <a class="button is-small" @click="open_add_podcast_dialog">
+          <a
+            class="button is-small is-rounded"
+            @click="open_add_podcast_dialog"
+          >
             <mdicon class="icon" name="rss" size="16" />
             <span v-text="$t('page.podcasts.add')" />
           </a>

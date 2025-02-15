@@ -11,19 +11,22 @@
       <template #heading-right>
         <div class="buttons is-centered">
           <button
-            class="button is-small"
+            class="button is-small is-rounded"
             :class="{ 'is-info': show_only_next_items }"
             @click="update_show_next_items"
           >
             <mdicon class="icon" name="arrow-collapse-down" size="16" />
             <span v-text="$t('page.queue.hide-previous')" />
           </button>
-          <button class="button is-small" @click="open_add_stream_dialog">
+          <button
+            class="button is-small is-rounded"
+            @click="open_add_stream_dialog"
+          >
             <mdicon class="icon" name="web" size="16" />
             <span v-text="$t('page.queue.add-stream')" />
           </button>
           <button
-            class="button is-small"
+            class="button is-small is-rounded"
             :class="{ 'is-info': edit_mode }"
             :disabled="queue_items.length === 0"
             @click="edit_mode = !edit_mode"
@@ -32,7 +35,7 @@
             <span v-text="$t('page.queue.edit')" />
           </button>
           <button
-            class="button is-small"
+            class="button is-small is-rounded"
             :disabled="queue_items.length === 0"
             @click="queue_clear"
           >
@@ -41,7 +44,7 @@
           </button>
           <button
             v-if="is_queue_save_allowed"
-            class="button is-small"
+            class="button is-small is-rounded"
             :disabled="queue_items.length === 0"
             @click="save_dialog"
           >
