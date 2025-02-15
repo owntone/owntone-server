@@ -20,7 +20,7 @@
         </div>
       </template>
       <template #heading-right>
-        <cover-artwork
+        <control-image
           :url="album.artwork_url"
           :artist="album.artist"
           :album="album.name"
@@ -71,7 +71,7 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
+import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
@@ -96,7 +96,7 @@ export default {
   name: 'PagePodcast',
   components: {
     ContentWithHero,
-    CoverArtwork,
+    ControlImage,
     ListTracks,
     ModalDialog,
     ModalDialogAlbum

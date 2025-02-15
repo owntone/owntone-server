@@ -20,7 +20,7 @@
         </div>
       </template>
       <template #heading-right>
-        <cover-artwork
+        <control-image
           :url="album.images?.[0]?.url ?? ''"
           :artist="album.artists[0].name"
           :album="album.name"
@@ -48,7 +48,7 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
+import ControlImage from '@/components/ControlImage.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -72,7 +72,7 @@ export default {
   name: 'PageAlbumSpotify',
   components: {
     ContentWithHero,
-    CoverArtwork,
+    ControlImage,
     ListTracksSpotify,
     ModalDialogAlbumSpotify
   },

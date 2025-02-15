@@ -3,7 +3,7 @@
     <a v-if="item.handler" @click="item.handler" v-text="item.name"></a>
     <span v-else v-text="item.name" />
   </div>
-  <cover-artwork
+  <control-image
     v-if="item.image"
     :url="item.image"
     :artist="item.artist"
@@ -29,11 +29,11 @@
 </template>
 
 <script>
-import CoverArtwork from '@/components/CoverArtwork.vue'
+import ControlImage from '@/components/ControlImage.vue'
 
 export default {
   name: 'ListProperties',
-  components: { CoverArtwork },
+  components: { ControlImage },
   props: {
     item: { required: true, type: Object }
   }

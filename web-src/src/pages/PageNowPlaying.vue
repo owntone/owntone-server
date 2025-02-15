@@ -3,7 +3,7 @@
     <div class="hero-body is-flex is-align-items-center">
       <div class="container has-text-centered">
         <div v-if="track.id" class="mx-auto" style="max-width: 32rem">
-          <cover-artwork
+          <control-image
             :url="track.artwork_url"
             :artist="track.artist"
             :album="track.album"
@@ -54,8 +54,8 @@
 </template>
 
 <script>
+import ControlImage from '@/components/ControlImage.vue'
 import ControlSlider from '@/components/ControlSlider.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
 import LyricsPane from '@/components/LyricsPane.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import { useLyricsStore } from '@/stores/lyrics'
@@ -70,11 +70,10 @@ export default {
   name: 'PageNowPlaying',
   components: {
     ControlSlider,
-    CoverArtwork,
+    ControlImage,
     LyricsPane,
     ModalDialogQueueItem
   },
-
   setup() {
     return {
       lyricsStore: useLyricsStore(),
@@ -83,7 +82,6 @@ export default {
       settingsStore: useSettingsStore()
     }
   },
-
   data() {
     return {
       INTERVAL,
@@ -93,7 +91,6 @@ export default {
       show_details_modal: false
     }
   },
-
   computed: {
     composer() {
       if (this.settingsStore.show_composer_now_playing) {
@@ -140,7 +137,6 @@ export default {
         : this.$filters.durationInHours(this.track.length_ms)
     }
   },
-
   watch: {
     'playerStore.state'(newState) {
       if (this.interval_id > 0) {
@@ -152,7 +148,6 @@ export default {
       }
     }
   },
-
   created() {
     webapi.player_status().then(({ data }) => {
       this.playerStore.$state = data
@@ -161,14 +156,12 @@ export default {
       }
     })
   },
-
   unmounted() {
     if (this.interval_id > 0) {
       window.clearTimeout(this.interval_id)
       this.interval_id = 0
     }
   },
-
   methods: {
     end_dragging() {
       this.is_dragged = false

@@ -1,5 +1,5 @@
 <template>
-  <figure class="cover has-shadow">
+  <figure class="figure has-shadow">
     <img v-lazy="{ src: url, lifecycle }" @click="$emit('click')" />
   </figure>
 </template>
@@ -8,14 +8,13 @@
 import { renderSVG } from '@/lib/SVGRenderer'
 
 export default {
-  name: 'CoverArtwork',
+  name: 'ControlImage',
   props: {
     album: { default: '', type: String },
     artist: { default: '', type: String },
     url: { default: '', type: String }
   },
   emits: ['click'],
-
   data() {
     return {
       font: { family: 'sans-serif', weight: 'bold' },
@@ -27,22 +26,11 @@ export default {
       size: 600
     }
   },
-
-  computed: {
-    alt_text() {
-      return `${this.artist} - ${this.album}`
-    },
-
-    caption() {
-      return (this.album || this.artist || '').substring(0, 2)
-    }
-  },
-
   methods: {
     dataURI() {
       return renderSVG({
-        alternate: this.alt_text,
-        caption: this.caption,
+        alternate: `${this.artist} - ${this.album}`,
+        caption: (this.album || this.artist || '').substring(0, 2),
         font: this.font,
         size: this.size
       })
@@ -54,7 +42,7 @@ export default {
 <style lang="scss" scoped>
 @use 'bulma/sass/utilities/mixins';
 
-.cover {
+.figure {
   align-items: center;
   display: flex;
   justify-content: center;

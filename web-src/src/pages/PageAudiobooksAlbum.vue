@@ -20,7 +20,7 @@
         </div>
       </template>
       <template #heading-right>
-        <cover-artwork
+        <control-image
           :url="album.artwork_url"
           :artist="album.artist"
           :album="album.name"
@@ -51,7 +51,7 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
-import CoverArtwork from '@/components/CoverArtwork.vue'
+import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
@@ -73,14 +73,12 @@ const dataObject = {
 
 export default {
   name: 'PageAudiobooksAlbum',
-  components: { ContentWithHero, CoverArtwork, ListTracks, ModalDialogAlbum },
-
+  components: { ContentWithHero, ControlImage, ListTracks, ModalDialogAlbum },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       album: {},
@@ -88,7 +86,6 @@ export default {
       tracks: new GroupedList()
     }
   },
-
   methods: {
     open_artist() {
       this.show_details_modal = false

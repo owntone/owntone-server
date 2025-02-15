@@ -4,7 +4,7 @@
       class="media is-align-items-center is-clickable mb-0"
       @click="open(item)"
     >
-      <cover-artwork
+      <control-image
         v-if="settingsStore.show_cover_artwork_in_album_lists"
         :url="item.images?.[0]?.url ?? ''"
         :artist="item.artist"
@@ -39,13 +39,13 @@
 </template>
 
 <script>
-import CoverArtwork from '@/components/CoverArtwork.vue'
+import ControlImage from '@/components/ControlImage.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import { useSettingsStore } from '@/stores/settings'
 
 export default {
   name: 'ListAlbumsSpotify',
-  components: { CoverArtwork, ModalDialogAlbumSpotify },
+  components: { ControlImage, ModalDialogAlbumSpotify },
   props: { items: { required: true, type: Object } },
   setup() {
     return { settingsStore: useSettingsStore() }

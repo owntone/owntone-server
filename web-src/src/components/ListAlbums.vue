@@ -12,7 +12,7 @@
       class="media is-align-items-center is-clickable mb-0"
       @click="open(item.item)"
     >
-      <cover-artwork
+      <control-image
         v-if="settingsStore.show_cover_artwork_in_album_lists"
         :url="item.item.artwork_url"
         :artist="item.item.artist"
@@ -69,7 +69,7 @@
 </template>
 
 <script>
-import CoverArtwork from '@/components/CoverArtwork.vue'
+import ControlImage from '@/components/ControlImage.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import { useSettingsStore } from '@/stores/settings'
@@ -77,7 +77,7 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ListAlbums',
-  components: { CoverArtwork, ModalDialog, ModalDialogAlbum },
+  components: { ControlImage, ModalDialog, ModalDialogAlbum },
   props: {
     items: { required: true, type: Object },
     media_kind: { default: '', type: String }

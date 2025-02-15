@@ -5,7 +5,7 @@
         <div class="columns is-centered">
           <div class="column is-four-fifths">
             <div class="columns is-flex-direction-row-reverse">
-              <div class="column has-cover">
+              <div class="column has-image">
                 <slot name="heading-right" />
               </div>
               <div
@@ -30,3 +30,24 @@
     </div>
   </section>
 </template>
+
+<script>
+export default {
+  name: 'ContentWithHero'
+}
+</script>
+
+<style lang="scss" scoped>
+@use 'bulma/sass/utilities/mixins';
+
+.column {
+  &.has-image {
+    @include mixins.mobile {
+      margin: auto;
+    }
+    @include mixins.tablet {
+      margin-right: 0;
+    }
+  }
+}
+</style>

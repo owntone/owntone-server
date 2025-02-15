@@ -34,17 +34,6 @@
   }
 }
 
-.column {
-  &.has-cover {
-    @include mixins.mobile {
-      margin: auto;
-    }
-    @include mixins.tablet {
-      margin-right: 0;
-    }
-  }
-}
-
 .overlay-fullscreen {
   @extend .is-overlay;
   z-index: 25;
