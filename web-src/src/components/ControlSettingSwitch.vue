@@ -10,10 +10,10 @@
         <template #label>
           <slot name="label" />
         </template>
-        <template #help>
-          <slot name="help" />
-        </template>
       </control-switch>
+    </template>
+    <template v-if="$slots.help" #help>
+      <slot name="help" />
     </template>
   </control-setting>
 </template>

@@ -1,20 +1,20 @@
 <template>
-  <div class="field">
-    <label class="toggle">
-      <div class="control is-flex is-align-content-center">
+  <div class="field mb-0 is-flex is-align-items-center">
+    <label class="toggle is-flex is-align-items-center">
+      <div class="control is-flex is-align-items-center">
         <input
           :checked="modelValue"
           type="checkbox"
-          class="toggle-checkbox"
+          class="toggle-checkbox is-hidden"
           @change="$emit('update:modelValue', !modelValue)"
         />
         <div class="toggle-switch" />
-        <slot name="label" />
       </div>
     </label>
-    <div v-if="$slots.help" class="help">
-      <slot name="help" />
-    </div>
+    <slot name="label" />
+  </div>
+  <div v-if="$slots.help" class="help mb-4">
+    <slot name="help" />
   </div>
 </template>
 
@@ -64,7 +64,6 @@ export default {
 
   &-checkbox {
     position: absolute;
-    visibility: hidden;
 
     &:checked + .toggle-switch {
       background: var(--bulma-dark);

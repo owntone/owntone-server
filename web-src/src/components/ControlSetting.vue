@@ -7,13 +7,13 @@
       <div class="control" :class="{ 'has-icons-right': isSuccess || isError }">
         <slot name="input" :setting="setting" :update="update" />
         <mdicon
-          v-if="isSuccess || isError"
+          v-if="$slots.label && (isSuccess || isError)"
           class="icon is-right"
           :name="isSuccess ? 'check' : 'close'"
           size="16"
         />
       </div>
-      <p v-if="$slots.help" class="help">
+      <p v-if="$slots.help" class="help mb-4">
         <slot name="help" />
       </p>
     </div>
