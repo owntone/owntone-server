@@ -63,7 +63,7 @@
         class="dropdown is-right"
         :class="{ 'is-active': uiStore.show_burger_menu }"
       >
-        <div class="dropdown-menu">
+        <div class="dropdown-menu is-mobile">
           <div class="dropdown-content">
             <control-link class="dropdown-item" :to="{ name: 'playlists' }">
               <span class="icon-text">

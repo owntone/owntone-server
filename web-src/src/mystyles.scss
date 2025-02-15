@@ -41,13 +41,12 @@
   position: fixed;
 }
 
-.dropdown-menu {
+.dropdown-menu.is-mobile {
   @include mixins.mobile {
     width: 100vw;
   }
-}
-
-.dropdown-content {
-  max-height: calc(100vh - calc(2 * var(--bulma-navbar-height)));
-  overflow: auto;
+  .dropdown-content {
+    max-height: calc(100vh - calc(2 * var(--bulma-navbar-height)));
+    overflow: auto;
+  }
 }
