@@ -148,7 +148,7 @@ logger_write_with_label(int severity, int domain, const char *content)
   if (ret == 0)
     stamp[0] = '\0';
 
-  logger_write("[%s] [%5s] [%-20s] %8s: %s", stamp, severities[severity], thread_nametid, labels[domain], content);
+  logger_write("[%s] [%5s] [%16s] %8s: %s", stamp, severities[severity], thread_nametid, labels[domain], content);
 }
 
 static void

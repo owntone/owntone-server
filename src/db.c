@@ -102,6 +102,7 @@ enum fixup_type {
 };
 
 struct db_unlock {
+  char thread_name_tid[32];
   int proceed;
   pthread_cond_t cond;
   pthread_mutex_t lck;
@@ -1446,6 +1447,7 @@ unlock_notify_cb(void **args, int nargs)
     {
       u = (struct db_unlock *)args[i];
 
+      DPRINTF(E_DBG, L_DB, "Notify DB unlock, thread: %s\n", u->thread_name_tid);
       CHECK_ERR(L_DB, pthread_mutex_lock(&u->lck));
 
       u->proceed = 1;
@@ -1460,6 +1462,8 @@ db_wait_unlock(void)
 {
   struct db_unlock u;
   int ret;
+
+  thread_getnametid(u.thread_name_tid, sizeof(u.thread_name_tid));
 
   u.proceed = 0;
   CHECK_ERR(L_DB, mutex_init(&u.lck));
@@ -1477,7 +1481,7 @@ db_wait_unlock(void)
 	}
 
       CHECK_ERR(L_DB, pthread_mutex_unlock(&u.lck));
-    }
+}
 
   CHECK_ERR(L_DB, pthread_cond_destroy(&u.cond));
   CHECK_ERR(L_DB, pthread_mutex_destroy(&u.lck));
