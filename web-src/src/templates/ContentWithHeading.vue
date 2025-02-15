@@ -54,3 +54,9 @@ export default {
   }
 }
 </script>
+
+<style scope>
+section:not(.is-tabs) + section {
+  padding-top: 0;
+}
+</style>
