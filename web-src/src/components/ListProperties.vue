@@ -16,7 +16,7 @@
     :key="property.label"
     class="mb-3"
   >
-    <div v-t="property.label" class="is-size-7 is-uppercase" />
+    <div class="is-size-7 is-uppercase" v-text="$t(property.label)" />
     <div class="title is-6">
       <a
         v-if="property.handler"

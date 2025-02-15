@@ -7,9 +7,9 @@
             <a
               v-for="button in buttons"
               :key="button.label"
-              v-t="button.label"
               class="button is-small"
               @click="button.handler"
+              v-text="$t(button.label)"
             />
           </div>
         </template>
