@@ -3,16 +3,6 @@
 @use 'bulma/bulma';
 @use 'bulma/sass/utilities/mixins';
 
-.tabs-section {
-  background: var(--bulma-body-background-color);
-  padding-bottom: 0;
-  padding-top: 0;
-  position: sticky;
-  top: var(--bulma-navbar-height);
-  width: 100%;
-  z-index: 20;
-}
-
 .is-disabled {
   cursor: not-allowed;
   opacity: 0.5;
