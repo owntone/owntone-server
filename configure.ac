@@ -85,7 +85,15 @@ AC_SEARCH_LIBS([pthread_setname_np], [pthread],
 		[AC_MSG_RESULT([[no]])])],
 	[AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
 		[AC_CHECK_FUNCS([pthread_set_name_np])])])
-
+AC_SEARCH_LIBS([pthread_getname_np], [pthread],
+	[AC_DEFINE([HAVE_PTHREAD_GETNAME_NP], 1,
+		[Define to 1 if you have pthread_getname_np])]
+	[AC_SEARCH_LIBS([pthread_get_name_np], [pthread],
+		[AC_DEFINE([HAVE_PTHREAD_GETNAME_NP], 1,
+			[Define to 1 if you have pthread_get_name_np])])])
+AC_SEARCH_LIBS([pthread_getthreadid_np], [pthread],
+	[AC_DEFINE([HAVE_PTHREAD_GETTHREADID_NP], 1,
+		[Define to 1 if you have pthread_getthreadid_np])])
 AC_SEARCH_LIBS([uuid_generate_random], [uuid],
 	[AC_DEFINE([HAVE_UUID], 1,
 		[Define to 1 if you have uuid_generate_random function])])

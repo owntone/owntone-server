@@ -136,16 +136,19 @@ static void
 logger_write_with_label(int severity, int domain, const char *content)
 {
   char stamp[32];
+  char thread_nametid[32];
   time_t t;
   struct tm timebuf;
   int ret;
+
+  thread_getnametid(thread_nametid, sizeof(thread_nametid));
 
   t = time(NULL);
   ret = strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime_r(&t, &timebuf));
   if (ret == 0)
     stamp[0] = '\0';
 
-  logger_write("[%s] [%5s] %8s: %s", stamp, severities[severity], labels[domain], content);
+  logger_write("[%s] [%5s] [%-20s] %8s: %s", stamp, severities[severity], thread_nametid, labels[domain], content);
 }
 
 static void
