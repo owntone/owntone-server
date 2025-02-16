@@ -2623,6 +2623,7 @@ static int
 jsonapi_reply_queue_tracks_delete(struct httpd_request *hreq)
 {
   uint32_t item_id;
+  uint32_t count;
   int ret;
 
   ret = safe_atou32(hreq->path_parts[3], &item_id);
@@ -2637,6 +2638,13 @@ jsonapi_reply_queue_tracks_delete(struct httpd_request *hreq)
   if (ret < 0)
     {
       return HTTP_INTERNAL;
+    }
+
+  db_queue_get_count(&count);
+  if (count == 0)
+    {
+      player_playback_stop();
+      db_queue_clear(0);
     }
 
   return HTTP_NOCONTENT;
