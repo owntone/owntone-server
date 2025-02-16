@@ -6,40 +6,31 @@
     @close="$emit('close')"
   >
     <template #content>
-      <div class="field">
-        <p class="control has-icons-left">
-          <input
-            ref="url_field"
-            v-model="url"
-            class="input"
-            type="url"
-            pattern="http[s]?://.+"
-            required
-            :placeholder="$t('dialog.add.rss.placeholder')"
-            :disabled="loading"
-            @input="check_url"
-          />
-          <mdicon class="icon is-left" name="rss" size="16" />
-        </p>
-        <p class="help" v-text="$t('dialog.add.rss.help')" />
-      </div>
+      <control-url-field
+        icon="rss"
+        :help="$t('dialog.add.rss.help')"
+        :loading="loading"
+        :placeholder="$t('dialog.add.rss.placeholder')"
+        @url-changed="onUrlChanged"
+      />
     </template>
   </modal-dialog>
 </template>
 
 <script>
+import ControlUrlField from '@/components/ControlUrlField.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAddRss',
-  components: { ModalDialog },
+  components: { ControlUrlField, ModalDialog },
   props: { show: Boolean },
   emits: ['close', 'podcast-added'],
   data() {
     return {
-      disabled: true,
       loading: false,
+      disabled: true,
       url: ''
     }
   },
@@ -63,18 +54,11 @@ export default {
       ]
     }
   },
-  watch: {
-    show() {
-      if (this.show) {
-        this.loading = false
-        // Delay setting the focus on the input field until it is part of the DOM and visible
-        setTimeout(() => {
-          this.$refs.url_field.focus()
-        }, 10)
-      }
-    }
-  },
   methods: {
+    onUrlChanged(url, disabled) {
+      this.url = url
+      this.disabled = disabled
+    },
     add() {
       this.loading = true
       webapi
@@ -90,10 +74,6 @@ export default {
     },
     cancel() {
       this.$emit('close')
-    },
-    check_url(event) {
-      const { validity } = event.target
-      this.disabled = validity.patternMismatch || validity.valueMissing
     }
   }
 }
