@@ -38,7 +38,7 @@
       </template>
       <template #content>
         <component :is="components[type]" :items="items.items" />
-        <VueEternalLoading v-if="expanded" :load="search_next">
+        <vue-eternal-loading v-if="expanded" :load="search_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -49,7 +49,7 @@
           <template #no-more>
             <br />
           </template>
-        </VueEternalLoading>
+        </vue-eternal-loading>
       </template>
       <template v-if="!expanded" #footer>
         <nav v-if="show_all_button(items)" class="level">

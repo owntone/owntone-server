@@ -24,7 +24,7 @@
       </template>
       <template #content>
         <list-albums-spotify :items="albums" />
-        <VueEternalLoading v-if="offset < total" :load="load_next">
+        <vue-eternal-loading v-if="offset < total" :load="load_next">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -38,7 +38,7 @@
           <template #no-results>
             <br />
           </template>
-        </VueEternalLoading>
+        </vue-eternal-loading>
         <modal-dialog-artist-spotify
           :item="artist"
           :show="show_details_modal"
