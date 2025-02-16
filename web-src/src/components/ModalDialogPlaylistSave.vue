@@ -57,6 +57,7 @@ export default {
         },
         {
           label: this.$t('dialog.playlist.save.save'),
+          disabled: this.disabled,
           handler: this.save,
           icon: 'download'
         }
