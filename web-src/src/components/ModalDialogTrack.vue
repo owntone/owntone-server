@@ -131,6 +131,7 @@ export default {
         })
     },
     open_album() {
+      this.$emit('close')
       if (
         this.item.data_kind === 'spotify' &&
         this.item.media_kind !== 'podcast'
@@ -157,6 +158,7 @@ export default {
       }
     },
     open_artist() {
+      this.$emit('close')
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
           name: 'music-spotify-artist',
@@ -178,6 +180,7 @@ export default {
       }
     },
     open_genre() {
+      this.$emit('close')
       this.$router.push({
         name: 'genre-albums',
         params: { name: this.item.genre },
