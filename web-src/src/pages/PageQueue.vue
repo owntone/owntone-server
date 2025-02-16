@@ -48,7 +48,7 @@
             :disabled="queue_items.length === 0"
             @click="save_dialog"
           >
-            <mdicon class="icon" name="content-save" size="16" />
+            <mdicon class="icon" name="download" size="16" />
             <span v-text="$t('page.queue.save')" />
           </button>
         </div>

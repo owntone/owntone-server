@@ -13,7 +13,11 @@
       :class="{ 'with-progress': show_progress }"
       @click="play(item.item)"
     >
-      <mdicon v-if="show_icon" class="media-left icon" name="file-outline" />
+      <mdicon
+        v-if="show_icon"
+        class="media-left icon"
+        name="file-music-outline"
+      />
       <div class="media-content">
         <div
           class="is-size-6 has-text-weight-bold"

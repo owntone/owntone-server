@@ -20,7 +20,7 @@
               :disabled="loading"
               @input="check_name"
             />
-            <mdicon class="icon is-left" name="file-music" size="16" />
+            <mdicon class="icon is-left" name="playlist-music" size="16" />
           </p>
         </div>
       </form>
@@ -44,22 +44,24 @@ export default {
       playlist_name: ''
     }
   },
-  actions() {
-    if (loading) {
-      return [{ label: this.$t('dialog.playlist.save.saving'), icon: 'web' }]
-    }
-    return [
-      {
-        label: this.$t('dialog.playlist.save.cancel'),
-        handler: this.cancel,
-        icon: 'cancel'
-      },
-      {
-        label: this.$t('dialog.playlist.save.save'),
-        handler: this.save,
-        icon: 'save'
+  computed: {
+    actions() {
+      if (this.loading) {
+        return [{ label: this.$t('dialog.playlist.save.saving'), icon: 'web' }]
       }
-    ]
+      return [
+        {
+          label: this.$t('dialog.playlist.save.cancel'),
+          handler: this.cancel,
+          icon: 'cancel'
+        },
+        {
+          label: this.$t('dialog.playlist.save.save'),
+          handler: this.save,
+          icon: 'download'
+        }
+      ]
+    }
   },
   watch: {
     show() {
