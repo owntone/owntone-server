@@ -15,7 +15,7 @@
             :class="{ 'is-dark': show_only_next_items }"
             @click="update_show_next_items"
           >
-            <mdicon class="icon" name="arrow-collapse-down" size="16" />
+            <mdicon class="icon" name="eye-off-outline" size="16" />
             <span v-text="$t('page.queue.hide-previous')" />
           </button>
           <button

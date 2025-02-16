@@ -1,7 +1,6 @@
 import {
   mdiAccountMusic,
   mdiAlbum,
-  mdiArrowCollapseDown,
   mdiBookOpenPageVariant,
   mdiBookOpenVariant,
   mdiBookshelf,
@@ -21,6 +20,7 @@ import {
   mdiDotsVertical,
   mdiDownload,
   mdiDragHorizontal,
+  mdiEyeOffOutline,
   mdiFastForward30,
   mdiFileMusicOutline,
   mdiFire,
@@ -67,7 +67,6 @@ import {
 export const icons = {
   mdiAccountMusic,
   mdiAlbum,
-  mdiArrowCollapseDown,
   mdiBookOpenPageVariant,
   mdiBookOpenVariant,
   mdiBookshelf,
@@ -87,6 +86,7 @@ export const icons = {
   mdiDotsVertical,
   mdiDownload,
   mdiDragHorizontal,
+  mdiEyeOffOutline,
   mdiFastForward30,
   mdiFileMusicOutline,
   mdiFire,
