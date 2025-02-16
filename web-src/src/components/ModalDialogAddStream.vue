@@ -33,7 +33,7 @@ import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
-  name: 'ModalDialogAddUrlStream',
+  name: 'ModalDialogAddStream',
   components: { ModalDialog },
   props: { show: Boolean },
   emits: ['close'],

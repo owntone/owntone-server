@@ -86,7 +86,7 @@
           :item="selected_item"
           @close="show_details_modal = false"
         />
-        <modal-dialog-add-url-stream
+        <modal-dialog-add-stream
           :show="show_url_modal"
           @close="show_url_modal = false"
         />
@@ -103,7 +103,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
-import ModalDialogAddUrlStream from '@/components/ModalDialogAddUrlStream.vue'
+import ModalDialogAddStream from '@/components/ModalDialogAddStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import draggable from 'vuedraggable'
@@ -118,7 +118,7 @@ export default {
   components: {
     ContentWithHeading,
     ListItemQueueItem,
-    ModalDialogAddUrlStream,
+    ModalDialogAddStream,
     ModalDialogPlaylistSave,
     ModalDialogQueueItem,
     draggable
