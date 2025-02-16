@@ -34,7 +34,7 @@
         <div class="is-size-7 has-text-grey" v-text="item.item.album" />
         <progress
           v-if="show_progress && item.item.seek_ms > 0"
-          class="progress is-info"
+          class="progress is-dark"
           :max="item.item.length_ms"
           :value="item.item.seek_ms"
         />

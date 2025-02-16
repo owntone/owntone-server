@@ -1,6 +1,6 @@
 <template>
   <navbar-top />
-  <vue-progress-bar class="has-background-info" />
+  <vue-progress-bar class="has-background-primary" />
   <router-view v-slot="{ Component }">
     <component :is="Component" />
   </router-view>

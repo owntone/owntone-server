@@ -24,7 +24,7 @@
               </div>
               <div class="control">
                 <button
-                  class="button is-info"
+                  class="button"
                   type="submit"
                   v-text="$t('page.settings.devices.send')"
                 />
@@ -75,7 +75,7 @@
               </div>
               <div class="control">
                 <button
-                  class="button is-info"
+                  class="button"
                   type="submit"
                   v-text="$t('page.settings.devices.verify')"
                 />

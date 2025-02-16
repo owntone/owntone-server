@@ -106,7 +106,7 @@
                 </div>
                 <div class="control">
                   <button
-                    class="button is-info"
+                    class="button"
                     type="submit"
                     v-text="$t('page.settings.services.login')"
                   />

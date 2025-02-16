@@ -1,5 +1,5 @@
 <template>
-  <a :class="{ 'is-info': is_active }" @click="toggle">
+  <a :class="{ 'is-dark': is_active }" @click="toggle">
     <mdicon
       class="icon"
       :name="icon"

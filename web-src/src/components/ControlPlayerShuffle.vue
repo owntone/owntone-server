@@ -1,5 +1,5 @@
 <template>
-  <a :class="{ 'is-info': is_shuffle }" @click="toggle">
+  <a :class="{ 'is-dark': is_shuffle }" @click="toggle">
     <mdicon
       class="icon"
       :name="icon"

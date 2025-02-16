@@ -12,7 +12,7 @@
         <div class="buttons is-centered">
           <button
             class="button is-small is-rounded"
-            :class="{ 'is-info': show_only_next_items }"
+            :class="{ 'is-dark': show_only_next_items }"
             @click="update_show_next_items"
           >
             <mdicon class="icon" name="arrow-collapse-down" size="16" />
@@ -27,7 +27,7 @@
           </button>
           <button
             class="button is-small is-rounded"
-            :class="{ 'is-info': edit_mode }"
+            :class="{ 'is-dark': edit_mode }"
             :disabled="queue_items.length === 0"
             @click="edit_mode = !edit_mode"
           >
