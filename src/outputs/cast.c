@@ -1953,7 +1953,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
   cs->offset_ts.tv_sec  = (offset_ms / 1000);
   cs->offset_ts.tv_nsec = (offset_ms % 1000) * 1000000UL;
 
-  DPRINTF(E_DBG, L_CAST, "Offset is set to %lu:%09lu\n", cs->offset_ts.tv_sec, cs->offset_ts.tv_nsec);
+  DPRINTF(E_DBG, L_CAST, "Offset is set to %ld:%09ld\n", (long)cs->offset_ts.tv_sec, (long)cs->offset_ts.tv_nsec);
 
   cs->ev = event_new(evbase_player, cs->server_fd, EV_READ | EV_PERSIST, cast_listen_cb, cs);
   if (!cs->ev)

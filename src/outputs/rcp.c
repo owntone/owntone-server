@@ -861,7 +861,7 @@ rcp_session_shutdown_init(struct rcp_session* s)
     }
   else
     {
-      DPRINTF(E_DBG, L_RCP, "Limiting shutdown timeout %ld sec '%s' at %s\n", clear_timeout.tv_sec, s->devname, s->address);
+      DPRINTF(E_DBG, L_RCP, "Limiting shutdown timeout %ld sec '%s' at %s\n", (long)clear_timeout.tv_sec, s->devname, s->address);
 
       // ensure we're not blocked forever on responses
       event_add(s->reply_timeout, &clear_timeout);
