@@ -2254,7 +2254,7 @@ cast_write(struct output_buffer *obuf)
 	  cs->state = CAST_STATE_BUFFERING;
 
 	  clock_gettime(CLOCK_MONOTONIC, &ts);
-	  DPRINTF(E_DBG, L_CAST, "Start time is %lu:%lu, current time is %lu:%lu\n", cs->start_pts.tv_sec, cs->start_pts.tv_nsec, ts.tv_sec, ts.tv_nsec);
+	  DPRINTF(E_DBG, L_CAST, "Start time is %ld:%09ld,, current time is %ld:%09ld,\n", (long)cs->start_pts.tv_sec, (long)cs->start_pts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec);
 	}
 
       if (cs->state == CAST_STATE_BUFFERING)
