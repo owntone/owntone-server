@@ -48,6 +48,7 @@ export default {
       })
     },
     open_tracks() {
+      this.$emit('close')
       this.$router.push({
         name: 'music-composer-tracks',
         params: { name: this.item.name }
