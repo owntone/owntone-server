@@ -10,8 +10,8 @@
         />
         <div class="toggle-switch" />
       </div>
+      <slot name="label" />
     </label>
-    <slot name="label" />
   </div>
   <div v-if="$slots.help" class="help mb-4">
     <slot name="help" />
