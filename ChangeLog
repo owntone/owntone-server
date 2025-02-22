@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 28.12 - 2025-02-22
+
+- fix: possible deadlock during Spotify scan
+- fix: armv7 compile warnings
+- fix: stop playback when last queue item removed
+- fix: "Invalid token" when authorising Spotify
+- fix: mpd enable/disable erroneously toggles
+- fix: cover art not being displayed in album lists
+- new: logging includes thread info
+- new: support for ListenBrainz
+
 ## Version 28.11 - 2025-01-26
 
 - fix: retrieval of artwork from online sources
