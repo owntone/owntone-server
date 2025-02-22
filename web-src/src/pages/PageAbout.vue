@@ -11,7 +11,7 @@
                 </div>
               </div>
               <div class="level-right">
-                <div v-if="library.updating">
+                <div v-if="libraryStore.updating">
                   <a
                     class="button is-small is-rounded is-loading"
                     v-text="$t('page.about.update')"
@@ -26,83 +26,22 @@
                 </div>
               </div>
             </nav>
-            <div class="media">
+            <div
+              v-for="property in properties"
+              :key="property.label"
+              class="media is-align-items-center mb-0"
+            >
               <div
                 class="media-content has-text-weight-bold"
-                v-text="$t('page.about.name')"
-              />
-              <div class="media-right" v-text="configuration.library_name" />
-            </div>
-            <div class="media">
-              <div
-                class="media-content has-text-weight-bold"
-                v-text="$t('page.about.artists')"
-              />
-              <div
-                class="media-right"
-                v-text="$filters.number(library.artists)"
-              />
-            </div>
-            <div class="media">
-              <div
-                class="media-content has-text-weight-bold"
-                v-text="$t('page.about.albums')"
-              />
-              <div
-                media="media-right"
-                v-text="$filters.number(library.albums)"
-              />
-            </div>
-            <div class="media">
-              <div
-                class="media-content has-text-weight-bold"
-                v-text="$t('page.about.tracks')"
-              />
-              <div
-                class="media-right"
-                v-text="$filters.number(library.songs)"
-              />
-            </div>
-            <div class="media">
-              <div
-                class="media-content has-text-weight-bold"
-                v-text="$t('page.about.total-playtime')"
-              />
-              <div
-                class="media-right"
-                v-text="$filters.durationInDays(library.db_playtime)"
-              />
-            </div>
-            <div class="media">
-              <div
-                class="media-content has-text-weight-bold"
-                v-text="$t('page.about.updated')"
+                v-text="$t(property.label)"
               />
               <div class="media-right">
+                <span v-text="property.value" />
                 <span
-                  v-text="
-                    $t('page.about.updated-on', {
-                      time: $filters.timeFromNow(library.updated_at)
-                    })
-                  "
+                  v-if="property.alternate"
+                  class="has-text-grey"
+                  v-text="` (${property.alternate})`"
                 />
-                (<span
-                  class="has-text-grey"
-                  v-text="$filters.datetime(library.updated_at)"
-                />)
-              </div>
-            </div>
-            <div class="media">
-              <div
-                class="media-content has-text-weight-bold"
-                v-text="$t('page.about.uptime')"
-              />
-              <div class="media-right">
-                <span v-text="$filters.timeFromNow(library.started_at, true)" />
-                (<span
-                  class="has-text-grey"
-                  v-text="$filters.datetime(library.started_at)"
-                />)
               </div>
             </div>
           </div>
@@ -118,14 +57,16 @@
             <p
               class="is-size-7"
               v-text="
-                $t('page.about.version', { version: configuration.version })
+                $t('page.about.version', {
+                  version: configurationStore.version
+                })
               "
             />
             <p
               class="is-size-7"
               v-text="
                 $t('page.about.compiled-with', {
-                  options: configuration.buildoptions.join(', ')
+                  options: configurationStore.buildoptions.join(', ')
                 })
               "
             />
@@ -170,7 +111,6 @@ import { useUIStore } from '@/stores/ui'
 
 export default {
   name: 'PageAbout',
-
   setup() {
     return {
       configurationStore: useConfigurationStore(),
@@ -178,16 +118,42 @@ export default {
       uiStore: useUIStore()
     }
   },
-
   computed: {
-    configuration() {
-      return this.configurationStore.$state
-    },
-    library() {
-      return this.libraryStore.$state
+    properties() {
+      return [
+        {
+          label: 'property.name',
+          value: this.configurationStore.library_name
+        },
+        {
+          label: 'property.artists',
+          value: this.$filters.number(this.libraryStore.artists)
+        },
+        {
+          label: 'property.albums',
+          value: this.$filters.number(this.libraryStore.albums)
+        },
+        {
+          label: 'property.tracks',
+          value: this.$filters.number(this.libraryStore.songs)
+        },
+        {
+          label: 'property.playtime',
+          value: this.$filters.durationInDays(this.libraryStore.db_playtime)
+        },
+        {
+          label: 'property.updated',
+          value: this.$filters.timeFromNow(this.libraryStore.updated_at),
+          alternate: this.$filters.datetime(this.libraryStore.updated_at)
+        },
+        {
+          label: 'property.uptime',
+          value: this.$filters.duration(this.libraryStore.started_at),
+          alternate: this.$filters.datetime(this.libraryStore.started_at)
+        }
+      ]
     }
   },
-
   methods: {
     showUpdateDialog() {
       this.uiStore.show_update_dialog = true

@@ -125,19 +125,11 @@
   },
   "page": {
     "about": {
-      "albums": "专辑",
-      "artists": "艺人",
       "built-with": "界面贡献者包括 {bulma}，{mdi}，{vuejs}，{axios} 和 {others}",
       "compiled-with": "编译支持来自于 {options}",
       "library": "资料库",
       "more": "更多",
-      "name": "名称",
-      "total-playtime": "总播放时长",
-      "tracks": "曲目总数",
       "update": "更新",
-      "updated-on": "{time} 前",
-      "updated": "更新于",
-      "uptime": "运行时长",
       "version": "版本 {version}"
     },
     "album": {
@@ -464,13 +456,16 @@
     "albums": "张专辑",
     "album-artist": "专辑艺人",
     "artist": "专辑艺人",
+    "artists": "艺人",
     "comment": "评论",
     "composer": "作曲家",
     "duration": "时长",
     "genre": "流派",
     "genres": "流派",
+    "name": "名称",
     "owner": "所有者",
     "path": "路径",
+    "playtime": "总播放时长",
     "popularity": "流行度 / 粉丝数",
     "position": "盘符 / 曲目",
     "quality": "质量",
@@ -478,6 +473,8 @@
     "release-date": "发行日期",
     "tracks": "只曲目",
     "type": "类型",
+    "updated": "更新于",
+    "uptime": "运行时长",
     "year": "年份"
   },
   "server": {

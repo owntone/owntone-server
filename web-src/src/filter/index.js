@@ -32,6 +32,10 @@ export const filters = {
     }
     return null
   },
+  duration(value) {
+    const diff = DateTime.now().diff(DateTime.fromISO(value))
+    return this.durationInDays(diff.as('seconds'))
+  },
   durationInDays(value) {
     const minutes = Math.floor(value / 60)
     if (minutes > 1440) {
@@ -53,7 +57,8 @@ export const filters = {
     return value.toLocaleString(locale.value)
   },
   timeFromNow(value) {
-    const diff = DateTime.now().diff(DateTime.fromISO(value))
-    return this.durationInDays(diff.as('seconds'))
+    return DateTime.fromISO(value).toRelative({
+      unit: ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
+    })
   }
 }

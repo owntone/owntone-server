@@ -125,19 +125,11 @@
   },
   "page": {
     "about": {
-      "albums": "專輯",
-      "artists": "藝人",
       "built-with": "界面貢獻者包括 {bulma}，{mdi}，{vuejs}，{axios} 和 {others}",
       "compiled-with": "編譯支持來自於 {options}",
       "library": "資料庫",
       "more": "更多",
-      "name": "名稱",
-      "total-playtime": "總播放時長",
-      "tracks": "曲目總數",
       "update": "更新",
-      "updated-on": "{time} 前",
-      "updated": "更新於",
-      "uptime": "運行時長",
       "version": "版本 {version}"
     },
     "album": {
@@ -464,13 +456,16 @@
     "albums": "張專輯",
     "album-artist": "專輯藝人",
     "artist": "專輯藝人",
+    "artists": "藝人",
     "comment": "評論",
     "composer": "作曲家",
     "duration": "時長",
     "genre": "音樂類型",
     "genres": "音樂類型",
+    "name": "名稱",
     "owner": "所有者",
     "path": "路徑",
+    "playtime": "總播放時長",
     "popularity": "流行度 / 粉絲數",
     "position": "盤符 / 曲目",
     "quality": "品質",
@@ -478,6 +473,8 @@
     "release-date": "發行日期",
     "tracks": "曲目",
     "type": "類型",
+    "updated": "更新於",
+    "uptime": "運行時長",
     "year": "年份"
   },
   "server": {

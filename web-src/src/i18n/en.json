@@ -125,19 +125,11 @@
   },
   "page": {
     "about": {
-      "albums": "Albums",
-      "artists": "Artists",
       "built-with": "Web interface built with {bulma}, {mdi}, {vuejs}, {axios} and {others}.",
       "compiled-with": "Compiled with support for {options}.",
       "library": "Library",
       "more": "more",
-      "name": "Name",
-      "total-playtime": "Total playtime",
-      "tracks": "Tracks",
       "update": "Update",
-      "updated-on": "{time} ago",
-      "updated": "Updated",
-      "uptime": "Uptime",
       "version": "Version {version}"
     },
     "album": {
@@ -464,13 +456,16 @@
     "albums": "Albums",
     "album-artist": "Album Artist",
     "artist": "Artist",
+    "artists": "Artists",
     "comment": "Comment",
     "composer": "Composer",
     "duration": "Duration",
     "genre": "Genre",
     "genres": "Genres",
+    "name": "Name",
     "owner": "Owner",
     "path": "Path",
+    "playtime": "Playtime",
     "popularity": "Popularity / Followers",
     "position": "Disc / Track",
     "quality": "Quality",
@@ -478,6 +473,8 @@
     "release-date": "Release Date",
     "tracks": "Tracks",
     "type": "Type",
+    "updated": "Updated",
+    "uptime": "Uptime",
     "year": "Year"
   },
   "server": {
