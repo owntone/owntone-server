@@ -1,56 +1,54 @@
 <template>
-  <div class="hero is-full-height">
-    <div class="hero-body is-flex is-align-items-center">
-      <div class="container has-text-centered">
-        <div v-if="track.id" class="mx-auto" style="max-width: 32rem">
-          <control-image
-            :url="track.artwork_url"
-            :artist="track.artist"
-            :album="track.album"
-            class="is-clickable is-big"
-            :class="{ 'is-masked': lyricsStore.pane }"
-            @click="open_dialog(track)"
-          />
-          <lyrics-pane v-if="lyricsStore.pane" />
-          <control-slider
-            v-model:value="track_progress"
-            class="mt-5"
-            :disabled="is_live"
-            :max="track_progress_max"
-            @change="seek"
-            @mousedown="start_dragging"
-            @mouseup="end_dragging"
-          />
-          <div class="is-flex is-justify-content-space-between">
-            <p class="subtitle is-7" v-text="track_elapsed_time" />
-            <p class="subtitle is-7" v-text="track_total_time" />
-          </div>
-          <p class="title is-5" v-text="track.title" />
-          <p class="title is-6" v-text="track.artist" />
-          <p
-            v-if="composer"
-            class="subtitle is-6 has-text-grey has-text-weight-bold"
-            v-text="composer"
-          />
-          <p v-if="track.album" class="subtitle is-6" v-text="track.album" />
-          <p
-            v-if="settingsStore.show_filepath_now_playing"
-            class="subtitle is-6 has-text-grey"
-            v-text="track.path"
-          />
-        </div>
-        <div v-else>
-          <p class="title is-5" v-text="$t('page.now-playing.title')" />
-          <p class="subtitle" v-text="$t('page.now-playing.info')" />
-        </div>
+  <div
+    class="is-flex is-align-items-center has-text-centered px-5 is-full-height"
+  >
+    <div v-if="track.id" class="mx-auto" style="max-width: 32rem">
+      <control-image
+        :url="track.artwork_url"
+        :artist="track.artist"
+        :album="track.album"
+        class="is-clickable is-big"
+        :class="{ 'is-masked': lyricsStore.pane }"
+        @click="open_dialog(track)"
+      />
+      <lyrics-pane v-if="lyricsStore.pane" />
+      <control-slider
+        v-model:value="track_progress"
+        class="mt-5"
+        :disabled="is_live"
+        :max="track_progress_max"
+        @change="seek"
+        @mousedown="start_dragging"
+        @mouseup="end_dragging"
+      />
+      <div class="is-flex is-justify-content-space-between">
+        <p class="subtitle is-7" v-text="track_elapsed_time" />
+        <p class="subtitle is-7" v-text="track_total_time" />
       </div>
-      <modal-dialog-queue-item
-        :show="show_details_modal"
-        :item="selected_item"
-        @close="show_details_modal = false"
+      <p class="title is-5" v-text="track.title" />
+      <p class="title is-6" v-text="track.artist" />
+      <p
+        v-if="composer"
+        class="subtitle is-6 has-text-grey has-text-weight-bold"
+        v-text="composer"
+      />
+      <p v-if="track.album" class="subtitle is-6" v-text="track.album" />
+      <p
+        v-if="settingsStore.show_filepath_now_playing"
+        class="subtitle is-6 has-text-grey"
+        v-text="track.path"
       />
     </div>
+    <div v-else>
+      <p class="title is-5" v-text="$t('page.now-playing.title')" />
+      <p class="subtitle" v-text="$t('page.now-playing.info')" />
+    </div>
   </div>
+  <modal-dialog-queue-item
+    :show="show_details_modal"
+    :item="selected_item"
+    @close="show_details_modal = false"
+  />
 </template>
 
 <script>
