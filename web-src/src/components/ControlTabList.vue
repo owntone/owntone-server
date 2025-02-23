@@ -19,7 +19,10 @@
                       class="icon is-small"
                       :name="link.icon"
                     />
-                    <span class="is-hidden-mobile" v-text="$t(link.label)" />
+                    <span
+                      :class="{ 'is-hidden-mobile': link.icon }"
+                      v-text="$t(link.label)"
+                    />
                   </a>
                 </li>
               </router-link>
