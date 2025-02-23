@@ -66,20 +66,21 @@ export default {
   },
   computed: {
     actions() {
-      return [
+      const actions = [
         {
           label: this.$t('dialog.update.cancel'),
           handler: this.cancel,
           icon: 'cancel'
-        },
-        {
-          label: this.libraryStore.updating
-            ? this.$t('dialog.update.progress')
-            : this.$t('dialog.update.rescan'),
-          handler: this.analyse,
-          icon: 'check'
         }
       ]
+      if (!this.libraryStore.updating) {
+        actions.push({
+          label: this.$t('dialog.update.rescan'),
+          handler: this.analyse,
+          icon: 'check'
+        })
+      }
+      return actions
     },
     rss() {
       return this.libraryStore.rss
