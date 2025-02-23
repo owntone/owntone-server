@@ -39,7 +39,7 @@
         v-text="track.path"
       />
     </div>
-    <div v-else>
+    <div v-else class="mx-auto">
       <p class="title is-5" v-text="$t('page.now-playing.title')" />
       <p class="subtitle" v-text="$t('page.now-playing.info')" />
     </div>
