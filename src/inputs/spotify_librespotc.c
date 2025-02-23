@@ -486,6 +486,10 @@ setup(struct input_source *source)
   return 0;
 
  error:
+  // This should be removed when we don't default to legacy mode any more
+  DPRINTF(E_INFO, L_SPOTIFY, "Switching off Spotify legacy mode\n");
+  librespotc_legacy_set(ctx->session, false);
+
   pthread_mutex_unlock(&spotify_ctx_lock);
   stop(source);
 
@@ -616,6 +620,13 @@ login(const char *username, const char *token, const char **errmsg)
   ctx->session = librespotc_login_token(username, token);
   if (!ctx->session)
     goto error;
+
+  // For now, use old tcp based protocol as default unless configured not to.
+  // Note that setup() will switch the old protocol off on error.
+  if (!cfg_getbool(cfg_getsec(cfg, "spotify"), "disable_legacy_mode"))
+    librespotc_legacy_set(ctx->session, true);
+  else
+    DPRINTF(E_INFO, L_SPOTIFY, "Using experimental http protocol for Spotify\n");
 
   ret = postlogin(ctx);
   if (ret < 0)
