@@ -3,7 +3,7 @@
     <div v-if="show" class="modal is-active">
       <div class="modal-background" @click="$emit('close')" />
       <div class="modal-content">
-        <div class="card">
+        <div class="card is-shadowless">
           <div class="card-content">
             <p v-if="title" class="title is-4" v-text="title" />
             <slot name="content" />
