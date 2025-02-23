@@ -8,7 +8,11 @@
     background-color: var(--bulma-dark);
   }
   .navbar-item {
-    --bulma-navbar-item-color: hsl(var(--bulma-navbar-invert-h), var(--bulma-navbar-invert-s), var(--bulma-navbar-item-color-invert-l));
+    --bulma-navbar-item-color: hsl(
+      var(--bulma-navbar-invert-h),
+      var(--bulma-navbar-invert-s),
+      var(--bulma-navbar-item-color-invert-l)
+    );
     --bulma-navbar-item-background-l: var(--bulma-light-invert-l);
   }
 }
