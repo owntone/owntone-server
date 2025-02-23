@@ -32,10 +32,7 @@
         </control-link>
         <control-player-play class="navbar-item" show_disabled_message />
       </template>
-      <a
-        class="navbar-item"
-        @click="uiStore.show_player_menu = !uiStore.show_player_menu"
-      >
+      <a class="navbar-item" @click="toggle">
         <mdicon
           class="icon"
           :name="uiStore.show_player_menu ? 'chevron-down' : 'chevron-up'"
@@ -124,6 +121,12 @@ export default {
     },
     current() {
       return this.queueStore.current
+    }
+  },
+  methods: {
+    toggle() {
+      this.uiStore.show_player_menu = !this.uiStore.show_player_menu
+      this.uiStore.show_burger_menu = false
     }
   }
 }
