@@ -6,6 +6,12 @@
         <div class="subtitle is-6">
           <a @click="open_artist" v-text="album.artists[0].name" />
         </div>
+        <div
+          class="is-size-7 is-uppercase has-text-centered-mobile"
+          v-text="
+            $t('page.spotify.album.track-count', { count: album.tracks.total })
+          "
+        />
         <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="shuffle" size="16" />
@@ -29,12 +35,6 @@
         />
       </template>
       <template #content>
-        <div
-          class="is-size-7 is-uppercase has-text-centered-mobile mt-5"
-          v-text="
-            $t('page.spotify.album.track-count', { count: album.tracks.total })
-          "
-        />
         <list-tracks-spotify :items="tracks" :context_uri="album.uri" />
         <modal-dialog-album-spotify
           :item="album"

@@ -6,6 +6,10 @@
         <div class="subtitle is-6">
           <br />
         </div>
+        <div
+          class="is-size-7 is-uppercase has-text-centered-mobile"
+          v-text="$t('page.podcast.track-count', { count: album.track_count })"
+        />
         <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
@@ -29,10 +33,6 @@
         />
       </template>
       <template #content>
-        <div
-          class="is-size-7 is-uppercase has-text-centered-mobile my-5"
-          v-text="$t('page.podcast.track-count', { count: album.track_count })"
-        />
         <list-tracks
           :items="tracks"
           :show_progress="true"

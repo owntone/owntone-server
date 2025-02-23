@@ -6,6 +6,14 @@
         <div class="subtitle is-6">
           <a @click="open_artist" v-text="album.artist" />
         </div>
+        <div
+          class="is-size-7 is-uppercase has-text-centered-mobile"
+          v-text="
+            $t('page.audiobooks.album.track-count', {
+              count: album.track_count
+            })
+          "
+        />
         <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-rounded" @click="play">
             <mdicon class="icon" name="play" size="16" />
@@ -29,14 +37,6 @@
         />
       </template>
       <template #content>
-        <div
-          class="is-size-7 is-uppercase has-text-centered-mobile mt-5"
-          v-text="
-            $t('page.audiobooks.album.track-count', {
-              count: album.track_count
-            })
-          "
-        />
         <list-tracks :items="tracks" :show_progress="true" :uris="album.uri" />
         <modal-dialog-album
           :item="album"
