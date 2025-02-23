@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar is-fixed-top" :style="zindex">
+  <nav class="navbar is-fixed-top is-light" :style="zindex">
     <div class="navbar-brand is-flex-grow-1">
       <control-link
         v-for="menu in menus.filter((menu) => menu.show && menu.icon)"
