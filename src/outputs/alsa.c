@@ -900,8 +900,8 @@ sync_check(double *drift, double *latency, struct alsa_playback_session *pb, snd
   exp_pos = (uint64_t)elapsed * pb->quality.sample_rate / 1000;
   diff = cur_pos - exp_pos;
 
-  DPRINTF(E_SPAM, L_LAUDIO, "counter %d/%d, stamp %lu:%lu, now %lu:%lu, elapsed is %d ms, cur_pos=%" PRIu64 ", exp_pos=%" PRIu64 ", diff=%d\n",
-    pb->latency_counter, alsa_latency_history_size, pb->stamp_pts.tv_sec, pb->stamp_pts.tv_nsec / 1000000, ts.tv_sec, ts.tv_nsec / 1000000, elapsed, cur_pos, exp_pos, diff);
+  DPRINTF(E_SPAM, L_LAUDIO, "counter %d/%d, stamp %ld:%09ld, now %ld:%09ld, elapsed is %d ms, cur_pos=%" PRIu64 ", exp_pos=%" PRIu64 ", diff=%d\n",
+    pb->latency_counter, alsa_latency_history_size, (long)pb->stamp_pts.tv_sec, (long)pb->stamp_pts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec, elapsed, cur_pos, exp_pos, diff);
 
   // Add the latency to our measurement history
   pb->latency_history[pb->latency_counter] = (double)diff;

@@ -2084,7 +2084,7 @@ packets_sync_send(struct airplay_master_session *rms)
 	  control_packet_send(rs, sync_pkt);
 
 	  DPRINTF(E_DBG, L_AIRPLAY, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
-	    rs->devname, rms->cur_stamp.pos, rms->cur_stamp.ts.tv_sec, rms->cur_stamp.ts.tv_nsec, ts.tv_sec, ts.tv_nsec, rms->rtp_session->pos);
+	    rs->devname, rms->cur_stamp.pos, (long)rms->cur_stamp.ts.tv_sec, (long)rms->cur_stamp.ts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec, rms->rtp_session->pos);
 	}
       else if (is_sync_time && rs->state == AIRPLAY_STATE_STREAMING)
 	{

@@ -1788,6 +1788,42 @@ mutex_init(pthread_mutex_t *mutex)
   return err;
 }
 
+int
+thread_gettid()
+{
+  int tid = -1;
+#if defined(HAVE_GETTID)
+  tid = (int)gettid();
+#elif defined(HAVE_PTHREAD_GETTHREADID_NP)
+  tid = pthread_getthreadid_np();
+#endif
+  return tid;
+}
+
+void
+thread_getname(pthread_t thread, char *name, size_t len)
+{
+#if defined(HAVE_PTHREAD_GETNAME_NP)
+  pthread_getname_np(thread, name, len);
+#elif defined(HAVE_PTHREAD_GET_NAME_NP)
+  pthread_get_name_np(thread, name, len);
+#else
+  name[0] = '\0';
+#endif
+}
+
+void
+thread_getnametid(char *buf, size_t len)
+{
+  int tid;
+  char thread_name[32];
+  pthread_t p = pthread_self();
+
+  thread_getname(p, thread_name, sizeof(thread_name));
+  tid = thread_gettid() % 10000;
+  snprintf(buf, len, "%s (%d)", thread_name, tid);
+}
+
 void
 thread_setname(pthread_t thread, const char *name)
 {
