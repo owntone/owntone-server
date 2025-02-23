@@ -37,7 +37,7 @@ export default {
     display: inline-block;
     background: var(--bulma-grey-lighter);
     border-radius: 1rem;
-    width: 2.5rem;
+    width: 2.25rem;
     height: 1.25rem;
     position: relative;
     vertical-align: middle;
@@ -69,7 +69,7 @@ export default {
       background: var(--bulma-dark);
 
       &:before {
-        left: 1.375rem;
+        left: 1.125rem;
       }
     }
   }
