@@ -1,18 +1,14 @@
 <template>
-  <section class="hero is-light is-bold">
-    <div class="hero-body">
-      <div class="container">
-        <div class="columns is-centered">
-          <div class="column is-four-fifths">
-            <div class="columns is-flex-direction-row-reverse">
-              <div class="column has-image">
-                <slot name="heading-right" />
-              </div>
-              <div
-                class="column m-auto is-three-fifths has-text-centered-mobile"
-              >
-                <slot name="heading-left" />
-              </div>
+  <section class="section">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <div class="columns is-flex-direction-row-reverse">
+            <div class="column has-image">
+              <slot name="heading-right" />
+            </div>
+            <div class="column m-auto is-three-fifths has-text-centered-mobile">
+              <slot name="heading-left" />
             </div>
           </div>
         </div>
