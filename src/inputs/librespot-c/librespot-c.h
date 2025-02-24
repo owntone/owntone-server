@@ -6,7 +6,7 @@
 #include <pthread.h>
 
 #define LIBRESPOT_C_VERSION_MAJOR 0
-#define LIBRESPOT_C_VERSION_MINOR 4
+#define LIBRESPOT_C_VERSION_MINOR 5
 
 
 struct sp_session;
