@@ -2188,7 +2188,7 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
   if (!code)
     {
       *errmsg = "Error: Didn't receive a code from Spotify";
-      return -1;
+      goto error;
     }
 
   DPRINTF(E_DBG, L_SPOTIFY, "Received OAuth code: %s\n", code);
@@ -2198,11 +2198,8 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
     goto error;
 
   credentials_user_token_get(&user, &access_token);
-  ret = spotify_login_token(user, access_token, errmsg);
 
-  free(user);
-  free(access_token);
-
+  ret = spotify_login(user, access_token, errmsg);
   if (ret < 0)
     goto error;
 
@@ -2211,9 +2208,13 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
 
   listener_notify(LISTENER_SPOTIFY);
 
+  free(user);
+  free(access_token);
   return 0;
 
  error:
+  free(user);
+  free(access_token);
   return -1;
 }
 

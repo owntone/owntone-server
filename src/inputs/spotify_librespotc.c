@@ -218,40 +218,6 @@ progress_cb(int fd, void *cb_arg, size_t received, size_t len)
 }
 
 static int
-https_get_cb(char **out, const char *url)
-{
-  struct http_client_ctx ctx = { 0 };
-  char *body;
-  size_t len;
-  int ret;
-
-  ctx.url = url;
-  ctx.input_body = evbuffer_new();
-
-  ret = http_client_request(&ctx, NULL);
-  if (ret < 0 || ctx.response_code != HTTP_OK)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Failed to get AP list from '%s' (return %d, error code %d)\n", ctx.url, ret, ctx.response_code);
-      goto error;
-    }
-
-  len = evbuffer_get_length(ctx.input_body);
-  body = malloc(len + 1);
-
-  evbuffer_remove(ctx.input_body, body, len);
-  body[len] = '\0'; // For safety
-
-  *out = body;
-
-  evbuffer_free(ctx.input_body);
-  return 0;
-
- error:
-  evbuffer_free(ctx.input_body);
-  return -1;
-}
-
-static int
 tcp_connect(const char *address, unsigned short port)
 {
   return net_connect(address, port, SOCK_STREAM, "spotify");
@@ -289,7 +255,6 @@ hexdump_cb(const char *msg, uint8_t *data, size_t data_len)
 /* ------------------------ librespot-c initialization ---------------------- */
 
 struct sp_callbacks callbacks = {
-  .https_get      = https_get_cb,
   .tcp_connect    = tcp_connect,
   .tcp_disconnect = tcp_disconnect,
 
@@ -521,6 +486,10 @@ setup(struct input_source *source)
   return 0;
 
  error:
+  // This should be removed when we don't default to legacy mode any more
+  DPRINTF(E_INFO, L_SPOTIFY, "Switching off Spotify legacy mode\n");
+  librespotc_legacy_set(ctx->session, false);
+
   pthread_mutex_unlock(&spotify_ctx_lock);
   stop(source);
 
@@ -641,40 +610,7 @@ struct input_definition input_spotify =
 /*             Called from other threads than the input thread                */
 
 static int
-login(const char *username, const char *password, const char **errmsg)
-{
-  struct global_ctx *ctx = &spotify_ctx;
-  int ret;
-
-  pthread_mutex_lock(&spotify_ctx_lock);
-
-  ctx->session = librespotc_login_password(username, password);
-  if (!ctx->session)
-    goto error;
-
-  ret = postlogin(ctx);
-  if (ret < 0)
-    goto error;
-
-  pthread_mutex_unlock(&spotify_ctx_lock);
-
-  return 0;
-
- error:
-  if (ctx->session)
-    librespotc_logout(ctx->session);
-  ctx->session = NULL;
-
-  if (errmsg)
-    *errmsg = librespotc_last_errmsg();
-
-  pthread_mutex_unlock(&spotify_ctx_lock);
-
-  return -1;
-}
-
-static int
-login_token(const char *username, const char *token, const char **errmsg)
+login(const char *username, const char *token, const char **errmsg)
 {
   struct global_ctx *ctx = &spotify_ctx;
   int ret;
@@ -684,6 +620,13 @@ login_token(const char *username, const char *token, const char **errmsg)
   ctx->session = librespotc_login_token(username, token);
   if (!ctx->session)
     goto error;
+
+  // For now, use old tcp based protocol as default unless configured not to.
+  // Note that setup() will switch the old protocol off on error.
+  if (!cfg_getbool(cfg_getsec(cfg, "spotify"), "disable_legacy_mode"))
+    librespotc_legacy_set(ctx->session, true);
+  else
+    DPRINTF(E_INFO, L_SPOTIFY, "Using experimental http protocol for Spotify\n");
 
   ret = postlogin(ctx);
   if (ret < 0)
@@ -782,7 +725,6 @@ status_get(struct spotify_status *status)
 struct spotify_backend spotify_librespotc =
 {
   .login = login,
-  .login_token = login_token,
   .logout = logout,
   .relogin = relogin,
   .status_get = status_get,
