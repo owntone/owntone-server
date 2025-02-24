@@ -1,4 +1,17 @@
 {
+  "count": {
+    "albums": "{count} Album|{count} Album|{count} Alben",
+    "artists": "{count} Künstler",
+    "audiobooks": "{count} Hörbuch|{count} Hörbuch|{count} Hörbücher",
+    "authors": "{count} Autor|{count} Autor|{count} Autoren",
+    "channels": "{count} canal|{count} canaux",
+    "composers": "{count} Komponist|{count} Komponist|{count} Komponisten",
+    "genres": "{count} Genre|{count} Genre|{count} Genres",
+    "playlists": "{count} Playlist|{count} Playlisten",
+    "podcasts": "{count} Podcast|{count} Podcasts",
+    "stations": "{count} Station|{count} Station|{count} Stationen",
+    "tracks": "{count} Track|{count} Track|{count} Tracks"
+  },
   "data": {
     "kind": {
       "file": "Datei",
@@ -133,11 +146,9 @@
       "version": "Version {version}"
     },
     "album": {
-      "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Track|{count} Tracks"
+      "shuffle": "Zufallswiedergabe"
     },
     "albums": {
-      "count": "{count} Album|{count} Album|{count} Alben",
       "filter": "Filter",
       "hide-singles-help": "Nach Aktivierung werden keine Singles und Alben angezeigt, die nur in Playlisten enthalten sind.",
       "hide-singles": "Nach Aktivierung werden keine Singles angezeigt",
@@ -154,12 +165,10 @@
       }
     },
     "artist": {
-      "album-count": "{count} Album|{count} Album|{count} Alben",
       "filter": "Filter",
       "hide-spotify-help": "Nach Aktivierung wird kein Inhalt angezeigt, der nur in der Spotify-Bibliothek enthalten ist.",
       "hide-spotify": "Verbirgt Spotify-Inhalt",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort": {
         "title": "Sortieren",
         "name": "Name",
@@ -168,7 +177,6 @@
       }
     },
     "artists": {
-      "count": "{count} Künstler",
       "filter": "Filter",
       "sort": {
         "title": "Sortieren",
@@ -183,19 +191,15 @@
     },
     "audiobooks": {
       "album": {
-        "play": "Spielen",
-        "track-count": "{count} Track|{count} Track|{count} Tracks"
+        "play": "Spielen"
       },
       "albums": {
-        "count": "{count} Hörbuch|{count} Hörbuch|{count} Hörbücher",
         "title": "Hörbücher"
       },
       "artist": {
-        "album-count": "{count} Album|{count} Album|{count} Alben",
         "play": "Spielen"
       },
       "artists": {
-        "count": "{count} Autor|{count} Autor|{count} Autoren",
         "title": "Autoren"
       },
       "tabs": {
@@ -205,9 +209,7 @@
       }
     },
     "composer": {
-      "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort": {
         "title": "Sortieren",
         "name": "Name",
@@ -215,7 +217,6 @@
       }
     },
     "composers": {
-      "count": "{count} Komponist|{count} Komponist|{count} Komponisten",
       "title": "Komponisten"
     },
     "files": {
@@ -223,9 +224,7 @@
       "title": "Dateien"
     },
     "genre": {
-      "album-count": "{count} Album|{count} Album|{count} Alben",
       "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Track|{count} Tracks",
       "sort": {
         "title": "Sortieren",
         "name": "Name",
@@ -233,7 +232,6 @@
       }
     },
     "genres": {
-      "count": "{count} Genre|{count} Genre|{count} Genres",
       "title": "Genres"
     },
     "music": {
@@ -260,24 +258,20 @@
     },
     "playlist": {
       "length": "{length} Tracks",
-      "shuffle": "Zufallswiedergabe",
-      "track-count": "{count} Track|{count} Track|{count} Tracks"
+      "shuffle": "Zufallswiedergabe"
     },
     "playlists": {
-      "title": "Playlisten",
-      "count": "{count} Playlist|{count} Playlisten"
+      "title": "Playlisten"
     },
     "podcast": {
       "cancel": "Abbrechen",
       "play": "Spielen",
       "remove": "Entfernen",
       "remove-info": "Diesen Podcast dauerhaft aus der Bibliothek löschen?{separator}(Damit wird auch die RSS-Playliste {name} gelöscht)",
-      "remove-podcast": "Entferne podcast",
-      "track-count": "{count} Track|{count} Track|{count} Tracks"
+      "remove-podcast": "Entferne podcast"
     },
     "podcasts": {
       "add": "Hinzufügen",
-      "count": "{count} Podcast|{count} Podcasts",
       "mark-all-played": "Alle abgespielten markieren",
       "new-episodes": "Neue Episoden",
       "title": "Podcasts",
@@ -286,14 +280,12 @@
     "queue": {
       "add-stream": "Stream hinzufügen",
       "clear": "Alle entfernen",
-      "count": "{count} Track|{count} Track|{count} Tracks",
       "edit": "Bearbeiten",
       "hide-previous": "Vorherige verbergen",
       "save": "Speichern",
       "title": "Warteschlange"
     },
     "radio": {
-      "count": "{count} Station|{count} Station|{count} Stationen",
       "title": "Radio"
     },
     "search": {
@@ -395,11 +387,9 @@
     },
     "spotify": {
       "album": {
-        "shuffle": "Zufallswiedergabe",
-        "track-count": "{count} Track|{count} Track|{count} Tracks"
+        "shuffle": "Zufallswiedergabe"
       },
       "artist": {
-        "album-count": "{count} Album|{count} Album|{count} Alben",
         "shuffle": "Zufallswiedergabe"
       },
       "music": {
@@ -408,7 +398,6 @@
         "show-more": "Zeige mehr"
       },
       "playlist": {
-        "count": "{count} Track|{count} Track|{count} Tracks",
         "shuffle": "Zufallswiedergabe"
       },
       "search": {
@@ -489,10 +478,5 @@
     "last-week": "Letzte Woche",
     "last-month": "Letzer Monat",
     "undefined": "Unbestimmt"
-  },
-  "filter": {
-    "mono": "Mono",
-    "stereo": "Stereo",
-    "channels": "{count} Kanal|{count} Kanäle"
   }
 }

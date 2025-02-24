@@ -8,7 +8,7 @@
         </div>
         <div
           class="is-size-7 is-uppercase has-text-centered-mobile"
-          v-text="$t('page.album.track-count', { count: album.track_count })"
+          v-text="$t('count.tracks', { count: album.track_count })"
         />
         <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-rounded" @click="play">

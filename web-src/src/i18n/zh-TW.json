@@ -1,4 +1,17 @@
 {
+  "count": {
+    "albums": "{count} 張專輯|{count} 張專輯",
+    "artists": "{count} 位藝人|{count} 位藝人",
+    "audiobooks": "{count} 個有聲書|{count} 個有聲書",
+    "authors": "{count} 位作者|{count} 位作者",
+    "channels": "{count} 信道|{count} 信道",
+    "composers": "{count} 位作曲家|{count} 位作曲家",
+    "genres": "{count} 個音樂類型|{count} 個音樂類型",
+    "playlists": "{count} 個播放列表|{count} 個播放列表",
+    "podcasts": "{count} 個Podcast|{count} 個Podcast",
+    "stations": "{count} 個電台|{count} 個電台",
+    "tracks": "{count} 首曲目|{count} 首曲目"
+  },
   "data": {
     "kind": {
       "file": "文件",
@@ -133,11 +146,9 @@
       "version": "版本 {version}"
     },
     "album": {
-      "shuffle": "隨機播放",
-      "track-count": "{count} 首曲目|{count} 首曲目"
+      "shuffle": "隨機播放"
     },
     "albums": {
-      "count": "{count} 張專輯|{count} 張專輯",
       "filter": "篩選",
       "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
       "hide-singles": "隱藏單曲",
@@ -154,12 +165,10 @@
       }
     },
     "artist": {
-      "album-count": "{count} 張專輯|{count} 張專輯",
       "filter": "篩選",
       "hide-spotify-help": "如果啓用，將隱藏只出現在Spotify庫中的內容",
       "hide-spotify": "隱藏來自Spotify的內容",
       "shuffle": "隨機播放",
-      "track-count": "{count} 首曲目|{count} 首曲目",
       "sort": {
         "title": "分類",
         "name": "名稱",
@@ -168,7 +177,6 @@
       }
     },
     "artists": {
-      "count": "{count} 位藝人|{count} 位藝人",
       "filter": "篩選",
       "sort": {
         "title": "分類",
@@ -183,19 +191,15 @@
     },
     "audiobooks": {
       "album": {
-        "play": "播放",
-        "track-count": "{count} 首曲目|{count} 首曲目"
+        "play": "播放"
       },
       "albums": {
-        "count": "{count} 個有聲書|{count} 個有聲書",
         "title": "有聲書"
       },
       "artist": {
-        "album-count": "{count} 張專輯|{count} 張專輯",
         "play": "播放"
       },
       "artists": {
-        "count": "{count} 位作者|{count} 位作者",
         "title": "作者"
       },
       "tabs": {
@@ -205,9 +209,7 @@
       }
     },
     "composer": {
-      "album-count": "{count} 張專輯|{count} 張專輯",
       "shuffle": "隨機播放",
-      "track-count": "{count} 首曲目|{count} 首曲目",
       "sort": {
         "title": "分類",
         "name": "名稱",
@@ -215,7 +217,6 @@
       }
     },
     "composers": {
-      "count": "{count} 位作曲家|{count} 位作曲家",
       "title": "作曲家"
     },
     "files": {
@@ -223,9 +224,7 @@
       "title": "文件"
     },
     "genre": {
-      "album-count": "{count} 張專輯|{count} 張專輯",
       "shuffle": "隨機播放",
-      "track-count": "{count} 首曲目|{count} 首曲目",
       "sort": {
         "title": "分類",
         "name": "名稱",
@@ -233,7 +232,6 @@
       }
     },
     "genres": {
-      "count": "{count} 個音樂類型|{count} 個音樂類型",
       "title": "音樂類型"
     },
     "music": {
@@ -260,24 +258,20 @@
     },
     "playlist": {
       "length": "{length} 曲目",
-      "shuffle": "隨機播放",
-      "track-count": "{count} 首曲目|{count} 首曲目"
+      "shuffle": "隨機播放"
     },
     "playlists": {
-      "title": "播放列表",
-      "count": "{count} 個播放列表|{count} 個播放列表"
+      "title": "播放列表"
     },
     "podcast": {
       "cancel": "取消",
       "play": "播放",
       "remove": "移除",
       "remove-info": "從資料庫中永久移除該Podcast？{separator}(這也將移除該PodcastRSS列表 {name})",
-      "remove-podcast": "移除Podcast",
-      "track-count": "{count} 首曲目|{count} 首曲目"
+      "remove-podcast": "移除Podcast"
     },
     "podcasts": {
       "add": "新增",
-      "count": "{count} 個Podcast|{count} 個Podcast",
       "mark-all-played": "全部標記為已播放",
       "new-episodes": "最新單集",
       "title": "Podcast",
@@ -286,14 +280,12 @@
     "queue": {
       "add-stream": "新增串流",
       "clear": "清除",
-      "count": "{count} 首曲目|{count} 首曲目",
       "edit": "編輯",
       "hide-previous": "隱藏歷史",
       "save": "儲存",
       "title": "清單"
     },
     "radio": {
-      "count": "{count} 個電台|{count} 個電台",
       "title": "電台"
     },
     "search": {
@@ -395,11 +387,9 @@
     },
     "spotify": {
       "album": {
-        "shuffle": "隨機播放",
-        "track-count": "{count} 首曲目|{count} 首曲目"
+        "shuffle": "隨機播放"
       },
       "artist": {
-        "album-count": "{count} 張專輯|{count} 張專輯",
         "shuffle": "隨機播放"
       },
       "music": {
@@ -408,7 +398,6 @@
         "show-more": "顯示更多"
       },
       "playlist": {
-        "count": "{count} 首曲目|{count} 首曲目",
         "shuffle": "隨機播放"
       },
       "search": {
@@ -489,10 +478,5 @@
     "last-week": "上周",
     "last-month": "上月",
     "undefined": "未定義"
-  },
-  "filter": {
-    "mono": "單聲道",
-    "stereo": "立體聲",
-    "channels": "{count} 信道|{count} 信道"
   }
 }

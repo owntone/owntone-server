@@ -21,18 +21,10 @@
         <div class="is-size-7 is-uppercase">
           <a
             @click="open_albums"
-            v-text="
-              $t('page.composer.album-count', {
-                count: composer.album_count
-              })
-            "
+            v-text="$t('count.albums', { count: composer.album_count })"
           />
           <span>&nbsp;|&nbsp;</span>
-          <span
-            v-text="
-              $t('page.composer.track-count', { count: composer.track_count })
-            "
-          />
+          <span v-text="$t('count.tracks', { count: composer.track_count })" />
         </div>
       </template>
       <template #heading-right>

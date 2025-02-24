@@ -9,7 +9,7 @@
         <div class="title is-4" v-text="$t('page.audiobooks.artists.title')" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.audiobooks.artists.count', { count: artists.count })"
+          v-text="$t('count.authors', { count: artists.count })"
         />
       </template>
       <template #content>

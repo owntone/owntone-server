@@ -8,9 +8,7 @@
         </div>
         <div
           class="is-size-7 is-uppercase has-text-centered-mobile"
-          v-text="
-            $t('page.spotify.album.track-count', { count: album.tracks.total })
-          "
+          v-text="$t('count.tracks', { count: album.tracks.total })"
         />
         <div class="buttons is-centered-mobile mt-5">
           <a class="button is-small is-rounded" @click="play">

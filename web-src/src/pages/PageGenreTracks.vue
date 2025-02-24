@@ -21,12 +21,10 @@
         <div class="is-size-7 is-uppercase">
           <a
             @click="open_genre"
-            v-text="$t('page.genre.album-count', { count: genre.album_count })"
+            v-text="$t('count.albums', { count: genre.album_count })"
           />
           <span>&nbsp;|&nbsp;</span>
-          <span
-            v-text="$t('page.genre.track-count', { count: genre.track_count })"
-          />
+          <span v-text="$t('count.tracks', { count: genre.track_count })" />
         </div>
       </template>
       <template #heading-right>

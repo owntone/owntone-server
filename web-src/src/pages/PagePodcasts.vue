@@ -25,7 +25,7 @@
         <div class="title is-4" v-text="$t('page.podcasts.title')" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.podcasts.count', { count: albums.total })"
+          v-text="$t('count.podcasts', { count: albums.total })"
         />
       </template>
       <template #heading-right>

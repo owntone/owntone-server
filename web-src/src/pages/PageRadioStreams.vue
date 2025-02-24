@@ -5,7 +5,7 @@
         <div class="title is-4" v-text="$t('page.radio.title')" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.radio.count', { count: tracks.total })"
+          v-text="$t('count.stations', { count: tracks.total })"
         />
       </template>
       <template #content>

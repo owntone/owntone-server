@@ -10,7 +10,7 @@
         />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.playlists.count', { count: playlists.count })"
+          v-text="$t('count.playlists', { count: playlists.count })"
         />
       </template>
       <template #content>

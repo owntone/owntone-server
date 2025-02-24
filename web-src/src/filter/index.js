@@ -1,21 +1,9 @@
 import { DateTime, Duration } from 'luxon'
 import i18n from '@/i18n'
 
-const { t, locale } = i18n.global
+const { locale } = i18n.global
 
 export const filters = {
-  channels(value) {
-    if (value === 1) {
-      return t('filter.mono')
-    }
-    if (value === 2) {
-      return t('filter.stereo')
-    }
-    if (!value) {
-      return ''
-    }
-    return t('filter.channels', { value })
-  },
   date(value) {
     if (value) {
       return DateTime.fromISO(value, { locale: locale.value }).toLocaleString(

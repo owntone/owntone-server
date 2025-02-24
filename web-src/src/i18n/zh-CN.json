@@ -1,4 +1,17 @@
 {
+  "count": {
+    "albums": "{count} 张专辑|{count} 张专辑",
+    "artists": "{count} 位艺人|{count} 位艺人",
+    "audiobooks": "{count} 个有声读物|{count} 个有声读物",
+    "authors": "{count} 位作者|{count} 位作者",
+    "channels": "{count} canal|{count} canaux",
+    "composers": "{count} 位作曲家|{count} 位作曲家",
+    "genres": "{count} 个流派|{count} 个流派",
+    "playlists": "{count} 个播放列表|{count} 个播放列表",
+    "podcasts": "{count} 个播客|{count} 个播客",
+    "stations": "{count} 个电台|{count} 个电台",
+    "tracks": "{count} 只曲目|{count} 只曲目"
+  },
   "data": {
     "kind": {
       "file": "文件",
@@ -133,11 +146,9 @@
       "version": "版本 {version}"
     },
     "album": {
-      "shuffle": "随机播放",
-      "track-count": "{count} 只曲目|{count} 只曲目"
+      "shuffle": "随机播放"
     },
     "albums": {
-      "count": "{count} 张专辑|{count} 张专辑",
       "filter": "筛选",
       "hide-singles-help": "如果激活，将隐藏仅在播放列表出现的单曲和专辑",
       "hide-singles": "隐藏单曲",
@@ -154,12 +165,10 @@
       }
     },
     "artist": {
-      "album-count": "{count} 张专辑|{count} 张专辑",
       "filter": "筛选",
       "hide-spotify-help": "如果激活，将隐藏只出现在Spotify库中的内容",
       "hide-spotify": "隐藏来自Spotify的内容",
       "shuffle": "随机播放",
-      "track-count": "{count} 只曲目|{count} 只曲目",
       "sort": {
         "title": "分类",
         "name": "名称",
@@ -168,7 +177,6 @@
       }
     },
     "artists": {
-      "count": "{count} 位艺人|{count} 位艺人",
       "filter": "筛选",
       "sort": {
         "title": "分类",
@@ -183,19 +191,15 @@
     },
     "audiobooks": {
       "album": {
-        "play": "播放",
-        "track-count": "{count} 只曲目|{count} 只曲目"
+        "play": "播放"
       },
       "albums": {
-        "count": "{count} 个有声读物|{count} 个有声读物",
         "title": "有声读物"
       },
       "artist": {
-        "album-count": "{count} 张专辑|{count} 张专辑",
         "play": "播放"
       },
       "artists": {
-        "count": "{count} 位作者|{count} 位作者",
         "title": "作者"
       },
       "tabs": {
@@ -205,9 +209,7 @@
       }
     },
     "composer": {
-      "album-count": "{count} 张专辑|{count} 张专辑",
       "shuffle": "随机播放",
-      "track-count": "{count} 只曲目|{count} 只曲目",
       "sort": {
         "title": "分类",
         "name": "名称",
@@ -215,7 +217,6 @@
       }
     },
     "composers": {
-      "count": "{count} 位作曲家|{count} 位作曲家",
       "title": "作曲家"
     },
     "files": {
@@ -223,9 +224,7 @@
       "title": "文件"
     },
     "genre": {
-      "album-count": "{count} 张专辑|{count} 张专辑",
       "shuffle": "随机播放",
-      "track-count": "{count} 只曲目|{count} 只曲目",
       "sort": {
         "title": "分类",
         "name": "名称",
@@ -233,7 +232,6 @@
       }
     },
     "genres": {
-      "count": "{count} 个流派|{count} 个流派",
       "title": "流派"
     },
     "music": {
@@ -260,24 +258,20 @@
     },
     "playlist": {
       "length": "{length} 曲目",
-      "shuffle": "随机播放",
-      "track-count": "{count} 只曲目|{count} 只曲目"
+      "shuffle": "随机播放"
     },
     "playlists": {
-      "title": "播放列表",
-      "count": "{count} 个播放列表|{count} 个播放列表"
+      "title": "播放列表"
     },
     "podcast": {
       "cancel": "取消",
       "play": "播放",
       "remove": "移除",
       "remove-info": "从资料库中永久移除该播客？{separator}(这也将移除该播客RSS列表 {name})",
-      "remove-podcast": "移除播客",
-      "track-count": "{count} 只曲目|{count} 只曲目"
+      "remove-podcast": "移除播客"
     },
     "podcasts": {
       "add": "添加",
-      "count": "{count} 个播客|{count} 个播客",
       "mark-all-played": "全部标记为已播放",
       "new-episodes": "最新单集",
       "title": "播客",
@@ -286,14 +280,12 @@
     "queue": {
       "add-stream": "添加流",
       "clear": "清除",
-      "count": "{count} 只曲目|{count} 只曲目",
       "edit": "编辑",
       "hide-previous": "隐藏历史",
       "save": "保存",
       "title": "清单"
     },
     "radio": {
-      "count": "{count} 个电台|{count} 个电台",
       "title": "广播电台"
     },
     "search": {
@@ -395,11 +387,9 @@
     },
     "spotify": {
       "album": {
-        "shuffle": "随机播放",
-        "track-count": "{count} 只曲目|{count} 只曲目"
+        "shuffle": "随机播放"
       },
       "artist": {
-        "album-count": "{count} 张专辑|{count} 张专辑",
         "shuffle": "随机播放"
       },
       "music": {
@@ -408,7 +398,6 @@
         "show-more": "显示更多"
       },
       "playlist": {
-        "count": "{count} 只曲目|{count} 只曲目",
         "shuffle": "随机播放"
       },
       "search": {
@@ -489,10 +478,5 @@
     "last-week": "上周",
     "last-month": "上月",
     "undefined": "未定义"
-  },
-  "filter": {
-    "mono": "单声道",
-    "stereo": "立体声",
-    "channels": "{count} 信道|{count} 信道"
   }
 }

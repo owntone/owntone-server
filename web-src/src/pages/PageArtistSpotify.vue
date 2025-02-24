@@ -5,7 +5,7 @@
         <div class="title is-4" v-text="artist.name" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.spotify.artist.album-count', { count: total })"
+          v-text="$t('count.albums', { count: total })"
         />
       </template>
       <template #heading-right>

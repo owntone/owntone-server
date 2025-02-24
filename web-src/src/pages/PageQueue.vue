@@ -5,7 +5,7 @@
         <div class="title is-4" v-text="$t('page.queue.title')" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.queue.count', { count: queue.count })"
+          v-text="$t('count.tracks', { count: queue.count })"
         />
       </template>
       <template #heading-right>

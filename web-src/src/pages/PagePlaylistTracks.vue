@@ -5,7 +5,7 @@
         <div class="title is-4" v-text="playlist.name" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.playlist.track-count', { count: tracks.count })"
+          v-text="$t('count.tracks', { count: tracks.count })"
         />
       </template>
       <template #heading-right>

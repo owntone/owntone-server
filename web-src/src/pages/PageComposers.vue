@@ -9,7 +9,7 @@
         <div class="title is-4" v-text="$t('page.composers.title')" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.composers.count', { count: composers.total })"
+          v-text="$t('count.composers', { count: composers.total })"
         />
       </template>
       <template #content>

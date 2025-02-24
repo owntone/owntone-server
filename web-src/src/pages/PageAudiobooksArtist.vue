@@ -5,11 +5,7 @@
         <div class="title is-4" v-text="artist.name" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="
-            $t('page.audiobooks.artist.album-count', {
-              count: artist.album_count
-            })
-          "
+          v-text="$t('count.audiobooks', { count: artist.album_count })"
         />
       </template>
       <template #heading-right>

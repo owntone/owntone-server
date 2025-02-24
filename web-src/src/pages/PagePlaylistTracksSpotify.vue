@@ -5,9 +5,7 @@
         <div class="title is-4" v-text="playlist.name" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="
-            $t('page.spotify.playlist.count', { count: playlist.tracks.total })
-          "
+          v-text="$t('count.playlists', { count: playlist.tracks.total })"
         />
       </template>
       <template #heading-right>

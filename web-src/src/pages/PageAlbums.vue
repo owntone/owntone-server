@@ -46,7 +46,7 @@
         <div class="title is-4" v-text="$t('page.albums.title')" />
         <div
           class="is-size-7 is-uppercase"
-          v-text="$t('page.albums.count', { count: albums.count })"
+          v-text="$t('count.albums', { count: albums.count })"
         />
       </template>
       <template #content>
