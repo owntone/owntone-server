@@ -9,8 +9,6 @@
 
 <script>
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
-import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
@@ -18,14 +16,6 @@ export default {
   components: { ModalDialogPlayable },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close', 'play-count-changed'],
-  setup() {
-    return { servicesStore: useServicesStore() }
-  },
-  data() {
-    return {
-      spotify_track: {}
-    }
-  },
   computed: {
     buttons() {
       if (this.item.media_kind !== 'podcast') {
@@ -71,7 +61,7 @@ export default {
           },
           {
             label: 'property.quality',
-            value: this.$t('dialog.track.quality-value', {
+            value: this.item.data_kind !== 'spotify' && this.$t('dialog.track.quality-value', {
               format: this.item.type,
               bitrate: this.item.bitrate,
               channels: this.$t('count.channels', this.item.channels),
@@ -94,25 +84,6 @@ export default {
       }
     }
   },
-  watch: {
-    item() {
-      if (
-        this.item &&
-        this.item.data_kind === 'spotify' &&
-        this.item.media_kind !== 'podcast'
-      ) {
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
-        spotifyApi
-          .getTrack(this.item.path.slice(this.item.path.lastIndexOf(':') + 1))
-          .then((response) => {
-            this.spotify_track = response
-          })
-      } else {
-        this.spotify_track = {}
-      }
-    }
-  },
   methods: {
     mark_new() {
       webapi
@@ -132,15 +103,7 @@ export default {
     },
     open_album() {
       this.$emit('close')
-      if (
-        this.item.data_kind === 'spotify' &&
-        this.item.media_kind !== 'podcast'
-      ) {
-        this.$router.push({
-          name: 'music-spotify-album',
-          params: { id: this.spotify_track.album.id }
-        })
-      } else if (this.item.media_kind === 'podcast') {
+      if (this.item.media_kind === 'podcast') {
         this.$router.push({
           name: 'podcast',
           params: { id: this.item.album_id }
@@ -159,12 +122,7 @@ export default {
     },
     open_artist() {
       this.$emit('close')
-      if (this.item.data_kind === 'spotify') {
-        this.$router.push({
-          name: 'music-spotify-artist',
-          params: { id: this.spotify_track.artists[0].id }
-        })
-      } else if (
+      if (
         this.item.media_kind === 'music' ||
         this.item.media_kind === 'podcast'
       ) {
