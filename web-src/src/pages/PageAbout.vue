@@ -127,15 +127,15 @@ export default {
         },
         {
           label: 'property.artists',
-          value: this.$filters.number(this.libraryStore.artists)
+          value: this.$n(this.libraryStore.artists)
         },
         {
           label: 'property.albums',
-          value: this.$filters.number(this.libraryStore.albums)
+          value: this.$n(this.libraryStore.albums)
         },
         {
           label: 'property.tracks',
-          value: this.$filters.number(this.libraryStore.songs)
+          value: this.$n(this.libraryStore.songs)
         },
         {
           label: 'property.playtime',

@@ -41,9 +41,6 @@ export const filters = {
     const format = value >= 3600000 ? 'h:mm:ss' : 'm:ss'
     return Duration.fromMillis(value).toFormat(format)
   },
-  number(value) {
-    return value.toLocaleString(locale.value)
-  },
   timeFromNow(value) {
     return DateTime.fromISO(value).toRelative({
       unit: ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
