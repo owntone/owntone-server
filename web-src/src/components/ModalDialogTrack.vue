@@ -61,12 +61,14 @@ export default {
           },
           {
             label: 'property.quality',
-            value: this.item.data_kind !== 'spotify' && this.$t('dialog.track.quality-value', {
-              format: this.item.type,
-              bitrate: this.item.bitrate,
-              channels: this.$t('count.channels', this.item.channels),
-              samplerate: this.item.samplerate
-            })
+            value:
+              this.item.data_kind !== 'spotify' &&
+              this.$t('dialog.track.quality-value', {
+                format: this.item.type,
+                bitrate: this.item.bitrate,
+                channels: this.$t('count.channels', this.item.channels),
+                samplerate: this.item.samplerate
+              })
           },
           {
             label: 'property.added-on',
