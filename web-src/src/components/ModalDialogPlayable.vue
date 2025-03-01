@@ -59,7 +59,7 @@ export default {
       if (this.item.expression) {
         webapi.player_play_expression(this.item.expression, false)
       } else {
-        webapi.player_play_uri(this.item.uris || this.item.item.uri, false)
+        webapi.player_play_uri(this.item.uris || this.item.uri, false)
       }
     },
     queue_add() {
