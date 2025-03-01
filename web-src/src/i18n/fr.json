@@ -305,7 +305,7 @@
       "show-composers": "Afficher le compositeur|Afficher les {count} compositeurs",
       "show-playlists": "Afficher la liste de lecture|Afficher les {count} listes de lecture",
       "show-podcasts": "Afficher le podcast|Afficher les {count} podcasts",
-      "show-tracks": "Afficher la piste|Afficher les {n} pistes",
+      "show-tracks": "Afficher la piste|Afficher les {count} pistes",
       "tracks": "Pistes",
       "tabs": {
         "library": "Bibliothèque",
