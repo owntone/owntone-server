@@ -6,10 +6,11 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a class="button is-small is-rounded" @click="mark_all_played">
-            <mdicon class="icon" name="pencil" size="16" />
-            <span v-text="$t('page.podcasts.mark-all-played')" />
-          </a>
+          <control-button
+            :handler="mark_all_played"
+            icon="pencil"
+            label="page.podcasts.mark-all-played"
+          />
         </div>
       </template>
       <template #content>
@@ -30,21 +31,17 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a
+          <control-button
             v-if="rss.tracks > 0"
-            class="button is-small is-rounded"
-            @click="update_rss"
-          >
-            <mdicon class="icon" name="refresh" size="16" />
-            <span v-text="$t('page.podcasts.update')" />
-          </a>
-          <a
-            class="button is-small is-rounded"
-            @click="open_add_podcast_dialog"
-          >
-            <mdicon class="icon" name="rss" size="16" />
-            <span v-text="$t('page.podcasts.add')" />
-          </a>
+            :handler="update_rss"
+            icon="refresh"
+            label="page.podcasts.update"
+          />
+          <control-button
+            :handler="open_add_podcast_dialog"
+            icon="rss"
+            label="page.podcasts.add"
+          />
         </div>
       </template>
       <template #content>
@@ -65,6 +62,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
@@ -91,6 +89,7 @@ export default {
   name: 'PagePodcasts',
   components: {
     ContentWithHeading,
+    ControlButton,
     ListAlbums,
     ListTracks,
     ModalDialogAddRss

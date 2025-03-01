@@ -11,16 +11,12 @@
           v-text="$t('count.tracks', { count: album.tracks.total })"
         />
         <div class="buttons is-centered-mobile mt-5">
-          <a class="button is-small is-rounded" @click="play">
-            <mdicon class="icon" name="shuffle" size="16" />
-            <span v-text="$t('page.spotify.album.shuffle')" />
-          </a>
-          <a
-            class="button is-small is-rounded"
-            @click="show_details_modal = true"
-          >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
-          </a>
+          <control-button
+            :handler="play"
+            icon="shuffle"
+            label="page.spotify.album.shuffle"
+          />
+          <control-button :handler="showDetails" icon="dots-horizontal" />
         </div>
       </template>
       <template #heading-right>
@@ -29,7 +25,7 @@
           :artist="album.artists[0].name"
           :album="album.name"
           class="is-clickable is-medium"
-          @click="show_details_modal = true"
+          @click="showDetails"
         />
       </template>
       <template #content>
@@ -46,6 +42,7 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
@@ -70,6 +67,7 @@ export default {
   name: 'PageAlbumSpotify',
   components: {
     ContentWithHero,
+    ControlButton,
     ControlImage,
     ListTracksSpotify,
     ModalDialogAlbumSpotify
@@ -107,6 +105,9 @@ export default {
     play() {
       this.show_details_modal = false
       webapi.player_play_uri(this.album.uri, true)
+    },
+    showDetails() {
+      this.show_details_modal = true
     }
   }
 }

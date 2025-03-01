@@ -1,13 +1,13 @@
 <template>
   <div class="media is-align-items-center mb-0">
     <div class="media-left">
-      <a
+      <button
         class="button is-small"
         :class="{ 'has-text-grey-light': !output.selected }"
         @click="toggle"
       >
         <mdicon class="icon" :name="icon" :title="output.type" />
-      </a>
+      </button>
     </div>
     <div class="media-content">
       <div

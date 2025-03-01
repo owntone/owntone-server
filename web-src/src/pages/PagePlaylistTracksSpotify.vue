@@ -10,16 +10,13 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a
-            class="button is-small is-rounded"
-            @click="show_playlist_details_modal = true"
-          >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
-          </a>
-          <a class="button is-small is-rounded" @click="play">
-            <mdicon class="icon" name="shuffle" size="16" />
-            <span v-text="$t('page.spotify.playlist.shuffle')" />
-          </a>
+          <control-button :handler="showDetails" icon="dots-horizontal" />
+          <control-button
+            :disabled="playlist.tracks.total === 0"
+            :handler="play"
+            icon="shuffle"
+            label="page.spotify.playlist.shuffle"
+          />
         </div>
       </template>
       <template #content>
@@ -48,6 +45,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -84,6 +82,7 @@ export default {
   name: 'PagePlaylistTracksSpotify',
   components: {
     ContentWithHeading,
+    ControlButton,
     ListTracksSpotify,
     ModalDialogPlaylistSpotify,
     VueEternalLoading
@@ -145,6 +144,9 @@ export default {
     play() {
       this.show_details_modal = false
       webapi.player_play_uri(this.playlist.uri, true)
+    },
+    showDetails() {
+      this.show_playlist_details_modal = true
     }
   }
 }

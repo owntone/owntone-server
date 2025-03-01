@@ -1,7 +1,7 @@
 <template>
   <div class="media is-align-items-center mb-0">
     <div class="media-left">
-      <a
+      <button
         class="button is-small"
         :class="{
           'has-text-grey-light': !playing && !loading,
@@ -10,7 +10,7 @@
         @click="togglePlay"
       >
         <mdicon class="icon" name="broadcast" />
-      </a>
+      </button>
     </div>
     <div class="media-content is-align-items-center">
       <div class="is-flex" :class="{ 'has-text-grey-light': !playing }">

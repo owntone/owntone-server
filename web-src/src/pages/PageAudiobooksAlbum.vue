@@ -11,16 +11,12 @@
           v-text="$t('count.tracks', { count: album.track_count })"
         />
         <div class="buttons is-centered-mobile mt-5">
-          <a class="button is-small is-rounded" @click="play">
-            <mdicon class="icon" name="play" size="16" />
-            <span v-text="$t('page.audiobooks.album.play')" />
-          </a>
-          <a
-            class="button is-small is-rounded"
-            @click="show_details_modal = true"
-          >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
-          </a>
+          <control-button
+            :handler="play"
+            icon="play"
+            label="page.audiobooks.album.play"
+          />
+          <control-button :handler="showDetails" icon="dots-horizontal" />
         </div>
       </template>
       <template #heading-right>
@@ -29,7 +25,7 @@
           :artist="album.artist"
           :album="album.name"
           class="is-clickable is-medium"
-          @click="show_details_modal = true"
+          @click="showDetails"
         />
       </template>
       <template #content>
@@ -47,6 +43,7 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
@@ -69,7 +66,13 @@ const dataObject = {
 
 export default {
   name: 'PageAudiobooksAlbum',
-  components: { ContentWithHero, ControlImage, ListTracks, ModalDialogAlbum },
+  components: {
+    ContentWithHero,
+    ControlButton,
+    ControlImage,
+    ListTracks,
+    ModalDialogAlbum
+  },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
@@ -92,6 +95,9 @@ export default {
     },
     play() {
       webapi.player_play_uri(this.album.uri, false)
+    },
+    showDetails() {
+      this.show_details_modal = true
     }
   }
 }

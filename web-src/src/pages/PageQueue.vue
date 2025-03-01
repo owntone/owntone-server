@@ -10,47 +10,37 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <button
-            class="button is-small is-rounded"
+          <control-button
+            :handler="update_show_next_items"
             :class="{ 'is-dark': show_only_next_items }"
-            @click="update_show_next_items"
-          >
-            <mdicon class="icon" name="eye-off-outline" size="16" />
-            <span v-text="$t('page.queue.hide-previous')" />
-          </button>
-          <button
-            class="button is-small is-rounded"
-            @click="open_add_stream_dialog"
-          >
-            <mdicon class="icon" name="web" size="16" />
-            <span v-text="$t('page.queue.add-stream')" />
-          </button>
-          <button
-            class="button is-small is-rounded"
+            icon="eye-off-outline"
+            label="page.queue.hide-previous"
+          />
+          <control-button
+            :handler="open_add_stream_dialog"
+            icon="web"
+            label="page.queue.add-stream"
+          />
+          <control-button
             :class="{ 'is-dark': edit_mode }"
             :disabled="queue_items.length === 0"
-            @click="edit_mode = !edit_mode"
-          >
-            <mdicon class="icon" name="pencil" size="16" />
-            <span v-text="$t('page.queue.edit')" />
-          </button>
-          <button
-            class="button is-small is-rounded"
+            :handler="toggleEdit"
+            icon="pencil"
+            label="page.queue.edit"
+          />
+          <control-button
             :disabled="queue_items.length === 0"
-            @click="queue_clear"
-          >
-            <mdicon class="icon" name="delete-empty" size="16" />
-            <span v-text="$t('page.queue.clear')" />
-          </button>
-          <button
+            :handler="queue_clear"
+            icon="delete-empty"
+            label="page.queue.clear"
+          />
+          <control-button
             v-if="is_queue_save_allowed"
-            class="button is-small is-rounded"
             :disabled="queue_items.length === 0"
-            @click="save_dialog"
-          >
-            <mdicon class="icon" name="download" size="16" />
-            <span v-text="$t('page.queue.save')" />
-          </button>
+            :handler="save_dialog"
+            icon="download"
+            label="page.queue.save"
+          />
         </div>
       </template>
       <template #content>
@@ -102,6 +92,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
 import ModalDialogAddStream from '@/components/ModalDialogAddStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
@@ -117,6 +108,7 @@ export default {
   name: 'PageQueue',
   components: {
     ContentWithHeading,
+    ControlButton,
     ListItemQueueItem,
     ModalDialogAddStream,
     ModalDialogPlaylistSave,
@@ -199,6 +191,9 @@ export default {
       if (this.queue_items.length > 0) {
         this.show_pls_save_modal = true
       }
+    },
+    toggleEdit() {
+      this.edit_mode = !this.edit_mode
     },
     update_show_next_items() {
       this.uiStore.show_only_next_items = !this.uiStore.show_only_next_items

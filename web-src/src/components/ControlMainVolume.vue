@@ -1,9 +1,9 @@
 <template>
   <div class="media is-align-items-center mb-0">
     <div class="media-left">
-      <a class="button is-small" @click="toggle">
+      <button class="button is-small" @click="toggle">
         <mdicon class="icon" :name="icon" />
-      </a>
+      </button>
     </div>
     <div class="media-content">
       <div class="is-size-7 is-uppercase" v-text="$t('navigation.volume')" />

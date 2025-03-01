@@ -10,16 +10,12 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a
-            class="button is-small is-rounded"
-            @click="show_details_modal = true"
-          >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
-          </a>
-          <a class="button is-small is-rounded" @click="play">
-            <mdicon class="icon" name="shuffle" size="16" />
-            <span v-text="$t('page.spotify.artist.shuffle')" />
-          </a>
+          <control-button :handler="showDetails" icon="dots-horizontal" />
+          <control-button
+            :handler="play"
+            icon="shuffle"
+            label="page.spotify.artist.shuffle"
+          />
         </div>
       </template>
       <template #content>
@@ -51,6 +47,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -88,6 +85,7 @@ export default {
   name: 'PageArtistSpotify',
   components: {
     ContentWithHeading,
+    ControlButton,
     ListAlbumsSpotify,
     ModalDialogArtistSpotify,
     VueEternalLoading
@@ -136,6 +134,9 @@ export default {
     play() {
       this.show_album_details_modal = false
       webapi.player_play_uri(this.artist.uri, true)
+    },
+    showDetails() {
+      this.show_details_modal = true
     }
   }
 }

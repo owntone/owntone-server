@@ -11,19 +11,13 @@
                 </div>
               </div>
               <div class="level-right">
-                <div v-if="libraryStore.updating">
-                  <a
-                    class="button is-small is-rounded is-loading"
-                    v-text="$t('page.about.update')"
-                  />
-                </div>
-                <div v-else>
-                  <a
-                    class="button is-small is-rounded"
-                    @click="showUpdateDialog()"
-                    v-text="$t('page.about.update')"
-                  />
-                </div>
+                <control-button
+                  :class="{ 'is-loading': libraryStore.updating }"
+                  :disabled="libraryStore.updating"
+                  :handler="showUpdateDialog"
+                  icon="refresh"
+                  label="page.about.update"
+                />
               </div>
             </nav>
             <div
@@ -105,12 +99,14 @@
 </template>
 
 <script>
+import ControlButton from '@/components/ControlButton.vue'
 import { useConfigurationStore } from '@/stores/configuration'
 import { useLibraryStore } from '@/stores/library'
 import { useUIStore } from '@/stores/ui'
 
 export default {
   name: 'PageAbout',
+  components: { ControlButton },
   setup() {
     return {
       configurationStore: useConfigurationStore(),

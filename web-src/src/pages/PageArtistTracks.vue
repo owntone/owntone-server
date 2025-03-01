@@ -46,16 +46,12 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a
-            class="button is-small is-rounded"
-            @click="show_details_modal = true"
-          >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
-          </a>
-          <a class="button is-small is-rounded" @click="play">
-            <mdicon class="icon" name="shuffle" size="16" />
-            <span v-text="$t('page.artist.shuffle')" />
-          </a>
+          <control-button :handler="showDetails" icon="dots-horizontal" />
+          <control-button
+            :handler="play"
+            icon="shuffle"
+            label="page.artist.shuffle"
+          />
         </div>
       </template>
       <template #content>
@@ -72,6 +68,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -100,6 +97,7 @@ export default {
   name: 'PageArtistTracks',
   components: {
     ContentWithHeading,
+    ControlButton,
     ControlDropdown,
     ControlSwitch,
     IndexButtonList,
@@ -178,6 +176,9 @@ export default {
         this.tracks_list.items.map((item) => item.uri).join(),
         true
       )
+    },
+    showDetails() {
+      this.show_details_modal = true
     }
   }
 }

@@ -10,16 +10,13 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a
-            class="button is-small is-rounded"
-            @click="show_details_modal = true"
-          >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
-          </a>
-          <a class="button is-small is-rounded" @click="play">
-            <mdicon class="icon" name="play" size="16" />
-            <span v-text="$t('page.audiobooks.artist.play')" />
-          </a>
+          <control-button :handle="showDetails" icon="dots-horizontal" />
+          <control-button
+            :handle="play"
+            icon="play"
+            label="page.audiobooks.artist.play"
+          />
+          />
         </div>
       </template>
       <template #content>
@@ -36,6 +33,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
@@ -56,7 +54,12 @@ const dataObject = {
 
 export default {
   name: 'PageAudiobooksArtist',
-  components: { ContentWithHeading, ListAlbums, ModalDialogArtist },
+  components: {
+    ContentWithHeading,
+    ControlButton,
+    ListAlbums,
+    ModalDialogArtist
+  },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
@@ -75,6 +78,9 @@ export default {
         this.albums.items.map((item) => item.uri).join(),
         false
       )
+    },
+    showDetails() {
+      this.show_details_modal = true
     }
   }
 }

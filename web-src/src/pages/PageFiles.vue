@@ -6,16 +6,8 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <a
-            class="button is-small is-rounded"
-            @click="show_details_modal = true"
-          >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
-          </a>
-          <a class="button is-small is-rounded" @click="play">
-            <mdicon class="icon" name="play" size="16" />
-            <span v-text="$t('page.files.play')" />
-          </a>
+          <control-button :handler="showDetails" icon="dots-horizontal" />
+          <control-button :handler="play" icon="play" label="page.files.play" />
         </div>
       </template>
       <template #content>
@@ -38,6 +30,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
@@ -78,6 +71,7 @@ export default {
   name: 'PageFiles',
   components: {
     ContentWithHeading,
+    ControlButton,
     ListDirectories,
     ListPlaylists,
     ListTracks,
@@ -124,6 +118,9 @@ export default {
   methods: {
     play() {
       webapi.player_play_expression(this.expression, false)
+    },
+    showDetails() {
+      this.show_details_modal = true
     },
     transform(path) {
       return { name: path.slice(path.lastIndexOf('/') + 1), path }

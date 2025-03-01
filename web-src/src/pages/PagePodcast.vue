@@ -11,16 +11,12 @@
           v-text="$t('count.tracks', { count: album.track_count })"
         />
         <div class="buttons is-centered-mobile mt-5">
-          <a class="button is-small is-rounded" @click="play">
-            <mdicon class="icon" name="play" size="16" />
-            <span v-text="$t('page.podcast.play')" />
-          </a>
-          <a
-            class="button is-small is-rounded"
-            @click="show_details_modal = true"
-          >
-            <mdicon class="icon" name="dots-horizontal" size="16" />
-          </a>
+          <control-button
+            :handler="play"
+            icon="play"
+            label="page.podcast.play"
+          />
+          <control-button :handler="showDetails" icon="dots-horizontal" />
         </div>
       </template>
       <template #heading-right>
@@ -29,7 +25,7 @@
           :artist="album.artist"
           :album="album.name"
           class="is-clickable is-medium"
-          @click="show_details_modal = true"
+          @click="showDetails"
         />
       </template>
       <template #content>
@@ -71,6 +67,7 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
@@ -96,6 +93,7 @@ export default {
   name: 'PagePodcast',
   components: {
     ContentWithHero,
+    ControlButton,
     ControlImage,
     ListTracks,
     ModalDialog,
@@ -160,6 +158,9 @@ export default {
         .then(() => {
           this.$router.replace({ name: 'podcasts' })
         })
+    },
+    showDetails() {
+      this.show_details_modal = true
     }
   }
 }

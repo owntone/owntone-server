@@ -4,12 +4,11 @@
       <list-properties :item="item">
         <template v-if="buttons.length" #buttons>
           <div class="buttons">
-            <a
+            <control-button
               v-for="button in buttons"
               :key="button.label"
-              class="button is-small is-rounded"
-              @click="button.handler"
-              v-text="$t(button.label)"
+              :handler="button.handler"
+              label="button.label"
             />
           </div>
         </template>
@@ -19,13 +18,14 @@
 </template>
 
 <script>
+import ControlButton from '@/components/ControlButton.vue'
 import ListProperties from '@/components/ListProperties.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogPlayable',
-  components: { ListProperties, ModalDialog },
+  components: { ControlButton, ListProperties, ModalDialog },
   props: {
     buttons: { default: () => [], type: Array },
     item: { required: true, type: Object },
