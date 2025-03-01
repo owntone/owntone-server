@@ -10,12 +10,11 @@
       </template>
       <template #heading-right>
         <div class="buttons is-centered">
-          <control-button :handle="showDetails" icon="dots-horizontal" />
+          <control-button :handler="showDetails" icon="dots-horizontal" />
           <control-button
-            :handle="play"
+            :handler="play"
             icon="play"
             label="page.audiobooks.artist.play"
-          />
           />
         </div>
       </template>
