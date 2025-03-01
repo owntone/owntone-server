@@ -28,7 +28,7 @@
         <div
           v-if="item.item.date_released && item.item.media_kind === 'music'"
           class="is-size-7 has-text-grey"
-          v-text="$filters.date(item.item.date_released)"
+          v-text="$filters.toDate(item.item.date_released)"
         />
       </div>
       <div class="media-right">

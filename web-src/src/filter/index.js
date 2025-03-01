@@ -2,9 +2,10 @@ import { DateTime, Duration } from 'luxon'
 import i18n from '@/i18n'
 
 const { locale } = i18n.global
+const unit = ['years', 'months', 'days', 'hours', 'minutes']
 
 export const filters = {
-  date(value) {
+  toDate(value) {
     if (value) {
       return DateTime.fromISO(value, { locale: locale.value }).toLocaleString(
         DateTime.DATE_FULL
@@ -12,7 +13,7 @@ export const filters = {
     }
     return null
   },
-  datetime(value) {
+  toDateTime(value) {
     if (value) {
       return DateTime.fromISO(value, { locale: locale.value }).toLocaleString(
         DateTime.DATETIME_MED
@@ -20,30 +21,24 @@ export const filters = {
     }
     return null
   },
-  duration(value) {
-    const diff = DateTime.now().diff(DateTime.fromISO(value))
-    return this.durationInDays(diff.as('seconds'))
+  toDuration(seconds) {
+    const shifted = Duration.fromObject({
+      minutes: Math.floor(seconds / 60)
+    }).shiftTo(...unit)
+    const filtered = Object.fromEntries(
+      Object.entries(shifted.toObject()).filter(([_, value]) => value > 0)
+    )
+    return Duration.fromObject(filtered, { locale: locale.value }).toHuman()
   },
-  durationInDays(value) {
-    const minutes = Math.floor(value / 60)
-    if (minutes > 1440) {
-      return Duration.fromObject({ minutes })
-        .shiftTo('days', 'hours', 'minutes')
-        .toHuman()
-    } else if (minutes > 60) {
-      return Duration.fromObject({ minutes })
-        .shiftTo('hours', 'minutes')
-        .toHuman()
-    }
-    return Duration.fromObject({ minutes }).shiftTo('minutes').toHuman()
+  toDurationToNow(value) {
+    const duration = DateTime.now().diff(DateTime.fromISO(value)).as('seconds')
+    return this.toDuration(duration)
   },
-  durationInHours(value) {
+  toRelativeDuration(value) {
+    return DateTime.fromISO(value).toRelative({ unit, locale: locale.value })
+  },
+  toTimecode(value) {
     const format = value >= 3600000 ? 'h:mm:ss' : 'm:ss'
     return Duration.fromMillis(value).toFormat(format)
-  },
-  timeFromNow(value) {
-    return DateTime.fromISO(value).toRelative({
-      unit: ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
-    })
   }
 }

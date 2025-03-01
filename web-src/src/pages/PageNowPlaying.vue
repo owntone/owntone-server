@@ -116,7 +116,7 @@ export default {
       return this.queueStore.current
     },
     track_elapsed_time() {
-      return this.$filters.durationInHours(this.track_progress * INTERVAL)
+      return this.$filters.toTimecode(this.track_progress * INTERVAL)
     },
     track_progress: {
       get() {
@@ -132,7 +132,7 @@ export default {
     track_total_time() {
       return this.is_live
         ? this.$t('page.now-playing.live')
-        : this.$filters.durationInHours(this.track.length_ms)
+        : this.$filters.toTimecode(this.track.length_ms)
     }
   },
   watch: {

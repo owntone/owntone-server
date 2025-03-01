@@ -19,7 +19,7 @@
         />
         <div
           class="is-size-7 has-text-grey"
-          v-text="$filters.date(item.release_date)"
+          v-text="$filters.toDate(item.release_date)"
         />
       </div>
       <div class="media-right">

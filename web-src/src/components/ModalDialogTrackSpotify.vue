@@ -35,7 +35,7 @@ export default {
           },
           {
             label: 'property.release-date',
-            value: this.$filters.date(this.item.album.release_date)
+            value: this.$filters.toDate(this.item.album.release_date)
           },
           {
             label: 'property.position',
@@ -43,7 +43,7 @@ export default {
           },
           {
             label: 'property.duration',
-            value: this.$filters.durationInHours(this.item.duration_ms)
+            value: this.$filters.toTimecode(this.item.duration_ms)
           },
           { label: 'property.path', value: this.item.uri }
         ]

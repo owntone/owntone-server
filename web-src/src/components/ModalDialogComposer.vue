@@ -33,7 +33,7 @@ export default {
           },
           {
             label: 'property.duration',
-            value: this.$filters.durationInHours(this.item.length_ms)
+            value: this.$filters.toTimecode(this.item.length_ms)
           }
         ]
       }

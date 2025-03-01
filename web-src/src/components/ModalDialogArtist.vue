@@ -28,7 +28,7 @@ export default {
           },
           {
             label: 'property.added-on',
-            value: this.$filters.datetime(this.item.time_added)
+            value: this.$filters.toDateTime(this.item.time_added)
           }
         ]
       }

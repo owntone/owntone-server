@@ -29,7 +29,7 @@ export default {
           },
           {
             label: 'property.release-date',
-            value: this.$filters.date(this.item.release_date)
+            value: this.$filters.toDate(this.item.release_date)
           },
           {
             label: 'property.type',

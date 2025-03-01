@@ -55,13 +55,13 @@ export default {
           },
           {
             label: 'property.release-date',
-            value: this.$filters.date(this.item.date_released)
+            value: this.$filters.toDate(this.item.date_released)
           },
           { label: 'property.year', value: this.item.year },
           { label: 'property.tracks', value: this.item.track_count },
           {
             label: 'property.duration',
-            value: this.$filters.durationInHours(this.item.length_ms)
+            value: this.$filters.toTimecode(this.item.length_ms)
           },
           {
             label: 'property.type',
@@ -69,7 +69,7 @@ export default {
           },
           {
             label: 'property.added-on',
-            value: this.$filters.datetime(this.item.time_added)
+            value: this.$filters.toDateTime(this.item.time_added)
           }
         ]
       }
