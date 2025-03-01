@@ -63,9 +63,11 @@
               class="button is-small is-rounded"
               @click="expand(type)"
               v-text="
-                $t(`page.search.show-${type}s`, items.total, {
-                  count: $filters.number(items.total)
-                })
+                $t(
+                  `page.search.show-${type}s`,
+                  { count: $n(items.total) },
+                  items.total
+                )
               "
             />
           </p>
