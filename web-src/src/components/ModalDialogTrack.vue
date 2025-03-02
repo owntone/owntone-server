@@ -49,11 +49,15 @@ export default {
           { key: 'property.genre', value: this.item.genre },
           {
             key: 'property.position',
-            value: [this.item.disc_number, this.item.track_number].join(' / ')
+            value:
+              this.item.track_number > 0 &&
+              [this.item.disc_number, this.item.track_number].join(' / ')
           },
           {
             key: 'property.duration',
-            value: this.$filters.toTimecode(this.item.length_ms)
+            value:
+              this.item.length_ms > 0 &&
+              this.$filters.toTimecode(this.item.length_ms)
           },
           {
             key: 'property.type',
