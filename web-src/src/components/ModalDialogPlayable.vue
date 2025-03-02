@@ -6,9 +6,8 @@
           <div class="buttons">
             <control-button
               v-for="button in buttons"
-              :key="button.label"
-              :handler="button.handler"
-              label="button.label"
+              :key="button.key"
+              :button="button"
             />
           </div>
         </template>
@@ -36,20 +35,16 @@ export default {
     actions() {
       return [
         {
-          label: this.$t('dialog.playable.add'),
+          key: 'dialog.playable.add',
           handler: this.queue_add,
           icon: 'playlist-plus'
         },
         {
-          label: this.$t('dialog.playable.add-next'),
+          key: 'dialog.playable.add-next',
           handler: this.queue_add_next,
           icon: 'playlist-play'
         },
-        {
-          label: this.$t('dialog.playable.play'),
-          handler: this.play,
-          icon: 'play'
-        }
+        { key: 'dialog.playable.play', handler: this.play, icon: 'play' }
       ]
     }
   },

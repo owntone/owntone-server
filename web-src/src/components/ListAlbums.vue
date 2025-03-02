@@ -100,16 +100,8 @@ export default {
   computed: {
     actions() {
       return [
-        {
-          label: this.$t('page.podcast.cancel'),
-          handler: 'cancel',
-          icon: 'cancel'
-        },
-        {
-          label: this.$t('page.podcast.remove'),
-          handler: 'remove',
-          icon: 'delete'
-        }
+        { key: 'page.podcast.cancel', handler: 'cancel', icon: 'cancel' },
+        { key: 'page.podcast.remove', handler: 'remove', icon: 'delete' }
       ]
     },
     media_kind_resolved() {

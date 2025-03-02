@@ -3,42 +3,38 @@
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.music.recently-added.title')" />
+        <heading-title
+          :content="{ title: $t('page.music.recently-added.title') }"
+        />
       </template>
       <template #content>
         <list-albums :items="albums" />
       </template>
       <template #footer>
-        <nav class="level">
-          <p class="level-item">
-            <router-link
-              class="button is-small is-rounded"
-              :to="{ name: 'music-recently-added' }"
-            >
-              {{ $t('page.music.show-more') }}
-            </router-link>
-          </p>
-        </nav>
+        <router-link
+          class="button is-small is-rounded"
+          :to="{ name: 'music-recently-added' }"
+        >
+          {{ $t('page.music.show-more') }}
+        </router-link>
       </template>
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.music.recently-played.title')" />
+        <heading-title
+          :content="{ title: $t('page.music.recently-played.title') }"
+        />
       </template>
       <template #content>
         <list-tracks :items="tracks" />
       </template>
       <template #footer>
-        <nav class="level">
-          <p class="level-item">
-            <router-link
-              class="button is-small is-rounded"
-              :to="{ name: 'music-recently-played' }"
-            >
-              {{ $t('page.music.show-more') }}
-            </router-link>
-          </p>
-        </nav>
+        <router-link
+          class="button is-small is-rounded"
+          :to="{ name: 'music-recently-played' }"
+        >
+          {{ $t('page.music.show-more') }}
+        </router-link>
       </template>
     </content-with-heading>
   </div>
@@ -47,6 +43,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -69,7 +66,6 @@ const dataObject = {
       })
     ])
   },
-
   set(vm, response) {
     vm.albums = new GroupedList(response[0].data.albums)
     vm.tracks = new GroupedList(response[1].data.tracks)
@@ -78,14 +74,18 @@ const dataObject = {
 
 export default {
   name: 'PageMusic',
-  components: { ContentWithHeading, ListAlbums, ListTracks, TabsMusic },
-
+  components: {
+    ContentWithHeading,
+    HeadingTitle,
+    ListAlbums,
+    ListTracks,
+    TabsMusic
+  },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       albums: [],

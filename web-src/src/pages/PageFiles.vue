@@ -2,13 +2,15 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="name" />
+        <heading-title :content="{ title: name }" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button :handler="play" icon="play" label="page.files.play" />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{ handler: play, icon: 'play', key: 'page.files.play' }"
+        />
       </template>
       <template #content>
         <list-directories :items="directories" />
@@ -32,6 +34,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
@@ -72,6 +75,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
+    HeadingTitle,
     ListDirectories,
     ListPlaylists,
     ListTracks,
@@ -105,14 +109,14 @@ export default {
     current() {
       return this.$route.query?.directory || '/'
     },
+    expression() {
+      return `path starts with "${this.current}" order by path asc`
+    },
     name() {
       if (this.current !== '/') {
         return this.current?.slice(this.current.lastIndexOf('/') + 1)
       }
       return this.$t('page.files.title')
-    },
-    expression() {
-      return `path starts with "${this.current}" order by path asc`
     }
   },
   methods: {

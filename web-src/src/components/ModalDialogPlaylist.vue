@@ -26,12 +26,12 @@ export default {
         uri: this.item.uri,
         uris: this.uris,
         properties: [
-          { label: 'property.tracks', value: this.item.item_count },
+          { key: 'property.tracks', value: this.item.item_count },
           {
-            label: 'property.type',
+            key: 'property.type',
             value: this.$t(`playlist.type.${this.item.type}`)
           },
-          { label: 'property.path', value: this.item.path }
+          { key: 'property.path', value: this.item.path }
         ]
       }
     }

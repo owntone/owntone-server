@@ -23,18 +23,15 @@ export default {
         uri: this.item.uri,
         properties: [
           {
-            label: 'property.artist',
+            key: 'property.artist',
             value: this.item?.artists?.[0]?.name,
             handler: this.open_artist
           },
           {
-            label: 'property.release-date',
+            key: 'property.release-date',
             value: this.$filters.toDate(this.item.release_date)
           },
-          {
-            label: 'property.type',
-            value: this.item.album_type
-          }
+          { key: 'property.type', value: this.item.album_type }
         ]
       }
     }

@@ -6,11 +6,7 @@
         <index-button-list :indices="composers.indices" />
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.composers.title')" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.composers', { count: composers.total })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #content>
         <list-composers :items="composers" />
@@ -22,6 +18,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -31,7 +28,6 @@ const dataObject = {
   load(to) {
     return webapi.library_composers('music')
   },
-
   set(vm, response) {
     vm.composers = new GroupedList(response.data, {
       index: { field: 'name_sort', type: String }
@@ -41,17 +37,29 @@ const dataObject = {
 
 export default {
   name: 'PageComposers',
-  components: { ContentWithHeading, IndexButtonList, ListComposers, TabsMusic },
-
+  components: {
+    ContentWithHeading,
+    HeadingTitle,
+    IndexButtonList,
+    ListComposers,
+    TabsMusic
+  },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       composers: new GroupedList()
+    }
+  },
+  computed: {
+    heading() {
+      return {
+        title: this.$t('page.composers.title'),
+        subtitle: [{ key: 'count.composers', count: this.composers.total }]
+      }
     }
   }
 }

@@ -3,7 +3,9 @@
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.general.language')" />
+        <heading-title
+          :content="{ title: $t('page.settings.general.language') }"
+        />
       </template>
       <template #content>
         <control-dropdown v-model:value="locale" :options="locales" />
@@ -11,9 +13,8 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
-          class="title is-4"
-          v-text="$t('page.settings.general.navigation-items')"
+        <heading-title
+          :content="{ title: $t('page.settings.general.navigation-items') }"
         />
       </template>
       <template #content>
@@ -85,9 +86,8 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
-          class="title is-4"
-          v-text="$t('page.settings.general.now-playing-page')"
+        <heading-title
+          :content="{ title: $t('page.settings.general.now-playing-page') }"
         />
       </template>
       <template #content>
@@ -134,9 +134,8 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
-          class="title is-4"
-          v-text="$t('page.settings.general.recently-added-page')"
+        <heading-title
+          :content="{ title: $t('page.settings.general.recently-added-page') }"
         />
       </template>
       <template #content>
@@ -161,6 +160,7 @@ import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSettingIntegerField from '@/components/ControlSettingIntegerField.vue'
 import ControlSettingSwitch from '@/components/ControlSettingSwitch.vue'
 import ControlSettingTextField from '@/components/ControlSettingTextField.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -172,6 +172,7 @@ export default {
     ControlSettingIntegerField,
     ControlSettingSwitch,
     ControlSettingTextField,
+    HeadingTitle,
     TabsSettings
   },
 

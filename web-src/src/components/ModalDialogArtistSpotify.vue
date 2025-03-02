@@ -22,15 +22,12 @@ export default {
         uri: this.item.uri,
         properties: [
           {
-            label: 'property.popularity',
+            key: 'property.popularity',
             value: [this.item.popularity, this.item.followers?.total].join(
               ' / '
             )
           },
-          {
-            label: 'property.genres',
-            value: this.item.genres?.join(', ')
-          }
+          { key: 'property.genres', value: this.item.genres?.join(', ') }
         ]
       }
     }

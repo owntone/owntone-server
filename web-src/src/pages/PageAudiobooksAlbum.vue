@@ -4,7 +4,7 @@
       <template #heading-left>
         <div class="title is-5" v-text="album.name" />
         <div class="subtitle is-6">
-          <a @click="open_artist" v-text="album.artist" />
+          <a @click="openArtist" v-text="album.artist" />
         </div>
         <div
           class="is-size-7 is-uppercase has-text-centered-mobile"
@@ -12,11 +12,15 @@
         />
         <div class="buttons is-centered-mobile mt-5">
           <control-button
-            :handler="play"
-            icon="play"
-            label="page.audiobooks.album.play"
+            :button="{
+              handler: play,
+              icon: 'play',
+              key: 'page.audiobooks.album.play'
+            }"
           />
-          <control-button :handler="showDetails" icon="dots-horizontal" />
+          <control-button
+            :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          />
         </div>
       </template>
       <template #heading-right>
@@ -57,7 +61,6 @@ const dataObject = {
       webapi.library_album_tracks(to.params.id)
     ])
   },
-
   set(vm, response) {
     vm.album = response[0].data
     vm.tracks = new GroupedList(response[1].data)
@@ -86,7 +89,7 @@ export default {
     }
   },
   methods: {
-    open_artist() {
+    openArtist() {
       this.show_details_modal = false
       this.$router.push({
         name: 'audiobooks-artist',

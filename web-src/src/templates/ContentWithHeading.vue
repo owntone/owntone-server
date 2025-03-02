@@ -24,14 +24,21 @@
                   </div>
                 </div>
               </div>
-              <div class="level-right has-text-centered-mobile">
-                <slot name="heading-right" />
+              <div
+                v-if="$slots['heading-right']"
+                class="level-right has-text-centered-mobile"
+              >
+                <div class="buttons">
+                  <slot name="heading-right" />
+                </div>
               </div>
             </nav>
             <slot name="content" />
-            <div class="mt-4">
-              <slot name="footer" />
-            </div>
+            <nav v-if="$slots.footer" class="level mt-4">
+              <div class="level-item">
+                <slot name="footer" />
+              </div>
+            </nav>
           </div>
         </div>
       </div>

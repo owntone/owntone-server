@@ -34,25 +34,19 @@
         </div>
       </template>
       <template #heading-left>
-        <p class="title is-4" v-text="artist.name" />
-        <div class="is-size-7 is-uppercase">
-          <a
-            @click="open_artist"
-            v-text="$t('count.albums', { count: album_count })"
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <span v-text="$t('count.tracks', { count: tracks.count })" />
-        </div>
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :handler="play"
-            icon="shuffle"
-            label="page.artist.shuffle"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'shuffle',
+            key: 'page.artist.shuffle'
+          }"
+        />
       </template>
       <template #content>
         <list-tracks :items="tracks" :uris="track_uris" />
@@ -72,6 +66,7 @@ import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
@@ -86,7 +81,6 @@ const dataObject = {
       webapi.library_artist_tracks(to.params.id)
     ])
   },
-
   set(vm, response) {
     vm.artist = response[0].data
     vm.tracks_list = new GroupedList(response[1].data.tracks)
@@ -100,21 +94,19 @@ export default {
     ControlButton,
     ControlDropdown,
     ControlSwitch,
+    HeadingTitle,
     IndexButtonList,
     ListTracks,
     ModalDialogArtist
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
     return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
-
   data() {
     return {
       artist: {},
@@ -137,7 +129,6 @@ export default {
       tracks_list: new GroupedList()
     }
   },
-
   computed: {
     album_count() {
       return new Set(
@@ -145,6 +136,19 @@ export default {
           .filter((track) => track.isItem)
           .map((track) => track.item.album_id)
       ).size
+    },
+    heading() {
+      return {
+        title: this.artist.name,
+        subtitle: [
+          {
+            handler: this.openArtist,
+            key: 'count.albums',
+            count: this.album_count
+          },
+          { key: 'count.tracks', count: this.tracks.count }
+        ]
+      }
     },
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid
@@ -162,9 +166,8 @@ export default {
       return this.tracks_list.group(options)
     }
   },
-
   methods: {
-    open_artist() {
+    openArtist() {
       this.show_details_modal = false
       this.$router.push({
         name: 'music-artist',

@@ -43,11 +43,7 @@
         </div>
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.albums.title')" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.albums', { count: albums.count })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #content>
         <list-albums :items="albums" />
@@ -61,6 +57,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -72,7 +69,6 @@ const dataObject = {
   load(to) {
     return webapi.library_albums('music')
   },
-
   set(vm, response) {
     vm.albums_list = new GroupedList(response.data)
   }
@@ -84,21 +80,19 @@ export default {
     ContentWithHeading,
     ControlDropdown,
     ControlSwitch,
+    HeadingTitle,
     IndexButtonList,
     ListAlbums,
     TabsMusic
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
     return { uiStore: useUIStore(), servicesStore: useServicesStore() }
   },
-
   data() {
     return {
       albums_list: new GroupedList(),
@@ -149,7 +143,6 @@ export default {
       ]
     }
   },
-
   computed: {
     albums() {
       const { options } = this.groupings.find(
@@ -160,6 +153,12 @@ export default {
         (album) => !this.uiStore.hide_spotify || album.data_kind !== 'spotify'
       ]
       return this.albums_list.group(options)
+    },
+    heading() {
+      return {
+        title: this.$t('page.albums.title'),
+        subtitle: [{ key: 'count.albums', count: this.albums.count }]
+      }
     },
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid

@@ -68,14 +68,14 @@ export default {
     actions() {
       const actions = [
         {
-          label: this.$t('dialog.update.cancel'),
+          key: 'dialog.update.cancel',
           handler: this.cancel,
           icon: 'cancel'
         }
       ]
       if (!this.libraryStore.updating) {
         actions.push({
-          label: this.$t('dialog.update.rescan'),
+          key: 'dialog.update.rescan',
           handler: this.analyse,
           icon: 'check'
         })

@@ -34,7 +34,9 @@
   <template v-for="[type, items] in results" :key="type">
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t(`page.spotify.search.${type}s`)" />
+        <heading-title
+          :content="{ title: $t(`page.spotify.search.${type}s`) }"
+        />
       </template>
       <template #content>
         <component :is="components[type]" :items="items.items" />
@@ -77,6 +79,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
@@ -95,6 +98,7 @@ export default {
   name: 'PageSearchSpotify',
   components: {
     ContentWithHeading,
+    HeadingTitle,
     ListAlbumsSpotify,
     ListArtistsSpotify,
     ListPlaylistsSpotify,
@@ -102,11 +106,9 @@ export default {
     TabsSearch,
     VueEternalLoading
   },
-
   setup() {
     return { searchStore: useSearchStore() }
   },
-
   data() {
     return {
       components: {
@@ -121,7 +123,6 @@ export default {
       search_types: SEARCH_TYPES
     }
   },
-
   computed: {
     expanded() {
       return this.search_types.length === 1
@@ -132,20 +133,17 @@ export default {
       )
     }
   },
-
   watch: {
     search_query() {
       this.searchStore.search_query = this.search_query
     }
   },
-
   mounted() {
     this.searchStore.search_source = this.$route.name
     this.search_query = this.searchStore.search_query
     this.search_parameters.limit = PAGE_SIZE
     this.search()
   },
-
   methods: {
     expand(type) {
       this.search_query = this.searchStore.search_query

@@ -2,58 +2,56 @@
   <div>
     <content-with-heading v-if="tracks.items.length > 0">
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.podcasts.new-episodes')" />
+        <heading-title :content="{ title: $t('page.podcasts.new-episodes') }" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button
-            :handler="mark_all_played"
-            icon="pencil"
-            label="page.podcasts.mark-all-played"
-          />
-        </div>
+        <control-button
+          :button="{
+            handler: markAllAsPlayed,
+            icon: 'pencil',
+            key: 'page.podcasts.mark-all-played'
+          }"
+        />
       </template>
       <template #content>
         <list-tracks
           :items="tracks"
           :show_progress="true"
-          @play-count-changed="reload_new_episodes"
+          @play-count-changed="reloadNewEpisodes"
         />
       </template>
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.podcasts.title')" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.podcasts', { count: albums.total })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button
-            v-if="rss.tracks > 0"
-            :handler="update_rss"
-            icon="refresh"
-            label="page.podcasts.update"
-          />
-          <control-button
-            :handler="open_add_podcast_dialog"
-            icon="rss"
-            label="page.podcasts.add"
-          />
-        </div>
+        <control-button
+          v-if="rss.tracks > 0"
+          :button="{
+            handler: updateRss,
+            icon: 'refresh',
+            key: 'page.podcasts.update'
+          }"
+        />
+        <control-button
+          :button="{
+            handler: 'openAddPodcastDialog',
+            icon: 'rss',
+            key: 'page.podcasts.add'
+          }"
+        />
       </template>
       <template #content>
         <list-albums
           :items="albums"
-          @play-count-changed="reload_new_episodes()"
-          @podcast-deleted="reload_podcasts()"
+          @play-count-changed="reloadNewEpisodes()"
+          @podcast-deleted="reloadPodcasts()"
         />
         <modal-dialog-add-rss
           :show="show_url_modal"
           @close="show_url_modal = false"
-          @podcast-added="reload_podcasts()"
+          @podcast-added="reloadPodcasts()"
         />
       </template>
     </content-with-heading>
@@ -64,6 +62,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
@@ -78,7 +77,6 @@ const dataObject = {
       webapi.library_podcasts_new_episodes()
     ])
   },
-
   set(vm, response) {
     vm.albums = new GroupedList(response[0].data)
     vm.tracks = new GroupedList(response[1].data.tracks)
@@ -90,21 +88,19 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
+    HeadingTitle,
     ListAlbums,
     ListTracks,
     ModalDialogAddRss
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
     return { libraryStore: useLibraryStore(), uiStore: useUIStore() }
   },
-
   data() {
     return {
       albums: [],
@@ -112,39 +108,42 @@ export default {
       show_url_modal: false
     }
   },
-
   computed: {
+    heading() {
+      if (this.albums.total) {
+        return {
+          title: this.$t('page.podcasts.title'),
+          subtitle: [{ key: 'count.podcasts', count: this.albums.count }]
+        }
+      }
+      return {}
+    },
     rss() {
       return this.libraryStore.rss
     }
   },
-
   methods: {
-    mark_all_played() {
+    markAllAsPlayed() {
       this.tracks.items.forEach((ep) => {
         webapi.library_track_update(ep.id, { play_count: 'increment' })
       })
       this.tracks.items = {}
     },
-
-    open_add_podcast_dialog() {
+    openAddPodcastDialog() {
       this.show_url_modal = true
     },
-
-    reload_new_episodes() {
+    reloadNewEpisodes() {
       webapi.library_podcasts_new_episodes().then(({ data }) => {
         this.tracks = new GroupedList(data.tracks)
       })
     },
-
-    reload_podcasts() {
+    reloadPodcasts() {
       webapi.library_albums('podcast').then(({ data }) => {
         this.albums = new GroupedList(data)
-        this.reload_new_episodes()
+        this.reloadNewEpisodes()
       })
     },
-
-    update_rss() {
+    updateRss() {
       this.libraryStore.update_dialog_scan_kind = 'rss'
       this.uiStore.show_update_dialog = true
     }

@@ -33,7 +33,7 @@
                 v-else-if="menu.action"
                 class="dropdown-item"
                 @click.stop.prevent="menu.action"
-                v-text="$t(menu.label)"
+                v-text="$t(menu.key)"
               />
               <control-link
                 v-else
@@ -48,7 +48,7 @@
                     'pl-5': menu.sub,
                     'has-text-weight-semibold': menu.icon
                   }"
-                  v-text="$t(menu.label)"
+                  v-text="$t(menu.key)"
                 />
               </control-link>
             </template>
@@ -82,82 +82,82 @@ export default {
       return [
         {
           name: 'playlists',
-          label: 'navigation.playlists',
+          key: 'navigation.playlists',
           icon: 'music-box-multiple',
           show: this.settingsStore.show_menu_item_playlists
         },
         {
           name: 'music',
-          label: 'navigation.music',
+          key: 'navigation.music',
           icon: 'music',
           show: this.settingsStore.show_menu_item_music
         },
         {
           name: 'music-artists',
-          label: 'navigation.artists',
+          key: 'navigation.artists',
           show: true,
           sub: true
         },
         {
           name: 'music-albums',
-          label: 'navigation.albums',
+          key: 'navigation.albums',
           show: true,
           sub: true
         },
         {
           name: 'music-genres',
-          label: 'navigation.genres',
+          key: 'navigation.genres',
           show: true,
           sub: true
         },
         {
           name: 'music-spotify',
-          label: 'navigation.spotify',
+          key: 'navigation.spotify',
           show: this.servicesStore.spotify.webapi_token_valid,
           sub: true
         },
         {
           name: 'podcasts',
-          label: 'navigation.podcasts',
+          key: 'navigation.podcasts',
           icon: 'microphone',
           show: this.settingsStore.show_menu_item_podcasts
         },
         {
           name: 'audiobooks',
-          label: 'navigation.audiobooks',
+          key: 'navigation.audiobooks',
           icon: 'book-open-variant',
           show: this.settingsStore.show_menu_item_audiobooks
         },
         {
           name: 'radio',
-          label: 'navigation.radio',
+          key: 'navigation.radio',
           icon: 'radio',
           show: this.settingsStore.show_menu_item_radio
         },
         {
           name: 'files',
-          label: 'navigation.files',
+          key: 'navigation.files',
           icon: 'folder-open',
           show: this.settingsStore.show_menu_item_files
         },
         {
           name: this.searchStore.search_source,
-          label: 'navigation.search',
+          key: 'navigation.search',
           icon: 'magnify',
           show: this.settingsStore.show_menu_item_search
         },
         { separator: true, show: true },
         {
           name: 'settings-webinterface',
-          label: 'navigation.settings',
+          key: 'navigation.settings',
           show: true
         },
         {
-          label: 'navigation.update-library',
+          key: 'navigation.update-library',
           action: this.open_update_dialog,
           show: true
         },
-        { name: 'about', label: 'navigation.about', show: true }
+        { name: 'about', key: 'navigation.about', show: true }
       ]
     },
     zindex() {

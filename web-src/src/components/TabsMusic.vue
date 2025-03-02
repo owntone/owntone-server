@@ -18,34 +18,34 @@ export default {
         {
           to: { name: 'music-history' },
           icon: 'history',
-          label: 'page.music.tabs.history'
+          key: 'page.music.tabs.history'
         },
         {
           to: { name: 'music-artists' },
           icon: 'account-music',
-          label: 'page.music.tabs.artists'
+          key: 'page.music.tabs.artists'
         },
         {
           to: { name: 'music-albums' },
           icon: 'album',
-          label: 'page.music.tabs.albums'
+          key: 'page.music.tabs.albums'
         },
         {
           to: { name: 'music-genres' },
           icon: 'speaker',
-          label: 'page.music.tabs.genres'
+          key: 'page.music.tabs.genres'
         },
         {
           to: { name: 'music-composers' },
           icon: 'book-open-page-variant',
-          label: 'page.music.tabs.composers'
+          key: 'page.music.tabs.composers'
         }
       ]
       if (this.servicesStore.spotify.webapi_token_valid) {
         links.push({
           to: { name: 'music-spotify' },
           icon: 'spotify',
-          label: 'page.music.tabs.spotify'
+          key: 'page.music.tabs.spotify'
         })
       }
       return links

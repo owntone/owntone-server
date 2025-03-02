@@ -13,10 +13,10 @@
   <slot v-if="$slots.buttons" name="buttons" />
   <div
     v-for="property in item.properties?.filter((p) => p.value)"
-    :key="property.label"
+    :key="property.key"
     class="mb-3"
   >
-    <div class="is-size-7 is-uppercase" v-text="$t(property.label)" />
+    <div class="is-size-7 is-uppercase" v-text="$t(property.key)" />
     <div class="title is-6">
       <a
         v-if="property.handler"

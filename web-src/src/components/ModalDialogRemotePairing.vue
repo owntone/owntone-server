@@ -47,12 +47,12 @@ export default {
     actions() {
       return [
         {
-          label: this.$t('dialog.remote-pairing.cancel'),
+          key: 'dialog.remote-pairing.cancel',
           handler: this.cancel,
           icon: 'cancel'
         },
         {
-          label: this.$t('dialog.remote-pairing.pair'),
+          key: 'dialog.remote-pairing.pair',
           handler: this.pair,
           icon: 'cellphone'
         }

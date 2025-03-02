@@ -22,17 +22,17 @@ export default {
         expression: `composer is "${this.item.name}" and media_kind is music`,
         properties: [
           {
-            label: 'property.albums',
+            key: 'property.albums',
             value: this.item.album_count,
             handler: this.open_albums
           },
           {
-            label: 'property.tracks',
+            key: 'property.tracks',
             value: this.item.track_count,
             handler: this.open_tracks
           },
           {
-            label: 'property.duration',
+            key: 'property.duration',
             value: this.$filters.toTimecode(this.item.length_ms)
           }
         ]

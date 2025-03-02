@@ -1,11 +1,11 @@
 <template>
   <button
     class="button is-small is-rounded"
-    :disabled="disabled"
-    @click="handler"
+    :disabled="button.disabled"
+    @click="button.handler"
   >
-    <mdicon v-if="icon" class="icon" :name="icon" size="16" />
-    <span v-if="label" v-text="$t(label)" />
+    <mdicon v-if="button.icon" class="icon" :name="button.icon" size="16" />
+    <span v-if="button.key" v-text="$t(button.key)" />
   </button>
 </template>
 
@@ -13,10 +13,7 @@
 export default {
   name: 'ControlButton',
   props: {
-    disabled: { default: false, type: Boolean },
-    handler: { required: true, type: Function },
-    icon: { default: '', type: String },
-    label: { default: '', type: String }
+    button: { required: true, type: Object }
   }
 }
 </script>

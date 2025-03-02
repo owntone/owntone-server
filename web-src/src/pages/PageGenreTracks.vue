@@ -17,25 +17,19 @@
         </div>
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="genre.name" />
-        <div class="is-size-7 is-uppercase">
-          <a
-            @click="open_genre"
-            v-text="$t('count.albums', { count: genre.album_count })"
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <span v-text="$t('count.tracks', { count: genre.track_count })" />
-        </div>
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :handler="play"
-            icon="shuffle"
-            label="page.genre.shuffle"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'shuffle',
+            key: 'page.genre.shuffle'
+          }"
+        />
       </template>
       <template #content>
         <list-tracks :items="tracks" :expression="expression" />
@@ -55,6 +49,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
@@ -68,7 +63,6 @@ const dataObject = {
       webapi.library_genre_tracks(to.params.name, to.query.media_kind)
     ])
   },
-
   set(vm, response) {
     vm.genre = response[0].data.genres.items.shift()
     vm.tracks_list = new GroupedList(response[1].data.tracks)
@@ -81,6 +75,7 @@ export default {
     ContentWithHeading,
     ControlButton,
     ControlDropdown,
+    HeadingTitle,
     IndexButtonList,
     ListTracks,
     ModalDialogGenre
@@ -120,6 +115,19 @@ export default {
     expression() {
       return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
     },
+    heading() {
+      return {
+        title: this.genre.name,
+        subtitle: [
+          {
+            handler: this.openGenre,
+            key: 'count.albums',
+            count: this.genre.album_count
+          },
+          { key: 'count.tracks', count: this.genre.track_count }
+        ]
+      }
+    },
     tracks() {
       const { options } = this.groupings.find(
         (grouping) => grouping.id === this.uiStore.genre_tracks_sort
@@ -128,7 +136,7 @@ export default {
     }
   },
   methods: {
-    open_genre() {
+    openGenre() {
       this.show_details_modal = false
       this.$router.push({
         name: 'genre-albums',

@@ -2,46 +2,50 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.queue.title')" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.tracks', { count: queue.count })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button
-            :handler="update_show_next_items"
-            :class="{ 'is-dark': show_only_next_items }"
-            icon="eye-off-outline"
-            label="page.queue.hide-previous"
-          />
-          <control-button
-            :handler="open_add_stream_dialog"
-            icon="web"
-            label="page.queue.add-stream"
-          />
-          <control-button
-            :class="{ 'is-dark': edit_mode }"
-            :disabled="queue_items.length === 0"
-            :handler="toggleEdit"
-            icon="pencil"
-            label="page.queue.edit"
-          />
-          <control-button
-            :disabled="queue_items.length === 0"
-            :handler="queue_clear"
-            icon="delete-empty"
-            label="page.queue.clear"
-          />
-          <control-button
-            v-if="is_queue_save_allowed"
-            :disabled="queue_items.length === 0"
-            :handler="save_dialog"
-            icon="download"
-            label="page.queue.save"
-          />
-        </div>
+        <control-button
+          :button="{
+            handler: update_show_next_items,
+            icon: 'eye-off-outline',
+            key: 'page.queue.hide-previous',
+            class: { 'is-dark': show_only_next_items }
+          }"
+        />
+        <control-button
+          :button="{
+            handler: open_add_stream_dialog,
+            icon: 'web',
+            key: 'page.queue.add-stream'
+          }"
+        />
+        <control-button
+          :button="{
+            handler: toggleEdit,
+            icon: 'pencil',
+            key: 'page.queue.edit',
+            disabled: queue_items.length === 0,
+            class: { 'is-dark': edit_mode }
+          }"
+        />
+        <control-button
+          :button="{
+            handler: queue_clear,
+            icon: 'delete-empty',
+            key: 'page.queue.clear',
+            disabled: queue_items.length === 0
+          }"
+        />
+        <control-button
+          v-if="is_queue_save_allowed"
+          :button="{
+            handler: save_dialog,
+            icon: 'download',
+            key: 'page.queue.save',
+            disabled: queue_items.length === 0
+          }"
+        />
       </template>
       <template #content>
         <draggable v-model="queue_items" item-key="id" @end="move_item">
@@ -93,6 +97,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
 import ModalDialogAddStream from '@/components/ModalDialogAddStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
@@ -113,9 +118,9 @@ export default {
     ModalDialogAddStream,
     ModalDialogPlaylistSave,
     ModalDialogQueueItem,
+    HeadingTitle,
     draggable
   },
-
   setup() {
     return {
       configurationStore: useConfigurationStore(),
@@ -124,7 +129,6 @@ export default {
       uiStore: useUIStore()
     }
   },
-
   data() {
     return {
       edit_mode: false,
@@ -134,10 +138,15 @@ export default {
       show_url_modal: false
     }
   },
-
   computed: {
     current_position() {
       return this.queue.current?.position ?? -1
+    },
+    heading() {
+      return {
+        title: this.$t('page.queue.title'),
+        subtitle: [{ key: 'count.tracks', count: this.queue.count }]
+      }
     },
     is_queue_save_allowed() {
       return (

@@ -17,25 +17,19 @@
         </div>
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="composer.name" />
-        <div class="is-size-7 is-uppercase">
-          <a
-            @click="open_albums"
-            v-text="$t('count.albums', { count: composer.album_count })"
-          />
-          <span>&nbsp;|&nbsp;</span>
-          <span v-text="$t('count.tracks', { count: composer.track_count })" />
-        </div>
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :handler="play"
-            icon="shuffle"
-            label="page.composer.shuffle"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'shuffle',
+            key: 'page.composer.shuffle'
+          }"
+        />
       </template>
       <template #content>
         <list-tracks :items="tracks" :expression="expression" />
@@ -54,6 +48,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
@@ -80,6 +75,7 @@ export default {
     ContentWithHeading,
     ControlButton,
     ControlDropdown,
+    HeadingTitle,
     IndexButtonList,
     ListTracks,
     ModalDialogComposer
@@ -117,6 +113,19 @@ export default {
   computed: {
     expression() {
       return `composer is "${this.composer.name}" and media_kind is music`
+    },
+    heading() {
+      return {
+        title: this.composer.name,
+        subtitle: [
+          {
+            handler: this.open_albums,
+            key: 'count.albums',
+            count: this.composer.album_count
+          },
+          { key: 'count.tracks', count: composer.track_count }
+        ]
+      }
     },
     tracks() {
       const { options } = this.groupings.find(

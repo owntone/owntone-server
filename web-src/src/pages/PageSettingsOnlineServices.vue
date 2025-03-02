@@ -3,9 +3,8 @@
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div
-          class="title is-4"
-          v-text="$t('page.settings.services.spotify.title')"
+        <heading-title
+          :content="{ title: $t('page.settings.services.spotify.title') }"
         />
       </template>
       <template #content>
@@ -59,9 +58,8 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <div
-          class="title is-4"
-          v-text="$t('page.settings.services.lastfm.title')"
+        <heading-title
+          :content="{ title: $t('page.settings.services.lastfm.title') }"
         />
       </template>
       <template #content>
@@ -127,18 +125,17 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
 export default {
   name: 'PageSettingsOnlineServices',
-  components: { ContentWithHeading, TabsSettings },
-
+  components: { ContentWithHeading, HeadingTitle, TabsSettings },
   setup() {
     return { servicesStore: useServicesStore() }
   },
-
   data() {
     return {
       lastfm_login: {
@@ -148,7 +145,6 @@ export default {
       }
     }
   },
-
   computed: {
     lastfm() {
       return this.servicesStore.lastfm
@@ -175,7 +171,6 @@ export default {
       return []
     }
   },
-
   methods: {
     login_lastfm() {
       webapi.lastfm_login(this.lastfm_login).then((response) => {

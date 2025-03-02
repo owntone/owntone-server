@@ -33,25 +33,19 @@
         </div>
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="artist.name" />
-        <div class="is-size-7 is-uppercase">
-          <span v-text="$t('count.albums', { count: albums.count })" />
-          <span>&nbsp;|&nbsp;</span>
-          <a
-            @click="open_tracks"
-            v-text="$t('count.tracks', { count: track_count })"
-          />
-        </div>
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :handler="play"
-            icon="shuffle"
-            label="page.artist.shuffle"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'shuffle',
+            key: 'page.artist.shuffle'
+          }"
+        />
       </template>
       <template #content>
         <list-albums :items="albums" />
@@ -71,6 +65,7 @@ import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '../components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import { useServicesStore } from '@/stores/services'
@@ -84,7 +79,6 @@ const dataObject = {
       webapi.library_artist_albums(to.params.id)
     ])
   },
-
   set(vm, response) {
     vm.artist = response[0].data
     vm.albums_list = new GroupedList(response[1].data)
@@ -98,20 +92,18 @@ export default {
     ControlButton,
     ControlDropdown,
     ControlSwitch,
+    HeadingTitle,
     ListAlbums,
     ModalDialogArtist
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
     return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
-
   data() {
     return {
       albums_list: new GroupedList(),
@@ -131,7 +123,6 @@ export default {
       show_details_modal: false
     }
   },
-
   computed: {
     albums() {
       const { options } = this.groupings.find(
@@ -141,6 +132,19 @@ export default {
         (album) => !this.uiStore.hide_spotify || album.data_kind !== 'spotify'
       ]
       return this.albums_list.group(options)
+    },
+    heading() {
+      return {
+        title: this.artist.name,
+        subtitle: [
+          { key: 'count.albums', count: this.albums.count },
+          {
+            handler: this.open_tracks,
+            key: 'count.tracks',
+            count: this.track_count
+          }
+        ]
+      }
     },
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid
@@ -153,7 +157,6 @@ export default {
       )
     }
   },
-
   methods: {
     open_tracks() {
       this.$router.push({

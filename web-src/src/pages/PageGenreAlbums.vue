@@ -5,25 +5,19 @@
         <index-button-list :indices="albums.indices" />
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="genre.name" />
-        <div class="is-size-7 is-uppercase">
-          <span v-text="$t('count.albums', { count: genre.album_count })" />
-          <span>&nbsp;|&nbsp;</span>
-          <a
-            @click="open_tracks"
-            v-text="$t('count.tracks', { count: genre.track_count })"
-          />
-        </div>
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :handler="play"
-            icon="shuffle"
-            label="page.genre.shuffle"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'shuffle',
+            key: 'page.genre.shuffle'
+          }"
+        />
       </template>
       <template #content>
         <list-albums :items="albums" />
@@ -42,6 +36,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
@@ -67,6 +62,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
+    HeadingTitle,
     IndexButtonList,
     ListAlbums,
     ModalDialogGenre
@@ -82,6 +78,21 @@ export default {
       genre: {},
       media_kind: this.$route.query.media_kind,
       show_details_modal: false
+    }
+  },
+  computed: {
+    heading() {
+      return {
+        title: this.genre.name,
+        subtitle: [
+          { key: 'count.albums', count: this.genre.album_count },
+          {
+            handler: this.open_tracks,
+            key: 'count.tracks',
+            count: this.genre.track_count
+          }
+        ]
+      }
     }
   },
   methods: {

@@ -30,12 +30,12 @@ export default {
     actions() {
       return [
         {
-          label: this.$t('dialog.queue-item.remove'),
+          key: this.$t('dialog.queue-item.remove'),
           handler: this.remove,
           icon: 'delete'
         },
         {
-          label: this.$t('dialog.queue-item.play'),
+          key: this.$t('dialog.queue-item.play'),
           handler: this.play,
           icon: 'play'
         }
@@ -47,37 +47,37 @@ export default {
         uri: this.item.uri,
         properties: [
           {
-            label: 'property.album',
+            key: 'property.album',
             value: this.item.album,
             handler: this.open_album
           },
           {
-            label: 'property.album-artist',
+            key: 'property.album-artist',
             value: this.item.album_artist,
             handler: this.open_album_artist
           },
-          { label: 'property.composer', value: this.item.composer },
-          { label: 'property.year', value: this.item.year },
+          { key: 'property.composer', value: this.item.composer },
+          { key: 'property.year', value: this.item.year },
           {
-            label: 'property.genre',
+            key: 'property.genre',
             value: this.item.genre,
             handler: this.open_genre
           },
           {
-            label: 'property.position',
+            key: 'property.position',
             value: [this.item.disc_number, this.item.track_number].join(' / ')
           },
           {
-            label: 'property.duration',
+            key: 'property.duration',
             value: this.$filters.toTimecode(this.item.length_ms)
           },
-          { label: 'property.path', value: this.item.path },
+          { key: 'property.path', value: this.item.path },
           {
-            label: 'property.type',
+            key: 'property.type',
             value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
           },
           {
-            label: 'property.quality',
+            key: 'property.quality',
             value: this.$t('dialog.track.quality-value', {
               format: this.item.type,
               bitrate: this.item.bitrate,

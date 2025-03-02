@@ -2,21 +2,19 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="artist.name" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.audiobooks', { count: artist.album_count })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :handler="play"
-            icon="play"
-            label="page.audiobooks.artist.play"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'play',
+            key: 'page.audiobooks.artist.play'
+          }"
+        />
       </template>
       <template #content>
         <list-albums :items="albums" />
@@ -34,6 +32,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'
@@ -56,6 +55,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
+    HeadingTitle,
     ListAlbums,
     ModalDialogArtist
   },
@@ -69,6 +69,19 @@ export default {
       albums: new GroupedList(),
       artist: {},
       show_details_modal: false
+    }
+  },
+  computed: {
+    heading() {
+      if (this.artist.name) {
+        return {
+          title: this.artist.name,
+          subtitle: [
+            { key: 'count.audiobooks', count: this.artist.album_count }
+          ]
+        }
+      }
+      return {}
     }
   },
   methods: {

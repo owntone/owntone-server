@@ -2,16 +2,7 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div
-          class="title is-4"
-          v-text="
-            playlist.id === 0 ? $t('page.playlists.title') : playlist.name
-          "
-        />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.playlists', { count: playlists.count })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #content>
         <list-playlists :items="playlists" />
@@ -23,6 +14,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import { useConfigurationStore } from '@/stores/configuration'
 import webapi from '@/webapi'
@@ -34,7 +26,6 @@ const dataObject = {
       webapi.library_playlist_folder(to.params.id)
     ])
   },
-
   set(vm, response) {
     vm.playlist = response[0].data
     vm.playlists_list = new GroupedList(response[1].data)
@@ -43,35 +34,39 @@ const dataObject = {
 
 export default {
   name: 'PagePlaylistFolder',
-  components: { ContentWithHeading, ListPlaylists },
-
+  components: { ContentWithHeading, ListPlaylists, HeadingTitle },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   beforeRouteUpdate(to, from, next) {
     dataObject.load(to).then((response) => {
       dataObject.set(this, response)
       next()
     })
   },
-
   setup() {
     return {
       configurationStore: useConfigurationStore()
     }
   },
-
   data() {
     return {
       playlist: {},
       playlists_list: new GroupedList()
     }
   },
-
   computed: {
+    heading() {
+      return {
+        title:
+          this.playlists.count === 0
+            ? this.$t('page.playlists.title')
+            : this.playlist.name,
+        subtitle: [{ key: 'count.playlists', count: this.playlists.count }]
+      }
+    },
     playlists() {
       return this.playlists_list.group({
         filters: [

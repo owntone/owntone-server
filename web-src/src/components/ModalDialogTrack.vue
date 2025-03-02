@@ -22,8 +22,8 @@ export default {
         return []
       }
       return this.item.play_count > 0
-        ? [{ label: 'dialog.track.mark-as-new', handler: this.mark_new }]
-        : [{ label: 'dialog.track.mark-as-played', handler: this.mark_played }]
+        ? [{ key: 'dialog.track.mark-as-new', handler: this.mark_new }]
+        : [{ key: 'dialog.track.mark-as-played', handler: this.mark_played }]
     },
     playable() {
       return {
@@ -31,36 +31,36 @@ export default {
         uri: this.item.uri,
         properties: [
           {
-            label: 'property.album',
+            key: 'property.album',
             value: this.item.album,
             handler: this.open_album
           },
           {
-            label: 'property.album-artist',
+            key: 'property.album-artist',
             value: this.item.album_artist,
             handler: this.open_artist
           },
-          { label: 'property.composer', value: this.item.composer },
+          { key: 'property.composer', value: this.item.composer },
           {
-            label: 'property.release-date',
+            key: 'property.release-date',
             value: this.$filters.toDate(this.item.date_released)
           },
-          { label: 'property.year', value: this.item.year },
-          { label: 'property.genre', value: this.item.genre },
+          { key: 'property.year', value: this.item.year },
+          { key: 'property.genre', value: this.item.genre },
           {
-            label: 'property.position',
+            key: 'property.position',
             value: [this.item.disc_number, this.item.track_number].join(' / ')
           },
           {
-            label: 'property.duration',
+            key: 'property.duration',
             value: this.$filters.toTimecode(this.item.length_ms)
           },
           {
-            label: 'property.type',
+            key: 'property.type',
             value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
           },
           {
-            label: 'property.quality',
+            key: 'property.quality',
             value:
               this.item.data_kind !== 'spotify' &&
               this.$t('dialog.track.quality-value', {
@@ -71,17 +71,17 @@ export default {
               })
           },
           {
-            label: 'property.added-on',
+            key: 'property.added-on',
             value: this.$filters.toDateTime(this.item.time_added)
           },
           {
-            label: 'property.rating',
+            key: 'property.rating',
             value: this.$t('dialog.track.rating-value', {
               rating: Math.floor(this.item.rating / 10)
             })
           },
-          { label: 'property.comment', value: this.item.comment },
-          { label: 'property.path', value: this.item.path }
+          { key: 'property.comment', value: this.item.comment },
+          { key: 'property.path', value: this.item.path }
         ]
       }
     }

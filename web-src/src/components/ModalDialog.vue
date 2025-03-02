@@ -11,13 +11,13 @@
           <footer v-if="actions.length" class="card-footer">
             <a
               v-for="action in actions"
-              :key="action.label"
+              :key="action.key"
               class="card-footer-item"
               :class="{ 'is-disabled': action.disabled }"
               @click="action.handler"
             >
               <mdicon class="icon" :name="action.icon" size="16" />
-              <span class="is-size-7" v-text="action.label" />
+              <span class="is-size-7" v-text="$t(action.key)" />
             </a>
           </footer>
         </div>

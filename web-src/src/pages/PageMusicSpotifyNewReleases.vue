@@ -3,7 +3,7 @@
     <tabs-music />
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.spotify.music.new-releases')" />
+        <heading-title :content="heading" />
       </template>
       <template #content>
         <list-albums-spotify :items="albums" />
@@ -14,6 +14,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -30,7 +31,6 @@ const dataObject = {
       })
     })
   },
-
   set(vm, response) {
     vm.albums = response.albums.items
   }
@@ -40,19 +40,23 @@ export default {
   name: 'PageMusicSpotifyNewReleases',
   components: {
     ContentWithHeading,
+    HeadingTitle,
     ListAlbumsSpotify,
     TabsMusic
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       albums: []
+    }
+  },
+  computed: {
+    heading() {
+      return { title: this.$t('page.spotify.music.new-releases') }
     }
   }
 }

@@ -42,11 +42,7 @@
         </div>
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.artists.title')" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.artists', { count: artists.count })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #content>
         <list-artists :items="artists" />
@@ -60,6 +56,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -83,21 +80,19 @@ export default {
     ContentWithHeading,
     ControlDropdown,
     ControlSwitch,
+    HeadingTitle,
     IndexButtonList,
     ListArtists,
     TabsMusic
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
     return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
-
   data() {
     return {
       artists_list: new GroupedList(),
@@ -118,7 +113,6 @@ export default {
       ]
     }
   },
-
   computed: {
     artists() {
       const { options } = this.groupings.find(
@@ -131,6 +125,12 @@ export default {
         (artist) => !this.uiStore.hide_spotify || artist.data_kind !== 'spotify'
       ]
       return this.artists_list.group(options)
+    },
+    heading() {
+      return {
+        title: this.$t('page.artists.title'),
+        subtitle: [{ key: 'count.artists', count: this.artists.count }]
+      }
     },
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid

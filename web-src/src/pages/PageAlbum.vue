@@ -12,11 +12,18 @@
         />
         <div class="buttons is-centered-mobile mt-5">
           <control-button
-            :handler="play"
-            icon="shuffle"
-            label="page.album.shuffle"
+            :button="{
+              handler: play,
+              icon: 'shuffle',
+              key: 'page.album.shuffle'
+            }"
           />
-          <control-button :handler="showDetails" icon="dots-horizontal" />
+          <control-button
+            :button="{
+              handler: showDetails,
+              icon: 'dots-horizontal'
+            }"
+          />
         </div>
       </template>
       <template #heading-right>

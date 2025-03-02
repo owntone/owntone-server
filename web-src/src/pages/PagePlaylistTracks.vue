@@ -2,22 +2,20 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="playlist.name" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.tracks', { count: tracks.count })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :disabled="tracks.count === 0"
-            :handler="play"
-            icon="shuffle"
-            label="page.playlist.shuffle"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'shuffle',
+            key: 'page.playlist.shuffle',
+            disabled: tracks.count === 0
+          }"
+        />
       </template>
       <template #content>
         <list-tracks :items="tracks" :uris="uris" />
@@ -36,6 +34,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 import webapi from '@/webapi'
@@ -47,7 +46,6 @@ const dataObject = {
       webapi.library_playlist_tracks(to.params.id)
     ])
   },
-
   set(vm, response) {
     vm.playlist = response[0].data
     vm.tracks = new GroupedList(response[1].data)
@@ -59,16 +57,15 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
+    HeadingTitle,
     ListTracks,
     ModalDialogPlaylist
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       playlist: {},
@@ -76,8 +73,13 @@ export default {
       tracks: new GroupedList()
     }
   },
-
   computed: {
+    heading() {
+      return {
+        title: this.playlist.name,
+        subtitle: [{ key: 'count.tracks', count: this.tracks.count }]
+      }
+    },
     uris() {
       if (this.playlist.random) {
         return this.tracks.map((item) => item.uri).join()
@@ -85,7 +87,6 @@ export default {
       return this.playlist.uri
     }
   },
-
   methods: {
     play() {
       webapi.player_play_uri(this.uris, true)

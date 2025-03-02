@@ -2,22 +2,20 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="playlist.name" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.playlists', { count: playlist.tracks.total })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :disabled="playlist.tracks.total === 0"
-            :handler="play"
-            icon="shuffle"
-            label="page.spotify.playlist.shuffle"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'shuffle',
+            key: 'page.spotify.playlist.shuffle',
+            disabled: playlist.tracks.total === 0
+          }"
+        />
       </template>
       <template #content>
         <list-tracks-spotify :items="tracks" :context_uri="playlist.uri" />
@@ -46,6 +44,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -68,7 +67,6 @@ const dataObject = {
       })
     ])
   },
-
   set(vm, response) {
     vm.playlist = response.shift()
     vm.tracks = []
@@ -85,19 +83,17 @@ export default {
     ControlButton,
     ListTracksSpotify,
     ModalDialogPlaylistSpotify,
+    HeadingTitle,
     VueEternalLoading
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
     return { servicesStore: useServicesStore() }
   },
-
   data() {
     return {
       offset: 0,
@@ -107,7 +103,16 @@ export default {
       tracks: []
     }
   },
-
+  computed: {
+    heading() {
+      return {
+        title: this.playlist.name,
+        subtitle: [
+          { key: 'count.playlists', count: this.playlist.tracks.total }
+        ]
+      }
+    }
+  },
   methods: {
     append_tracks(data) {
       let position = Math.max(

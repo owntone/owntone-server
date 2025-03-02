@@ -25,15 +25,12 @@ export default {
       if (this.media_kind_resolved === 'podcast') {
         if (this.item.data_kind === 'url') {
           return [
-            { label: 'dialog.album.mark-as-played', handler: this.mark_played },
-            {
-              label: 'dialog.album.remove-podcast',
-              handler: this.remove_podcast
-            }
+            { key: 'dialog.album.mark-as-played', handler: this.mark_played },
+            { key: 'dialog.album.remove-podcast', handler: this.remove_podcast }
           ]
         }
         return [
-          { label: 'dialog.album.mark-as-played', handler: this.mark_played }
+          { key: 'dialog.album.mark-as-played', handler: this.mark_played }
         ]
       }
       return []
@@ -49,26 +46,26 @@ export default {
         uri: this.item.uri,
         properties: [
           {
-            label: 'property.artist',
+            key: 'property.artist',
             value: this.item.artist,
             handler: this.open_artist
           },
           {
-            label: 'property.release-date',
+            key: 'property.release-date',
             value: this.$filters.toDate(this.item.date_released)
           },
-          { label: 'property.year', value: this.item.year },
-          { label: 'property.tracks', value: this.item.track_count },
+          { key: 'property.year', value: this.item.year },
+          { key: 'property.tracks', value: this.item.track_count },
           {
-            label: 'property.duration',
+            key: 'property.duration',
             value: this.$filters.toTimecode(this.item.length_ms)
           },
           {
-            label: 'property.type',
+            key: 'property.type',
             value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
           },
           {
-            label: 'property.added-on',
+            key: 'property.added-on',
             value: this.$filters.toDateTime(this.item.time_added)
           }
         ]

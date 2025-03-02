@@ -3,7 +3,9 @@
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.settings.artwork.title')" />
+        <heading-title
+          :content="{ title: $t('page.settings.artwork.title') }"
+        />
       </template>
       <template #content>
         <div
@@ -79,17 +81,21 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlSettingSwitch from '@/components/ControlSettingSwitch.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useServicesStore } from '@/stores/services'
 
 export default {
   name: 'PageSettingsArtwork',
-  components: { ContentWithHeading, ControlSettingSwitch, TabsSettings },
-
+  components: {
+    ContentWithHeading,
+    ControlSettingSwitch,
+    HeadingTitle,
+    TabsSettings
+  },
   setup() {
     return { servicesStore: useServicesStore() }
   },
-
   computed: {
     spotify() {
       return this.servicesStore.spotify

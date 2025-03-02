@@ -3,7 +3,9 @@
     <tabs-settings />
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t('page.settings.devices.pairing')" />
+        <heading-title
+          :content="{ title: $t('page.settings.devices.pairing') }"
+        />
       </template>
       <template #content>
         <div v-if="pairing.active">
@@ -39,9 +41,8 @@
     </content-with-heading>
     <content-with-heading>
       <template #heading-left>
-        <p
-          class="title is-4"
-          v-text="$t('page.settings.devices.speaker-pairing')"
+        <heading-title
+          :content="{ title: $t('page.settings.devices.speaker-pairing') }"
         />
       </template>
       <template #content>
@@ -91,6 +92,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useOutputsStore } from '@/stores/outputs'
 import { useRemotesStore } from '@/stores/remotes'
@@ -98,19 +100,16 @@ import webapi from '@/webapi'
 
 export default {
   name: 'PageSettingsRemotesOutputs',
-  components: { ContentWithHeading, ControlSwitch, TabsSettings },
-
+  components: { ContentWithHeading, ControlSwitch, HeadingTitle, TabsSettings },
   setup() {
     return { outputsStore: useOutputsStore(), remotesStore: useRemotesStore() }
   },
-
   data() {
     return {
       pairing_req: { pin: '' },
       verification_req: { pin: '' }
     }
   },
-
   computed: {
     outputs() {
       return this.outputsStore.outputs
@@ -119,7 +118,6 @@ export default {
       return this.remotesStore.pairing
     }
   },
-
   methods: {
     kickoff_pairing() {
       webapi.pairing_kickoff(this.pairing_req)

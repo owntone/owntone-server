@@ -25,16 +25,10 @@ export default {
         handler: this.open,
         expression: `genre is "${this.item.name}" and media_kind is ${this.media_kind}`,
         properties: [
+          { key: 'property.albums', value: this.item.album_count },
+          { key: 'property.tracks', value: this.item.track_count },
           {
-            label: 'property.albums',
-            value: this.item.album_count
-          },
-          {
-            label: 'property.tracks',
-            value: this.item.track_count
-          },
-          {
-            label: 'property.duration',
+            key: 'property.duration',
             value: this.$filters.toTimecode(this.item.length_ms)
           }
         ]

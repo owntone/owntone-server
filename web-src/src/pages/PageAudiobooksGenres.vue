@@ -6,11 +6,7 @@
         <index-button-list :indices="genres.indices" />
       </template>
       <template #heading-left>
-        <div class="title is-4" v-text="$t('page.genres.title')" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.genres', { count: genres.total })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #content>
         <list-genres :items="genres" :media_kind="'audiobook'" />
@@ -22,6 +18,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListGenres from '@/components/ListGenres.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
@@ -31,7 +28,6 @@ const dataObject = {
   load(to) {
     return webapi.library_genres('audiobook')
   },
-
   set(vm, response) {
     vm.genres = new GroupedList(response.data.genres, {
       index: { field: 'name_sort', type: String }
@@ -43,20 +39,27 @@ export default {
   name: 'PageAudiobooksGenres',
   components: {
     ContentWithHeading,
+    HeadingTitle,
     IndexButtonList,
     ListGenres,
     TabsAudiobooks
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       genres: new GroupedList()
+    }
+  },
+  computed: {
+    heading() {
+      return {
+        title: this.$t('page.genres.title'),
+        subtitle: [{ key: 'count.genres', count: this.genres.total }]
+      }
     }
   }
 }

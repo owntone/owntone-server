@@ -38,22 +38,22 @@ export default {
   computed: {
     actions() {
       if (this.loading) {
-        return [{ label: this.$t('dialog.add.stream.processing'), icon: 'web' }]
+        return [{ key: 'dialog.add.stream.processing', icon: 'web' }]
       }
       return [
         {
-          label: this.$t('dialog.add.stream.cancel'),
+          key: 'dialog.add.stream.cancel',
           handler: this.cancel,
           icon: 'cancel'
         },
         {
-          label: this.$t('dialog.add.stream.add'),
+          key: 'dialog.add.stream.add',
           disabled: this.disabled,
           handler: this.add,
           icon: 'playlist-plus'
         },
         {
-          label: this.$t('dialog.add.stream.play'),
+          key: 'dialog.add.stream.play',
           disabled: this.disabled,
           handler: this.play,
           icon: 'play'

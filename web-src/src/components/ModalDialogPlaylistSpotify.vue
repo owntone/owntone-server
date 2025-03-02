@@ -21,15 +21,9 @@ export default {
         handler: this.open,
         uri: this.item.uri,
         properties: [
-          {
-            label: 'property.owner',
-            value: this.item.owner?.display_name
-          },
-          {
-            label: 'property.tracks',
-            value: this.item.tracks?.total
-          },
-          { label: 'property.path', value: this.item.uri }
+          { key: 'property.owner', value: this.item.owner?.display_name },
+          { key: 'property.tracks', value: this.item.tracks?.total },
+          { key: 'property.path', value: this.item.uri }
         ]
       }
     }

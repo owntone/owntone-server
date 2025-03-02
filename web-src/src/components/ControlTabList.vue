@@ -21,7 +21,7 @@
                     />
                     <span
                       :class="{ 'is-hidden-mobile': link.icon }"
-                      v-text="$t(link.label)"
+                      v-text="$t(link.key)"
                     />
                   </a>
                 </li>

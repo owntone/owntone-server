@@ -21,14 +21,14 @@ export default {
         handler: this.open,
         uri: this.item.uri,
         properties: [
-          { label: 'property.albums', value: this.item.album_count },
-          { label: 'property.tracks', value: this.item.track_count },
+          { key: 'property.albums', value: this.item.album_count },
+          { key: 'property.tracks', value: this.item.track_count },
           {
-            label: 'property.type',
+            key: 'property.type',
             value: this.$t(`data.kind.${this.item.data_kind}`)
           },
           {
-            label: 'property.added-on',
+            key: 'property.added-on',
             value: this.$filters.toDateTime(this.item.time_added)
           }
         ]

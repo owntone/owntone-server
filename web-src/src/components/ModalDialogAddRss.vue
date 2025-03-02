@@ -37,16 +37,12 @@ export default {
   computed: {
     actions() {
       if (this.loading) {
-        return [{ label: this.$t('dialog.add.rss.processing'), icon: 'web' }]
+        return [{ key: 'dialog.add.rss.processing', icon: 'web' }]
       }
       return [
+        { key: 'dialog.add.rss.cancel', handler: this.cancel, icon: 'cancel' },
         {
-          label: this.$t('dialog.add.rss.cancel'),
-          handler: this.cancel,
-          icon: 'cancel'
-        },
-        {
-          label: this.$t('dialog.add.rss.add'),
+          key: 'dialog.add.rss.add',
           disabled: this.disabled,
           handler: this.add,
           icon: 'playlist-plus'

@@ -12,11 +12,11 @@
         />
         <div class="buttons is-centered-mobile mt-5">
           <control-button
-            :handler="play"
-            icon="play"
-            label="page.podcast.play"
+            :button="{ handler: play, icon: 'play', key: 'page.podcast.play' }"
           />
-          <control-button :handler="showDetails" icon="dots-horizontal" />
+          <control-button
+            :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          />
         </div>
       </template>
       <template #heading-right>
@@ -119,12 +119,12 @@ export default {
     actions() {
       return [
         {
-          label: this.$t('page.podcast.cancel'),
+          key: this.$t('page.podcast.cancel'),
           handler: 'cancel',
           icon: 'cancel'
         },
         {
-          label: this.$t('page.podcast.remove'),
+          key: this.$t('page.podcast.remove'),
           handler: 'remove',
           icon: 'delete'
         }

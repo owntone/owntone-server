@@ -12,20 +12,20 @@ export default {
     links() {
       return [
         {
-          to: { name: 'settings-webinterface' },
-          label: 'page.settings.tabs.general'
+          key: 'page.settings.tabs.general',
+          to: { name: 'settings-webinterface' }
         },
         {
-          to: { name: 'settings-remotes-outputs' },
-          label: 'page.settings.tabs.remotes-and-outputs'
+          key: 'page.settings.tabs.remotes-and-outputs',
+          to: { name: 'settings-remotes-outputs' }
         },
         {
-          to: { name: 'settings-artwork' },
-          label: 'page.settings.tabs.artwork'
+          key: 'page.settings.tabs.artwork',
+          to: { name: 'settings-artwork' }
         },
         {
-          to: { name: 'settings-online-services' },
-          label: 'page.settings.tabs.online-services'
+          key: 'page.settings.tabs.online-services',
+          to: { name: 'settings-online-services' }
         }
       ]
     }

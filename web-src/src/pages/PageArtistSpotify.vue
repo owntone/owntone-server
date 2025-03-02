@@ -2,21 +2,19 @@
   <div>
     <content-with-heading>
       <template #heading-left>
-        <div class="title is-4" v-text="artist.name" />
-        <div
-          class="is-size-7 is-uppercase"
-          v-text="$t('count.albums', { count: total })"
-        />
+        <heading-title :content="heading" />
       </template>
       <template #heading-right>
-        <div class="buttons is-centered">
-          <control-button :handler="showDetails" icon="dots-horizontal" />
-          <control-button
-            :handler="play"
-            icon="shuffle"
-            label="page.spotify.artist.shuffle"
-          />
-        </div>
+        <control-button
+          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+        />
+        <control-button
+          :button="{
+            handler: play,
+            icon: 'shuffle',
+            key: 'page.spotify.artist.shuffle'
+          }"
+        />
       </template>
       <template #content>
         <list-albums-spotify :items="albums" />
@@ -48,6 +46,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -71,7 +70,6 @@ const dataObject = {
       })
     ])
   },
-
   set(vm, response) {
     vm.artist = response.shift()
     vm.albums = []
@@ -86,21 +84,19 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
+    HeadingTitle,
     ListAlbumsSpotify,
     ModalDialogArtistSpotify,
     VueEternalLoading
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   setup() {
     return { servicesStore: useServicesStore() }
   },
-
   data() {
     return {
       albums: [],
@@ -110,7 +106,14 @@ export default {
       total: 0
     }
   },
-
+  computed: {
+    heading() {
+      return {
+        title: this.$t('artist.name'),
+        subtitle: [{ key: 'count.albums', count: this.total }]
+      }
+    }
+  },
   methods: {
     append_albums(data) {
       this.albums = this.albums.concat(data.items)

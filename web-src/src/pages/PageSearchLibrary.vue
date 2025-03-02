@@ -51,7 +51,7 @@
   <template v-for="[type, items] in results" :key="type">
     <content-with-heading>
       <template #heading-left>
-        <p class="title is-4" v-text="$t(`page.search.${type}s`)" />
+        <heading-title :content="{ title: $t(`page.search.${type}s`) }" />
       </template>
       <template #content>
         <component :is="components[type]" :items="items" />
@@ -83,6 +83,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import ListComposers from '@/components/ListComposers.vue'
@@ -107,6 +108,7 @@ export default {
   name: 'PageSearchLibrary',
   components: {
     ContentWithHeading,
+    HeadingTitle,
     ListAlbums,
     ListArtists,
     ListComposers,
