@@ -36,6 +36,7 @@
         "loading": "加载中…",
         "placeholder": "https://url-to-stream",
         "play": "播放",
+        "processing": "处理中…",
         "title": "添加流"
       }
     },

@@ -36,6 +36,7 @@
         "loading": "載入中…",
         "placeholder": "https://url-to-stream",
         "play": "播放",
+        "processing": "處理中…",
         "title": "新增串流"
       }
     },

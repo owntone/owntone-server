@@ -36,6 +36,7 @@
         "loading": "Loading…",
         "placeholder": "https://url-to-stream",
         "play": "Play",
+        "processing": "Processing…",
         "title": "Add stream"
       }
     },

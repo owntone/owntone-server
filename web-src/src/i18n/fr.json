@@ -36,6 +36,7 @@
         "loading": "Chargement…",
         "placeholder": "https://url-du-flux",
         "play": "Lire",
+        "processing": "Traitement en cours…",
         "title": "Ajouter un flux"
       }
     },
