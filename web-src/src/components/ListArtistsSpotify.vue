@@ -1,8 +1,8 @@
 <template>
   <template v-for="item in items" :key="item.id">
-    <div class="media is-align-items-center mb-0">
-      <div class="media-content is-clickable" @click="open(item)">
-        <p class="title is-6" v-text="item.name" />
+    <div class="media is-align-items-center is-clickable mb-0">
+      <div class="media-content" @click="open(item)">
+        <p class="is-size-6 has-text-weight-bold" v-text="item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">

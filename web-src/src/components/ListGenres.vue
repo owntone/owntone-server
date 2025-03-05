@@ -15,7 +15,7 @@
       @click="open(item.item)"
     >
       <div class="media-content">
-        <p class="title is-6" v-text="item.item.name" />
+        <p class="is-size-6 has-text-weight-bold" v-text="item.item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item.item)">

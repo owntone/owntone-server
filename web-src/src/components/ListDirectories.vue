@@ -27,7 +27,7 @@
     >
       <mdicon class="media-left icon" name="folder" />
       <div class="media-content">
-        <p class="title is-6" v-text="item.name" />
+        <p class="is-size-6 has-text-weight-bold" v-text="item.name" />
       </div>
       <div class="media-right">
         <a @click.prevent.stop="open_dialog(item)">
