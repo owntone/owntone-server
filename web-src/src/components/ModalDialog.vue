@@ -9,16 +9,17 @@
             <slot name="content" />
           </div>
           <footer v-if="actions.length" class="card-footer">
-            <a
+            <button
               v-for="action in actions"
               :key="action.key"
-              class="card-footer-item"
+              class="card-footer-item is-small"
               :class="{ 'is-disabled': action.disabled }"
+              :disabled="action.disabled"
               @click="action.handler"
             >
               <mdicon class="icon" :name="action.icon" size="16" />
               <span class="is-size-7" v-text="$t(action.key)" />
-            </a>
+            </button>
           </footer>
         </div>
       </div>
