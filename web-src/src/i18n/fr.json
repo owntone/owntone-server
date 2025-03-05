@@ -1,4 +1,28 @@
 {
+  "actions": {
+    "add": "Ajouter",
+    "add-next": "Ajouter ensuite",
+    "add-stream": "Ajouter un flux",
+    "cancel": "Annuler",
+    "clear": "Effacer",
+    "edit": "Éditer",
+    "filter": "Filtrer",
+    "login": "Se connecter",
+    "logout": "Se déconnecter",
+    "hide-previous": "Masquer l’historique",
+    "mark-all-played": "Marquer comme lus",
+    "mark-as-new": "Marquer comme nouveau",
+    "mark-as-played": "Marquer comme lu",
+    "pair": "Jumeler la télécommande",
+    "play": "Lire",
+    "remove": "Supprimer",
+    "remove-podcast": "Supprimer le podcast",
+    "rescan": "Analyser",
+    "save": "Enregistrer",
+    "send": "Envoyer",
+    "show-more": "Afficher plus",
+    "shuffle": "Lecture aléatoire"
+  },
   "count": {
     "albums": "{count} album|{count} album|{count} albums",
     "artists": "{count} artiste|{count} artiste|{count} artistes",
@@ -23,70 +47,43 @@
   "dialog": {
     "add": {
       "rss": {
-        "add": "Ajouter",
-        "cancel": "Annuler",
         "help": "L’ajout d’un podcast inclut la création d’une liste de lecture RSS, qui permettra à OwnTone de gérer l’abonnement au podcast.",
         "placeholder": "https://url-du-flux-rss",
         "processing": "Traitement en cours…",
         "title": "Ajouter un podcast"
       },
       "stream": {
-        "add": "Ajouter",
-        "cancel": "Annuler",
         "loading": "Chargement…",
         "placeholder": "https://url-du-flux",
-        "play": "Lire",
         "processing": "Traitement en cours…",
         "title": "Ajouter un flux"
       }
     },
-    "album": {
-      "mark-as-played": "Marquer comme lu",
-      "remove-podcast": "Supprimer le podcast"
-    },
-    "playable": {
-      "add-next": "Ajouter ensuite",
-      "add": "Ajouter",
-      "play": "Lire"
-    },
     "playlist": {
-      "add-next": "Ajouter ensuite",
-      "add": "Ajouter",
-      "play": "Lire",
       "save": {
-        "cancel": "Annuler",
         "playlist-name": "Nom de la liste de lecture",
-        "save": "Enregistrer",
         "saving": "Enregistrement en cours…",
         "title": "Enregistrer la file d’attente dans une liste de lecture"
       }
     },
     "queue-item": {
-      "play": "Lire",
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
-      "remove": "Supprimer"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
-      "cancel": "Annuler",
-      "pair": "Jumeler la télécommande",
       "pairing-code": "Code de jumelage",
       "title": "Demande de jumelage de télécommande"
     },
     "track": {
-      "mark-as-new": "Marquer comme nouveau",
-      "mark-as-played": "Marquer comme lu",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
       "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "Tout actualiser",
-      "cancel": "Annuler",
       "feeds": "Actualiser uniquement les flux RSS",
       "info": "Recherche les fichiers ajoutés, supprimés et modifiés",
       "local": "Actualiser uniquement la bibliothèque locale",
       "progress": "Actualisation de la bibliothèque en cours…",
       "rescan-metadata": "Analyser les métadonnées des fichiers non modifiés",
-      "rescan": "Analyser",
       "spotify": "Actualiser uniquement Spotify",
       "title": "Actualiser la bibliothèque"
     }
@@ -100,9 +97,7 @@
   },
   "list": {
     "albums": {
-      "info": "Supprimer définitivement ce podcast de votre bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})",
-      "remove": "Supprimer",
-      "remove-podcast": "Supprimer le podcast"
+      "info": "Supprimer définitivement ce podcast de votre bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})"
     },
     "spotify": {
       "not-playable-track": "La piste ne peut pas être lue",
@@ -146,11 +141,7 @@
       "update": "Actualiser",
       "version": "Version {version}"
     },
-    "album": {
-      "shuffle": "Lecture aléatoire"
-    },
     "albums": {
-      "filter": "Filtrer",
       "hide-singles-help": "Si actif, masque les singles et les albums dont les pistes n’apparaissent que dans les listes de lecture.",
       "hide-singles": "Masquer les singles",
       "hide-spotify-help": "Si actif, masque les albums qui n’apparaissent que dans votre bibliothèque Spotify.",
@@ -166,10 +157,8 @@
       }
     },
     "artist": {
-      "filter": "Filtrer",
       "hide-spotify-help": "Si actif, masque le contenu qui n’apparaît que dans votre bibliothèque Spotify.",
       "hide-spotify": "Masquer le contenu de Spotify",
-      "shuffle": "Lecture aléatoire",
       "sort": {
         "title": "Trier",
         "name": "Nom",
@@ -178,7 +167,6 @@
       }
     },
     "artists": {
-      "filter": "Filtrer",
       "sort": {
         "title": "Trier",
         "name": "Nom",
@@ -191,14 +179,8 @@
       "title": "Artistes"
     },
     "audiobooks": {
-      "album": {
-        "play": "Lire"
-      },
       "albums": {
         "title": "Livres audio"
-      },
-      "artist": {
-        "play": "Lire"
       },
       "artists": {
         "title": "Auteurs"
@@ -210,7 +192,6 @@
       }
     },
     "composer": {
-      "shuffle": "Lecture aléatoire",
       "sort": {
         "title": "Trier",
         "name": "Nom",
@@ -221,11 +202,9 @@
       "title": "Compositeurs"
     },
     "files": {
-      "play": "Lire",
       "title": "Fichiers"
     },
     "genre": {
-      "shuffle": "Lecture aléatoire",
       "sort": {
         "title": "Trier",
         "name": "Nom",
@@ -236,7 +215,6 @@
       "title": "Genres"
     },
     "music": {
-      "show-more": "Afficher plus",
       "recently-added": {
         "title": "Ajouts récents"
       },
@@ -257,33 +235,18 @@
       "live": "En direct",
       "title": "La file d’attente est vide"
     },
-    "playlist": {
-      "length": "{length} pistes",
-      "shuffle": "Lecture aléatoire"
-    },
     "playlists": {
       "title": "Listes de lecture"
     },
     "podcast": {
-      "cancel": "Annuler",
-      "play": "Lire",
-      "remove": "Supprimer",
-      "remove-info": "Supprimer ce podcast de manière permanente de la bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})",
-      "remove-podcast": "Supprimer le podcast"
+      "remove-info": "Supprimer ce podcast de manière permanente de la bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})"
     },
     "podcasts": {
-      "add": "Ajouter",
-      "mark-all-played": "Marquer comme lus",
       "new-episodes": "Nouveaux épisodes",
       "title": "Podcasts",
       "update": "Actualiser"
     },
     "queue": {
-      "add-stream": "Ajouter un flux",
-      "clear": "Effacer",
-      "edit": "Éditer",
-      "hide-previous": "Masquer l’historique",
-      "save": "Enregistrer",
       "title": "File d’attente"
     },
     "radio": {
@@ -329,7 +292,6 @@
         "pairing-code": "Code de jumelage",
         "pairing-request": "Demande de jumelage de télécommande ",
         "pairing": "Jumelage de télécommande",
-        "send": "Envoyer",
         "speaker-pairing-info": "Si votre enceinte nécessite un jumelage, activez-la ci-dessous et entrez le code PIN qu’elle affiche.",
         "speaker-pairing": "Jumelage d’enceinte et vérification d’appareil",
         "verification-code": "Code de vérification",
@@ -374,8 +336,6 @@
           "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants :",
           "title": "Spotify"
         },
-        "login": "Se connecter",
-        "logout": "Se déconnecter",
         "password": "Mot de passe",
         "username": "Nom d’utilisateur"
       },
@@ -387,19 +347,9 @@
       }
     },
     "spotify": {
-      "album": {
-        "shuffle": "Lecture aléatoire"
-      },
-      "artist": {
-        "shuffle": "Lecture aléatoire"
-      },
       "music": {
         "featured-playlists": "Listes de lecture en vedette",
-        "new-releases": "Nouvelle sorties",
-        "show-more": "Afficher plus"
-      },
-      "playlist": {
-        "shuffle": "Lecture aléatoire"
+        "new-releases": "Nouvelle sorties"
       },
       "search": {
         "albums": "Albums",

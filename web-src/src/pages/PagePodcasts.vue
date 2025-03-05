@@ -9,7 +9,7 @@
           :button="{
             handler: markAllAsPlayed,
             icon: 'pencil',
-            key: 'page.podcasts.mark-all-played'
+            key: 'actions.mark-all-played'
           }"
         />
       </template>
@@ -31,14 +31,14 @@
           :button="{
             handler: updateRss,
             icon: 'refresh',
-            key: 'page.podcasts.update'
+            key: 'actions.update'
           }"
         />
         <control-button
           :button="{
             handler: 'openAddPodcastDialog',
             icon: 'rss',
-            key: 'page.podcasts.add'
+            key: 'actions.add'
           }"
         />
       </template>

@@ -25,13 +25,11 @@ export default {
       if (this.media_kind_resolved === 'podcast') {
         if (this.item.data_kind === 'url') {
           return [
-            { key: 'dialog.album.mark-as-played', handler: this.mark_played },
-            { key: 'dialog.album.remove-podcast', handler: this.remove_podcast }
+            { key: 'actions.mark-as-played', handler: this.mark_played },
+            { key: 'actions.remove-podcast', handler: this.remove_podcast }
           ]
         }
-        return [
-          { key: 'dialog.album.mark-as-played', handler: this.mark_played }
-        ]
+        return [{ key: 'actions.mark-as-played', handler: this.mark_played }]
       }
       return []
     },

@@ -34,17 +34,13 @@ export default {
   computed: {
     actions() {
       return [
+        { key: 'actions.add', handler: this.queue_add, icon: 'playlist-plus' },
         {
-          key: 'dialog.playable.add',
-          handler: this.queue_add,
-          icon: 'playlist-plus'
-        },
-        {
-          key: 'dialog.playable.add-next',
+          key: 'actions.add-next',
           handler: this.queue_add_next,
           icon: 'playlist-play'
         },
-        { key: 'dialog.playable.play', handler: this.play, icon: 'play' }
+        { key: 'actions.play', handler: this.play, icon: 'play' }
       ]
     }
   },

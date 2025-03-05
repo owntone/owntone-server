@@ -46,16 +46,8 @@ export default {
   computed: {
     actions() {
       return [
-        {
-          key: 'dialog.remote-pairing.cancel',
-          handler: this.cancel,
-          icon: 'cancel'
-        },
-        {
-          key: 'dialog.remote-pairing.pair',
-          handler: this.pair,
-          icon: 'cellphone'
-        }
+        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' },
+        { key: 'actions.pair', handler: this.pair, icon: 'cellphone' }
       ]
     },
     pairing() {

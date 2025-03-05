@@ -41,19 +41,15 @@ export default {
         return [{ key: 'dialog.add.stream.processing', icon: 'web' }]
       }
       return [
+        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' },
         {
-          key: 'dialog.add.stream.cancel',
-          handler: this.cancel,
-          icon: 'cancel'
-        },
-        {
-          key: 'dialog.add.stream.add',
+          key: 'actions.add',
           disabled: this.disabled,
           handler: this.add,
           icon: 'playlist-plus'
         },
         {
-          key: 'dialog.add.stream.play',
+          key: 'actions.play',
           disabled: this.disabled,
           handler: this.play,
           icon: 'play'

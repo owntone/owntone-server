@@ -12,7 +12,7 @@
         />
         <div class="buttons is-centered-mobile mt-5">
           <control-button
-            :button="{ handler: play, icon: 'play', key: 'page.podcast.play' }"
+            :button="{ handler: play, icon: 'play', key: 'actions.play' }"
           />
           <control-button
             :button="{ handler: showDetails, icon: 'dots-horizontal' }"

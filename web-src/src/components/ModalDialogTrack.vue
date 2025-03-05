@@ -22,8 +22,8 @@ export default {
         return []
       }
       return this.item.play_count > 0
-        ? [{ key: 'dialog.track.mark-as-new', handler: this.mark_new }]
-        : [{ key: 'dialog.track.mark-as-played', handler: this.mark_played }]
+        ? [{ key: 'actions.mark-as-new', handler: this.mark_new }]
+        : [{ key: 'actions.mark-as-played', handler: this.mark_played }]
     },
     playable() {
       return {

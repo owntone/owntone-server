@@ -1,4 +1,28 @@
 {
+  "actions": {
+    "add": "Add",
+    "add-next": "Add Next",
+    "add-stream": "Add stream",
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "edit": "Edit",
+    "filter": "Filter",
+    "login": "Login",
+    "logout": "Logout",
+    "hide-previous": "Hide previous",
+    "mark-all-played": "Mark All Played",
+    "mark-as-new": "Mark as new",
+    "mark-as-played": "Mark as played",
+    "pair": "Pair Remote",
+    "play": "Play",
+    "remove": "Remove",
+    "remove-podcast": "Remove podcast",
+    "rescan": "Rescan",
+    "save": "Save",
+    "send": "Send",
+    "show-more": "Show more",
+    "shuffle": "Shuffle"
+  },
   "count": {
     "albums": "{count} album|{count} album|{count} albums",
     "artists": "{count} artist|{count} artist|{count} artists",
@@ -23,70 +47,43 @@
   "dialog": {
     "add": {
       "rss": {
-        "add": "Add",
-        "cancel": "Cancel",
         "help": "Adding a podcast includes creating an RSS playlist, that will allow OwnTone to manage the podcast subscription.",
         "placeholder": "https://url-to-rss",
         "processing": "Processing…",
         "title": "Add podcast"
       },
       "stream": {
-        "add": "Add",
-        "cancel": "Cancel",
         "loading": "Loading…",
         "placeholder": "https://url-to-stream",
-        "play": "Play",
         "processing": "Processing…",
         "title": "Add stream"
       }
     },
-    "album": {
-      "mark-as-played": "Mark as played",
-      "remove-podcast": "Remove podcast"
-    },
-    "playable": {
-      "add-next": "Add Next",
-      "add": "Add",
-      "play": "Play"
-    },
     "playlist": {
-      "add-next": "Add Next",
-      "add": "Add",
-      "play": "Play",
       "save": {
-        "cancel": "Cancel",
         "playlist-name": "Playlist name",
-        "save": "Save",
         "saving": "Saving…",
         "title": "Save queue to playlist"
       }
     },
     "queue-item": {
-      "play": "Play",
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:count.channels {'|'} {bitrate} kbit/s",
-      "remove": "Remove"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:count.channels {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
-      "cancel": "Cancel",
-      "pair": "Pair Remote",
       "pairing-code": "Pairing code",
       "title": "Remote pairing request"
     },
     "track": {
-      "mark-as-new": "Mark as new",
-      "mark-as-played": "Mark as played",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:count.channels {'|'} {bitrate} kbit/s",
       "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "Update everything",
-      "cancel": "Cancel",
       "feeds": "Only update RSS feeds",
       "info": "Scan for new, deleted and modified files",
       "local": "Only update local library",
       "progress": "Library update in progress…",
       "rescan-metadata": "Rescan metadata of unmodified files",
-      "rescan": "Rescan",
       "spotify": "Only update Spotify",
       "title": "Update library"
     }
@@ -100,9 +97,7 @@
   },
   "list": {
     "albums": {
-      "info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})",
-      "remove": "Remove",
-      "remove-podcast": "Remove podcast"
+      "info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})"
     },
     "spotify": {
       "not-playable-track": "Track is not playable",
@@ -146,11 +141,7 @@
       "update": "Update",
       "version": "Version {version}"
     },
-    "album": {
-      "shuffle": "Shuffle"
-    },
     "albums": {
-      "filter": "Filter",
       "hide-singles-help": "If active, hides singles and albums with tracks that only appear in playlists.",
       "hide-singles": "Hide singles",
       "hide-spotify-help": "If active, hides albums that only appear in your Spotify library.",
@@ -166,10 +157,8 @@
       }
     },
     "artist": {
-      "filter": "Filter",
       "hide-spotify-help": "If active, hides the content only appearing in your Spotify library.",
       "hide-spotify": "Hide the content from Spotify",
-      "shuffle": "Shuffle",
       "sort": {
         "title": "Sort",
         "name": "Name",
@@ -178,7 +167,6 @@
       }
     },
     "artists": {
-      "filter": "Filter",
       "sort": {
         "title": "Sort",
         "name": "Name",
@@ -191,14 +179,8 @@
       "title": "Artists"
     },
     "audiobooks": {
-      "album": {
-        "play": "Play"
-      },
       "albums": {
         "title": "Audiobooks"
-      },
-      "artist": {
-        "play": "Play"
       },
       "artists": {
         "title": "Authors"
@@ -210,7 +192,6 @@
       }
     },
     "composer": {
-      "shuffle": "Shuffle",
       "sort": {
         "title": "Sort",
         "name": "Name",
@@ -221,11 +202,9 @@
       "title": "Composers"
     },
     "files": {
-      "play": "Play",
       "title": "Files"
     },
     "genre": {
-      "shuffle": "Shuffle",
       "sort": {
         "title": "Sort",
         "name": "Name",
@@ -236,7 +215,6 @@
       "title": "Genres"
     },
     "music": {
-      "show-more": "Show more",
       "recently-added": {
         "title": "Recently added"
       },
@@ -257,33 +235,18 @@
       "live": "Live",
       "title": "Your play queue is empty"
     },
-    "playlist": {
-      "length": "{length} tracks",
-      "shuffle": "Shuffle"
-    },
     "playlists": {
       "title": "Playlists"
     },
     "podcast": {
-      "cancel": "Cancel",
-      "play": "Play",
-      "remove": "Remove",
-      "remove-info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})",
-      "remove-podcast": "Remove podcast"
+      "remove-info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})"
     },
     "podcasts": {
-      "add": "Add",
-      "mark-all-played": "Mark All Played",
       "new-episodes": "New Episodes",
       "title": "Podcasts",
       "update": "Update"
     },
     "queue": {
-      "add-stream": "Add stream",
-      "clear": "Clear",
-      "edit": "Edit",
-      "hide-previous": "Hide previous",
-      "save": "Save",
       "title": "Queue"
     },
     "radio": {
@@ -329,7 +292,6 @@
         "pairing-code": "Pairing code",
         "pairing-request": "Remote pairing request from ",
         "pairing": "Remote Pairing",
-        "send": "Send",
         "speaker-pairing-info": "If your speaker requires pairing then activate it below and enter the PIN that it displays.",
         "speaker-pairing": "Speaker pairing and device verification",
         "verification-code": "Verification code",
@@ -374,8 +336,6 @@
           "reauthorize": "Please reauthorize Web API access to grant OwnTone the following additional access rights: ",
           "title": "Spotify"
         },
-        "login": "Login",
-        "logout": "Logout",
         "password": "Password",
         "username": "Username"
       },
@@ -387,19 +347,9 @@
       }
     },
     "spotify": {
-      "album": {
-        "shuffle": "Shuffle"
-      },
-      "artist": {
-        "shuffle": "Shuffle"
-      },
       "music": {
         "featured-playlists": "Featured Playlists",
-        "new-releases": "New Releases",
-        "show-more": "Show More"
-      },
-      "playlist": {
-        "shuffle": "Shuffle"
+        "new-releases": "New Releases"
       },
       "search": {
         "albums": "Albums",

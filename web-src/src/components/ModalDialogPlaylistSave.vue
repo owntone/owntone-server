@@ -50,13 +50,9 @@ export default {
         return [{ key: 'dialog.playlist.save.saving', icon: 'web' }]
       }
       return [
+        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' },
         {
-          key: 'dialog.playlist.save.cancel',
-          handler: this.cancel,
-          icon: 'cancel'
-        },
-        {
-          key: 'dialog.playlist.save.save',
+          key: 'actions.save',
           disabled: this.disabled,
           handler: this.save,
           icon: 'download'

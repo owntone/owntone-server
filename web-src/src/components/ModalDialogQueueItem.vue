@@ -29,16 +29,8 @@ export default {
   computed: {
     actions() {
       return [
-        {
-          key: this.$t('dialog.queue-item.remove'),
-          handler: this.remove,
-          icon: 'delete'
-        },
-        {
-          key: this.$t('dialog.queue-item.play'),
-          handler: this.play,
-          icon: 'play'
-        }
+        { key: 'actions.remove', handler: this.remove, icon: 'delete' },
+        { key: 'actions.play', handler: this.play, icon: 'play' }
       ]
     },
     playable() {

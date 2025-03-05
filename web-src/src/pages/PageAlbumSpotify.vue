@@ -12,11 +12,7 @@
         />
         <div class="buttons is-centered-mobile mt-5">
           <control-button
-            :button="{
-              handler: play,
-              icon: 'shuffle',
-              key: 'page.spotify.album.shuffle'
-            }"
+            :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
           />
           <control-button
             :button="{ handler: showDetails, icon: 'dots-horizontal' }"

@@ -1,4 +1,28 @@
 {
+  "actions": {
+    "add": "新增",
+    "add-next": "插播",
+    "add-stream": "新增串流",
+    "cancel": "取消",
+    "clear": "清除",
+    "edit": "編輯",
+    "filter": "篩選",
+    "login": "登入",
+    "logout": "退出",
+    "hide-previous": "隱藏歷史",
+    "mark-all-played": "全部標記為已播放",
+    "mark-as-new": "標記為最新",
+    "mark-as-played": "標記為已播放",
+    "pair": "遙控配對",
+    "play": "播放",
+    "remove": "移除",
+    "remove-podcast": "移除Podcast",
+    "rescan": "重新掃描",
+    "save": "儲存",
+    "send": "發送",
+    "show-more": "顯示更多",
+    "shuffle": "隨機播放"
+  },
   "count": {
     "albums": "{count} 張專輯|{count} 張專輯",
     "artists": "{count} 位藝人|{count} 位藝人",
@@ -23,70 +47,43 @@
   "dialog": {
     "add": {
       "rss": {
-        "add": "新增",
-        "cancel": "取消",
         "help": "新增一個可生成播放列表的Podcast RSS鏈接，這將允許OwnTone管理訂閱",
         "placeholder": "https://url-to-rss",
         "processing": "處理中…",
         "title": "新增Podcast"
       },
       "stream": {
-        "add": "新增",
-        "cancel": "取消",
         "loading": "載入中…",
         "placeholder": "https://url-to-stream",
-        "play": "播放",
         "processing": "處理中…",
         "title": "新增串流"
       }
     },
-    "album": {
-      "mark-as-played": "標記為已播",
-      "remove-podcast": "移除Podcast"
-    },
-    "playable": {
-      "add-next": "插播",
-      "add": "新增",
-      "play": "播放"
-    },
     "playlist": {
-      "add-next": "插播",
-      "add": "新增",
-      "play": "播放",
       "save": {
-        "cancel": "取消",
         "playlist-name": "播放列表名稱",
-        "save": "儲存",
         "saving": "儲存中…",
         "title": "儲存播放清單到列表"
       }
     },
     "queue-item": {
-      "play": "播放",
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
-      "remove": "移除"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
-      "cancel": "取消",
-      "pair": "遙控配對",
       "pairing-code": "配對碼",
       "title": "請求遙控配對"
     },
     "track": {
-      "mark-as-new": "標記為最新",
-      "mark-as-played": "標記為已播放",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
       "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "更新所有內容",
-      "cancel": "取消",
       "feeds": "僅更新RSS訂閱內容",
       "info": "掃描新的、刪除的和修改的文件",
       "local": "僅更新本地資料庫",
       "progress": "正在更新本地資料庫…",
       "rescan-metadata": "重新掃描未修改文件的中繼資料",
-      "rescan": "重新掃描",
       "spotify": "僅更新Spotify",
       "title": "更新資料庫"
     }
@@ -100,9 +97,7 @@
   },
   "list": {
     "albums": {
-      "info": "從資料庫中永久移除該Podcast嗎？{separator}(這也將移除RSS播放列表 {name})",
-      "remove": "移除",
-      "remove-podcast": "移除Podcast"
+      "info": "從資料庫中永久移除該Podcast嗎？{separator}(這也將移除RSS播放列表 {name})"
     },
     "spotify": {
       "not-playable-track": "曲目無法播放",
@@ -146,11 +141,7 @@
       "update": "更新",
       "version": "版本 {version}"
     },
-    "album": {
-      "shuffle": "隨機播放"
-    },
     "albums": {
-      "filter": "篩選",
       "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
       "hide-singles": "隱藏單曲",
       "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
@@ -166,10 +157,8 @@
       }
     },
     "artist": {
-      "filter": "篩選",
       "hide-spotify-help": "如果啓用，將隱藏只出現在Spotify庫中的內容",
       "hide-spotify": "隱藏來自Spotify的內容",
-      "shuffle": "隨機播放",
       "sort": {
         "title": "分類",
         "name": "名稱",
@@ -178,7 +167,6 @@
       }
     },
     "artists": {
-      "filter": "篩選",
       "sort": {
         "title": "分類",
         "name": "名稱",
@@ -191,14 +179,8 @@
       "title": "藝人"
     },
     "audiobooks": {
-      "album": {
-        "play": "播放"
-      },
       "albums": {
         "title": "有聲書"
-      },
-      "artist": {
-        "play": "播放"
       },
       "artists": {
         "title": "作者"
@@ -210,7 +192,6 @@
       }
     },
     "composer": {
-      "shuffle": "隨機播放",
       "sort": {
         "title": "分類",
         "name": "名稱",
@@ -221,11 +202,9 @@
       "title": "作曲家"
     },
     "files": {
-      "play": "播放",
       "title": "文件"
     },
     "genre": {
-      "shuffle": "隨機播放",
       "sort": {
         "title": "分類",
         "name": "名稱",
@@ -236,7 +215,6 @@
       "title": "音樂類型"
     },
     "music": {
-      "show-more": "顯示更多",
       "recently-added": {
         "title": "最近新增"
       },
@@ -257,33 +235,18 @@
       "live": "直播",
       "title": "播放清單是空的"
     },
-    "playlist": {
-      "length": "{length} 曲目",
-      "shuffle": "隨機播放"
-    },
     "playlists": {
       "title": "播放列表"
     },
     "podcast": {
-      "cancel": "取消",
-      "play": "播放",
-      "remove": "移除",
-      "remove-info": "從資料庫中永久移除該Podcast？{separator}(這也將移除該PodcastRSS列表 {name})",
-      "remove-podcast": "移除Podcast"
+      "remove-info": "從資料庫中永久移除該Podcast？{separator}(這也將移除該PodcastRSS列表 {name})"
     },
     "podcasts": {
-      "add": "新增",
-      "mark-all-played": "全部標記為已播放",
       "new-episodes": "最新單集",
       "title": "Podcast",
       "update": "更新"
     },
     "queue": {
-      "add-stream": "新增串流",
-      "clear": "清除",
-      "edit": "編輯",
-      "hide-previous": "隱藏歷史",
-      "save": "儲存",
       "title": "清單"
     },
     "radio": {
@@ -329,7 +292,6 @@
         "pairing-code": "配對代碼",
         "pairing-request": "遠程配對請求來自於 ",
         "pairing": "遙控配對",
-        "send": "發送",
         "speaker-pairing-info": "如果您的揚聲器需要配對，請在下面輸入它顯示的 PIN以啓用",
         "speaker-pairing": "揚聲器配對和設備驗證",
         "verification-code": "驗證碼",
@@ -374,8 +336,6 @@
           "reauthorize": "請重新授權 Web API 訪問權限，以授予 OwnTone 以下附加訪問權限：",
           "title": "Spotify"
         },
-        "login": "登入",
-        "logout": "退出",
         "password": "密碼",
         "username": "用戶名"
       },
@@ -387,19 +347,9 @@
       }
     },
     "spotify": {
-      "album": {
-        "shuffle": "隨機播放"
-      },
-      "artist": {
-        "shuffle": "隨機播放"
-      },
       "music": {
         "featured-playlists": "特色列表",
-        "new-releases": "最新發行",
-        "show-more": "顯示更多"
-      },
-      "playlist": {
-        "shuffle": "隨機播放"
+        "new-releases": "最新發行"
       },
       "search": {
         "albums": "專輯",

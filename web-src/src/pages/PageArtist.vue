@@ -40,11 +40,7 @@
           :button="{ handler: showDetails, icon: 'dots-horizontal' }"
         />
         <control-button
-          :button="{
-            handler: play,
-            icon: 'shuffle',
-            key: 'page.artist.shuffle'
-          }"
+          :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
         />
       </template>
       <template #content>

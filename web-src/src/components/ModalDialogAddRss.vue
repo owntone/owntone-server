@@ -40,9 +40,9 @@ export default {
         return [{ key: 'dialog.add.rss.processing', icon: 'web' }]
       }
       return [
-        { key: 'dialog.add.rss.cancel', handler: this.cancel, icon: 'cancel' },
+        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' },
         {
-          key: 'dialog.add.rss.add',
+          key: 'actions.add',
           disabled: this.disabled,
           handler: this.add,
           icon: 'playlist-plus'

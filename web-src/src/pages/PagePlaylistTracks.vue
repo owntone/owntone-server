@@ -12,7 +12,7 @@
           :button="{
             handler: play,
             icon: 'shuffle',
-            key: 'page.playlist.shuffle'
+            key: 'actions.shuffle'
           }"
           :disabled="tracks.count === 0"
         />

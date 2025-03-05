@@ -38,13 +38,9 @@ export default {
     value: { required: true, type: [String, Number] }
   },
   emits: ['update:value'],
-
   data() {
-    return {
-      active: false
-    }
+    return { active: false }
   },
-
   computed: {
     option: {
       get() {
@@ -52,7 +48,6 @@ export default {
       }
     }
   },
-
   methods: {
     deactivate() {
       this.active = false

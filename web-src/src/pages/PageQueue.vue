@@ -9,7 +9,7 @@
           :button="{
             handler: update_show_next_items,
             icon: 'eye-off-outline',
-            key: 'page.queue.hide-previous'
+            key: 'actions.hide-previous'
           }"
           :class="{ 'is-dark': uiStore.show_only_next_items }"
         />
@@ -17,23 +17,23 @@
           :button="{
             handler: open_add_stream_dialog,
             icon: 'web',
-            key: 'page.queue.add-stream'
+            key: 'actions.add-stream'
           }"
         />
         <control-button
           :button="{
             handler: toggleEdit,
             icon: 'pencil',
-            key: 'page.queue.edit',
-            disabled: queue_items.length === 0
+            key: 'actions.edit'
           }"
           :class="{ 'is-dark': edit_mode }"
+          :disabled="queue_items.length === 0"
         />
         <control-button
           :button="{
             handler: queue_clear,
             icon: 'delete-empty',
-            key: 'page.queue.clear'
+            key: 'actions.clear'
           }"
           :disabled="queue_items.length === 0"
         />
@@ -42,7 +42,7 @@
           :button="{
             handler: save_dialog,
             icon: 'download',
-            key: 'page.queue.save'
+            key: 'actions.save'
           }"
           :disabled="queue_items.length === 0"
         />

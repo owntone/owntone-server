@@ -1,4 +1,28 @@
 {
+  "actions": {
+    "add": "添加",
+    "add-next": "插播",
+    "add-stream": "添加流",
+    "cancel": "取消",
+    "clear": "清除",
+    "edit": "编辑",
+    "filter": "筛选",
+    "login": "登入",
+    "logout": "退出",
+    "hide-previous": "隐藏历史",
+    "mark-all-played": "全部标记为已播放",
+    "mark-as-new": "标记为最新",
+    "mark-as-played": "标记为已播放",
+    "pair": "遥控配对",
+    "play": "播放",
+    "remove": "移除",
+    "remove-podcast": "移除播客",
+    "rescan": "重新扫描",
+    "save": "保存",
+    "send": "发送",
+    "show-more": "显示更多",
+    "shuffle": "随机播放"
+  },
   "count": {
     "albums": "{count} 张专辑|{count} 张专辑",
     "artists": "{count} 位艺人|{count} 位艺人",
@@ -23,70 +47,43 @@
   "dialog": {
     "add": {
       "rss": {
-        "add": "添加",
-        "cancel": "取消",
         "help": "添加一个可生成播放列表的播客RSS链接，这将允许OwnTone管理订阅",
         "placeholder": "https://url-to-rss",
         "processing": "处理中…",
         "title": "添加播客"
       },
       "stream": {
-        "add": "添加",
-        "cancel": "取消",
         "loading": "加载中…",
         "placeholder": "https://url-to-stream",
-        "play": "播放",
         "processing": "处理中…",
         "title": "添加流"
       }
     },
-    "album": {
-      "mark-as-played": "标记为已播",
-      "remove-podcast": "移除播客"
-    },
-    "playable": {
-      "add-next": "插播",
-      "add": "添加",
-      "play": "播放"
-    },
     "playlist": {
-      "add-next": "插播",
-      "add": "添加",
-      "play": "播放",
       "save": {
-        "cancel": "取消",
         "playlist-name": "播放列表名称",
-        "save": "保存",
         "saving": "保存中…",
         "title": "保存播放清单到列表"
       }
     },
     "queue-item": {
-      "play": "播放",
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
-      "remove": "移除"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
-      "cancel": "取消",
-      "pair": "遥控配对",
       "pairing-code": "配对码",
       "title": "请求遥控配对"
     },
     "track": {
-      "mark-as-new": "标记为最新",
-      "mark-as-played": "标记为已播放",
       "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
       "rating-value": "{rating} / 10"
     },
     "update": {
       "all": "更新所有内容",
-      "cancel": "取消",
       "feeds": "仅更新RSS订阅内容",
       "info": "扫描新的、删除的和修改的文件",
       "local": "仅更新本地资料库",
       "progress": "正在更新本地资料库…",
       "rescan-metadata": "重新扫描未修改文件的元数据",
-      "rescan": "重新扫描",
       "spotify": "仅更新Spotify",
       "title": "更新资料库"
     }
@@ -100,9 +97,7 @@
   },
   "list": {
     "albums": {
-      "info": "从资料库中永久移除该播客吗？{separator}(这也将移除RSS播放列表 {name})",
-      "remove": "移除",
-      "remove-podcast": "移除播客"
+      "info": "从资料库中永久移除该播客吗？{separator}(这也将移除RSS播放列表 {name})"
     },
     "spotify": {
       "not-playable-track": "曲目无法播放",
@@ -146,11 +141,7 @@
       "update": "更新",
       "version": "版本 {version}"
     },
-    "album": {
-      "shuffle": "随机播放"
-    },
     "albums": {
-      "filter": "筛选",
       "hide-singles-help": "如果激活，将隐藏仅在播放列表出现的单曲和专辑",
       "hide-singles": "隐藏单曲",
       "hide-spotify-help": "如果激活，将隐藏仅在Spotify资料库出现的专辑",
@@ -166,10 +157,8 @@
       }
     },
     "artist": {
-      "filter": "筛选",
       "hide-spotify-help": "如果激活，将隐藏只出现在Spotify库中的内容",
       "hide-spotify": "隐藏来自Spotify的内容",
-      "shuffle": "随机播放",
       "sort": {
         "title": "分类",
         "name": "名称",
@@ -178,7 +167,6 @@
       }
     },
     "artists": {
-      "filter": "筛选",
       "sort": {
         "title": "分类",
         "name": "名称",
@@ -191,14 +179,8 @@
       "title": "艺人"
     },
     "audiobooks": {
-      "album": {
-        "play": "播放"
-      },
       "albums": {
         "title": "有声读物"
-      },
-      "artist": {
-        "play": "播放"
       },
       "artists": {
         "title": "作者"
@@ -210,7 +192,6 @@
       }
     },
     "composer": {
-      "shuffle": "随机播放",
       "sort": {
         "title": "分类",
         "name": "名称",
@@ -221,11 +202,9 @@
       "title": "作曲家"
     },
     "files": {
-      "play": "播放",
       "title": "文件"
     },
     "genre": {
-      "shuffle": "随机播放",
       "sort": {
         "title": "分类",
         "name": "名称",
@@ -236,7 +215,6 @@
       "title": "流派"
     },
     "music": {
-      "show-more": "显示更多",
       "recently-added": {
         "title": "最近添加"
       },
@@ -257,33 +235,18 @@
       "live": "直播",
       "title": "播放清单是空的"
     },
-    "playlist": {
-      "length": "{length} 曲目",
-      "shuffle": "随机播放"
-    },
     "playlists": {
       "title": "播放列表"
     },
     "podcast": {
-      "cancel": "取消",
-      "play": "播放",
-      "remove": "移除",
-      "remove-info": "从资料库中永久移除该播客？{separator}(这也将移除该播客RSS列表 {name})",
-      "remove-podcast": "移除播客"
+      "remove-info": "从资料库中永久移除该播客？{separator}(这也将移除该播客RSS列表 {name})"
     },
     "podcasts": {
-      "add": "添加",
-      "mark-all-played": "全部标记为已播放",
       "new-episodes": "最新单集",
       "title": "播客",
       "update": "更新"
     },
     "queue": {
-      "add-stream": "添加流",
-      "clear": "清除",
-      "edit": "编辑",
-      "hide-previous": "隐藏历史",
-      "save": "保存",
       "title": "清单"
     },
     "radio": {
@@ -329,7 +292,6 @@
         "pairing-code": "配对代码",
         "pairing-request": "远程配对请求来自于 ",
         "pairing": "遥控配对",
-        "send": "发送",
         "speaker-pairing-info": "如果您的扬声器需要配对，请在下面输入它显示的 PIN以激活",
         "speaker-pairing": "扬声器配对和设备验证",
         "verification-code": "验证码",
@@ -374,8 +336,6 @@
           "reauthorize": "请重新授权 Web API 访问权限，以授予 OwnTone 以下附加访问权限：",
           "title": "Spotify"
         },
-        "login": "登入",
-        "logout": "退出",
         "password": "密码",
         "username": "用户名"
       },
@@ -387,19 +347,9 @@
       }
     },
     "spotify": {
-      "album": {
-        "shuffle": "随机播放"
-      },
-      "artist": {
-        "shuffle": "随机播放"
-      },
       "music": {
         "featured-playlists": "特色列表",
-        "new-releases": "最新发行",
-        "show-more": "显示更多"
-      },
-      "playlist": {
-        "shuffle": "随机播放"
+        "new-releases": "最新发行"
       },
       "search": {
         "albums": "专辑",

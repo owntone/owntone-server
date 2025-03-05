@@ -28,7 +28,7 @@
                 <button
                   class="button"
                   type="submit"
-                  v-text="$t('page.settings.devices.send')"
+                  v-text="$t('actions.send')"
                 />
               </div>
             </div>

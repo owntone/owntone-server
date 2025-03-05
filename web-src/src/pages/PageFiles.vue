@@ -9,7 +9,7 @@
           :button="{ handler: showDetails, icon: 'dots-horizontal' }"
         />
         <control-button
-          :button="{ handler: play, icon: 'play', key: 'page.files.play' }"
+          :button="{ handler: play, icon: 'play', key: 'actions.play' }"
         />
       </template>
       <template #content>
