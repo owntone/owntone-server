@@ -12,9 +12,9 @@
           :button="{
             handler: play,
             icon: 'shuffle',
-            key: 'page.spotify.playlist.shuffle',
-            disabled: playlist.tracks.total === 0
+            key: 'page.spotify.playlist.shuffle'
           }"
+          :disabled="playlist.tracks.total === 0"
         />
       </template>
       <template #content>

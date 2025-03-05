@@ -9,9 +9,9 @@
           :button="{
             handler: update_show_next_items,
             icon: 'eye-off-outline',
-            key: 'page.queue.hide-previous',
-            class: { 'is-dark': show_only_next_items }
+            key: 'page.queue.hide-previous'
           }"
+          :class="{ 'is-dark': uiStore.show_only_next_items }"
         />
         <control-button
           :button="{
@@ -25,26 +25,26 @@
             handler: toggleEdit,
             icon: 'pencil',
             key: 'page.queue.edit',
-            disabled: queue_items.length === 0,
-            class: { 'is-dark': edit_mode }
+            disabled: queue_items.length === 0
           }"
+          :class="{ 'is-dark': edit_mode }"
         />
         <control-button
           :button="{
             handler: queue_clear,
             icon: 'delete-empty',
-            key: 'page.queue.clear',
-            disabled: queue_items.length === 0
+            key: 'page.queue.clear'
           }"
+          :disabled="queue_items.length === 0"
         />
         <control-button
           v-if="is_queue_save_allowed"
           :button="{
             handler: save_dialog,
             icon: 'download',
-            key: 'page.queue.save',
-            disabled: queue_items.length === 0
+            key: 'page.queue.save'
           }"
+          :disabled="queue_items.length === 0"
         />
       </template>
       <template #content>
@@ -54,7 +54,7 @@
               :item="element"
               :position="index"
               :current_position="current_position"
-              :show_only_next_items="show_only_next_items"
+              :show_only_next_items="uiStore.show_only_next_items"
               :edit_mode="edit_mode"
             >
               <template #actions>
@@ -165,18 +165,15 @@ export default {
         /* Do nothing? Send move request in @end event */
       }
     },
-    show_only_next_items() {
-      return this.uiStore.show_only_next_items
-    },
     player() {
       return this.playerStore
     }
   },
-
   methods: {
     move_item(event) {
       const oldPosition =
-        event.oldIndex + (this.show_only_next_items && this.current_position)
+        event.oldIndex +
+        (this.uiStore.show_only_next_items && this.current_position)
       const item = this.queue_items[oldPosition]
       const newPosition = item.position + (event.newIndex - event.oldIndex)
       if (newPosition !== oldPosition) {
@@ -205,6 +202,8 @@ export default {
       this.edit_mode = !this.edit_mode
     },
     update_show_next_items() {
+      console.log(this.uiStore.show_only_next_items)
+
       this.uiStore.show_only_next_items = !this.uiStore.show_only_next_items
     }
   }

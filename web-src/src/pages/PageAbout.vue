@@ -6,13 +6,13 @@
       </template>
       <template #heading-right>
         <control-button
-          :class="{ 'is-loading': libraryStore.updating }"
           :button="{
-            disabled: libraryStore.updating,
             handler: showUpdateDialog,
             icon: 'refresh',
             key: 'page.about.update'
           }"
+          :class="{ 'is-loading': libraryStore.updating }"
+          :disabled="libraryStore.updating"
         />
       </template>
       <template #content>
