@@ -32,20 +32,14 @@ export default {
     name: { required: true, type: String },
     placeholder: { default: '', type: String }
   },
-
   setup() {
     return {
       settingsStore: useSettingsStore()
     }
   },
-
   data() {
-    return {
-      timerDelay: 2000,
-      timerId: -1
-    }
+    return { timerDelay: 2000, timerId: -1 }
   },
-
   computed: {
     isError() {
       return this.timerId === -2
@@ -57,7 +51,6 @@ export default {
       return this.settingsStore.setting(this.category, this.name)
     }
   },
-
   methods: {
     update(event, sanitise) {
       const value = sanitise?.(event.target)

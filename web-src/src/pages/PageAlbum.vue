@@ -19,10 +19,7 @@
             }"
           />
           <control-button
-            :button="{
-              handler: showDetails,
-              icon: 'dots-horizontal'
-            }"
+            :button="{ handler: showDetails, icon: 'dots-horizontal' }"
           />
         </div>
       </template>
