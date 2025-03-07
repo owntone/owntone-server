@@ -15,7 +15,7 @@
           class="button is-small is-rounded"
           :to="{ name: 'music-recently-added' }"
         >
-          {{ $t('page.music.show-more') }}
+          {{ $t('actions.show-more') }}
         </router-link>
       </template>
     </content-with-heading>
@@ -33,7 +33,7 @@
           class="button is-small is-rounded"
           :to="{ name: 'music-recently-played' }"
         >
-          {{ $t('page.music.show-more') }}
+          {{ $t('actions.show-more') }}
         </router-link>
       </template>
     </content-with-heading>
