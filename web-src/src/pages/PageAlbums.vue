@@ -8,14 +8,14 @@
           <div class="column">
             <div
               class="is-size-7 is-uppercase"
-              v-text="$t('page.albums.filter')"
+              v-text="$t('page.albums.filter.title')"
             />
             <control-switch v-model="uiStore.hide_singles">
               <template #label>
-                <span v-text="$t('page.albums.hide-singles')" />
+                <span v-text="$t('page.albums.filter.hide-singles')" />
               </template>
               <template #help>
-                <span v-text="$t('page.albums.hide-singles-help')" />
+                <span v-text="$t('page.albums.filter.hide-singles-help')" />
               </template>
             </control-switch>
             <control-switch
@@ -23,10 +23,10 @@
               v-model="uiStore.hide_spotify"
             >
               <template #label>
-                <span v-text="$t('page.albums.hide-spotify')" />
+                <span v-text="$t('page.albums.filter.hide-spotify')" />
               </template>
               <template #help>
-                <span v-text="$t('page.albums.hide-spotify-help')" />
+                <span v-text="$t('page.albums.filter.hide-spotify-help')" />
               </template>
             </control-switch>
           </div>

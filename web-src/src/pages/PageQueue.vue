@@ -202,8 +202,6 @@ export default {
       this.edit_mode = !this.edit_mode
     },
     update_show_next_items() {
-      console.log(this.uiStore.show_only_next_items)
-
       this.uiStore.show_only_next_items = !this.uiStore.show_only_next_items
     }
   }

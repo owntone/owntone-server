@@ -7,17 +7,17 @@
           <div class="column">
             <p
               class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.filter')"
+              v-text="$t('page.artist.filter.title')"
             />
             <control-switch
               v-if="spotify_enabled"
               v-model="uiStore.hide_spotify"
             >
               <template #label>
-                <span v-text="$t('page.artist.hide-spotify')" />
+                <span v-text="$t('page.artist.filter.hide-spotify')" />
               </template>
               <template #help>
-                <span v-text="$t('page.artist.hide-spotify-help')" />
+                <span v-text="$t('page.artist.filter.hide-spotify-help')" />
               </template>
             </control-switch>
           </div>

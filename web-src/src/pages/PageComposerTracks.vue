@@ -24,11 +24,7 @@
           :button="{ handler: showDetails, icon: 'dots-horizontal' }"
         />
         <control-button
-          :button="{
-            handler: play,
-            icon: 'shuffle',
-            key: 'page.composer.shuffle'
-          }"
+          :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
         />
       </template>
       <template #content>
@@ -115,17 +111,20 @@ export default {
       return `composer is "${this.composer.name}" and media_kind is music`
     },
     heading() {
-      return {
-        title: this.composer.name,
-        subtitle: [
-          {
-            handler: this.open_albums,
-            key: 'count.albums',
-            count: this.composer.album_count
-          },
-          { key: 'count.tracks', count: composer.track_count }
-        ]
+      if (this.composer.name) {
+        return {
+          title: this.composer.name,
+          subtitle: [
+            {
+              handler: this.open_albums,
+              key: 'count.albums',
+              count: this.composer.album_count
+            },
+            { key: 'count.tracks', count: this.composer.track_count }
+          ]
+        }
       }
+      return {}
     },
     tracks() {
       const { options } = this.groupings.find(

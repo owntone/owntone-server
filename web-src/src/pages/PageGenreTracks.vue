@@ -112,17 +112,20 @@ export default {
       return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
     },
     heading() {
-      return {
-        title: this.genre.name,
-        subtitle: [
-          {
-            handler: this.openGenre,
-            key: 'count.albums',
-            count: this.genre.album_count
-          },
-          { key: 'count.tracks', count: this.genre.track_count }
-        ]
+      if (this.genre.name) {
+        return {
+          title: this.genre.name,
+          subtitle: [
+            {
+              handler: this.openGenre,
+              key: 'count.albums',
+              count: this.genre.album_count
+            },
+            { key: 'count.tracks', count: this.genre.track_count }
+          ]
+        }
       }
+      return {}
     },
     tracks() {
       const { options } = this.groupings.find(

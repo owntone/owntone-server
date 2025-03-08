@@ -6,7 +6,6 @@
     "cancel": "取消",
     "clear": "清除",
     "edit": "編輯",
-    "filter": "篩選",
     "login": "登入",
     "logout": "退出",
     "hide-previous": "隱藏歷史",
@@ -142,40 +141,49 @@
       "version": "版本 {version}"
     },
     "albums": {
-      "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
-      "hide-singles": "隱藏單曲",
-      "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
-      "hide-spotify": "隱藏來自Spotify的專輯",
-      "title": "專輯",
+      "filter": {
+        "hide-singles": "隱藏單曲",
+        "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
+        "hide-spotify": "隱藏來自Spotify的專輯",
+        "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
+        "title": "篩選"
+      },
       "sort": {
         "artist-name": "藝人 › 名稱",
         "artist-date": "藝人 › 發行日期",
-        "title": "分類",
         "name": "名稱",
         "recently-added": "最近新增",
-        "recently-released": "最近發行"
-      }
+        "recently-released": "最近發行",
+        "title": "分類"
+      },
+      "title": "專輯"
     },
     "artist": {
-      "hide-spotify-help": "如果啓用，將隱藏只出現在Spotify庫中的內容",
-      "hide-spotify": "隱藏來自Spotify的內容",
+      "filter": {
+        "hide-spotify": "隱藏來自Spotify的內容",
+        "hide-spotify-help": "如果啓用，將隱藏只出現在Spotify庫中的內容",
+        "title": "篩選"
+      },
       "sort": {
-        "title": "分類",
         "name": "名稱",
         "rating": "評級",
-        "release-date": "發行日期"
+        "release-date": "發行日期",
+        "title": "分類"
       }
     },
     "artists": {
-      "sort": {
-        "title": "分類",
-        "name": "名稱",
-        "recently-added": "最近新增"
+      "filter": {
+        "hide-singles": "隱藏單曲",
+        "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
+        "hide-spotify": "隱藏來自Spotify的藝人",
+        "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
+        "title": "篩選"
       },
-      "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
-      "hide-singles": "隱藏單曲",
-      "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
-      "hide-spotify": "隱藏來自Spotify的藝人",
+      "sort": {
+        "name": "名稱",
+        "recently-added": "最近新增",
+        "title": "分類"
+      },
       "title": "藝人"
     },
     "audiobooks": {
@@ -193,9 +201,9 @@
     },
     "composer": {
       "sort": {
-        "title": "分類",
         "name": "名稱",
-        "rating": "評級"
+        "rating": "評級",
+        "title": "分類"
       }
     },
     "composers": {
@@ -206,9 +214,9 @@
     },
     "genre": {
       "sort": {
-        "title": "分類",
         "name": "名稱",
-        "rating": "評級"
+        "rating": "評級",
+        "title": "分類"
       }
     },
     "genres": {

@@ -15,7 +15,7 @@
           :to="{ name: 'music-spotify-new-releases' }"
           class="button is-small is-rounded"
         >
-          {{ $t('page.spotify.music.show-more') }}
+          {{ $t('actions.show-more') }}
         </router-link>
       </template>
     </content-with-heading>
@@ -33,7 +33,7 @@
           :to="{ name: 'music-spotify-featured-playlists' }"
           class="button is-small is-rounded"
         >
-          {{ $t('page.spotify.music.show-more') }}
+          {{ $t('actions.show-more') }}
         </router-link>
       </template>
     </content-with-heading>

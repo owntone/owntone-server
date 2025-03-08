@@ -78,17 +78,20 @@ export default {
   },
   computed: {
     heading() {
-      return {
-        title: this.genre.name,
-        subtitle: [
-          { key: 'count.albums', count: this.genre.album_count },
-          {
-            handler: this.open_tracks,
-            key: 'count.tracks',
-            count: this.genre.track_count
-          }
-        ]
+      if (this.genre.name) {
+        return {
+          title: this.genre.name,
+          subtitle: [
+            { key: 'count.albums', count: this.genre.album_count },
+            {
+              handler: this.open_tracks,
+              key: 'count.tracks',
+              count: this.genre.track_count
+            }
+          ]
+        }
       }
+      return {}
     }
   },
   methods: {

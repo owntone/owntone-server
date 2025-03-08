@@ -6,7 +6,6 @@
     "cancel": "Annuler",
     "clear": "Effacer",
     "edit": "Éditer",
-    "filter": "Filtrer",
     "login": "Se connecter",
     "logout": "Se déconnecter",
     "hide-previous": "Masquer l’historique",
@@ -142,40 +141,49 @@
       "version": "Version {version}"
     },
     "albums": {
-      "hide-singles-help": "Si actif, masque les singles et les albums dont les pistes n’apparaissent que dans les listes de lecture.",
-      "hide-singles": "Masquer les singles",
-      "hide-spotify-help": "Si actif, masque les albums qui n’apparaissent que dans votre bibliothèque Spotify.",
-      "hide-spotify": "Masquer les albums de Spotify",
-      "title": "Albums",
+      "filter": {
+        "hide-singles": "Masquer les singles",
+        "hide-singles-help": "Si actif, masque les singles et les albums dont les pistes n’apparaissent que dans les listes de lecture.",
+        "hide-spotify": "Masquer les albums de Spotify",
+        "hide-spotify-help": "Si actif, masque les albums qui n’apparaissent que dans votre bibliothèque Spotify.",
+        "title": "Filtrer"
+      },
       "sort": {
         "artist-name": "Artiste › Nom",
         "artist-date": "Artiste › Date de sortie",
-        "title": "Trier",
         "name": "Nom",
         "recently-added": "Ajouts récents",
-        "recently-released": "Sorties récentes"
-      }
+        "recently-released": "Sorties récentes",
+        "title": "Trier"
+      },
+      "title": "Albums"
     },
     "artist": {
-      "hide-spotify-help": "Si actif, masque le contenu qui n’apparaît que dans votre bibliothèque Spotify.",
-      "hide-spotify": "Masquer le contenu de Spotify",
+      "filter": {
+        "hide-spotify": "Masquer le contenu de Spotify",
+        "hide-spotify-help": "Si actif, masque le contenu qui n’apparaît que dans votre bibliothèque Spotify.",
+        "title": "Filtrer"
+      },
       "sort": {
-        "title": "Trier",
         "name": "Nom",
         "rating": "Classement",
-        "release-date": "Date de sortie"
+        "release-date": "Date de sortie",
+        "title": "Trier"
       }
     },
     "artists": {
-      "sort": {
-        "title": "Trier",
-        "name": "Nom",
-        "recently-added": "Ajouts récents"
+      "filter": {
+        "hide-singles": "Masquer les singles",
+        "hide-singles-help": "Si actif, masque les artistes qui n’apparaissent que dans des singles ou des listes de lecture.",
+        "hide-spotify": "Masquer les artistes de Spotify",
+        "hide-spotify-help": "Si actif, masque les artistes qui n’apparaissent que dans votre bibliothèque Spotify.",
+        "title": "Filtrer"
       },
-      "hide-singles-help": "Si actif, masque les artistes qui n’apparaissent que dans des singles ou des listes de lecture.",
-      "hide-singles": "Masquer les singles",
-      "hide-spotify-help": "Si actif, masque les artistes qui n’apparaissent que dans votre bibliothèque Spotify.",
-      "hide-spotify": "Masquer les artistes de Spotify",
+      "sort": {
+        "name": "Nom",
+        "recently-added": "Ajouts récents",
+        "title": "Trier"
+      },
       "title": "Artistes"
     },
     "audiobooks": {
@@ -193,9 +201,9 @@
     },
     "composer": {
       "sort": {
-        "title": "Trier",
         "name": "Nom",
-        "rating": "Classement"
+        "rating": "Classement",
+        "title": "Trier"
       }
     },
     "composers": {
@@ -206,9 +214,9 @@
     },
     "genre": {
       "sort": {
-        "title": "Trier",
         "name": "Nom",
-        "rating": "Classement"
+        "rating": "Classement",
+        "title": "Trier"
       }
     },
     "genres": {

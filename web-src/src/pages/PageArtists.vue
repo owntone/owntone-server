@@ -8,23 +8,23 @@
           <div class="column">
             <div
               class="is-size-7 is-uppercase"
-              v-text="$t('page.artists.filter')"
+              v-text="$t('page.artists.filter.title')"
             />
             <control-switch v-model="uiStore.hide_singles">
               <template #label>
-                <span v-text="$t('page.artists.hide-singles')" />
+                <span v-text="$t('page.artists.filter.hide-singles')" />
               </template>
               <template #help>
-                <span v-text="$t('page.artists.hide-singles-help')" />
+                <span v-text="$t('page.artists.filter.hide-singles-help')" />
               </template>
             </control-switch>
             <div v-if="spotify_enabled" class="field">
               <control-switch v-model="uiStore.hide_spotify">
                 <template #label>
-                  <span v-text="$t('page.artists.hide-spotify')" />
+                  <span v-text="$t('page.artists.filter.hide-spotify')" />
                 </template>
                 <template #help>
-                  <span v-text="$t('page.artists.hide-spotify-help')" />
+                  <span v-text="$t('page.artists.filter.hide-spotify-help')" />
                 </template>
               </control-switch>
             </div>
