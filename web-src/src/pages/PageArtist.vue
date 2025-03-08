@@ -104,18 +104,6 @@ export default {
     return {
       albums_list: new GroupedList(),
       artist: {},
-      groupings: [
-        {
-          id: 1,
-          name: this.$t('page.artist.sort.name'),
-          options: { criteria: [{ field: 'name_sort', type: String }] }
-        },
-        {
-          id: 2,
-          name: this.$t('page.artist.sort.release-date'),
-          options: { criteria: [{ field: 'date_released', type: Date }] }
-        }
-      ],
       show_details_modal: false
     }
   },
@@ -128,6 +116,20 @@ export default {
         (album) => !this.uiStore.hide_spotify || album.data_kind !== 'spotify'
       ]
       return this.albums_list.group(options)
+    },
+    groupings() {
+      return [
+        {
+          id: 1,
+          name: this.$t('page.artist.sort.name'),
+          options: { criteria: [{ field: 'name_sort', type: String }] }
+        },
+        {
+          id: 2,
+          name: this.$t('page.artist.sort.release-date'),
+          options: { criteria: [{ field: 'date_released', type: Date }] }
+        }
+      ]
     },
     heading() {
       return {

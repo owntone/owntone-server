@@ -106,7 +106,20 @@ export default {
   data() {
     return {
       artist: {},
-      groupings: [
+      show_details_modal: false,
+      tracks_list: new GroupedList()
+    }
+  },
+  computed: {
+    album_count() {
+      return new Set(
+        [...this.tracks]
+          .filter((track) => track.isItem)
+          .map((track) => track.item.album_id)
+      ).size
+    },
+    groupings() {
+      return [
         {
           id: 1,
           name: this.$t('page.artist.sort.name'),
@@ -120,18 +133,7 @@ export default {
             index: { field: 'rating', type: 'Digits' }
           }
         }
-      ],
-      show_details_modal: false,
-      tracks_list: new GroupedList()
-    }
-  },
-  computed: {
-    album_count() {
-      return new Set(
-        [...this.tracks]
-          .filter((track) => track.isItem)
-          .map((track) => track.item.album_id)
-      ).size
+      ]
     },
     heading() {
       return {

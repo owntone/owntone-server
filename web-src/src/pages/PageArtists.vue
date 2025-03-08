@@ -68,7 +68,6 @@ const dataObject = {
   load(to) {
     return webapi.library_artists('music')
   },
-
   set(vm, response) {
     vm.artists_list = new GroupedList(response.data)
   }
@@ -95,22 +94,7 @@ export default {
   },
   data() {
     return {
-      artists_list: new GroupedList(),
-      groupings: [
-        {
-          id: 1,
-          name: this.$t('page.artists.sort.name'),
-          options: { index: { field: 'name_sort', type: String } }
-        },
-        {
-          id: 2,
-          name: this.$t('page.artists.sort.recently-added'),
-          options: {
-            criteria: [{ field: 'time_added', order: -1, type: Date }],
-            index: { field: 'time_added', type: Date }
-          }
-        }
-      ]
+      artists_list: new GroupedList()
     }
   },
   computed: {
@@ -125,6 +109,23 @@ export default {
         (artist) => !this.uiStore.hide_spotify || artist.data_kind !== 'spotify'
       ]
       return this.artists_list.group(options)
+    },
+    groupings() {
+      return [
+        {
+          id: 1,
+          name: this.$t('page.artists.sort.name'),
+          options: { index: { field: 'name_sort', type: String } }
+        },
+        {
+          id: 2,
+          name: this.$t('page.artists.sort.recently-added'),
+          options: {
+            criteria: [{ field: 'time_added', order: -1, type: Date }],
+            index: { field: 'time_added', type: Date }
+          }
+        }
+      ]
     },
     heading() {
       return {

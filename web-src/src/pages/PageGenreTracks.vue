@@ -87,7 +87,17 @@ export default {
   data() {
     return {
       genre: {},
-      groupings: [
+      media_kind: this.$route.query.media_kind,
+      show_details_modal: false,
+      tracks_list: new GroupedList()
+    }
+  },
+  computed: {
+    expression() {
+      return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
+    },
+    groupings() {
+      return [
         {
           id: 1,
           name: this.$t('page.genre.sort.name'),
@@ -101,15 +111,7 @@ export default {
             index: { field: 'rating', type: 'Digits' }
           }
         }
-      ],
-      media_kind: this.$route.query.media_kind,
-      show_details_modal: false,
-      tracks_list: new GroupedList()
-    }
-  },
-  computed: {
-    expression() {
-      return `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`
+      ]
     },
     heading() {
       if (this.genre.name) {

@@ -95,8 +95,22 @@ export default {
   },
   data() {
     return {
-      albums_list: new GroupedList(),
-      groupings: [
+      albums_list: new GroupedList()
+    }
+  },
+  computed: {
+    albums() {
+      const { options } = this.groupings.find(
+        (grouping) => grouping.id === this.uiStore.albums_sort
+      )
+      options.filters = [
+        (album) => !this.uiStore.hide_singles || album.track_count > 2,
+        (album) => !this.uiStore.hide_spotify || album.data_kind !== 'spotify'
+      ]
+      return this.albums_list.group(options)
+    },
+    groupings() {
+      return [
         {
           id: 1,
           name: this.$t('page.albums.sort.name'),
@@ -141,18 +155,6 @@ export default {
           }
         }
       ]
-    }
-  },
-  computed: {
-    albums() {
-      const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.albums_sort
-      )
-      options.filters = [
-        (album) => !this.uiStore.hide_singles || album.track_count > 2,
-        (album) => !this.uiStore.hide_spotify || album.data_kind !== 'spotify'
-      ]
-      return this.albums_list.group(options)
     },
     heading() {
       return {

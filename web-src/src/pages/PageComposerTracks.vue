@@ -58,7 +58,6 @@ const dataObject = {
       webapi.library_composer_tracks(to.params.name)
     ])
   },
-
   set(vm, response) {
     vm.composer = response[0].data
     vm.tracks_list = new GroupedList(response[1].data.tracks)
@@ -87,21 +86,6 @@ export default {
   data() {
     return {
       composer: {},
-      groupings: [
-        {
-          id: 1,
-          name: this.$t('page.composer.sort.name'),
-          options: { index: { field: 'title_sort', type: String } }
-        },
-        {
-          id: 2,
-          name: this.$t('page.composer.sort.rating'),
-          options: {
-            criteria: [{ field: 'rating', order: -1, type: Number }],
-            index: { field: 'rating', type: 'Digits' }
-          }
-        }
-      ],
       show_details_modal: false,
       tracks_list: new GroupedList()
     }
@@ -134,6 +118,23 @@ export default {
     }
   },
   methods: {
+    groupings() {
+      return [
+        {
+          id: 1,
+          name: this.$t('page.composer.sort.name'),
+          options: { index: { field: 'title_sort', type: String } }
+        },
+        {
+          id: 2,
+          name: this.$t('page.composer.sort.rating'),
+          options: {
+            criteria: [{ field: 'rating', order: -1, type: Number }],
+            index: { field: 'rating', type: 'Digits' }
+          }
+        }
+      ]
+    },
     open_albums() {
       this.$router.push({
         name: 'music-composer-albums',
