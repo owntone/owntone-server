@@ -8,7 +8,7 @@
               <p class="control has-icons-left">
                 <input
                   ref="search_field"
-                  v-model="search_query"
+                  v-model="query"
                   class="input is-rounded"
                   type="text"
                   :placeholder="$t('page.spotify.search.placeholder')"
@@ -19,10 +19,10 @@
             </div>
           </form>
           <div class="field is-grouped is-grouped-multiline mt-4">
-            <div v-for="query in recent_searches" :key="query" class="control">
+            <div v-for="query in history" :key="query" class="control">
               <div class="tags has-addons">
-                <a class="tag" @click="open_search(query)" v-text="query" />
-                <a class="tag is-delete" @click="remove_search(query)" />
+                <a class="tag" @click="openSearch(query)" v-text="query" />
+                <a class="tag is-delete" @click="removeSearch(query)" />
               </div>
             </div>
           </div>
@@ -30,7 +30,7 @@
       </div>
     </div>
   </section>
-  <tabs-search @search-library="search_library" @search-spotify="search" />
+  <tabs-search @search-library="searchLibrary" @search-spotify="search" />
   <template v-for="[type, items] in results" :key="type">
     <content-with-heading>
       <template #heading-left>
@@ -40,7 +40,7 @@
       </template>
       <template #content>
         <component :is="components[type]" :items="items.items" />
-        <vue-eternal-loading v-if="expanded" :load="search_next">
+        <vue-eternal-loading v-if="expanded" :load="searchNext">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -54,7 +54,7 @@
         </vue-eternal-loading>
       </template>
       <template v-if="!expanded" #footer>
-        <nav v-if="show_all_button(items)" class="level">
+        <nav v-if="showAllButton(items)" class="level">
           <p class="level-item">
             <a
               class="button is-small is-rounded"
@@ -119,7 +119,7 @@ export default {
       },
       results: new Map(),
       search_parameters: {},
-      search_query: '',
+      query: '',
       search_types: SEARCH_TYPES
     }
   },
@@ -127,39 +127,39 @@ export default {
     expanded() {
       return this.search_types.length === 1
     },
-    recent_searches() {
-      return this.searchStore.recent_searches.filter(
+    history() {
+      return this.searchStore.history.filter(
         (query) => !query.startsWith('query:')
       )
     }
   },
   watch: {
-    search_query() {
-      this.searchStore.search_query = this.search_query
+    query() {
+      this.searchStore.query = this.query
     }
   },
   mounted() {
-    this.searchStore.search_source = this.$route.name
-    this.search_query = this.searchStore.search_query
+    this.searchStore.source = this.$route.name
+    this.query = this.searchStore.query
     this.search_parameters.limit = PAGE_SIZE
     this.search()
   },
   methods: {
     expand(type) {
-      this.search_query = this.searchStore.search_query
+      this.query = this.searchStore.query
       this.search_types = [type]
       this.search_parameters.limit = PAGE_SIZE_EXPANDED
       this.search_parameters.offset = 0
       this.search()
     },
-    open_search(query) {
-      this.search_query = query
+    openSearch(query) {
+      this.query = query
       this.search_types = SEARCH_TYPES
       this.search_parameters.limit = PAGE_SIZE
       this.search_parameters.offset = 0
       this.search()
     },
-    remove_search(query) {
+    removeSearch(query) {
       this.searchStore.remove(query)
     },
     reset() {
@@ -173,41 +173,41 @@ export default {
         this.search_types = SEARCH_TYPES
         this.search_parameters.limit = PAGE_SIZE
       }
-      this.search_query = this.search_query.trim()
-      if (!this.search_query) {
+      this.query = this.query.trim()
+      if (!this.query) {
         this.$refs.search_field.focus()
         return
       }
       this.reset()
-      this.search_items().then((data) => {
+      this.searchItems().then((data) => {
         this.search_types.forEach((type) => {
           this.results.set(type, data[`${type}s`])
         })
       })
-      this.searchStore.add(this.search_query)
+      this.searchStore.add(this.query)
     },
-    search_items() {
+    searchItems() {
       return webapi.spotify().then(({ data }) => {
         this.search_parameters.market = data.webapi_country
         const spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(data.webapi_token)
         return spotifyApi.search(
-          this.search_query,
+          this.query,
           this.search_types,
           this.search_parameters
         )
       })
     },
-    search_library() {
+    searchLibrary() {
       this.$router.push({
         name: 'search-library'
       })
     },
-    search_next({ loaded }) {
+    searchNext({ loaded }) {
       const [type] = this.search_types,
         items = this.results.get(type)
       this.search_parameters.limit = PAGE_SIZE_EXPANDED
-      this.search_items().then((data) => {
+      this.searchItems().then((data) => {
         const [next] = Object.values(data)
         items.items.push(...next.items)
         items.total = next.total
@@ -221,7 +221,7 @@ export default {
     show(type) {
       return this.search_types.includes(type)
     },
-    show_all_button(items) {
+    showAllButton(items) {
       return items.total > items.items.length
     }
   }

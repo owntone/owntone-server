@@ -40,7 +40,7 @@
         />
       </div>
       <div class="media-right">
-        <a @click.prevent.stop="open_dialog(item.item)">
+        <a @click.prevent.stop="openDialog(item.item)">
           <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
         </a>
       </div>
@@ -77,7 +77,7 @@ export default {
   },
 
   methods: {
-    open_dialog(item) {
+    openDialog(item) {
       this.selected_item = item
       this.show_details_modal = true
     },

@@ -1,5 +1,5 @@
 <template>
-  <a :disabled="disabled" @click="play_previous">
+  <a :disabled="disabled" @click="playPrevious">
     <mdicon
       class="icon"
       name="skip-backward"
@@ -14,21 +14,18 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerPrevious',
-
   setup() {
     return {
       queueStore: useQueueStore()
     }
   },
-
   computed: {
     disabled() {
       return this.queueStore.count <= 0
     }
   },
-
   methods: {
-    play_previous() {
+    playPrevious() {
       if (this.disabled) {
         return
       }

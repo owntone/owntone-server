@@ -32,7 +32,7 @@
         />
       </div>
       <div class="media-right">
-        <a @click.prevent.stop="open_dialog(item.item)">
+        <a @click.prevent.stop="openDialog(item.item)">
           <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
         </a>
       </div>
@@ -44,15 +44,15 @@
       :media_kind="media_kind"
       :show="show_details_modal"
       @close="show_details_modal = false"
-      @remove-podcast="open_remove_podcast_dialog()"
-      @play-count-changed="play_count_changed()"
+      @remove-podcast="openRemovePodcastDialog()"
+      @play-count-changed="onPlayCountChange()"
     />
     <modal-dialog
       :actions="actions"
       :show="show_remove_podcast_modal"
       :title="$t('page.podcast.remove-podcast')"
       @cancel="show_remove_podcast_modal = false"
-      @remove="remove_podcast"
+      @remove="removePodcast"
     >
       <template #content>
         <i18n-t keypath="list.albums.info" tag="p" scope="global">
@@ -119,11 +119,11 @@ export default {
         this.$router.push({ name: 'music-album', params: { id: item.id } })
       }
     },
-    open_dialog(item) {
+    openDialog(item) {
       this.selected_item = item
       this.show_details_modal = true
     },
-    open_remove_podcast_dialog() {
+    openRemovePodcastDialog() {
       webapi
         .library_album_tracks(this.selected_item.id, { limit: 1 })
         .then(({ data: album }) => {
@@ -136,10 +136,10 @@ export default {
           })
         })
     },
-    play_count_changed() {
+    onPlayCountChange() {
       this.$emit('play-count-changed')
     },
-    remove_podcast() {
+    removePodcast() {
       this.show_remove_podcast_modal = false
       webapi
         .library_playlist_delete(this.rss_playlist_to_remove.id)

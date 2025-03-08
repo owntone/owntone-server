@@ -23,12 +23,12 @@ export default {
         name: this.item.name,
         properties: [
           {
-            handler: this.open_album,
+            handler: this.openAlbum,
             key: 'property.album',
             value: this.item.album.name
           },
           {
-            handler: this.open_artist,
+            handler: this.openArtist,
             key: 'property.album-artist',
             value: this.item.artists[0]?.name
           },
@@ -51,14 +51,14 @@ export default {
     }
   },
   methods: {
-    open_album() {
+    openAlbum() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-album',
         params: { id: this.item.album.id }
       })
     },
-    open_artist() {
+    openArtist() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-artist',

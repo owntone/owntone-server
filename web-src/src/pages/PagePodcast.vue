@@ -32,22 +32,22 @@
         <list-tracks
           :items="tracks"
           :show_progress="true"
-          @play-count-changed="reload_tracks"
+          @play-count-changed="reloadTracks"
         />
         <modal-dialog-album
           :item="album"
           :show="show_details_modal"
           :media_kind="'podcast'"
           @close="show_details_modal = false"
-          @play-count-changed="reload_tracks"
-          @remove-podcast="open_remove_podcast_dialog"
+          @play-count-changed="reloadTracks"
+          @remove-podcast="openRemovePodcastDialog"
         />
         <modal-dialog
           :actions="actions"
           :show="show_remove_podcast_modal"
           :title="$t('page.podcast.remove-podcast')"
           @cancel="show_remove_podcast_modal = false"
-          @remove="remove_podcast"
+          @remove="removePodcast"
         >
           <template #content>
             <i18n-t keypath="page.podcast.remove-info" tag="p" scope="global">
@@ -129,7 +129,7 @@ export default {
     }
   },
   methods: {
-    open_remove_podcast_dialog() {
+    openRemovePodcastDialog() {
       webapi
         .library_track_playlists(this.tracks.items[0].id)
         .then(({ data }) => {
@@ -143,12 +143,12 @@ export default {
     play() {
       webapi.player_play_uri(this.album.uri, false)
     },
-    reload_tracks() {
+    reloadTracks() {
       webapi.library_podcast_episodes(this.album.id).then(({ data }) => {
         this.tracks = new GroupedList(data.tracks)
       })
     },
-    remove_podcast() {
+    removePodcast() {
       this.show_remove_podcast_modal = false
       webapi
         .library_playlist_delete(this.rss_playlist_to_remove.id)

@@ -8,7 +8,7 @@
               <p class="control has-icons-left">
                 <input
                   ref="search_field"
-                  v-model="search_query"
+                  v-model="query"
                   class="input is-rounded"
                   type="text"
                   :placeholder="$t('page.search.placeholder')"
@@ -36,10 +36,10 @@
             </div>
           </form>
           <div class="field is-grouped is-grouped-multiline mt-4">
-            <div v-for="query in recent_searches" :key="query" class="control">
+            <div v-for="query in history" :key="query" class="control">
               <div class="tags has-addons">
-                <a class="tag" @click="open_search(query)" v-text="query" />
-                <a class="tag is-delete" @click="remove_search(query)" />
+                <a class="tag" @click="openSearch(query)" v-text="query" />
+                <a class="tag is-delete" @click="removeSearch(query)" />
               </div>
             </div>
           </div>
@@ -47,7 +47,7 @@
       </div>
     </div>
   </section>
-  <tabs-search @search-library="search" @search-spotify="search_spotify" />
+  <tabs-search @search-library="search" @search-spotify="searchSpotify" />
   <template v-for="[type, items] in results" :key="type">
     <content-with-heading>
       <template #heading-left>
@@ -57,7 +57,7 @@
         <component :is="components[type]" :items="items" />
       </template>
       <template v-if="!expanded" #footer>
-        <nav v-if="show_all_button(items)" class="level">
+        <nav v-if="showAllButton(items)" class="level">
           <p class="level-item">
             <a
               class="button is-small is-rounded"
@@ -116,11 +116,9 @@ export default {
     ListTracks,
     TabsSearch
   },
-
   setup() {
     return { searchStore: useSearchStore() }
   },
-
   data() {
     return {
       components: {
@@ -134,47 +132,43 @@ export default {
       },
       results: new Map(),
       search_limit: {},
-      search_query: '',
+      query: '',
       search_types: SEARCH_TYPES
     }
   },
-
   computed: {
     expanded() {
       return this.search_types.length === 1
     },
-    recent_searches() {
-      return this.searchStore.recent_searches
+    history() {
+      return this.searchStore.history
     }
   },
-
   watch: {
-    search_query() {
-      this.searchStore.search_query = this.search_query
+    query() {
+      this.searchStore.query = this.query
     }
   },
-
   mounted() {
-    this.searchStore.search_source = this.$route.name
-    this.search_query = this.searchStore.search_query
+    this.searchStore.source = this.$route.name
+    this.query = this.searchStore.query
     this.search_limit = PAGE_SIZE
     this.search()
   },
-
   methods: {
     expand(type) {
-      this.search_query = this.searchStore.search_query
+      this.query = this.searchStore.query
       this.search_types = [type]
       this.search_limit = -1
       this.search()
     },
-    open_search(query) {
-      this.search_query = query
+    openSearch(query) {
+      this.query = query
       this.search_types = SEARCH_TYPES
       this.search_limit = PAGE_SIZE
       this.search()
     },
-    remove_search(query) {
+    removeSearch(query) {
       this.searchStore.remove(query)
     },
     reset() {
@@ -188,43 +182,43 @@ export default {
         this.search_types = SEARCH_TYPES
         this.search_limit = PAGE_SIZE
       }
-      this.search_query = this.search_query.trim()
-      if (!this.search_query || !this.search_query.replace(/^query:/u, '')) {
+      this.query = this.query.trim()
+      if (!this.query || !this.query.replace(/^query:/u, '')) {
         this.$refs.search_field.focus()
         return
       }
       this.reset()
       this.search_types.forEach((type) => {
-        this.search_items(type)
+        this.searchItems(type)
       })
-      this.searchStore.add(this.search_query)
+      this.searchStore.add(this.query)
     },
-    search_items(type) {
+    searchItems(type) {
       const music = type !== 'audiobook' && type !== 'podcast'
       const kind = music ? 'music' : type
       const parameters = {
         limit: this.search_limit,
         type: music ? type : 'album'
       }
-      if (this.search_query.startsWith('query:')) {
-        parameters.expression = `(${this.search_query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
+      if (this.query.startsWith('query:')) {
+        parameters.expression = `(${this.query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
       } else if (music) {
-        parameters.query = this.search_query
+        parameters.query = this.query
         parameters.media_kind = kind
       } else {
-        parameters.expression = `(album includes "${this.search_query}" or artist includes "${this.search_query}") and media_kind is ${kind}`
+        parameters.expression = `(album includes "${this.query}" or artist includes "${this.query}") and media_kind is ${kind}`
       }
       webapi.search(parameters).then(({ data }) => {
         this.results.set(type, new GroupedList(data[`${parameters.type}s`]))
       })
     },
-    search_spotify() {
+    searchSpotify() {
       this.$router.push({ name: 'search-spotify' })
     },
     show(type) {
       return this.search_types.includes(type)
     },
-    show_all_button(items) {
+    showAllButton(items) {
       return items.total > items.items.length
     }
   }

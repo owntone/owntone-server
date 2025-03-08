@@ -7,7 +7,7 @@
       <template #heading-right>
         <control-button
           :button="{
-            handler: update_show_next_items,
+            handler: toggleHideReadItems,
             icon: 'eye-off-outline',
             key: 'actions.hide-previous'
           }"
@@ -15,7 +15,7 @@
         />
         <control-button
           :button="{
-            handler: open_add_stream_dialog,
+            handler: openAddStreamDialog,
             icon: 'web',
             key: 'actions.add-stream'
           }"
@@ -31,7 +31,7 @@
         />
         <control-button
           :button="{
-            handler: queue_clear,
+            handler: clearQueue,
             icon: 'delete-empty',
             key: 'actions.clear'
           }"
@@ -40,7 +40,7 @@
         <control-button
           v-if="is_queue_save_allowed"
           :button="{
-            handler: save_dialog,
+            handler: showSaveDialog,
             icon: 'download',
             key: 'actions.save'
           }"
@@ -58,7 +58,7 @@
               :edit_mode="edit_mode"
             >
               <template #actions>
-                <a v-if="!edit_mode" @click.prevent.stop="open_dialog(element)">
+                <a v-if="!edit_mode" @click.prevent.stop="openDialog(element)">
                   <mdicon
                     class="icon has-text-grey"
                     name="dots-vertical"
@@ -180,20 +180,20 @@ export default {
         webapi.queue_move(item.id, newPosition)
       }
     },
-    open_add_stream_dialog() {
+    openAddStreamDialog() {
       this.show_url_modal = true
     },
-    open_dialog(item) {
+    openDialog(item) {
       this.selected_item = item
       this.show_details_modal = true
     },
-    queue_clear() {
+    clearQueue() {
       webapi.queue_clear()
     },
     remove(item) {
       webapi.queue_remove(item.id)
     },
-    save_dialog() {
+    showSaveDialog() {
       if (this.queue_items.length > 0) {
         this.show_pls_save_modal = true
       }
@@ -201,7 +201,7 @@ export default {
     toggleEdit() {
       this.edit_mode = !this.edit_mode
     },
-    update_show_next_items() {
+    toggleHideReadItems() {
       this.uiStore.show_only_next_items = !this.uiStore.show_only_next_items
     }
   }

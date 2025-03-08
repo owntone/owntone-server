@@ -1,5 +1,5 @@
 <template>
-  <a :class="{ 'is-dark': is_shuffle }" @click="toggle">
+  <a :class="{ 'is-dark': isShuffle }" @click="toggle">
     <mdicon
       class="icon"
       :name="icon"
@@ -22,12 +22,12 @@ export default {
   },
   computed: {
     icon() {
-      if (this.is_shuffle) {
+      if (this.isShuffle) {
         return 'shuffle'
       }
       return 'shuffle-disabled'
     },
-    is_shuffle() {
+    isShuffle() {
       return this.playerStore.shuffle
     }
   },

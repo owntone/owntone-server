@@ -1,6 +1,6 @@
 <template>
   <div
-    v-if="is_next || !show_only_next_items"
+    v-if="isNext || !show_only_next_items"
     class="media is-align-items-center is-clickable mb-0"
     @click="play"
   >
@@ -15,26 +15,26 @@
       <div
         class="is-size-6 has-text-weight-bold"
         :class="{
-          'has-text-primary': item.id === player.item_id,
-          'has-text-grey-light': !is_next
+          'has-text-primary': isCurrent,
+          'has-text-grey-light': !isNext
         }"
         v-text="item.title"
       />
       <div
         class="is-size-7 has-text-weight-bold"
         :class="{
-          'has-text-primary': item.id === player.item_id,
-          'has-text-grey-light': !is_next,
-          'has-text-grey': is_next && item.id !== player.item_id
+          'has-text-primary': isCurrent,
+          'has-text-grey-light': !isNext,
+          'has-text-grey': isNext && !isCurrent
         }"
         v-text="item.artist"
       />
       <div
         class="is-size-7"
         :class="{
-          'has-text-primary': item.id === player.item_id,
-          'has-text-grey-light': !is_next,
-          'has-text-grey': is_next && item.id !== player.item_id
+          'has-text-primary': isCurrent,
+          'has-text-grey-light': !isNext,
+          'has-text-grey': isNext && isCurrent
         }"
         v-text="item.album"
       />
@@ -58,20 +58,17 @@ export default {
     position: { required: true, type: Number },
     show_only_next_items: Boolean
   },
-
   setup() {
     return { playerStore: usePlayerStore() }
   },
-
   computed: {
-    is_next() {
-      return this.current_position < 0 || this.position >= this.current_position
+    isCurrent() {
+      return this.item.id === this.playerStore.item_id
     },
-    player() {
-      return this.playerStore
+    isNext() {
+      return this.current_position < 0 || this.position >= this.current_position
     }
   },
-
   methods: {
     play() {
       webapi.player_play({ item_id: this.item.id })

@@ -22,7 +22,7 @@ export default {
         name: this.item.name || '',
         properties: [
           {
-            handler: this.open_artist,
+            handler: this.openArtist,
             key: 'property.artist',
             value: this.item?.artists?.[0]?.name
           },
@@ -44,7 +44,7 @@ export default {
         params: { id: this.item.id }
       })
     },
-    open_artist() {
+    openArtist() {
       this.$emit('close')
       this.$router.push({
         name: 'music-spotify-artist',

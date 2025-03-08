@@ -9,7 +9,7 @@
         <p class="is-size-6 has-text-weight-bold" v-text="item.item.name" />
       </div>
       <div class="media-right">
-        <a @click.prevent.stop="open_dialog(item.item)">
+        <a @click.prevent.stop="openDialog(item.item)">
           <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
         </a>
       </div>
@@ -17,7 +17,7 @@
   </template>
   <teleport to="#app">
     <modal-dialog-playlist
-      :item="selected_item"
+      :item="selectedItem"
       :show="show_details_modal"
       @close="show_details_modal = false"
     />
@@ -33,7 +33,7 @@ export default {
   props: { items: { required: true, type: Object } },
 
   data() {
-    return { selected_item: {}, show_details_modal: false }
+    return { selectedItem: {}, show_details_modal: false }
   },
 
   methods: {
@@ -52,8 +52,8 @@ export default {
         this.$router.push({ name: 'playlist', params: { id: item.id } })
       }
     },
-    open_dialog(item) {
-      this.selected_item = item
+    openDialog(item) {
+      this.selectedItem = item
       this.show_details_modal = true
     }
   }

@@ -22,20 +22,20 @@ export default {
         return []
       }
       return this.item.play_count > 0
-        ? [{ handler: this.mark_new, key: 'actions.mark-as-new' }]
-        : [{ handler: this.mark_played, key: 'actions.mark-as-played' }]
+        ? [{ handler: this.markAsNew, key: 'actions.mark-as-new' }]
+        : [{ handler: this.markAsPlayed, key: 'actions.mark-as-played' }]
     },
     playable() {
       return {
         name: this.item.title,
         properties: [
           {
-            handler: this.open_album,
+            handler: this.openAlbum,
             key: 'property.album',
             value: this.item.album
           },
           {
-            handler: this.open_artist,
+            handler: this.openArtist,
             key: 'property.album-artist',
             value: this.item.album_artist
           },
@@ -91,7 +91,7 @@ export default {
     }
   },
   methods: {
-    mark_new() {
+    markAsNew() {
       webapi
         .library_track_update(this.item.id, { play_count: 'reset' })
         .then(() => {
@@ -99,7 +99,7 @@ export default {
           this.$emit('close')
         })
     },
-    mark_played() {
+    markAsPlayed() {
       webapi
         .library_track_update(this.item.id, { play_count: 'increment' })
         .then(() => {
@@ -107,7 +107,7 @@ export default {
           this.$emit('close')
         })
     },
-    open_album() {
+    openAlbum() {
       this.$emit('close')
       if (this.item.media_kind === 'podcast') {
         this.$router.push({
@@ -126,7 +126,7 @@ export default {
         })
       }
     },
-    open_artist() {
+    openArtist() {
       this.$emit('close')
       if (
         this.item.media_kind === 'music' ||
@@ -143,7 +143,7 @@ export default {
         })
       }
     },
-    open_genre() {
+    openGenre() {
       this.$emit('close')
       this.$router.push({
         name: 'genre-albums',

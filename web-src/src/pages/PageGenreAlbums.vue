@@ -84,7 +84,7 @@ export default {
             { count: this.genre.album_count, key: 'count.albums' },
             {
               count: this.genre.track_count,
-              handler: this.open_tracks,
+              handler: this.openTracks,
               key: 'count.tracks'
             }
           ],
@@ -95,7 +95,7 @@ export default {
     }
   },
   methods: {
-    open_tracks() {
+    openTracks() {
       this.show_details_modal = false
       this.$router.push({
         name: 'genre-tracks',

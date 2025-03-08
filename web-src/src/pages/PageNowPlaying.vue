@@ -9,7 +9,7 @@
         :album="track.album"
         class="is-clickable is-big"
         :class="{ 'is-masked': lyricsStore.pane }"
-        @click="open_dialog(track)"
+        @click="openDialog(track)"
       />
       <lyrics-pane v-if="lyricsStore.pane" />
       <control-slider
@@ -164,7 +164,7 @@ export default {
     end_dragging() {
       this.is_dragged = false
     },
-    open_dialog(item) {
+    openDialog(item) {
       this.selected_item = item
       this.show_details_modal = true
     },

@@ -18,16 +18,16 @@ export default {
     playable() {
       return {
         expression: `composer is "${this.item.name}" and media_kind is music`,
-        handler: this.open_albums,
+        handler: this.openAlbums,
         name: this.item.name,
         properties: [
           {
-            handler: this.open_albums,
+            handler: this.openAlbums,
             key: 'property.albums',
             value: this.item.album_count
           },
           {
-            handler: this.open_tracks,
+            handler: this.openTracks,
             key: 'property.tracks',
             value: this.item.track_count
           },
@@ -40,14 +40,14 @@ export default {
     }
   },
   methods: {
-    open_albums() {
+    openAlbums() {
       this.$emit('close')
       this.$router.push({
         name: 'music-composer-albums',
         params: { name: this.item.name }
       })
     },
-    open_tracks() {
+    openTracks() {
       this.$emit('close')
       this.$router.push({
         name: 'music-composer-tracks',

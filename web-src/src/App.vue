@@ -141,7 +141,7 @@ export default {
           this.configurationStore.$state = data
           this.uiStore.hide_singles = data.hide_singles
           document.title = data.library_name
-          this.open_websocket()
+          this.openWebsocket()
           this.$Progress.finish()
         })
         .catch(() => {
@@ -152,7 +152,7 @@ export default {
           })
         })
     },
-    open_websocket() {
+    openWebsocket() {
       const socket = this.create_websocket()
       const vm = this
       socket.onopen = () => {

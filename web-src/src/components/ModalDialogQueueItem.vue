@@ -38,19 +38,19 @@ export default {
         name: this.item.title,
         properties: [
           {
-            handler: this.open_album,
+            handler: this.openAlbum,
             key: 'property.album',
             value: this.item.album
           },
           {
-            handler: this.open_album_artist,
+            handler: this.openAlbumArtist,
             key: 'property.album-artist',
             value: this.item.album_artist
           },
           { key: 'property.composer', value: this.item.composer },
           { key: 'property.year', value: this.item.year },
           {
-            handler: this.open_genre,
+            handler: this.openGenre,
             key: 'property.genre',
             value: this.item.genre
           },
@@ -97,7 +97,7 @@ export default {
     }
   },
   methods: {
-    open_album() {
+    openAlbum() {
       this.$emit('close')
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
@@ -121,7 +121,7 @@ export default {
         })
       }
     },
-    open_album_artist() {
+    openAlbumArtist() {
       this.$emit('close')
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
@@ -143,7 +143,7 @@ export default {
         })
       }
     },
-    open_genre() {
+    openGenre() {
       this.$emit('close')
       this.$router.push({
         name: 'genre-albums',

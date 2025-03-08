@@ -143,7 +143,7 @@ export default {
         {
           icon: 'magnify',
           key: 'navigation.search',
-          name: this.searchStore.search_source,
+          name: this.searchStore.source,
           show: this.settingsStore.show_menu_item_search
         },
         { separator: true, show: true },
@@ -153,7 +153,7 @@ export default {
           show: true
         },
         {
-          action: this.open_update_dialog,
+          action: this.openUpdateDialog,
           key: 'navigation.update-library',
           show: true
         },
@@ -168,7 +168,7 @@ export default {
     }
   },
   methods: {
-    open_update_dialog() {
+    openUpdateDialog() {
       this.uiStore.show_update_dialog = true
       this.uiStore.show_burger_menu = false
     }

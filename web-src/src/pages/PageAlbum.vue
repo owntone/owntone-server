@@ -4,7 +4,7 @@
       <template #heading-left>
         <div class="title is-5" v-text="album.name" />
         <div class="subtitle is-6">
-          <a @click="open_artist" v-text="album.artist" />
+          <a @click="openArtist" v-text="album.artist" />
         </div>
         <div
           class="is-size-7 is-uppercase has-text-centered-mobile"
@@ -91,7 +91,7 @@ export default {
     }
   },
   methods: {
-    open_artist() {
+    openArtist() {
       this.show_details_modal = false
       this.$router.push({
         name: 'music-artist',

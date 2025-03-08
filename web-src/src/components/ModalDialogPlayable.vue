@@ -34,9 +34,9 @@ export default {
   computed: {
     actions() {
       return [
-        { handler: this.queue_add, icon: 'playlist-plus', key: 'actions.add' },
+        { handler: this.addToQueue, icon: 'playlist-plus', key: 'actions.add' },
         {
-          handler: this.queue_add_next,
+          handler: this.addNextToQueue,
           icon: 'playlist-play',
           key: 'actions.add-next'
         },
@@ -53,7 +53,7 @@ export default {
         webapi.player_play_uri(this.item.uris || this.item.uri, false)
       }
     },
-    queue_add() {
+    addToQueue() {
       this.$emit('close')
       if (this.item.expression) {
         webapi.queue_expression_add(this.item.expression)
@@ -61,7 +61,7 @@ export default {
         webapi.queue_add(this.item.uris || this.item.uri)
       }
     },
-    queue_add_next() {
+    addNextToQueue() {
       this.$emit('close')
       if (this.item.expression) {
         webapi.queue_expression_add_next(this.item.expression)

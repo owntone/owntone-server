@@ -3,7 +3,7 @@
     <mdicon
       class="icon media-left is-clickable"
       name="chevron-left"
-      @click="open_parent"
+      @click="openParent"
     />
     <div class="media-content">
       <nav class="breadcrumb">
@@ -30,7 +30,7 @@
         <p class="is-size-6 has-text-weight-bold" v-text="item.name" />
       </div>
       <div class="media-right">
-        <a @click.prevent.stop="open_dialog(item)">
+        <a @click.prevent.stop="openDialog(item)">
           <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
         </a>
       </div>
@@ -80,11 +80,11 @@ export default {
       }
       this.$router.push(route)
     },
-    open_dialog(item) {
+    openDialog(item) {
       this.selected_item = item.path
       this.show_details_modal = true
     },
-    open_parent() {
+    openParent() {
       this.open(this.directories.slice(-1).pop())
     }
   }

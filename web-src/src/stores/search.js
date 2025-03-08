@@ -3,25 +3,25 @@ import { defineStore } from 'pinia'
 export const useSearchStore = defineStore('SearchStore', {
   actions: {
     add(query) {
-      const index = this.recent_searches.indexOf(query)
+      const index = this.history.indexOf(query)
       if (index !== -1) {
-        this.recent_searches.splice(index, 1)
+        this.history.splice(index, 1)
       }
-      this.recent_searches.unshift(query)
-      if (this.recent_searches.length > 5) {
-        this.recent_searches.pop()
+      this.history.unshift(query)
+      if (this.history.length > 5) {
+        this.history.pop()
       }
     },
     remove(query) {
-      const index = this.recent_searches.indexOf(query)
+      const index = this.history.indexOf(query)
       if (index !== -1) {
-        this.recent_searches.splice(index, 1)
+        this.history.splice(index, 1)
       }
     }
   },
   state: () => ({
-    recent_searches: [],
-    search_query: '',
-    search_source: 'search-library'
+    history: [],
+    query: '',
+    source: 'search-library'
   })
 })

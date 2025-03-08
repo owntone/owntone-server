@@ -137,7 +137,7 @@ export default {
           { count: this.albums.count, key: 'count.albums' },
           {
             count: this.track_count,
-            handler: this.open_tracks,
+            handler: this.openTracks,
             key: 'count.tracks'
           }
         ],
@@ -156,7 +156,7 @@ export default {
     }
   },
   methods: {
-    open_tracks() {
+    openTracks() {
       this.$router.push({
         name: 'music-artist-tracks',
         params: { id: this.artist.id }

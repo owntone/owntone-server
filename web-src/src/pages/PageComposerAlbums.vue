@@ -78,7 +78,7 @@ export default {
             { count: this.composer.album_count, key: 'count.albums' },
             {
               count: this.composer.track_count,
-              handler: this.open_tracks,
+              handler: this.openTracks,
               key: 'count.tracks'
             }
           ],
@@ -89,7 +89,7 @@ export default {
     }
   },
   methods: {
-    open_tracks() {
+    openTracks() {
       this.$router.push({
         name: 'music-composer-tracks',
         params: { name: this.composer.name }

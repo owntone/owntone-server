@@ -43,7 +43,7 @@ export default {
         name: this.item.name,
         properties: [
           {
-            handler: this.open_artist,
+            handler: this.openArtist,
             key: 'property.artist',
             value: this.item.artist
           },
@@ -95,7 +95,7 @@ export default {
         })
       }
     },
-    open_artist() {
+    openArtist() {
       this.$emit('close')
       if (this.media_kind_resolved === 'audiobook') {
         this.$router.push({
