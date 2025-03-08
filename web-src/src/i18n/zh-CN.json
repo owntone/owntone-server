@@ -131,6 +131,25 @@
     "spotify": "Spotify",
     "update-library": "更新资料库"
   },
+  "options": {
+    "filter": {
+      "hide-singles": "隐藏单曲",
+      "hide-singles-help": "如果处于活动状态，则隐藏单曲和与其关联的任何内容",
+      "hide-spotify": "隐藏来自Spotify的内容",
+      "hide-spotify-help": "如果处于活动状态，则隐藏 Spotify 中的内容",
+      "title": "专辑"
+    },
+    "sort": {
+      "artist-name": "艺人 › 名称",
+      "artist-date": "艺人 › 发行日期",
+      "name": "名称",
+      "rating": "评级",
+      "recently-added": "最近添加",
+      "recently-released": "最近发行",
+      "release-date": "发行日期",
+      "title": "分类"
+    }
+  },
   "page": {
     "about": {
       "built-with": "界面贡献者包括 {bulma}，{mdi}，{vuejs}，{axios} 和 {others}",
@@ -141,49 +160,9 @@
       "version": "版本 {version}"
     },
     "albums": {
-      "filter": {
-        "hide-singles": "隐藏单曲",
-        "hide-singles-help": "如果激活，将隐藏仅在播放列表出现的单曲和专辑",
-        "hide-spotify": "隐藏来自Spotify的专辑",
-        "hide-spotify-help": "如果激活，将隐藏仅在Spotify资料库出现的专辑",
-        "title": "专辑"
-      },
-      "sort": {
-        "artist-name": "艺人 › 名称",
-        "artist-date": "艺人 › 发行日期",
-        "name": "名称",
-        "recently-added": "最近添加",
-        "recently-released": "最近发行",
-        "title": "分类"
-      },
       "title": "张专辑"
     },
-    "artist": {
-      "filter": {
-        "hide-spotify": "隐藏来自Spotify的内容",
-        "hide-spotify-help": "如果激活，将隐藏只出现在Spotify库中的内容",
-        "title": "专辑"
-      },
-      "sort": {
-        "name": "名称",
-        "rating": "评级",
-        "release-date": "发行日期",
-        "title": "分类"
-      }
-    },
     "artists": {
-      "filter": {
-        "hide-singles": "隐藏单曲",
-        "hide-singles-help": "如果激活，将隐藏仅在播放列表出现的单曲和专辑",
-        "hide-spotify": "隐藏来自Spotify的艺人",
-        "hide-spotify-help": "如果激活，将隐藏仅在Spotify资料库出现的专辑",
-        "title": "专辑"
-      },
-      "sort": {
-        "name": "名称",
-        "recently-added": "最近添加",
-        "title": "分类"
-      },
       "title": "艺人"
     },
     "audiobooks": {
@@ -199,25 +178,11 @@
         "genres": "流派"
       }
     },
-    "composer": {
-      "sort": {
-        "name": "名称",
-        "rating": "评级",
-        "title": "分类"
-      }
-    },
     "composers": {
       "title": "作曲家"
     },
     "files": {
       "title": "文件"
-    },
-    "genre": {
-      "sort": {
-        "name": "名称",
-        "rating": "评级",
-        "title": "分类"
-      }
     },
     "genres": {
       "title": "流派"

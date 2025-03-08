@@ -82,7 +82,6 @@ const dataObject = {
       webapi.library_podcast_episodes(to.params.id)
     ])
   },
-
   set(vm, response) {
     vm.album = response[0].data
     vm.tracks = new GroupedList(response[1].data.tracks)
@@ -99,13 +98,11 @@ export default {
     ModalDialog,
     ModalDialogAlbum
   },
-
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
-
   data() {
     return {
       album: {},
@@ -119,14 +116,14 @@ export default {
     actions() {
       return [
         {
-          key: this.$t('page.podcast.cancel'),
           handler: 'cancel',
-          icon: 'cancel'
+          icon: 'cancel',
+          key: this.$t('page.podcast.cancel')
         },
         {
-          key: this.$t('page.podcast.remove'),
           handler: 'remove',
-          icon: 'delete'
+          icon: 'delete',
+          key: this.$t('page.podcast.remove')
         }
       ]
     }

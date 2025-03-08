@@ -74,15 +74,15 @@ export default {
     heading() {
       if (this.composer.name) {
         return {
-          title: this.composer.name,
           subtitle: [
-            { key: 'count.albums', count: this.composer.album_count },
+            { count: this.composer.album_count, key: 'count.albums' },
             {
+              count: this.composer.track_count,
               handler: this.open_tracks,
-              key: 'count.tracks',
-              count: this.composer.track_count
+              key: 'count.tracks'
             }
-          ]
+          ],
+          title: this.composer.name
         }
       }
       return {}

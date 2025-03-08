@@ -131,6 +131,25 @@
     "spotify": "Spotify",
     "update-library": "Update Library"
   },
+  "options": {
+    "filter": {
+      "hide-singles": "Hide singles",
+      "hide-singles-help": "If active, hides singles and anything associated with them.",
+      "hide-spotify": "Hide Spotify content",
+      "hide-spotify-help": "If active, hides content from Spotify.",
+      "title": "Filter"
+    },
+    "sort": {
+      "artist-name": "Artist › Name",
+      "artist-date": "Artist › Release date",
+      "name": "Name",
+      "rating": "Rating",
+      "recently-added": "Recently added",
+      "recently-released": "Recently released",
+      "release-date": "Release date",
+      "title": "Sort"
+    }
+  },
   "page": {
     "about": {
       "built-with": "Web interface built with {bulma}, {mdi}, {vuejs}, {axios} and {others}.",
@@ -141,49 +160,9 @@
       "version": "Version {version}"
     },
     "albums": {
-      "filter": {
-        "hide-singles": "Hide singles",
-        "hide-singles-help": "If active, hides singles and albums with tracks that only appear in playlists.",
-        "hide-spotify": "Hide albums from Spotify",
-        "hide-spotify-help": "If active, hides albums that only appear in your Spotify library.",
-        "title": "Filter"
-      },
-      "sort": {
-        "artist-name": "Artist › Name",
-        "artist-date": "Artist › Release date",
-        "name": "Name",
-        "recently-added": "Recently added",
-        "recently-released": "Recently released",
-        "title": "Sort"
-      },
       "title": "Albums"
     },
-    "artist": {
-      "filter": {
-        "hide-spotify": "Hide the content from Spotify",
-        "hide-spotify-help": "If active, hides the content only appearing in your Spotify library.",
-        "title": "Filter"
-      },
-      "sort": {
-        "name": "Name",
-        "rating": "Rating",
-        "release-date": "Release date",
-        "title": "Sort"
-      }
-    },
     "artists": {
-      "filter": {
-        "hide-singles": "Hide singles",
-        "hide-singles-help": "If active, hides artists that only appear on singles or playlists.",
-        "hide-spotify": "Hide artists from Spotify",
-        "hide-spotify-help": "If active, hides artists that only appear in your Spotify library.",
-        "title": "Filter"
-      },
-      "sort": {
-        "name": "Name",
-        "recently-added": "Recently added",
-        "title": "Sort"
-      },
       "title": "Artists"
     },
     "audiobooks": {
@@ -199,25 +178,11 @@
         "genres": "Genres"
       }
     },
-    "composer": {
-      "sort": {
-        "name": "Name",
-        "rating": "Rating",
-        "title": "Sort"
-      }
-    },
     "composers": {
       "title": "Composers"
     },
     "files": {
       "title": "Files"
-    },
-    "genre": {
-      "sort": {
-        "name": "Name",
-        "rating": "Rating",
-        "title": "Sort"
-      }
     },
     "genres": {
       "title": "Genres"

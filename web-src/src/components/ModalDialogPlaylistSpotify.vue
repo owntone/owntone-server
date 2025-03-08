@@ -17,14 +17,14 @@ export default {
   computed: {
     playable() {
       return {
-        name: this.item.name,
         handler: this.open,
-        uri: this.item.uri,
+        name: this.item.name,
         properties: [
           { key: 'property.owner', value: this.item.owner?.display_name },
           { key: 'property.tracks', value: this.item.tracks?.total },
           { key: 'property.path', value: this.item.uri }
-        ]
+        ],
+        uri: this.item.uri
       }
     }
   },

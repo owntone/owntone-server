@@ -17,9 +17,8 @@ export default {
   computed: {
     playable() {
       return {
-        name: this.item.name,
         handler: this.open,
-        uri: this.item.uri,
+        name: this.item.name,
         properties: [
           { key: 'property.albums', value: this.item.album_count },
           { key: 'property.tracks', value: this.item.track_count },
@@ -31,7 +30,8 @@ export default {
             key: 'property.added-on',
             value: this.$filters.toDateTime(this.item.time_added)
           }
-        ]
+        ],
+        uri: this.item.uri
       }
     }
   },

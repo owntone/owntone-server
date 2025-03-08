@@ -75,10 +75,10 @@ export default {
     heading() {
       if (this.artist.name) {
         return {
-          title: this.artist.name,
           subtitle: [
-            { key: 'count.audiobooks', count: this.artist.album_count }
-          ]
+            { count: this.artist.album_count, key: 'count.audiobooks' }
+          ],
+          title: this.artist.name
         }
       }
       return {}

@@ -39,10 +39,10 @@ export default {
   name: 'PageAudiobooksAlbums',
   components: {
     ContentWithHeading,
+    HeadingTitle,
     IndexButtonList,
     ListAlbums,
-    TabsAudiobooks,
-    HeadingTitle
+    TabsAudiobooks
   },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
@@ -57,8 +57,8 @@ export default {
   computed: {
     heading() {
       return {
-        title: this.$t('page.audiobooks.albums.title'),
-        subtitle: [{ key: 'count.audiobooks', count: this.albums.count }]
+        subtitle: [{ count: this.albums.count, key: 'count.audiobooks' }],
+        title: this.$t('page.audiobooks.albums.title')
       }
     }
   }

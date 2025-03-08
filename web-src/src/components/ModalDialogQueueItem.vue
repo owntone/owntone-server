@@ -29,31 +29,30 @@ export default {
   computed: {
     actions() {
       return [
-        { key: 'actions.remove', handler: this.remove, icon: 'delete' },
-        { key: 'actions.play', handler: this.play, icon: 'play' }
+        { handler: this.remove, icon: 'delete', key: 'actions.remove' },
+        { handler: this.play, icon: 'play', key: 'actions.play' }
       ]
     },
     playable() {
       return {
         name: this.item.title,
-        uri: this.item.uri,
         properties: [
           {
+            handler: this.open_album,
             key: 'property.album',
-            value: this.item.album,
-            handler: this.open_album
+            value: this.item.album
           },
           {
+            handler: this.open_album_artist,
             key: 'property.album-artist',
-            value: this.item.album_artist,
-            handler: this.open_album_artist
+            value: this.item.album_artist
           },
           { key: 'property.composer', value: this.item.composer },
           { key: 'property.year', value: this.item.year },
           {
+            handler: this.open_genre,
             key: 'property.genre',
-            value: this.item.genre,
-            handler: this.open_genre
+            value: this.item.genre
           },
           {
             key: 'property.position',
@@ -71,13 +70,14 @@ export default {
           {
             key: 'property.quality',
             value: this.$t('dialog.track.quality-value', {
-              format: this.item.type,
               bitrate: this.item.bitrate,
               channels: this.$t('count.channels', this.item.channels),
+              format: this.item.type,
               samplerate: this.item.samplerate
             })
           }
-        ]
+        ],
+        uri: this.item.uri
       }
     }
   },

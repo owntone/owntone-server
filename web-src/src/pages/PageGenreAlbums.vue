@@ -80,15 +80,15 @@ export default {
     heading() {
       if (this.genre.name) {
         return {
-          title: this.genre.name,
           subtitle: [
-            { key: 'count.albums', count: this.genre.album_count },
+            { count: this.genre.album_count, key: 'count.albums' },
             {
+              count: this.genre.track_count,
               handler: this.open_tracks,
-              key: 'count.tracks',
-              count: this.genre.track_count
+              key: 'count.tracks'
             }
-          ]
+          ],
+          title: this.genre.name
         }
       }
       return {}

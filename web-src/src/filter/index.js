@@ -35,10 +35,9 @@ export const filters = {
     return this.toDuration(duration)
   },
   toRelativeDuration(value) {
-    return DateTime.fromISO(value).toRelative({ unit, locale: locale.value })
+    return DateTime.fromISO(value).toRelative({ locale: locale.value, unit })
   },
   toTimecode(value) {
-    const format = value >= 3600000 ? 'h:mm:ss' : 'm:ss'
-    return Duration.fromMillis(value).toFormat(format)
+    return Duration.fromMillis(value).toFormat('h:mm:ss').replace(/^0:/u, '')
   }
 }

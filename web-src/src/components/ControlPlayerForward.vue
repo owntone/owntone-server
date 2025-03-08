@@ -18,15 +18,16 @@ export default {
   props: {
     offset: { required: true, type: Number }
   },
-
   setup() {
     return {
       playerStore: usePlayerStore(),
       queueStore: useQueueStore()
     }
   },
-
   computed: {
+    current() {
+      return this.queueStore.current
+    },
     disabled() {
       return (
         this.queueStore?.count <= 0 ||
@@ -37,9 +38,6 @@ export default {
     is_stopped() {
       return this.player.state === 'stop'
     },
-    current() {
-      return this.queueStore.current
-    },
     player() {
       return this.playerStore
     },
@@ -47,7 +45,6 @@ export default {
       return ['podcast', 'audiobook'].includes(this.current.media_kind)
     }
   },
-
   methods: {
     seek() {
       if (!this.disabled) {

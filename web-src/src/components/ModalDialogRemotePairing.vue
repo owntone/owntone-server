@@ -46,8 +46,8 @@ export default {
   computed: {
     actions() {
       return [
-        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' },
-        { key: 'actions.pair', handler: this.pair, icon: 'cellphone' }
+        { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' },
+        { handler: this.pair, icon: 'cellphone', key: 'actions.pair' }
       ]
     },
     pairing() {

@@ -39,11 +39,9 @@ import { useServicesStore } from '@/stores/services'
 export default {
   name: 'TabsSearch',
   emits: ['search-library', 'search-spotify'],
-
   setup() {
     return { servicesStore: useServicesStore() }
   },
-
   computed: {
     spotify_enabled() {
       return this.servicesStore.spotify.webapi_token_valid

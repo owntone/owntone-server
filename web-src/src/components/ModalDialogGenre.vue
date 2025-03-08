@@ -21,9 +21,9 @@ export default {
   computed: {
     playable() {
       return {
-        name: this.item.name,
-        handler: this.open,
         expression: `genre is "${this.item.name}" and media_kind is ${this.media_kind}`,
+        handler: this.open,
+        name: this.item.name,
         properties: [
           { key: 'property.albums', value: this.item.album_count },
           { key: 'property.tracks', value: this.item.track_count },

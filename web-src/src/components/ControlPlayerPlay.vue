@@ -15,7 +15,6 @@ export default {
   props: {
     show_disabled_message: Boolean
   },
-
   setup() {
     return {
       notificationsStore: useNotificationsStore(),
@@ -23,7 +22,6 @@ export default {
       queueStore: useQueueStore()
     }
   },
-
   computed: {
     disabled() {
       return this.queueStore?.count <= 0
@@ -44,7 +42,6 @@ export default {
       return this.playerStore.state === 'play'
     }
   },
-
   methods: {
     toggle() {
       if (this.disabled) {

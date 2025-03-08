@@ -83,11 +83,9 @@ export default {
     media_kind: { default: '', type: String }
   },
   emits: ['play-count-changed', 'podcast-deleted'],
-
   setup() {
     return { settingsStore: useSettingsStore() }
   },
-
   data() {
     return {
       rss_playlist_to_remove: {},
@@ -96,19 +94,17 @@ export default {
       show_remove_podcast_modal: false
     }
   },
-
   computed: {
     actions() {
       return [
-        { key: 'page.podcast.cancel', handler: 'cancel', icon: 'cancel' },
-        { key: 'page.podcast.remove', handler: 'remove', icon: 'delete' }
+        { handler: 'cancel', icon: 'cancel', key: 'page.podcast.cancel' },
+        { handler: 'remove', icon: 'delete', key: 'page.podcast.remove' }
       ]
     },
     media_kind_resolved() {
       return this.media_kind || this.selected_item.media_kind
     }
   },
-
   methods: {
     open(item) {
       this.selected_item = item

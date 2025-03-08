@@ -1,10 +1,6 @@
 import { defineStore } from 'pinia'
 
 export const useNotificationsStore = defineStore('NotificationsStore', {
-  state: () => ({
-    list: [],
-    next_id: 1
-  }),
   actions: {
     add(notification) {
       const newNotification = {
@@ -36,5 +32,9 @@ export const useNotificationsStore = defineStore('NotificationsStore', {
         this.list.splice(index, 1)
       }
     }
-  }
+  },
+  state: () => ({
+    list: [],
+    next_id: 1
+  })
 })

@@ -67,13 +67,13 @@ export default {
   computed: {
     actions() {
       const actions = [
-        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' }
+        { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' }
       ]
       if (!this.libraryStore.updating) {
         actions.push({
-          key: 'actions.rescan',
           handler: this.analyse,
-          icon: 'check'
+          icon: 'check',
+          key: 'actions.rescan'
         })
       }
       return actions
@@ -86,16 +86,16 @@ export default {
     }
   },
   methods: {
-    cancel() {
-      this.$emit('close')
-      this.libraryStore.update_dialog_scan_kind = ''
-    },
     analyse() {
       if (this.rescan_metadata) {
         webapi.library_rescan(this.libraryStore.update_dialog_scan_kind)
       } else {
         webapi.library_update(this.libraryStore.update_dialog_scan_kind)
       }
+    },
+    cancel() {
+      this.$emit('close')
+      this.libraryStore.update_dialog_scan_kind = ''
     }
   }
 }

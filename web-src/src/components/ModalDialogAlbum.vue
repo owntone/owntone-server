@@ -25,11 +25,11 @@ export default {
       if (this.media_kind_resolved === 'podcast') {
         if (this.item.data_kind === 'url') {
           return [
-            { key: 'actions.mark-as-played', handler: this.mark_played },
-            { key: 'actions.remove-podcast', handler: this.remove_podcast }
+            { handler: this.mark_played, key: 'actions.mark-as-played' },
+            { handler: this.remove_podcast, key: 'actions.remove-podcast' }
           ]
         }
-        return [{ key: 'actions.mark-as-played', handler: this.mark_played }]
+        return [{ handler: this.mark_played, key: 'actions.mark-as-played' }]
       }
       return []
     },
@@ -38,15 +38,14 @@ export default {
     },
     playable() {
       return {
-        name: this.item.name,
         handler: this.open,
         image: this.item.artwork_url,
-        uri: this.item.uri,
+        name: this.item.name,
         properties: [
           {
+            handler: this.open_artist,
             key: 'property.artist',
-            value: this.item.artist,
-            handler: this.open_artist
+            value: this.item.artist
           },
           {
             key: 'property.release-date',
@@ -66,7 +65,8 @@ export default {
             key: 'property.added-on',
             value: this.$filters.toDateTime(this.item.time_added)
           }
-        ]
+        ],
+        uri: this.item.uri
       }
     }
   },

@@ -175,11 +175,9 @@ export default {
     HeadingTitle,
     TabsSettings
   },
-
   setup() {
     return { settingsStore: useSettingsStore() }
   },
-
   computed: {
     locale: {
       get() {

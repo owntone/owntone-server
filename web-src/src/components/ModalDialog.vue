@@ -31,9 +31,9 @@
 export default {
   name: 'ModalDialog',
   props: {
-    actions: { type: Array, required: true },
+    actions: { required: true, type: Array },
     show: Boolean,
-    title: { type: String, default: '' }
+    title: { default: '', type: String }
   },
   emits: ['close'],
   watch: {

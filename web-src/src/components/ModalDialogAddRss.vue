@@ -29,32 +29,28 @@ export default {
   emits: ['close', 'podcast-added'],
   data() {
     return {
-      loading: false,
       disabled: true,
+      loading: false,
       url: ''
     }
   },
   computed: {
     actions() {
       if (this.loading) {
-        return [{ key: 'dialog.add.rss.processing', icon: 'web' }]
+        return [{ icon: 'web', key: 'dialog.add.rss.processing' }]
       }
       return [
-        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' },
+        { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' },
         {
-          key: 'actions.add',
           disabled: this.disabled,
           handler: this.add,
-          icon: 'playlist-plus'
+          icon: 'playlist-plus',
+          key: 'actions.add'
         }
       ]
     }
   },
   methods: {
-    onUrlChanged(url, disabled) {
-      this.url = url
-      this.disabled = disabled
-    },
     add() {
       this.loading = true
       webapi
@@ -70,6 +66,10 @@ export default {
     },
     cancel() {
       this.$emit('close')
+    },
+    onUrlChanged(url, disabled) {
+      this.url = url
+      this.disabled = disabled
     }
   }
 }

@@ -17,9 +17,8 @@ export default {
   computed: {
     playable() {
       return {
-        name: this.item.name,
         handler: this.open,
-        uri: this.item.uri,
+        name: this.item.name,
         properties: [
           {
             key: 'property.popularity',
@@ -28,7 +27,8 @@ export default {
             )
           },
           { key: 'property.genres', value: this.item.genres?.join(', ') }
-        ]
+        ],
+        uri: this.item.uri
       }
     }
   },

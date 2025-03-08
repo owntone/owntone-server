@@ -7,7 +7,7 @@
           <div class="column">
             <div
               class="is-size-7 is-uppercase"
-              v-text="$t('page.genre.sort.title')"
+              v-text="$t('options.sort.title')"
             />
             <control-dropdown
               v-model:value="uiStore.genre_tracks_sort"
@@ -100,12 +100,12 @@ export default {
       return [
         {
           id: 1,
-          name: this.$t('page.genre.sort.name'),
+          name: this.$t('options.sort.name'),
           options: { index: { field: 'title_sort', type: String } }
         },
         {
           id: 2,
-          name: this.$t('page.genre.sort.rating'),
+          name: this.$t('options.sort.rating'),
           options: {
             criteria: [{ field: 'rating', order: -1, type: Number }],
             index: { field: 'rating', type: 'Digits' }
@@ -116,15 +116,15 @@ export default {
     heading() {
       if (this.genre.name) {
         return {
-          title: this.genre.name,
           subtitle: [
             {
+              count: this.genre.album_count,
               handler: this.openGenre,
-              key: 'count.albums',
-              count: this.genre.album_count
+              key: 'count.albums'
             },
-            { key: 'count.tracks', count: this.genre.track_count }
-          ]
+            { count: this.genre.track_count, key: 'count.tracks' }
+          ],
+          title: this.genre.name
         }
       }
       return {}

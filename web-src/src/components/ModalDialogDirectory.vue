@@ -17,8 +17,8 @@ export default {
   computed: {
     playable() {
       return {
-        name: this.item,
-        expression: `path starts with "${this.item}" order by path asc`
+        expression: `path starts with "${this.item}" order by path asc`,
+        name: this.item
       }
     }
   }

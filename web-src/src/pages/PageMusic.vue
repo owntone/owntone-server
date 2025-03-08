@@ -89,8 +89,8 @@ export default {
   data() {
     return {
       albums: [],
-      tracks: { items: [] },
-      selected_track: {}
+      selected_track: {},
+      tracks: { items: [] }
     }
   }
 }

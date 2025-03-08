@@ -30,38 +30,34 @@ export default {
   emits: ['close'],
   data() {
     return {
-      loading: false,
       disabled: true,
+      loading: false,
       url: ''
     }
   },
   computed: {
     actions() {
       if (this.loading) {
-        return [{ key: 'dialog.add.stream.processing', icon: 'web' }]
+        return [{ icon: 'web', key: 'dialog.add.stream.processing' }]
       }
       return [
-        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' },
+        { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' },
         {
-          key: 'actions.add',
           disabled: this.disabled,
           handler: this.add,
-          icon: 'playlist-plus'
+          icon: 'playlist-plus',
+          key: 'actions.add'
         },
         {
-          key: 'actions.play',
           disabled: this.disabled,
           handler: this.play,
-          icon: 'play'
+          icon: 'play',
+          key: 'actions.play'
         }
       ]
     }
   },
   methods: {
-    onUrlChanged(url, disabled) {
-      this.url = url
-      this.disabled = disabled
-    },
     add() {
       this.loading = true
       webapi
@@ -76,6 +72,10 @@ export default {
     },
     cancel() {
       this.$emit('close')
+    },
+    onUrlChanged(url, disabled) {
+      this.url = url
+      this.disabled = disabled
     },
     play() {
       this.loading = true

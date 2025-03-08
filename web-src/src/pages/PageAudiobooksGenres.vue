@@ -57,8 +57,8 @@ export default {
   computed: {
     heading() {
       return {
-        title: this.$t('page.genres.title'),
-        subtitle: [{ key: 'count.genres', count: this.genres.total }]
+        subtitle: [{ count: this.genres.total, key: 'count.genres' }],
+        title: this.$t('page.genres.title')
       }
     }
   }

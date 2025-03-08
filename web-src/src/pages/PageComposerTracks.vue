@@ -7,7 +7,7 @@
           <div class="column">
             <div
               class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.sort.title')"
+              v-text="$t('options.sort.title')"
             />
             <control-dropdown
               v-model:value="uiStore.composer_tracks_sort"
@@ -94,18 +94,35 @@ export default {
     expression() {
       return `composer is "${this.composer.name}" and media_kind is music`
     },
+    groupings() {
+      return [
+        {
+          id: 1,
+          name: this.$t('options.sort.name'),
+          options: { index: { field: 'title_sort', type: String } }
+        },
+        {
+          id: 2,
+          name: this.$t('options.sort.rating'),
+          options: {
+            criteria: [{ field: 'rating', order: -1, type: Number }],
+            index: { field: 'rating', type: 'Digits' }
+          }
+        }
+      ]
+    },
     heading() {
       if (this.composer.name) {
         return {
-          title: this.composer.name,
           subtitle: [
             {
+              count: this.composer.album_count,
               handler: this.open_albums,
-              key: 'count.albums',
-              count: this.composer.album_count
+              key: 'count.albums'
             },
-            { key: 'count.tracks', count: this.composer.track_count }
-          ]
+            { count: this.composer.track_count, key: 'count.tracks' }
+          ],
+          title: this.composer.name
         }
       }
       return {}
@@ -118,23 +135,6 @@ export default {
     }
   },
   methods: {
-    groupings() {
-      return [
-        {
-          id: 1,
-          name: this.$t('page.composer.sort.name'),
-          options: { index: { field: 'title_sort', type: String } }
-        },
-        {
-          id: 2,
-          name: this.$t('page.composer.sort.rating'),
-          options: {
-            criteria: [{ field: 'rating', order: -1, type: Number }],
-            index: { field: 'rating', type: 'Digits' }
-          }
-        }
-      ]
-    },
     open_albums() {
       this.$router.push({
         name: 'music-composer-albums',

@@ -133,15 +133,15 @@ export default {
     },
     heading() {
       return {
-        title: this.artist.name,
         subtitle: [
-          { key: 'count.albums', count: this.albums.count },
+          { count: this.albums.count, key: 'count.albums' },
           {
+            count: this.track_count,
             handler: this.open_tracks,
-            key: 'count.tracks',
-            count: this.track_count
+            key: 'count.tracks'
           }
-        ]
+        ],
+        title: this.artist.name
       }
     },
     spotify_enabled() {

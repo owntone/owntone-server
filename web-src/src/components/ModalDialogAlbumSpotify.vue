@@ -17,22 +17,22 @@ export default {
   computed: {
     playable() {
       return {
-        name: this.item.name || '',
-        image: this.item?.images?.[0]?.url || '',
         handler: this.open,
-        uri: this.item.uri,
+        image: this.item?.images?.[0]?.url || '',
+        name: this.item.name || '',
         properties: [
           {
+            handler: this.open_artist,
             key: 'property.artist',
-            value: this.item?.artists?.[0]?.name,
-            handler: this.open_artist
+            value: this.item?.artists?.[0]?.name
           },
           {
             key: 'property.release-date',
             value: this.$filters.toDate(this.item.release_date)
           },
           { key: 'property.type', value: this.item.album_type }
-        ]
+        ],
+        uri: this.item.uri
       }
     }
   },

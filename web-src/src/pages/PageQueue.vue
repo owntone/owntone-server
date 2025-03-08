@@ -114,11 +114,11 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
+    HeadingTitle,
     ListItemQueueItem,
     ModalDialogAddStream,
     ModalDialogPlaylistSave,
     ModalDialogQueueItem,
-    HeadingTitle,
     draggable
   },
   setup() {
@@ -144,8 +144,8 @@ export default {
     },
     heading() {
       return {
-        title: this.$t('page.queue.title'),
-        subtitle: [{ key: 'count.tracks', count: this.queue.count }]
+        subtitle: [{ count: this.queue.count, key: 'count.tracks' }],
+        title: this.$t('page.queue.title')
       }
     },
     is_queue_save_allowed() {
@@ -153,6 +153,9 @@ export default {
         this.configurationStore.allow_modifying_stored_playlists &&
         this.configurationStore.default_playlist_directory
       )
+    },
+    player() {
+      return this.playerStore
     },
     queue() {
       return this.queueStore
@@ -164,9 +167,6 @@ export default {
       set() {
         /* Do nothing? Send move request in @end event */
       }
-    },
-    player() {
-      return this.playerStore
     }
   },
   methods: {

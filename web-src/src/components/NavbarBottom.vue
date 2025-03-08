@@ -92,8 +92,8 @@ export default {
   name: 'NavbarBottom',
   components: {
     ControlLink,
-    ControlOutputVolume,
     ControlMainVolume,
+    ControlOutputVolume,
     ControlPlayerBack,
     ControlPlayerConsume,
     ControlPlayerForward,
@@ -116,11 +116,11 @@ export default {
   },
 
   computed: {
-    is_now_playing_page() {
-      return this.$route.name === 'now-playing'
-    },
     current() {
       return this.queueStore.current
+    },
+    is_now_playing_page() {
+      return this.$route.name === 'now-playing'
     }
   },
   methods: {

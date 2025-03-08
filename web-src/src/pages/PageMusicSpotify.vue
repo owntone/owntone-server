@@ -88,8 +88,8 @@ export default {
   },
   data() {
     return {
-      playlists: [],
-      albums: []
+      albums: [],
+      playlists: []
     }
   }
 }

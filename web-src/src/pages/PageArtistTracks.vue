@@ -7,24 +7,24 @@
           <div class="column">
             <p
               class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.filter.title')"
+              v-text="$t('options.filter.title')"
             />
             <control-switch
               v-if="spotify_enabled"
               v-model="uiStore.hide_spotify"
             >
               <template #label>
-                <span v-text="$t('page.artist.filter.hide-spotify')" />
+                <span v-text="$t('options.filter.hide-spotify')" />
               </template>
               <template #help>
-                <span v-text="$t('page.artist.filter.hide-spotify-help')" />
+                <span v-text="$t('options.filter.hide-spotify-help')" />
               </template>
             </control-switch>
           </div>
           <div class="column">
             <p
               class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.sort.title')"
+              v-text="$t('options.sort.title')"
             />
             <control-dropdown
               v-model:value="uiStore.artist_tracks_sort"
@@ -122,12 +122,12 @@ export default {
       return [
         {
           id: 1,
-          name: this.$t('page.artist.sort.name'),
+          name: this.$t('options.sort.name'),
           options: { index: { field: 'title_sort', type: String } }
         },
         {
           id: 2,
-          name: this.$t('page.artist.sort.rating'),
+          name: this.$t('options.sort.rating'),
           options: {
             criteria: [{ field: 'rating', order: -1, type: Number }],
             index: { field: 'rating', type: 'Digits' }
@@ -137,15 +137,15 @@ export default {
     },
     heading() {
       return {
-        title: this.artist.name,
         subtitle: [
           {
+            count: this.album_count,
             handler: this.openArtist,
-            key: 'count.albums',
-            count: this.album_count
+            key: 'count.albums'
           },
-          { key: 'count.tracks', count: this.tracks.count }
-        ]
+          { count: this.tracks.count, key: 'count.tracks' }
+        ],
+        title: this.artist.name
       }
     },
     spotify_enabled() {

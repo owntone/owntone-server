@@ -21,10 +21,8 @@ export default {
   computed: {
     playable() {
       return {
-        name: this.item.name,
         handler: this.open,
-        uri: this.item.uri,
-        uris: this.uris,
+        name: this.item.name,
         properties: [
           { key: 'property.tracks', value: this.item.item_count },
           {
@@ -32,7 +30,9 @@ export default {
             value: this.$t(`playlist.type.${this.item.type}`)
           },
           { key: 'property.path', value: this.item.path }
-        ]
+        ],
+        uri: this.item.uri,
+        uris: this.uris
       }
     }
   },

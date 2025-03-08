@@ -36,11 +36,9 @@ import { usePlayerStore } from '@/stores/player'
 
 export default {
   name: 'LyricsPane',
-
   setup() {
     return { lyricsStore: useLyricsStore(), playerStore: usePlayerStore() }
   },
-
   data() {
     /*
      * Non reactive. Used as a cache to speed up the finding of lyrics
@@ -54,7 +52,6 @@ export default {
       autoScrolling: true
     }
   },
-
   computed: {
     is_playing() {
       return this.playerStore.state === 'play'
@@ -85,7 +82,7 @@ export default {
           verse.words = verse.text.match(/\S+\s*/gu).map((text) => {
             const duration = text.length * unitDuration
             delay += duration
-            return { duration, delay, text }
+            return { delay, duration, text }
           })
         })
       }

@@ -16,36 +16,36 @@ export default {
     links() {
       const links = [
         {
-          to: { name: 'music-history' },
           icon: 'history',
-          key: 'page.music.tabs.history'
+          key: 'page.music.tabs.history',
+          to: { name: 'music-history' }
         },
         {
-          to: { name: 'music-artists' },
           icon: 'account-music',
-          key: 'page.music.tabs.artists'
+          key: 'page.music.tabs.artists',
+          to: { name: 'music-artists' }
         },
         {
-          to: { name: 'music-albums' },
           icon: 'album',
-          key: 'page.music.tabs.albums'
+          key: 'page.music.tabs.albums',
+          to: { name: 'music-albums' }
         },
         {
-          to: { name: 'music-genres' },
           icon: 'speaker',
-          key: 'page.music.tabs.genres'
+          key: 'page.music.tabs.genres',
+          to: { name: 'music-genres' }
         },
         {
-          to: { name: 'music-composers' },
           icon: 'book-open-page-variant',
-          key: 'page.music.tabs.composers'
+          key: 'page.music.tabs.composers',
+          to: { name: 'music-composers' }
         }
       ]
       if (this.servicesStore.spotify.webapi_token_valid) {
         links.push({
-          to: { name: 'music-spotify' },
           icon: 'spotify',
-          key: 'page.music.tabs.spotify'
+          key: 'page.music.tabs.spotify',
+          to: { name: 'music-spotify' }
         })
       }
       return links

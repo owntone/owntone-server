@@ -29,7 +29,7 @@ const dataObject = {
 
 export default {
   name: 'PageRadioStreams',
-  components: { ContentWithHeading, ListTracks, HeadingTitle },
+  components: { ContentWithHeading, HeadingTitle, ListTracks },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
@@ -43,8 +43,8 @@ export default {
   computed: {
     heading() {
       return {
-        title: this.$t('page.radio.title'),
-        subtitle: [{ key: 'count.stations', count: this.tracks.total }]
+        subtitle: [{ count: this.tracks.total, key: 'count.stations' }],
+        title: this.$t('page.radio.title')
       }
     }
   }

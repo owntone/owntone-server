@@ -57,8 +57,8 @@ export default {
   computed: {
     heading() {
       return {
-        title: this.$t('page.composers.title'),
-        subtitle: [{ key: 'count.composers', count: this.composers.total }]
+        subtitle: [{ count: this.composers.total, key: 'count.composers' }],
+        title: this.$t('page.composers.title')
       }
     }
   }

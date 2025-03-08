@@ -81,83 +81,83 @@ export default {
     menus() {
       return [
         {
-          name: 'playlists',
-          key: 'navigation.playlists',
           icon: 'music-box-multiple',
+          key: 'navigation.playlists',
+          name: 'playlists',
           show: this.settingsStore.show_menu_item_playlists
         },
         {
-          name: 'music',
-          key: 'navigation.music',
           icon: 'music',
+          key: 'navigation.music',
+          name: 'music',
           show: this.settingsStore.show_menu_item_music
         },
         {
-          name: 'music-artists',
           key: 'navigation.artists',
+          name: 'music-artists',
           show: true,
           sub: true
         },
         {
-          name: 'music-albums',
           key: 'navigation.albums',
+          name: 'music-albums',
           show: true,
           sub: true
         },
         {
-          name: 'music-genres',
           key: 'navigation.genres',
+          name: 'music-genres',
           show: true,
           sub: true
         },
         {
-          name: 'music-spotify',
           key: 'navigation.spotify',
+          name: 'music-spotify',
           show: this.servicesStore.spotify.webapi_token_valid,
           sub: true
         },
         {
-          name: 'podcasts',
-          key: 'navigation.podcasts',
           icon: 'microphone',
+          key: 'navigation.podcasts',
+          name: 'podcasts',
           show: this.settingsStore.show_menu_item_podcasts
         },
         {
-          name: 'audiobooks',
-          key: 'navigation.audiobooks',
           icon: 'book-open-variant',
+          key: 'navigation.audiobooks',
+          name: 'audiobooks',
           show: this.settingsStore.show_menu_item_audiobooks
         },
         {
-          name: 'radio',
-          key: 'navigation.radio',
           icon: 'radio',
+          key: 'navigation.radio',
+          name: 'radio',
           show: this.settingsStore.show_menu_item_radio
         },
         {
-          name: 'files',
-          key: 'navigation.files',
           icon: 'folder-open',
+          key: 'navigation.files',
+          name: 'files',
           show: this.settingsStore.show_menu_item_files
         },
         {
-          name: this.searchStore.search_source,
-          key: 'navigation.search',
           icon: 'magnify',
+          key: 'navigation.search',
+          name: this.searchStore.search_source,
           show: this.settingsStore.show_menu_item_search
         },
         { separator: true, show: true },
         {
-          name: 'settings-webinterface',
           key: 'navigation.settings',
+          name: 'settings-webinterface',
           show: true
         },
         {
-          key: 'navigation.update-library',
           action: this.open_update_dialog,
+          key: 'navigation.update-library',
           show: true
         },
-        { name: 'about', key: 'navigation.about', show: true }
+        { key: 'navigation.about', name: 'about', show: true }
       ]
     },
     zindex() {

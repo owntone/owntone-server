@@ -8,23 +8,23 @@
           <div class="column">
             <div
               class="is-size-7 is-uppercase"
-              v-text="$t('page.artists.filter.title')"
+              v-text="$t('options.filter.title')"
             />
             <control-switch v-model="uiStore.hide_singles">
               <template #label>
-                <span v-text="$t('page.artists.filter.hide-singles')" />
+                <span v-text="$t('options.filter.hide-singles')" />
               </template>
               <template #help>
-                <span v-text="$t('page.artists.filter.hide-singles-help')" />
+                <span v-text="$t('options.filter.hide-singles-help')" />
               </template>
             </control-switch>
             <div v-if="spotify_enabled" class="field">
               <control-switch v-model="uiStore.hide_spotify">
                 <template #label>
-                  <span v-text="$t('page.artists.filter.hide-spotify')" />
+                  <span v-text="$t('options.filter.hide-spotify')" />
                 </template>
                 <template #help>
-                  <span v-text="$t('page.artists.filter.hide-spotify-help')" />
+                  <span v-text="$t('options.filter.hide-spotify-help')" />
                 </template>
               </control-switch>
             </div>
@@ -32,7 +32,7 @@
           <div class="column">
             <div
               class="is-size-7 is-uppercase"
-              v-text="$t('page.artists.sort.title')"
+              v-text="$t('options.sort.title')"
             />
             <control-dropdown
               v-model:value="uiStore.artists_sort"
@@ -114,12 +114,12 @@ export default {
       return [
         {
           id: 1,
-          name: this.$t('page.artists.sort.name'),
+          name: this.$t('options.sort.name'),
           options: { index: { field: 'name_sort', type: String } }
         },
         {
           id: 2,
-          name: this.$t('page.artists.sort.recently-added'),
+          name: this.$t('options.sort.recently-added'),
           options: {
             criteria: [{ field: 'time_added', order: -1, type: Date }],
             index: { field: 'time_added', type: Date }
@@ -129,8 +129,8 @@ export default {
     },
     heading() {
       return {
-        title: this.$t('page.artists.title'),
-        subtitle: [{ key: 'count.artists', count: this.artists.count }]
+        subtitle: [{ count: this.artists.count, key: 'count.artists' }],
+        title: this.$t('page.artists.title')
       }
     },
     spotify_enabled() {

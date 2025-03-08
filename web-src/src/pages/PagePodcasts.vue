@@ -104,16 +104,16 @@ export default {
   data() {
     return {
       albums: [],
-      tracks: { items: [] },
-      show_url_modal: false
+      show_url_modal: false,
+      tracks: { items: [] }
     }
   },
   computed: {
     heading() {
       if (this.albums.total) {
         return {
-          title: this.$t('page.podcasts.title'),
-          subtitle: [{ key: 'count.podcasts', count: this.albums.count }]
+          subtitle: [{ count: this.albums.count, key: 'count.podcasts' }],
+          title: this.$t('page.podcasts.title')
         }
       }
       return {}

@@ -76,8 +76,8 @@ export default {
   computed: {
     heading() {
       return {
-        title: this.playlist.name,
-        subtitle: [{ key: 'count.tracks', count: this.tracks.count }]
+        subtitle: [{ count: this.tracks.count, key: 'count.tracks' }],
+        title: this.playlist.name
       }
     },
     uris() {

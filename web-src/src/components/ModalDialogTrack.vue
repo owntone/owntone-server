@@ -22,23 +22,22 @@ export default {
         return []
       }
       return this.item.play_count > 0
-        ? [{ key: 'actions.mark-as-new', handler: this.mark_new }]
-        : [{ key: 'actions.mark-as-played', handler: this.mark_played }]
+        ? [{ handler: this.mark_new, key: 'actions.mark-as-new' }]
+        : [{ handler: this.mark_played, key: 'actions.mark-as-played' }]
     },
     playable() {
       return {
         name: this.item.title,
-        uri: this.item.uri,
         properties: [
           {
+            handler: this.open_album,
             key: 'property.album',
-            value: this.item.album,
-            handler: this.open_album
+            value: this.item.album
           },
           {
+            handler: this.open_artist,
             key: 'property.album-artist',
-            value: this.item.album_artist,
-            handler: this.open_artist
+            value: this.item.album_artist
           },
           { key: 'property.composer', value: this.item.composer },
           {
@@ -68,9 +67,9 @@ export default {
             value:
               this.item.data_kind !== 'spotify' &&
               this.$t('dialog.track.quality-value', {
-                format: this.item.type,
                 bitrate: this.item.bitrate,
                 channels: this.$t('count.channels', this.item.channels),
+                format: this.item.type,
                 samplerate: this.item.samplerate
               })
           },
@@ -86,7 +85,8 @@ export default {
           },
           { key: 'property.comment', value: this.item.comment },
           { key: 'property.path', value: this.item.path }
-        ]
+        ],
+        uri: this.item.uri
       }
     }
   },

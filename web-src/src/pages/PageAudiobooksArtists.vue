@@ -57,8 +57,8 @@ export default {
   computed: {
     heading() {
       return {
-        title: this.$t('page.audiobooks.artists.title'),
-        subtitle: [{ key: 'count.authors', count: this.artists.count }]
+        subtitle: [{ count: this.artists.count, key: 'count.authors' }],
+        title: this.$t('page.audiobooks.artists.title')
       }
     }
   }

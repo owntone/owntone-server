@@ -39,9 +39,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': { target },
-      '/ws': { target, ws: true },
       '/artwork': { target },
-      '/stream.mp3': { target }
+      '/stream.mp3': { target },
+      '/ws': { target, ws: true }
     }
   }
 })

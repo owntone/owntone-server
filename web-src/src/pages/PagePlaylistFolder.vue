@@ -34,7 +34,7 @@ const dataObject = {
 
 export default {
   name: 'PagePlaylistFolder',
-  components: { ContentWithHeading, ListPlaylists, HeadingTitle },
+  components: { ContentWithHeading, HeadingTitle, ListPlaylists },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
       next((vm) => dataObject.set(vm, response))
@@ -60,11 +60,11 @@ export default {
   computed: {
     heading() {
       return {
+        subtitle: [{ count: this.playlists.count, key: 'count.playlists' }],
         title:
           this.playlists.count === 0
             ? this.$t('page.playlists.title')
-            : this.playlist.name,
-        subtitle: [{ key: 'count.playlists', count: this.playlists.count }]
+            : this.playlist.name
       }
     },
     playlists() {

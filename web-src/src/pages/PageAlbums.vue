@@ -8,14 +8,14 @@
           <div class="column">
             <div
               class="is-size-7 is-uppercase"
-              v-text="$t('page.albums.filter.title')"
+              v-text="$t('options.filter.title')"
             />
             <control-switch v-model="uiStore.hide_singles">
               <template #label>
-                <span v-text="$t('page.albums.filter.hide-singles')" />
+                <span v-text="$t('options.filter.hide-singles')" />
               </template>
               <template #help>
-                <span v-text="$t('page.albums.filter.hide-singles-help')" />
+                <span v-text="$t('options.filter.hide-singles-help')" />
               </template>
             </control-switch>
             <control-switch
@@ -23,17 +23,17 @@
               v-model="uiStore.hide_spotify"
             >
               <template #label>
-                <span v-text="$t('page.albums.filter.hide-spotify')" />
+                <span v-text="$t('options.filter.hide-spotify')" />
               </template>
               <template #help>
-                <span v-text="$t('page.albums.filter.hide-spotify-help')" />
+                <span v-text="$t('options.filter.hide-spotify-help')" />
               </template>
             </control-switch>
           </div>
           <div class="column">
             <div
               class="is-size-7 is-uppercase"
-              v-text="$t('page.albums.sort.title')"
+              v-text="$t('options.sort.title')"
             />
             <control-dropdown
               v-model:value="uiStore.albums_sort"
@@ -91,7 +91,7 @@ export default {
     })
   },
   setup() {
-    return { uiStore: useUIStore(), servicesStore: useServicesStore() }
+    return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
   data() {
     return {
@@ -113,12 +113,12 @@ export default {
       return [
         {
           id: 1,
-          name: this.$t('page.albums.sort.name'),
+          name: this.$t('options.sort.name'),
           options: { index: { field: 'name_sort', type: String } }
         },
         {
           id: 2,
-          name: this.$t('page.albums.sort.recently-added'),
+          name: this.$t('options.sort.recently-added'),
           options: {
             criteria: [{ field: 'time_added', order: -1, type: Date }],
             index: { field: 'time_added', type: Date }
@@ -126,7 +126,7 @@ export default {
         },
         {
           id: 3,
-          name: this.$t('page.albums.sort.recently-released'),
+          name: this.$t('options.sort.recently-released'),
           options: {
             criteria: [{ field: 'date_released', order: -1, type: Date }],
             index: { field: 'date_released', type: Date }
@@ -134,7 +134,7 @@ export default {
         },
         {
           id: 4,
-          name: this.$t('page.albums.sort.artist-name'),
+          name: this.$t('options.sort.artist-name'),
           options: {
             criteria: [
               { field: 'artist', type: String },
@@ -145,7 +145,7 @@ export default {
         },
         {
           id: 5,
-          name: this.$t('page.albums.sort.artist-date'),
+          name: this.$t('options.sort.artist-date'),
           options: {
             criteria: [
               { field: 'artist', type: String },
@@ -158,8 +158,8 @@ export default {
     },
     heading() {
       return {
-        title: this.$t('page.albums.title'),
-        subtitle: [{ key: 'count.albums', count: this.albums.count }]
+        subtitle: [{ count: this.albums.count, key: 'count.albums' }],
+        title: this.$t('page.albums.title')
       }
     },
     spotify_enabled() {

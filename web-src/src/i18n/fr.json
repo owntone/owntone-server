@@ -131,6 +131,25 @@
     "spotify": "Spotify",
     "update-library": "Actualiser la bibliothèque"
   },
+  "options": {
+    "filter": {
+      "hide-singles": "Masquer les singles",
+      "hide-singles-help": "Si actif, masque les singles et tout ce qui leur est associé.",
+      "hide-spotify": "Masquer le contenu de Spotify",
+      "hide-spotify-help": "Si actif, masque le contenu qui provient de Spotify.",
+      "title": "Filtrer"
+    },
+    "sort": {
+      "artist-name": "Artiste › Nom",
+      "artist-date": "Artiste › Date de sortie",
+      "name": "Nom",
+      "rating": "Classement",
+      "recently-added": "Ajouts récents",
+      "recently-released": "Sorties récentes",
+      "release-date": "Date de sortie",
+      "title": "Trier"
+    }
+  },
   "page": {
     "about": {
       "built-with": "Interface utilisateur construite avec {bulma}, {mdi}, {vuejs}, {axios} et {others}.",
@@ -141,49 +160,9 @@
       "version": "Version {version}"
     },
     "albums": {
-      "filter": {
-        "hide-singles": "Masquer les singles",
-        "hide-singles-help": "Si actif, masque les singles et les albums dont les pistes n’apparaissent que dans les listes de lecture.",
-        "hide-spotify": "Masquer les albums de Spotify",
-        "hide-spotify-help": "Si actif, masque les albums qui n’apparaissent que dans votre bibliothèque Spotify.",
-        "title": "Filtrer"
-      },
-      "sort": {
-        "artist-name": "Artiste › Nom",
-        "artist-date": "Artiste › Date de sortie",
-        "name": "Nom",
-        "recently-added": "Ajouts récents",
-        "recently-released": "Sorties récentes",
-        "title": "Trier"
-      },
       "title": "Albums"
     },
-    "artist": {
-      "filter": {
-        "hide-spotify": "Masquer le contenu de Spotify",
-        "hide-spotify-help": "Si actif, masque le contenu qui n’apparaît que dans votre bibliothèque Spotify.",
-        "title": "Filtrer"
-      },
-      "sort": {
-        "name": "Nom",
-        "rating": "Classement",
-        "release-date": "Date de sortie",
-        "title": "Trier"
-      }
-    },
     "artists": {
-      "filter": {
-        "hide-singles": "Masquer les singles",
-        "hide-singles-help": "Si actif, masque les artistes qui n’apparaissent que dans des singles ou des listes de lecture.",
-        "hide-spotify": "Masquer les artistes de Spotify",
-        "hide-spotify-help": "Si actif, masque les artistes qui n’apparaissent que dans votre bibliothèque Spotify.",
-        "title": "Filtrer"
-      },
-      "sort": {
-        "name": "Nom",
-        "recently-added": "Ajouts récents",
-        "title": "Trier"
-      },
       "title": "Artistes"
     },
     "audiobooks": {
@@ -199,25 +178,11 @@
         "genres": "Genres"
       }
     },
-    "composer": {
-      "sort": {
-        "name": "Nom",
-        "rating": "Classement",
-        "title": "Trier"
-      }
-    },
     "composers": {
       "title": "Compositeurs"
     },
     "files": {
       "title": "Fichiers"
-    },
-    "genre": {
-      "sort": {
-        "name": "Nom",
-        "rating": "Classement",
-        "title": "Trier"
-      }
     },
     "genres": {
       "title": "Genres"

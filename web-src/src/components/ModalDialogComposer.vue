@@ -17,19 +17,19 @@ export default {
   computed: {
     playable() {
       return {
-        name: this.item.name,
-        handler: this.open_albums,
         expression: `composer is "${this.item.name}" and media_kind is music`,
+        handler: this.open_albums,
+        name: this.item.name,
         properties: [
           {
+            handler: this.open_albums,
             key: 'property.albums',
-            value: this.item.album_count,
-            handler: this.open_albums
+            value: this.item.album_count
           },
           {
+            handler: this.open_tracks,
             key: 'property.tracks',
-            value: this.item.track_count,
-            handler: this.open_tracks
+            value: this.item.track_count
           },
           {
             key: 'property.duration',

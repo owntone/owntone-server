@@ -67,8 +67,8 @@ const INTERVAL = 1000
 export default {
   name: 'PageNowPlaying',
   components: {
-    ControlSlider,
     ControlImage,
+    ControlSlider,
     LyricsPane,
     ModalDialogQueueItem
   },

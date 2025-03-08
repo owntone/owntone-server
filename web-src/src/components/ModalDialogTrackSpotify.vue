@@ -21,17 +21,16 @@ export default {
       }
       return {
         name: this.item.name,
-        uri: this.item.uri,
         properties: [
           {
+            handler: this.open_album,
             key: 'property.album',
-            value: this.item.album.name,
-            handler: this.open_album
+            value: this.item.album.name
           },
           {
+            handler: this.open_artist,
             key: 'property.album-artist',
-            value: this.item.artists[0]?.name,
-            handler: this.open_artist
+            value: this.item.artists[0]?.name
           },
           {
             key: 'property.release-date',
@@ -46,7 +45,8 @@ export default {
             value: this.$filters.toTimecode(this.item.duration_ms)
           },
           { key: 'property.path', value: this.item.uri }
-        ]
+        ],
+        uri: this.item.uri
       }
     }
   },

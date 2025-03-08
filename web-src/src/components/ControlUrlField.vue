@@ -22,16 +22,16 @@
 export default {
   name: 'ControlUrlField',
   props: {
-    placeholder: { type: String, required: true },
-    icon: { type: String, required: true },
-    help: { type: String, default: '' },
-    loading: { type: Boolean, default: false }
+    help: { default: '', type: String },
+    icon: { required: true, type: String },
+    loading: { default: false, type: Boolean },
+    placeholder: { required: true, type: String }
   },
   emits: ['url-changed'],
   data() {
     return {
-      url: '',
-      disabled: true
+      disabled: true,
+      url: ''
     }
   },
   mounted() {

@@ -1,9 +1,29 @@
 import { defineStore } from 'pinia'
 
 export const useSettingsStore = defineStore('SettingsStore', {
-  state: () => ({
-    categories: []
-  }),
+  actions: {
+    setting(categoryName, optionName) {
+      return (
+        this.categories
+          .find((category) => category.name === categoryName)
+          ?.options.find((option) => option.name === optionName) ?? {}
+      )
+    },
+    update(option) {
+      const settingCategory = this.categories.find(
+        (category) => category.name === option.category
+      )
+      if (!settingCategory) {
+        return
+      }
+      const settingOption = settingCategory.options.find(
+        (setting) => setting.name === option.name
+      )
+      if (settingOption) {
+        settingOption.value = option.value
+      }
+    }
+  },
   getters: {
     recently_added_limit: (state) =>
       state.setting('webinterface', 'recently_added_limit')?.value ?? 100,
@@ -34,27 +54,7 @@ export const useSettingsStore = defineStore('SettingsStore', {
     show_menu_item_search: (state) =>
       state.setting('webinterface', 'show_menu_item_search')?.value ?? false
   },
-  actions: {
-    update(option) {
-      const settingCategory = this.categories.find(
-        (category) => category.name === option.category
-      )
-      if (!settingCategory) {
-        return
-      }
-      const settingOption = settingCategory.options.find(
-        (setting) => setting.name === option.name
-      )
-      if (settingOption) {
-        settingOption.value = option.value
-      }
-    },
-    setting(categoryName, optionName) {
-      return (
-        this.categories
-          .find((category) => category.name === categoryName)
-          ?.options.find((option) => option.name === optionName) ?? {}
-      )
-    }
-  }
+  state: () => ({
+    categories: []
+  })
 })

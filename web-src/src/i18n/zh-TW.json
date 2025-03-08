@@ -131,6 +131,25 @@
     "spotify": "Spotify",
     "update-library": "更新資料庫"
   },
+  "options": {
+    "filter": {
+      "hide-singles": "隱藏單曲",
+      "hide-singles-help": "如果處於活動狀態，則隱藏單曲和與其關聯的任何內容",
+      "hide-spotify": "隱藏來自Spotify的內容",
+      "hide-spotify-help": "如果處於活動狀態，則隱藏 Spotify 中的內容",
+      "title": "篩選"
+    },
+    "sort": {
+      "artist-name": "藝人 › 名稱",
+      "artist-date": "藝人 › 發行日期",
+      "name": "名稱",
+      "rating": "評級",
+      "recently-added": "最近新增",
+      "recently-released": "最近發行",
+      "release-date": "發行日期",
+      "title": "分類"
+    }
+  },
   "page": {
     "about": {
       "built-with": "界面貢獻者包括 {bulma}，{mdi}，{vuejs}，{axios} 和 {others}",
@@ -141,49 +160,9 @@
       "version": "版本 {version}"
     },
     "albums": {
-      "filter": {
-        "hide-singles": "隱藏單曲",
-        "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
-        "hide-spotify": "隱藏來自Spotify的專輯",
-        "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
-        "title": "篩選"
-      },
-      "sort": {
-        "artist-name": "藝人 › 名稱",
-        "artist-date": "藝人 › 發行日期",
-        "name": "名稱",
-        "recently-added": "最近新增",
-        "recently-released": "最近發行",
-        "title": "分類"
-      },
       "title": "專輯"
     },
-    "artist": {
-      "filter": {
-        "hide-spotify": "隱藏來自Spotify的內容",
-        "hide-spotify-help": "如果啓用，將隱藏只出現在Spotify庫中的內容",
-        "title": "篩選"
-      },
-      "sort": {
-        "name": "名稱",
-        "rating": "評級",
-        "release-date": "發行日期",
-        "title": "分類"
-      }
-    },
     "artists": {
-      "filter": {
-        "hide-singles": "隱藏單曲",
-        "hide-singles-help": "如果啓用，將隱藏僅在播放列表出現的單曲和專輯",
-        "hide-spotify": "隱藏來自Spotify的藝人",
-        "hide-spotify-help": "如果啓用，將隱藏僅在Spotify資料庫出現的專輯",
-        "title": "篩選"
-      },
-      "sort": {
-        "name": "名稱",
-        "recently-added": "最近新增",
-        "title": "分類"
-      },
       "title": "藝人"
     },
     "audiobooks": {
@@ -199,25 +178,11 @@
         "genres": "音樂類型"
       }
     },
-    "composer": {
-      "sort": {
-        "name": "名稱",
-        "rating": "評級",
-        "title": "分類"
-      }
-    },
     "composers": {
       "title": "作曲家"
     },
     "files": {
       "title": "文件"
-    },
-    "genre": {
-      "sort": {
-        "name": "名稱",
-        "rating": "評級",
-        "title": "分類"
-      }
     },
     "genres": {
       "title": "音樂類型"

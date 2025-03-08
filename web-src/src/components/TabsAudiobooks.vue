@@ -12,19 +12,19 @@ export default {
     links() {
       return [
         {
-          to: { name: 'audiobooks-artists' },
           icon: 'account-music',
-          key: 'page.audiobooks.tabs.authors'
+          key: 'page.audiobooks.tabs.authors',
+          to: { name: 'audiobooks-artists' }
         },
         {
-          to: { name: 'audiobooks-albums' },
           icon: 'album',
-          key: 'page.audiobooks.tabs.audiobooks'
+          key: 'page.audiobooks.tabs.audiobooks',
+          to: { name: 'audiobooks-albums' }
         },
         {
-          to: { name: 'audiobooks-genres' },
           icon: 'speaker',
-          key: 'page.audiobooks.tabs.genres'
+          key: 'page.audiobooks.tabs.genres',
+          to: { name: 'audiobooks-genres' }
         }
       ]
     }

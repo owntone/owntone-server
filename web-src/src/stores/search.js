@@ -1,11 +1,6 @@
 import { defineStore } from 'pinia'
 
 export const useSearchStore = defineStore('SearchStore', {
-  state: () => ({
-    recent_searches: [],
-    search_query: '',
-    search_source: 'search-library'
-  }),
   actions: {
     add(query) {
       const index = this.recent_searches.indexOf(query)
@@ -23,5 +18,10 @@ export const useSearchStore = defineStore('SearchStore', {
         this.recent_searches.splice(index, 1)
       }
     }
-  }
+  },
+  state: () => ({
+    recent_searches: [],
+    search_query: '',
+    search_source: 'search-library'
+  })
 })

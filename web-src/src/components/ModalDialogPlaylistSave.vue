@@ -47,15 +47,15 @@ export default {
   computed: {
     actions() {
       if (this.loading) {
-        return [{ key: 'dialog.playlist.save.saving', icon: 'web' }]
+        return [{ icon: 'web', key: 'dialog.playlist.save.saving' }]
       }
       return [
-        { key: 'actions.cancel', handler: this.cancel, icon: 'cancel' },
+        { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' },
         {
-          key: 'actions.save',
           disabled: this.disabled,
           handler: this.save,
-          icon: 'download'
+          icon: 'download',
+          key: 'actions.save'
         }
       ]
     }

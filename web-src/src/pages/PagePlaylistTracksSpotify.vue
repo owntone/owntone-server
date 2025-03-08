@@ -81,9 +81,9 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
+    HeadingTitle,
     ListTracksSpotify,
     ModalDialogPlaylistSpotify,
-    HeadingTitle,
     VueEternalLoading
   },
   beforeRouteEnter(to, from, next) {
@@ -106,10 +106,10 @@ export default {
   computed: {
     heading() {
       return {
-        title: this.playlist.name,
         subtitle: [
-          { key: 'count.playlists', count: this.playlist.tracks.total }
-        ]
+          { count: this.playlist.tracks.total, key: 'count.playlists' }
+        ],
+        title: this.playlist.name
       }
     }
   },
