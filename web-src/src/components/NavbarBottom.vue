@@ -1,13 +1,10 @@
 <template>
-  <nav
-    class="navbar is-fixed-bottom"
-    :class="{ 'is-dark': !is_now_playing_page }"
-  >
+  <nav class="navbar is-fixed-bottom" :class="{ 'is-dark': !isNowPlayingPage }">
     <div class="navbar-brand is-flex-grow-1">
       <control-link class="navbar-item" :to="{ name: 'queue' }">
         <mdicon class="icon" name="playlist-play" />
       </control-link>
-      <template v-if="is_now_playing_page">
+      <template v-if="isNowPlayingPage">
         <control-player-previous class="navbar-item ml-auto" />
         <control-player-back class="navbar-item" :offset="10000" />
         <control-player-play class="navbar-item" show_disabled_message />
@@ -21,26 +18,30 @@
           class="navbar-item is-justify-content-flex-start is-expanded is-clipped is-size-7"
         >
           <div class="is-text-clipped">
-            <strong v-text="current.title" />
+            <strong v-text="queueStore.current.title" />
             <br />
-            <span v-text="current.artist" />
+            <span v-text="queueStore.current.artist" />
             <span
-              v-if="current.album"
-              v-text="$t('navigation.now-playing', { album: current.album })"
+              v-if="queueStore.current.album"
+              v-text="
+                $t('navigation.now-playing', {
+                  album: queueStore.current.album
+                })
+              "
             />
           </div>
         </control-link>
         <control-player-play class="navbar-item" show_disabled_message />
       </template>
-      <a class="navbar-item" @click="toggle">
+      <a class="navbar-item" @click="uiStore.togglePlayerMenu">
         <mdicon
           class="icon"
-          :name="uiStore.show_player_menu ? 'chevron-down' : 'chevron-up'"
+          :name="uiStore.showPlayerMenu ? 'chevron-down' : 'chevron-up'"
         />
       </a>
       <div
         class="dropdown is-up is-right"
-        :class="{ 'is-active': uiStore.show_player_menu }"
+        :class="{ 'is-active': uiStore.showPlayerMenu }"
       >
         <div class="dropdown-menu is-mobile">
           <div class="dropdown-content">
@@ -105,7 +106,6 @@ export default {
     ControlPlayerShuffle,
     ControlStreamVolume
   },
-
   setup() {
     return {
       notificationsStore: useNotificationsStore(),
@@ -114,19 +114,9 @@ export default {
       uiStore: useUIStore()
     }
   },
-
   computed: {
-    current() {
-      return this.queueStore.current
-    },
-    is_now_playing_page() {
+    isNowPlayingPage() {
       return this.$route.name === 'now-playing'
-    }
-  },
-  methods: {
-    toggle() {
-      this.uiStore.show_player_menu = !this.uiStore.show_player_menu
-      this.uiStore.show_burger_menu = false
     }
   }
 }

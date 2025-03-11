@@ -7,7 +7,10 @@
   >
     <template #content>
       <div v-if="!libraryStore.updating">
-        <div v-if="spotify_enabled || rss.tracks > 0" class="field">
+        <div
+          v-if="servicesStore.isSpotifyEnabled || rss.tracks > 0"
+          class="field"
+        >
           <label class="label" v-text="$t('dialog.update.info')" />
           <div class="control">
             <div class="select is-small">
@@ -15,7 +18,7 @@
                 <option value="" v-text="$t('dialog.update.all')" />
                 <option value="files" v-text="$t('dialog.update.local')" />
                 <option
-                  v-if="spotify_enabled"
+                  v-if="servicesStore.isSpotifyEnabled"
                   value="spotify"
                   v-text="$t('dialog.update.spotify')"
                 />
@@ -80,9 +83,6 @@ export default {
     },
     rss() {
       return this.libraryStore.rss
-    },
-    spotify_enabled() {
-      return this.servicesStore.spotify.webapi_token_valid
     }
   },
   methods: {

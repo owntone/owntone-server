@@ -21,9 +21,9 @@
         <list-tracks :items="tracks" :uris="uris" />
         <modal-dialog-playlist
           :item="playlist"
-          :show="show_details_modal"
+          :show="showDetailsModal"
           :uris="uris"
-          @close="show_details_modal = false"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -69,7 +69,7 @@ export default {
   data() {
     return {
       playlist: {},
-      show_details_modal: false,
+      showDetailsModal: false,
       tracks: new GroupedList()
     }
   },
@@ -92,7 +92,7 @@ export default {
       webapi.player_play_uri(this.uris, true)
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

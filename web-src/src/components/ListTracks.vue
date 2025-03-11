@@ -10,11 +10,11 @@
     <div
       v-else
       class="media is-align-items-center is-clickable mb-0"
-      :class="{ 'with-progress': show_progress }"
+      :class="{ 'with-progress': showProgress }"
       @click="play(item.item)"
     >
       <mdicon
-        v-if="show_icon"
+        v-if="showIcon"
         class="media-left icon"
         name="file-music-outline"
       />
@@ -33,7 +33,7 @@
         />
         <div class="is-size-7 has-text-grey" v-text="item.item.album" />
         <progress
-          v-if="show_progress && item.item.seek_ms > 0"
+          v-if="showProgress && item.item.seek_ms > 0"
           class="progress is-dark"
           :max="item.item.length_ms"
           :value="item.item.seek_ms"
@@ -48,9 +48,9 @@
   </template>
   <teleport to="#app">
     <modal-dialog-track
-      :item="selected_item"
-      :show="show_details_modal"
-      @close="show_details_modal = false"
+      :item="selectedItem"
+      :show="showDetailsModal"
+      @close="showDetailsModal = false"
       @play-count-changed="$emit('play-count-changed')"
     />
   </teleport>
@@ -66,20 +66,18 @@ export default {
   props: {
     expression: { default: '', type: String },
     items: { required: true, type: Object },
-    show_icon: Boolean,
-    show_progress: Boolean,
+    showIcon: Boolean,
+    showProgress: Boolean,
     uris: { default: '', type: String }
   },
   emits: ['play-count-changed'],
-
   data() {
-    return { selected_item: {}, show_details_modal: false }
+    return { selectedItem: {}, showDetailsModal: false }
   },
-
   methods: {
     openDialog(item) {
-      this.selected_item = item
-      this.show_details_modal = true
+      this.selectedItem = item
+      this.showDetailsModal = true
     },
     play(item) {
       if (this.uris) {

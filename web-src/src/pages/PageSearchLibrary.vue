@@ -36,10 +36,10 @@
             </div>
           </form>
           <div class="field is-grouped is-grouped-multiline mt-4">
-            <div v-for="query in history" :key="query" class="control">
+            <div v-for="item in history" :key="item" class="control">
               <div class="tags has-addons">
-                <a class="tag" @click="openSearch(query)" v-text="query" />
-                <a class="tag is-delete" @click="removeSearch(query)" />
+                <a class="tag" @click="openSearch(item)" v-text="item" />
+                <a class="tag is-delete" @click="removeSearch(item)" />
               </div>
             </div>
           </div>
@@ -131,14 +131,14 @@ export default {
         track: ListTracks.name
       },
       results: new Map(),
-      search_limit: {},
+      limit: {},
       query: '',
-      search_types: SEARCH_TYPES
+      types: SEARCH_TYPES
     }
   },
   computed: {
     expanded() {
-      return this.search_types.length === 1
+      return this.types.length === 1
     },
     history() {
       return this.searchStore.history
@@ -152,20 +152,20 @@ export default {
   mounted() {
     this.searchStore.source = this.$route.name
     this.query = this.searchStore.query
-    this.search_limit = PAGE_SIZE
+    this.limit = PAGE_SIZE
     this.search()
   },
   methods: {
     expand(type) {
       this.query = this.searchStore.query
-      this.search_types = [type]
-      this.search_limit = -1
+      this.types = [type]
+      this.limit = -1
       this.search()
     },
     openSearch(query) {
       this.query = query
-      this.search_types = SEARCH_TYPES
-      this.search_limit = PAGE_SIZE
+      this.types = SEARCH_TYPES
+      this.limit = PAGE_SIZE
       this.search()
     },
     removeSearch(query) {
@@ -173,14 +173,14 @@ export default {
     },
     reset() {
       this.results.clear()
-      this.search_types.forEach((type) => {
+      this.types.forEach((type) => {
         this.results.set(type, new GroupedList())
       })
     },
     search(event) {
       if (event) {
-        this.search_types = SEARCH_TYPES
-        this.search_limit = PAGE_SIZE
+        this.types = SEARCH_TYPES
+        this.limit = PAGE_SIZE
       }
       this.query = this.query.trim()
       if (!this.query || !this.query.replace(/^query:/u, '')) {
@@ -188,7 +188,7 @@ export default {
         return
       }
       this.reset()
-      this.search_types.forEach((type) => {
+      this.types.forEach((type) => {
         this.searchItems(type)
       })
       this.searchStore.add(this.query)
@@ -197,7 +197,7 @@ export default {
       const music = type !== 'audiobook' && type !== 'podcast'
       const kind = music ? 'music' : type
       const parameters = {
-        limit: this.search_limit,
+        limit: this.limit,
         type: music ? type : 'album'
       }
       if (this.query.startsWith('query:')) {
@@ -216,7 +216,7 @@ export default {
       this.$router.push({ name: 'search-spotify' })
     },
     show(type) {
-      return this.search_types.includes(type)
+      return this.types.includes(type)
     },
     showAllButton(items) {
       return items.total > items.items.length

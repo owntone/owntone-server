@@ -1,5 +1,5 @@
 <template>
-  <section v-if="spotify_enabled">
+  <section v-if="servicesStore.isSpotifyEnabled">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
@@ -41,11 +41,6 @@ export default {
   emits: ['search-library', 'search-spotify'],
   setup() {
     return { servicesStore: useServicesStore() }
-  },
-  computed: {
-    spotify_enabled() {
-      return this.servicesStore.spotify.webapi_token_valid
-    }
   }
 }
 </script>

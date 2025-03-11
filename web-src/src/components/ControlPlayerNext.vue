@@ -1,5 +1,5 @@
 <template>
-  <a :disabled="disabled" @click="play_next">
+  <a :disabled="disabled" @click="next">
     <mdicon
       class="icon"
       name="skip-forward"
@@ -14,15 +14,16 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerNext',
-
+  setup() {
+    return { queueStore: useQueueStore() }
+  },
   computed: {
     disabled() {
-      return useQueueStore()?.count <= 0
+      return this.queueStore.count <= 0
     }
   },
-
   methods: {
-    play_next() {
+    next() {
       if (this.disabled) {
         return
       }

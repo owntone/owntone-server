@@ -38,9 +38,9 @@
   </template>
   <teleport to="#app">
     <modal-dialog-directory
-      :item="selected_item"
-      :show="show_details_modal"
-      @close="show_details_modal = false"
+      :item="selectedItem"
+      :show="showDetailsModal"
+      @close="showDetailsModal = false"
     />
   </teleport>
 </template>
@@ -54,7 +54,7 @@ export default {
   props: { items: { required: true, type: Array } },
 
   data() {
-    return { selected_item: '', show_details_modal: false }
+    return { selectedItem: '', showDetailsModal: false }
   },
 
   computed: {
@@ -81,8 +81,8 @@ export default {
       this.$router.push(route)
     },
     openDialog(item) {
-      this.selected_item = item.path
-      this.show_details_modal = true
+      this.selectedItem = item.path
+      this.showDetailsModal = true
     },
     openParent() {
       this.open(this.directories.slice(-1).pop())

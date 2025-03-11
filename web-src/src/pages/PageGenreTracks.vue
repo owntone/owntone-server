@@ -32,8 +32,8 @@
         <modal-dialog-genre
           :item="genre"
           :media_kind="media_kind"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -61,7 +61,7 @@ const dataObject = {
   },
   set(vm, response) {
     vm.genre = response[0].data.genres.items.shift()
-    vm.tracks_list = new GroupedList(response[1].data.tracks)
+    vm.trackList = new GroupedList(response[1].data.tracks)
   }
 }
 
@@ -88,8 +88,8 @@ export default {
     return {
       genre: {},
       media_kind: this.$route.query.media_kind,
-      show_details_modal: false,
-      tracks_list: new GroupedList()
+      showDetailsModal: false,
+      trackList: new GroupedList()
     }
   },
   computed: {
@@ -133,12 +133,12 @@ export default {
       const { options } = this.groupings.find(
         (grouping) => grouping.id === this.uiStore.genre_tracks_sort
       )
-      return this.tracks_list.group(options)
+      return this.trackList.group(options)
     }
   },
   methods: {
     openGenre() {
-      this.show_details_modal = false
+      this.showDetailsModal = false
       this.$router.push({
         name: 'genre-albums',
         params: { name: this.genre.name },
@@ -149,7 +149,7 @@ export default {
       webapi.player_play_expression(this.expression, true)
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

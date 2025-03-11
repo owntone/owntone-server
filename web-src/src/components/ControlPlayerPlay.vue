@@ -27,19 +27,12 @@ export default {
       return this.queueStore?.count <= 0
     },
     icon() {
-      if (!this.is_playing) {
+      if (!this.playerStore.isPlaying) {
         return 'play'
-      } else if (this.is_pause_allowed) {
+      } else if (this.queueStore.isPauseAllowed) {
         return 'pause'
       }
       return 'stop'
-    },
-    is_pause_allowed() {
-      const { current } = this.queueStore
-      return current && current.data_kind !== 'pipe'
-    },
-    is_playing() {
-      return this.playerStore.state === 'play'
     }
   },
   methods: {
@@ -55,9 +48,12 @@ export default {
         }
         return
       }
-      if (this.is_playing && this.is_pause_allowed) {
+      if (this.playerStore.isPlaying && this.queueStore.isPauseAllowed) {
         webapi.player_pause()
-      } else if (this.is_playing && !this.is_pause_allowed) {
+      } else if (
+        this.playerStore.isPlaying &&
+        !this.queueStore.isPauseAllowed
+      ) {
         webapi.player_stop()
       } else {
         webapi.player_play()

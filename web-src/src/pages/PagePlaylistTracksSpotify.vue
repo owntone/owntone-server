@@ -19,7 +19,7 @@
       </template>
       <template #content>
         <list-tracks-spotify :items="tracks" :context_uri="playlist.uri" />
-        <vue-eternal-loading v-if="offset < total" :load="load_next">
+        <vue-eternal-loading v-if="offset < total" :load="load">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -33,8 +33,8 @@
         </vue-eternal-loading>
         <modal-dialog-playlist-spotify
           :item="playlist"
-          :show="show_playlist_details_modal"
-          @close="show_playlist_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -72,7 +72,7 @@ const dataObject = {
     vm.tracks = []
     vm.total = 0
     vm.offset = 0
-    vm.append_tracks(response.shift())
+    vm.appendTracks(response.shift())
   }
 }
 
@@ -98,23 +98,26 @@ export default {
     return {
       offset: 0,
       playlist: { tracks: {} },
-      show_playlist_details_modal: false,
+      showDetailsModal: false,
       total: 0,
       tracks: []
     }
   },
   computed: {
     heading() {
-      return {
-        subtitle: [
-          { count: this.playlist.tracks.total, key: 'count.playlists' }
-        ],
-        title: this.playlist.name
+      if (this.playlist.name) {
+        return {
+          subtitle: [
+            { count: this.playlist.tracks.total, key: 'count.playlists' }
+          ],
+          title: this.playlist.name
+        }
       }
+      return {}
     }
   },
   methods: {
-    append_tracks(data) {
+    appendTracks(data) {
       let position = Math.max(
         -1,
         ...this.tracks.map((item) => item.position).filter((item) => item)
@@ -132,7 +135,7 @@ export default {
       this.total = data.total
       this.offset += data.limit
     },
-    load_next({ loaded }) {
+    load({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
       spotifyApi
@@ -142,16 +145,16 @@ export default {
           offset: this.offset
         })
         .then((data) => {
-          this.append_tracks(data)
+          this.appendTracks(data)
           loaded(data.items.length, PAGE_SIZE)
         })
     },
     play() {
-      this.show_details_modal = false
+      this.showDetailsModal = false
       webapi.player_play_uri(this.playlist.uri, true)
     },
     showDetails() {
-      this.show_playlist_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

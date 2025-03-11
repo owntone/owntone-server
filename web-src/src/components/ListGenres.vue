@@ -26,10 +26,10 @@
   </template>
   <teleport to="#app">
     <modal-dialog-genre
-      :item="selected_item"
+      :item="selectedItem"
       :media_kind="media_kind"
-      :show="show_details_modal"
-      @close="show_details_modal = false"
+      :show="showDetailsModal"
+      @close="showDetailsModal = false"
     />
   </teleport>
 </template>
@@ -45,7 +45,7 @@ export default {
     media_kind: { required: true, type: String }
   },
   data() {
-    return { selected_item: {}, show_details_modal: false }
+    return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
     open(item) {
@@ -56,8 +56,8 @@ export default {
       })
     },
     openDialog(item) {
-      this.selected_item = item
-      this.show_details_modal = true
+      this.selectedItem = item
+      this.showDetailsModal = true
     }
   }
 }

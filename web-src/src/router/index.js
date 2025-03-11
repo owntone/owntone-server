@@ -46,84 +46,61 @@ const TOP_WITH_TABS = 100
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    {
-      path: '/:all(.*)*',
-      redirect: '/'
-    },
-    {
-      component: PageAbout,
-      name: 'about',
-      path: '/about'
-    },
-    {
-      component: PageAlbum,
-      meta: { show_progress: true },
-      name: 'music-album',
-      path: '/music/albums/:id'
-    },
+    { path: '/:all(.*)*', redirect: '/' },
+    { component: PageAbout, name: 'about', path: '/about' },
+    { component: PageAlbum, name: 'music-album', path: '/music/albums/:id' },
     {
       component: PageAlbumSpotify,
-      meta: { show_progress: true },
       name: 'music-spotify-album',
       path: '/music/spotify/albums/:id'
     },
     {
       component: PageAlbums,
-      meta: { has_index: true, show_progress: true },
       name: 'music-albums',
       path: '/music/albums'
     },
     {
       component: PageArtist,
-      meta: { has_index: true, show_progress: true },
       name: 'music-artist',
       path: '/music/artists/:id'
     },
     {
       component: PageArtistSpotify,
-      meta: { show_progress: true },
       name: 'music-spotify-artist',
       path: '/music/spotify/artists/:id'
     },
     {
       component: PageArtists,
-      meta: { has_index: true, show_progress: true },
       name: 'music-artists',
       path: '/music/artists'
     },
     {
       component: PageArtistTracks,
-      meta: { has_index: true, show_progress: true },
       name: 'music-artist-tracks',
       path: '/music/artists/:id/tracks'
     },
     {
       component: PageAudiobooksAlbum,
-      meta: { show_progress: true },
       name: 'audiobooks-album',
       path: '/audiobooks/albums/:id'
     },
     {
       component: PageAudiobooksAlbums,
-      meta: { has_index: true, show_progress: true },
       name: 'audiobooks-albums',
       path: '/audiobooks/albums'
     },
     {
       component: PageAudiobooksArtist,
-      meta: { show_progress: true },
       name: 'audiobooks-artist',
       path: '/audiobooks/artists/:id'
     },
     {
       component: PageAudiobooksArtists,
-      meta: { has_index: true, show_progress: true },
       name: 'audiobooks-artists',
       path: '/audiobooks/artists'
     },
     {
       component: PageAudiobooksGenres,
-      meta: { has_index: true, show_progress: true },
       name: 'audiobooks-genres',
       path: '/audiobooks/genres'
     },
@@ -139,87 +116,66 @@ export const router = createRouter({
     },
     {
       component: PageMusic,
-      meta: { show_progress: true },
       name: 'music-history',
       path: '/music/history'
     },
     {
       component: PageMusicRecentlyAdded,
-      meta: { show_progress: true },
       name: 'music-recently-added',
       path: '/music/recently-added'
     },
     {
       component: PageMusicRecentlyPlayed,
-      meta: { show_progress: true },
       name: 'music-recently-played',
       path: '/music/recently-played'
     },
     {
       component: PageMusicSpotify,
-      meta: { show_progress: true },
       name: 'music-spotify',
       path: '/music/spotify'
     },
     {
       component: PageMusicSpotifyFeaturedPlaylists,
-      meta: { show_progress: true },
       name: 'music-spotify-featured-playlists',
       path: '/music/spotify/featured-playlists'
     },
     {
       component: PageMusicSpotifyNewReleases,
-      meta: { show_progress: true },
       name: 'music-spotify-new-releases',
       path: '/music/spotify/new-releases'
     },
     {
       component: PageComposerAlbums,
-      meta: { show_progress: true },
       name: 'music-composer-albums',
       path: '/music/composers/:name/albums'
     },
     {
       component: PageComposerTracks,
-      meta: { show_progress: true },
       name: 'music-composer-tracks',
       path: '/music/composers/:name/tracks'
     },
     {
       component: PageComposers,
-      meta: { has_index: true, show_progress: true },
       name: 'music-composers',
       path: '/music/composers'
     },
-    {
-      component: PageFiles,
-      meta: { show_progress: true },
-      name: 'files',
-      path: '/files'
-    },
+    { component: PageFiles, name: 'files', path: '/files' },
     {
       component: PageGenreAlbums,
-      meta: { has_index: true, show_progress: true },
       name: 'genre-albums',
       path: '/genres/:name/albums'
     },
     {
       component: PageGenreTracks,
-      meta: { has_index: true, show_progress: true },
       name: 'genre-tracks',
       path: '/genres/:name/tracks'
     },
     {
       component: PageGenres,
-      meta: { has_index: true, show_progress: true },
       name: 'music-genres',
       path: '/music/genres'
     },
-    {
-      component: PageNowPlaying,
-      name: 'now-playing',
-      path: '/now-playing'
-    },
+    { component: PageNowPlaying, name: 'now-playing', path: '/now-playing' },
     {
       name: 'playlists',
       path: '/playlists',
@@ -227,37 +183,23 @@ export const router = createRouter({
     },
     {
       component: PagePlaylistFolder,
-      meta: { show_progress: true },
       name: 'playlist-folder',
       path: '/playlists/:id'
     },
     {
       component: PagePlaylistTracks,
-      meta: { show_progress: true },
       name: 'playlist',
       path: '/playlists/:id/tracks'
     },
     {
       component: PagePlaylistTracksSpotify,
-      meta: { show_progress: true },
       name: 'playlist-spotify',
       path: '/playlists/spotify/:id/tracks'
     },
-    {
-      component: PagePodcast,
-      meta: { show_progress: true },
-      name: 'podcast',
-      path: '/podcasts/:id'
-    },
-    {
-      component: PagePodcasts,
-      meta: { show_progress: true },
-      name: 'podcasts',
-      path: '/podcasts'
-    },
+    { component: PagePodcast, name: 'podcast', path: '/podcasts/:id' },
+    { component: PagePodcasts, name: 'podcasts', path: '/podcasts' },
     {
       component: PageRadioStreams,
-      meta: { show_progress: true },
       name: 'radio',
       path: '/radio'
     },
@@ -328,13 +270,13 @@ export const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const uiStore = useUIStore()
-  if (uiStore.show_burger_menu) {
-    uiStore.show_burger_menu = false
+  if (uiStore.showBurgerMenu) {
+    uiStore.showBurgerMenu = false
     next(false)
     return
   }
-  if (uiStore.show_player_menu) {
-    uiStore.show_player_menu = false
+  if (uiStore.showPlayerMenu) {
+    uiStore.showPlayerMenu = false
     next(false)
     return
   }

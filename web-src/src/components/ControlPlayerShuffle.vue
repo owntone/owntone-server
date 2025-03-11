@@ -1,5 +1,5 @@
 <template>
-  <a :class="{ 'is-dark': isShuffle }" @click="toggle">
+  <a :class="{ 'is-dark': playerStore.shuffle }" @click="toggle">
     <mdicon
       class="icon"
       :name="icon"
@@ -16,24 +16,19 @@ import webapi from '@/webapi'
 export default {
   name: 'ControlPlayerShuffle',
   setup() {
-    return {
-      playerStore: usePlayerStore()
-    }
+    return { playerStore: usePlayerStore() }
   },
   computed: {
     icon() {
-      if (this.isShuffle) {
+      if (this.playerStore.shuffle) {
         return 'shuffle'
       }
       return 'shuffle-disabled'
-    },
-    isShuffle() {
-      return this.playerStore.shuffle
     }
   },
   methods: {
     toggle() {
-      webapi.player_shuffle(!this.is_shuffle)
+      webapi.player_shuffle(!this.playerStore.shuffle)
     }
   }
 }

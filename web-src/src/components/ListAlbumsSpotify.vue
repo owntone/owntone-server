@@ -31,9 +31,9 @@
   </template>
   <teleport to="#app">
     <modal-dialog-album-spotify
-      :item="selected_item"
-      :show="show_details_modal"
-      @close="show_details_modal = false"
+      :item="selectedItem"
+      :show="showDetailsModal"
+      @close="showDetailsModal = false"
     />
   </teleport>
 </template>
@@ -51,7 +51,7 @@ export default {
     return { settingsStore: useSettingsStore() }
   },
   data() {
-    return { selected_item: {}, show_details_modal: false }
+    return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
     open(item) {
@@ -61,8 +61,8 @@ export default {
       })
     },
     openDialog(item) {
-      this.selected_item = item
-      this.show_details_modal = true
+      this.selectedItem = item
+      this.showDetailsModal = true
     }
   }
 }

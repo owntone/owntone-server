@@ -10,7 +10,7 @@
               class="is-size-7 is-uppercase"
               v-text="$t('options.filter.title')"
             />
-            <control-switch v-model="uiStore.hide_singles">
+            <control-switch v-model="uiStore.hideSingles">
               <template #label>
                 <span v-text="$t('options.filter.hide-singles')" />
               </template>
@@ -19,8 +19,8 @@
               </template>
             </control-switch>
             <control-switch
-              v-if="spotify_enabled"
-              v-model="uiStore.hide_spotify"
+              v-if="servicesStore.isSpotifyEnabled"
+              v-model="uiStore.hideSpotify"
             >
               <template #label>
                 <span v-text="$t('options.filter.hide-spotify')" />
@@ -70,7 +70,7 @@ const dataObject = {
     return webapi.library_albums('music')
   },
   set(vm, response) {
-    vm.albums_list = new GroupedList(response.data)
+    vm.albumList = new GroupedList(response.data)
   }
 }
 
@@ -95,7 +95,7 @@ export default {
   },
   data() {
     return {
-      albums_list: new GroupedList()
+      albumList: new GroupedList()
     }
   },
   computed: {
@@ -104,10 +104,10 @@ export default {
         (grouping) => grouping.id === this.uiStore.albums_sort
       )
       options.filters = [
-        (album) => !this.uiStore.hide_singles || album.track_count > 2,
-        (album) => !this.uiStore.hide_spotify || album.data_kind !== 'spotify'
+        (album) => !this.uiStore.hideSingles || album.track_count > 2,
+        (album) => !this.uiStore.hideSpotify || album.data_kind !== 'spotify'
       ]
-      return this.albums_list.group(options)
+      return this.albumList.group(options)
     },
     groupings() {
       return [
@@ -161,9 +161,6 @@ export default {
         subtitle: [{ count: this.albums.count, key: 'count.albums' }],
         title: this.$t('page.albums.title')
       }
-    },
-    spotify_enabled() {
-      return this.servicesStore.spotify.webapi_token_valid
     }
   }
 }

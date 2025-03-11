@@ -10,7 +10,7 @@
     <template v-for="(verse, index) in lyrics" :key="index">
       <div
         v-if="index === verse_index"
-        :class="{ 'is-highlighted': is_playing }"
+        :class="{ 'is-highlighted': playerStore.isPlaying }"
       >
         <span
           v-for="word in verse.words"
@@ -53,9 +53,6 @@ export default {
     }
   },
   computed: {
-    is_playing() {
-      return this.playerStore.state === 'play'
-    },
     lyrics() {
       const raw = this.lyricsStore.content
       const parsed = []

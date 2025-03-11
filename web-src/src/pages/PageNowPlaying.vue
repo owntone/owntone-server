@@ -8,10 +8,10 @@
         :artist="track.artist"
         :album="track.album"
         class="is-clickable is-big"
-        :class="{ 'is-masked': lyricsStore.pane }"
+        :class="{ 'is-masked': lyricsStore.active }"
         @click="openDialog(track)"
       />
-      <lyrics-pane v-if="lyricsStore.pane" />
+      <lyrics-pane v-if="lyricsStore.active" />
       <control-slider
         v-model:value="track_progress"
         class="mt-5"
@@ -45,9 +45,9 @@
     </div>
   </div>
   <modal-dialog-queue-item
-    :show="show_details_modal"
-    :item="selected_item"
-    @close="show_details_modal = false"
+    :show="showDetailsModal"
+    :item="selectedItem"
+    @close="showDetailsModal = false"
   />
 </template>
 
@@ -85,8 +85,8 @@ export default {
       INTERVAL,
       interval_id: 0,
       is_dragged: false,
-      selected_item: {},
-      show_details_modal: false
+      selectedItem: {},
+      showDetailsModal: false
     }
   },
   computed: {
@@ -165,8 +165,8 @@ export default {
       this.is_dragged = false
     },
     openDialog(item) {
-      this.selected_item = item
-      this.show_details_modal = true
+      this.selectedItem = item
+      this.showDetailsModal = true
     },
     seek() {
       if (!this.is_live) {

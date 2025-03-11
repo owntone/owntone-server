@@ -9,15 +9,15 @@
     @close="pairing_active = false"
   />
   <modal-dialog-update
-    :show="show_update_dialog"
-    @close="show_update_dialog = false"
+    :show="showUpdateDialog"
+    @close="showUpdateDialog = false"
   />
-  <notification-list v-show="!show_burger_menu" />
+  <notification-list v-show="!showBurgerMenu" />
   <navbar-bottom />
   <div
-    v-show="show_burger_menu || show_player_menu"
+    v-show="showBurgerMenu || showPlayerMenu"
     class="overlay-fullscreen"
-    @click="show_burger_menu = show_player_menu = false"
+    @click="uiStore.hideMenus"
   />
 </template>
 
@@ -50,7 +50,6 @@ export default {
     NavbarTop,
     NotificationList
   },
-
   setup() {
     return {
       configurationStore: useConfigurationStore(),
@@ -66,7 +65,6 @@ export default {
       uiStore: useUIStore()
     }
   },
-
   data() {
     return {
       pairing_active: false,
@@ -74,50 +72,47 @@ export default {
       token_timer_id: 0
     }
   },
-
   computed: {
-    show_burger_menu: {
+    showBurgerMenu: {
       get() {
-        return this.uiStore.show_burger_menu
+        return this.uiStore.showBurgerMenu
       },
       set(value) {
-        this.uiStore.show_burger_menu = value
+        this.uiStore.showBurgerMenu = value
       }
     },
-    show_player_menu: {
+    showPlayerMenu: {
       get() {
-        return this.uiStore.show_player_menu
+        return this.uiStore.showPlayerMenu
       },
       set(value) {
-        this.uiStore.show_player_menu = value
+        this.uiStore.showPlayerMenu = value
       }
     },
-    show_update_dialog: {
+    showUpdateDialog: {
       get() {
-        return this.uiStore.show_update_dialog
+        return this.uiStore.showUpdateDialog
       },
       set(value) {
-        this.uiStore.show_update_dialog = value
+        this.uiStore.showUpdateDialog = value
       }
     }
   },
-
   watch: {
-    show_burger_menu() {
+    showBurgerMenu() {
       this.update_is_clipped()
     },
-    show_player_menu() {
+    showPlayerMenu() {
       this.update_is_clipped()
     }
   },
-
   created() {
     this.connect()
     // Start the progress bar on app start
     this.$Progress.start()
     // Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
-      if (to.meta.show_progress && !(to.path === from.path && to.hash)) {
+      if (!(to.path === from.path && to.hash)) {
         if (to.meta.progress) {
           this.$Progress.parseMeta(to.meta.progress)
         }
@@ -127,19 +122,16 @@ export default {
     })
     // Hook the progress bar to finish after we've finished moving router-view
     this.$router.afterEach((to, from) => {
-      if (to.meta.show_progress) {
-        this.$Progress.finish()
-      }
+      this.$Progress.finish()
     })
   },
-
   methods: {
     connect() {
       webapi
         .config()
         .then(({ data }) => {
           this.configurationStore.$state = data
-          this.uiStore.hide_singles = data.hide_singles
+          this.uiStore.hideSingles = data.hide_singles
           document.title = data.library_name
           this.openWebsocket()
           this.$Progress.finish()
@@ -267,7 +259,7 @@ export default {
       })
     },
     update_is_clipped() {
-      if (this.show_burger_menu || this.show_player_menu) {
+      if (this.showBurgerMenu || this.showPlayerMenu) {
         document.querySelector('html').classList.add('is-clipped')
       } else {
         document.querySelector('html').classList.remove('is-clipped')

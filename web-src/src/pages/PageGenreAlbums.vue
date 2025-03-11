@@ -20,8 +20,8 @@
         <modal-dialog-genre
           :item="genre"
           :media_kind="media_kind"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -73,7 +73,7 @@ export default {
       albums: new GroupedList(),
       genre: {},
       media_kind: this.$route.query.media_kind,
-      show_details_modal: false
+      showDetailsModal: false
     }
   },
   computed: {
@@ -96,7 +96,7 @@ export default {
   },
   methods: {
     openTracks() {
-      this.show_details_modal = false
+      this.showDetailsModal = false
       this.$router.push({
         name: 'genre-tracks',
         params: { name: this.genre.name },
@@ -110,7 +110,7 @@ export default {
       )
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

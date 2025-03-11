@@ -26,9 +26,9 @@
   </template>
   <teleport to="#app">
     <modal-dialog-composer
-      :item="selected_item"
-      :show="show_details_modal"
-      @close="show_details_modal = false"
+      :item="selectedItem"
+      :show="showDetailsModal"
+      @close="showDetailsModal = false"
     />
   </teleport>
 </template>
@@ -42,12 +42,12 @@ export default {
   props: { items: { required: true, type: Object } },
 
   data() {
-    return { selected_item: {}, show_details_modal: false }
+    return { selectedItem: {}, showDetailsModal: false }
   },
 
   methods: {
     open(item) {
-      this.selected_item = item
+      this.selectedItem = item
       this.$router.push({
         name: 'music-composer-albums',
         params: { name: item.name }
@@ -55,8 +55,8 @@ export default {
     },
 
     openDialog(item) {
-      this.selected_item = item
-      this.show_details_modal = true
+      this.selectedItem = item
+      this.showDetailsModal = true
     }
   }
 }

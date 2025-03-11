@@ -31,8 +31,8 @@
         <list-tracks :items="tracks" :expression="expression" />
         <modal-dialog-composer
           :item="composer"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -60,7 +60,7 @@ const dataObject = {
   },
   set(vm, response) {
     vm.composer = response[0].data
-    vm.tracks_list = new GroupedList(response[1].data.tracks)
+    vm.trackList = new GroupedList(response[1].data.tracks)
   }
 }
 
@@ -86,8 +86,8 @@ export default {
   data() {
     return {
       composer: {},
-      show_details_modal: false,
-      tracks_list: new GroupedList()
+      showDetailsModal: false,
+      trackList: new GroupedList()
     }
   },
   computed: {
@@ -145,7 +145,7 @@ export default {
       webapi.player_play_expression(this.expression, true)
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

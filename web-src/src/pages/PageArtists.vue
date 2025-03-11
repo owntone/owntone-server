@@ -10,7 +10,7 @@
               class="is-size-7 is-uppercase"
               v-text="$t('options.filter.title')"
             />
-            <control-switch v-model="uiStore.hide_singles">
+            <control-switch v-model="uiStore.hideSingles">
               <template #label>
                 <span v-text="$t('options.filter.hide-singles')" />
               </template>
@@ -18,8 +18,8 @@
                 <span v-text="$t('options.filter.hide-singles-help')" />
               </template>
             </control-switch>
-            <div v-if="spotify_enabled" class="field">
-              <control-switch v-model="uiStore.hide_spotify">
+            <div v-if="servicesStore.isSpotifyEnabled" class="field">
+              <control-switch v-model="uiStore.hideSpotify">
                 <template #label>
                   <span v-text="$t('options.filter.hide-spotify')" />
                 </template>
@@ -69,7 +69,7 @@ const dataObject = {
     return webapi.library_artists('music')
   },
   set(vm, response) {
-    vm.artists_list = new GroupedList(response.data)
+    vm.artistList = new GroupedList(response.data)
   }
 }
 
@@ -94,7 +94,7 @@ export default {
   },
   data() {
     return {
-      artists_list: new GroupedList()
+      artistList: new GroupedList()
     }
   },
   computed: {
@@ -104,11 +104,11 @@ export default {
       )
       options.filters = [
         (artist) =>
-          !this.uiStore.hide_singles ||
+          !this.uiStore.hideSingles ||
           artist.track_count > artist.album_count * 2,
-        (artist) => !this.uiStore.hide_spotify || artist.data_kind !== 'spotify'
+        (artist) => !this.uiStore.hideSpotify || artist.data_kind !== 'spotify'
       ]
-      return this.artists_list.group(options)
+      return this.artistList.group(options)
     },
     groupings() {
       return [
@@ -132,9 +132,6 @@ export default {
         subtitle: [{ count: this.artists.count, key: 'count.artists' }],
         title: this.$t('page.artists.title')
       }
-    },
-    spotify_enabled() {
-      return this.servicesStore.spotify.webapi_token_valid
     }
   }
 }

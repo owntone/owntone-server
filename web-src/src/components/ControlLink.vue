@@ -17,8 +17,7 @@ export default {
   },
   methods: {
     open() {
-      this.uiStore.show_burger_menu = false
-      this.uiStore.show_player_menu = false
+      this.uiStore.hideMenus()
       this.$router.push(this.to)
     }
   }

@@ -18,12 +18,12 @@
         <list-tracks
           :expression="expression"
           :items="tracks"
-          :show_icon="true"
+          :show-icon="true"
         />
         <modal-dialog-directory
           :item="current"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -101,7 +101,7 @@ export default {
     return {
       directories: [],
       playlists: new GroupedList(),
-      show_details_modal: false,
+      showDetailsModal: false,
       tracks: new GroupedList()
     }
   },
@@ -124,7 +124,7 @@ export default {
       webapi.player_play_expression(this.expression, false)
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     },
     transform(path) {
       return { name: path.slice(path.lastIndexOf('/') + 1), path }

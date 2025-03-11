@@ -15,9 +15,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ControlPlayerPrevious',
   setup() {
-    return {
-      queueStore: useQueueStore()
-    }
+    return { queueStore: useQueueStore() }
   },
   computed: {
     disabled() {

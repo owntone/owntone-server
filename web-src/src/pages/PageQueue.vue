@@ -7,11 +7,11 @@
       <template #heading-right>
         <control-button
           :button="{
-            handler: toggleHideReadItems,
+            handler: uiStore.toggleHideReadItems,
             icon: 'eye-off-outline',
             key: 'actions.hide-previous'
           }"
-          :class="{ 'is-dark': uiStore.show_only_next_items }"
+          :class="{ 'is-dark': uiStore.hideReadItems }"
         />
         <control-button
           :button="{
@@ -26,8 +26,8 @@
             icon: 'pencil',
             key: 'actions.edit'
           }"
-          :class="{ 'is-dark': edit_mode }"
-          :disabled="queue_items.length === 0"
+          :class="{ 'is-dark': editing }"
+          :disabled="queueStore.isEmpty"
         />
         <control-button
           :button="{
@@ -35,30 +35,30 @@
             icon: 'delete-empty',
             key: 'actions.clear'
           }"
-          :disabled="queue_items.length === 0"
+          :disabled="queueStore.isEmpty"
         />
         <control-button
-          v-if="is_queue_save_allowed"
+          v-if="queueStore.isSavingAllowed"
           :button="{
-            handler: showSaveDialog,
+            handler: openSaveDialog,
             icon: 'download',
             key: 'actions.save'
           }"
-          :disabled="queue_items.length === 0"
+          :disabled="queueStore.isEmpty"
         />
       </template>
       <template #content>
-        <draggable v-model="queue_items" item-key="id" @end="move_item">
+        <draggable v-model="items" item-key="id" @end="moveItem">
           <template #item="{ element, index }">
             <list-item-queue-item
               :item="element"
               :position="index"
               :current_position="current_position"
-              :show_only_next_items="uiStore.show_only_next_items"
-              :edit_mode="edit_mode"
+              :hide-read-items="uiStore.hideReadItems"
+              :editing="editing"
             >
               <template #actions>
-                <a v-if="!edit_mode" @click.prevent.stop="openDialog(element)">
+                <a v-if="!editing" @click.prevent.stop="openDialog(element)">
                   <mdicon
                     class="icon has-text-grey"
                     name="dots-vertical"
@@ -66,7 +66,7 @@
                   />
                 </a>
                 <a
-                  v-if="element.id !== player.item_id && edit_mode"
+                  v-if="isRemovable(element)"
                   @click.prevent.stop="remove(element)"
                 >
                   <mdicon class="icon has-text-grey" name="delete" size="18" />
@@ -76,18 +76,18 @@
           </template>
         </draggable>
         <modal-dialog-queue-item
-          :show="show_details_modal"
-          :item="selected_item"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          :item="selectedItem"
+          @close="showDetailsModal = false"
         />
         <modal-dialog-add-stream
-          :show="show_url_modal"
-          @close="show_url_modal = false"
+          :show="showAddStreamDialog"
+          @close="showAddStreamDialog = false"
         />
         <modal-dialog-playlist-save
-          v-if="is_queue_save_allowed"
-          :show="show_pls_save_modal"
-          @close="show_pls_save_modal = false"
+          v-if="queueStore.isSavingAllowed"
+          :show="showSaveModal"
+          @close="showSaveModal = false"
         />
       </template>
     </content-with-heading>
@@ -131,78 +131,65 @@ export default {
   },
   data() {
     return {
-      edit_mode: false,
-      selected_item: {},
-      show_details_modal: false,
-      show_pls_save_modal: false,
-      show_url_modal: false
+      editing: false,
+      selectedItem: {},
+      showDetailsModal: false,
+      showSaveModal: false,
+      showAddStreamDialog: false
     }
   },
   computed: {
     current_position() {
-      return this.queue.current?.position ?? -1
+      return this.queueStore.current?.position ?? -1
     },
     heading() {
       return {
-        subtitle: [{ count: this.queue.count, key: 'count.tracks' }],
+        subtitle: [{ count: this.queueStore.count, key: 'count.tracks' }],
         title: this.$t('page.queue.title')
       }
     },
-    is_queue_save_allowed() {
-      return (
-        this.configurationStore.allow_modifying_stored_playlists &&
-        this.configurationStore.default_playlist_directory
-      )
-    },
-    player() {
-      return this.playerStore
-    },
-    queue() {
-      return this.queueStore
-    },
-    queue_items: {
+    items: {
       get() {
-        return this.queue.items
+        return this.queueStore.items
       },
-      set() {
+      set(value) {
         /* Do nothing? Send move request in @end event */
       }
     }
   },
   methods: {
-    move_item(event) {
+    clearQueue() {
+      webapi.queue_clear()
+    },
+    isRemovable(item) {
+      return item.id !== this.playerStore.item_id && this.editing
+    },
+    moveItem(event) {
       const oldPosition =
-        event.oldIndex +
-        (this.uiStore.show_only_next_items && this.current_position)
-      const item = this.queue_items[oldPosition]
+        event.oldIndex + (this.uiStore.hideReadItems && this.current_position)
+      const item = this.items[oldPosition]
       const newPosition = item.position + (event.newIndex - event.oldIndex)
       if (newPosition !== oldPosition) {
         webapi.queue_move(item.id, newPosition)
       }
     },
     openAddStreamDialog() {
-      this.show_url_modal = true
+      this.showAddStreamDialog = true
     },
     openDialog(item) {
-      this.selected_item = item
-      this.show_details_modal = true
+      this.selectedItem = item
+      this.showDetailsModal = true
     },
-    clearQueue() {
-      webapi.queue_clear()
+    openSaveDialog() {
+      if (!this.queueStore.isEmpty) {
+        this.showSaveModal = true
+      }
     },
     remove(item) {
       webapi.queue_remove(item.id)
     },
-    showSaveDialog() {
-      if (this.queue_items.length > 0) {
-        this.show_pls_save_modal = true
-      }
-    },
     toggleEdit() {
-      this.edit_mode = !this.edit_mode
-    },
-    toggleHideReadItems() {
-      this.uiStore.show_only_next_items = !this.uiStore.show_only_next_items
+      this.editing = !this.editing
     }
   }
 }

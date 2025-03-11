@@ -1,5 +1,5 @@
 <template>
-  <a :class="{ 'is-dark': is_consume }" @click="toggle">
+  <a :class="{ 'is-dark': playerStore.consume }" @click="toggle">
     <mdicon
       class="icon"
       name="fire"
@@ -15,22 +15,14 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerConsume',
-
   setup() {
     return {
       playerStore: usePlayerStore()
     }
   },
-
-  computed: {
-    is_consume() {
-      return this.playerStore.consume
-    }
-  },
-
   methods: {
     toggle() {
-      webapi.player_consume(!this.is_consume)
+      webapi.player_consume(!this.playerStore.consume)
     }
   }
 }

@@ -25,11 +25,11 @@ export default {
       if (this.media_kind_resolved === 'podcast') {
         if (this.item.data_kind === 'url') {
           return [
-            { handler: this.mark_played, key: 'actions.mark-as-played' },
-            { handler: this.remove_podcast, key: 'actions.remove-podcast' }
+            { handler: this.markAsPlayed, key: 'actions.mark-as-played' },
+            { handler: this.removePodcast, key: 'actions.remove-podcast' }
           ]
         }
-        return [{ handler: this.mark_played, key: 'actions.mark-as-played' }]
+        return [{ handler: this.markAsPlayed, key: 'actions.mark-as-played' }]
       }
       return []
     },
@@ -71,7 +71,7 @@ export default {
     }
   },
   methods: {
-    mark_played() {
+    markAsPlayed() {
       webapi
         .library_album_track_update(this.item.id, { play_count: 'played' })
         .then(() => {
@@ -109,7 +109,7 @@ export default {
         })
       }
     },
-    remove_podcast() {
+    removePodcast() {
       this.$emit('remove-podcast')
     }
   }

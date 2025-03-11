@@ -1,10 +1,10 @@
 <template>
   <div
-    v-if="isNext || !show_only_next_items"
+    v-if="isNext || !hideReadItems"
     class="media is-align-items-center is-clickable mb-0"
     @click="play"
   >
-    <div v-if="edit_mode" class="media-left">
+    <div v-if="editing" class="media-left">
       <mdicon
         class="icon has-text-grey is-movable"
         name="drag-horizontal"
@@ -53,10 +53,10 @@ export default {
   name: 'ListItemQueueItem',
   props: {
     current_position: { required: true, type: Number },
-    edit_mode: Boolean,
+    editing: Boolean,
     item: { required: true, type: Object },
     position: { required: true, type: Number },
-    show_only_next_items: Boolean
+    hideReadItems: Boolean
   },
   setup() {
     return { playerStore: usePlayerStore() }

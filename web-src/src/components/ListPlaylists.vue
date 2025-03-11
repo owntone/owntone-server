@@ -18,8 +18,8 @@
   <teleport to="#app">
     <modal-dialog-playlist
       :item="selectedItem"
-      :show="show_details_modal"
-      @close="show_details_modal = false"
+      :show="showDetailsModal"
+      @close="showDetailsModal = false"
     />
   </teleport>
 </template>
@@ -33,7 +33,7 @@ export default {
   props: { items: { required: true, type: Object } },
 
   data() {
-    return { selectedItem: {}, show_details_modal: false }
+    return { selectedItem: {}, showDetailsModal: false }
   },
 
   methods: {
@@ -54,7 +54,7 @@ export default {
     },
     openDialog(item) {
       this.selectedItem = item
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

@@ -10,8 +10,8 @@
               v-text="$t('options.filter.title')"
             />
             <control-switch
-              v-if="spotify_enabled"
-              v-model="uiStore.hide_spotify"
+              v-if="servicesStore.isSpotifyEnabled"
+              v-model="uiStore.hideSpotify"
             >
               <template #label>
                 <span v-text="$t('options.filter.hide-spotify')" />
@@ -48,8 +48,8 @@
         <list-tracks :items="tracks" :uris="track_uris" />
         <modal-dialog-artist
           :item="artist"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -79,7 +79,7 @@ const dataObject = {
   },
   set(vm, response) {
     vm.artist = response[0].data
-    vm.tracks_list = new GroupedList(response[1].data.tracks)
+    vm.trackList = new GroupedList(response[1].data.tracks)
   }
 }
 
@@ -106,8 +106,8 @@ export default {
   data() {
     return {
       artist: {},
-      show_details_modal: false,
-      tracks_list: new GroupedList()
+      showDetailsModal: false,
+      trackList: new GroupedList()
     }
   },
   computed: {
@@ -148,25 +148,22 @@ export default {
         title: this.artist.name
       }
     },
-    spotify_enabled() {
-      return this.servicesStore.spotify.webapi_token_valid
-    },
     track_uris() {
-      return this.tracks_list.items.map((item) => item.uri).join()
+      return this.trackList.items.map((item) => item.uri).join()
     },
     tracks() {
       const { options } = this.groupings.find(
         (grouping) => grouping.id === this.uiStore.artist_tracks_sort
       )
       options.filters = [
-        (track) => !this.uiStore.hide_spotify || track.data_kind !== 'spotify'
+        (track) => !this.uiStore.hideSpotify || track.data_kind !== 'spotify'
       ]
-      return this.tracks_list.group(options)
+      return this.trackList.group(options)
     }
   },
   methods: {
     openArtist() {
-      this.show_details_modal = false
+      this.showDetailsModal = false
       this.$router.push({
         name: 'music-artist',
         params: { id: this.artist.id }
@@ -174,12 +171,12 @@ export default {
     },
     play() {
       webapi.player_play_uri(
-        this.tracks_list.items.map((item) => item.uri).join(),
+        this.trackList.items.map((item) => item.uri).join(),
         true
       )
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

@@ -19,10 +19,10 @@
             </div>
           </form>
           <div class="field is-grouped is-grouped-multiline mt-4">
-            <div v-for="query in history" :key="query" class="control">
+            <div v-for="item in history" :key="item" class="control">
               <div class="tags has-addons">
-                <a class="tag" @click="openSearch(query)" v-text="query" />
-                <a class="tag is-delete" @click="removeSearch(query)" />
+                <a class="tag" @click="openSearch(item)" v-text="item" />
+                <a class="tag is-delete" @click="removeSearch(item)" />
               </div>
             </div>
           </div>
@@ -118,14 +118,14 @@ export default {
         track: ListTracksSpotify.name
       },
       results: new Map(),
-      search_parameters: {},
+      parameters: {},
       query: '',
-      search_types: SEARCH_TYPES
+      types: SEARCH_TYPES
     }
   },
   computed: {
     expanded() {
-      return this.search_types.length === 1
+      return this.types.length === 1
     },
     history() {
       return this.searchStore.history.filter(
@@ -141,22 +141,22 @@ export default {
   mounted() {
     this.searchStore.source = this.$route.name
     this.query = this.searchStore.query
-    this.search_parameters.limit = PAGE_SIZE
+    this.parameters.limit = PAGE_SIZE
     this.search()
   },
   methods: {
     expand(type) {
       this.query = this.searchStore.query
-      this.search_types = [type]
-      this.search_parameters.limit = PAGE_SIZE_EXPANDED
-      this.search_parameters.offset = 0
+      this.types = [type]
+      this.parameters.limit = PAGE_SIZE_EXPANDED
+      this.parameters.offset = 0
       this.search()
     },
     openSearch(query) {
       this.query = query
-      this.search_types = SEARCH_TYPES
-      this.search_parameters.limit = PAGE_SIZE
-      this.search_parameters.offset = 0
+      this.types = SEARCH_TYPES
+      this.parameters.limit = PAGE_SIZE
+      this.parameters.offset = 0
       this.search()
     },
     removeSearch(query) {
@@ -164,14 +164,14 @@ export default {
     },
     reset() {
       this.results.clear()
-      this.search_types.forEach((type) => {
+      this.types.forEach((type) => {
         this.results.set(type, { items: [], total: 0 })
       })
     },
     search(event) {
       if (event) {
-        this.search_types = SEARCH_TYPES
-        this.search_parameters.limit = PAGE_SIZE
+        this.types = SEARCH_TYPES
+        this.parameters.limit = PAGE_SIZE
       }
       this.query = this.query.trim()
       if (!this.query) {
@@ -180,7 +180,7 @@ export default {
       }
       this.reset()
       this.searchItems().then((data) => {
-        this.search_types.forEach((type) => {
+        this.types.forEach((type) => {
           this.results.set(type, data[`${type}s`])
         })
       })
@@ -188,14 +188,10 @@ export default {
     },
     searchItems() {
       return webapi.spotify().then(({ data }) => {
-        this.search_parameters.market = data.webapi_country
+        this.parameters.market = data.webapi_country
         const spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(data.webapi_token)
-        return spotifyApi.search(
-          this.query,
-          this.search_types,
-          this.search_parameters
-        )
+        return spotifyApi.search(this.query, this.types, this.parameters)
       })
     },
     searchLibrary() {
@@ -204,22 +200,22 @@ export default {
       })
     },
     searchNext({ loaded }) {
-      const [type] = this.search_types,
+      const [type] = this.types,
         items = this.results.get(type)
-      this.search_parameters.limit = PAGE_SIZE_EXPANDED
+      this.parameters.limit = PAGE_SIZE_EXPANDED
       this.searchItems().then((data) => {
         const [next] = Object.values(data)
         items.items.push(...next.items)
         items.total = next.total
-        if (!this.search_parameters.offset) {
-          this.search_parameters.offset = 0
+        if (!this.parameters.offset) {
+          this.parameters.offset = 0
         }
-        this.search_parameters.offset += next.limit
+        this.parameters.offset += next.limit
         loaded(next.items.length, PAGE_SIZE_EXPANDED)
       })
     },
     show(type) {
-      return this.search_types.includes(type)
+      return this.types.includes(type)
     },
     showAllButton(items) {
       return items.total > items.items.length

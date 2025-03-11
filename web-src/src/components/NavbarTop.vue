@@ -9,18 +9,15 @@
       >
         <mdicon class="icon" :name="menu.icon" size="16" />
       </control-link>
-      <a
-        class="navbar-item ml-auto"
-        @click="uiStore.show_burger_menu = !uiStore.show_burger_menu"
-      >
+      <a class="navbar-item ml-auto" @click="uiStore.toggleBurgerMenu">
         <mdicon
           class="icon"
-          :name="uiStore.show_burger_menu ? 'close' : 'menu'"
+          :name="uiStore.showBurgerMenu ? 'close' : 'menu'"
         />
       </a>
       <div
         class="dropdown is-right"
-        :class="{ 'is-active': uiStore.show_burger_menu }"
+        :class="{ 'is-active': uiStore.showBurgerMenu }"
       >
         <div class="dropdown-menu is-mobile">
           <div class="dropdown-content">
@@ -161,7 +158,7 @@ export default {
       ]
     },
     zindex() {
-      if (this.uiStore.show_player_menu) {
+      if (this.uiStore.showPlayerMenu) {
         return 'z-index: 21'
       }
       return ''
@@ -169,8 +166,8 @@ export default {
   },
   methods: {
     openUpdateDialog() {
-      this.uiStore.show_update_dialog = true
-      this.uiStore.show_burger_menu = false
+      this.uiStore.showUpdateDialog = true
+      this.uiStore.hideMenus()
     }
   }
 }

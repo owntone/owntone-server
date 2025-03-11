@@ -25,24 +25,17 @@ export default {
     }
   },
   computed: {
-    current() {
-      return this.queueStore.current
-    },
     disabled() {
       return (
         this.queueStore?.count <= 0 ||
-        this.is_stopped ||
-        this.current.data_kind === 'pipe'
+        this.playerStore.isStopped ||
+        this.queueStore.current.data_kind === 'pipe'
       )
     },
-    is_stopped() {
-      return this.player.state === 'stop'
-    },
-    player() {
-      return this.playerStore
-    },
     visible() {
-      return ['podcast', 'audiobook'].includes(this.current.media_kind)
+      return ['podcast', 'audiobook'].includes(
+        this.queueStore.current.media_kind
+      )
     }
   },
   methods: {

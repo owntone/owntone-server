@@ -20,8 +20,8 @@
         <list-albums :items="albums" />
         <modal-dialog-artist
           :item="artist"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -68,7 +68,7 @@ export default {
     return {
       albums: new GroupedList(),
       artist: {},
-      show_details_modal: false
+      showDetailsModal: false
     }
   },
   computed: {
@@ -92,7 +92,7 @@ export default {
       )
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

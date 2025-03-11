@@ -32,8 +32,8 @@
         <list-tracks-spotify :items="tracks" :context_uri="album.uri" />
         <modal-dialog-album-spotify
           :item="album"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-hero>
@@ -83,7 +83,7 @@ export default {
   data() {
     return {
       album: { artists: [{}], tracks: {} },
-      show_details_modal: false
+      showDetailsModal: false
     }
   },
   computed: {
@@ -103,11 +103,11 @@ export default {
       })
     },
     play() {
-      this.show_details_modal = false
+      this.showDetailsModal = false
       webapi.player_play_uri(this.album.uri, true)
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

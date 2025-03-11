@@ -16,7 +16,7 @@
       <template #content>
         <list-tracks
           :items="tracks"
-          :show_progress="true"
+          :show-progress="true"
           @play-count-changed="reloadNewEpisodes"
         />
       </template>
@@ -49,8 +49,8 @@
           @podcast-deleted="reloadPodcasts()"
         />
         <modal-dialog-add-rss
-          :show="show_url_modal"
-          @close="show_url_modal = false"
+          :show="showAddPodcastModal"
+          @close="showAddPodcastModal = false"
           @podcast-added="reloadPodcasts()"
         />
       </template>
@@ -104,7 +104,7 @@ export default {
   data() {
     return {
       albums: [],
-      show_url_modal: false,
+      showAddPodcastModal: false,
       tracks: { items: [] }
     }
   },
@@ -130,7 +130,7 @@ export default {
       this.tracks.items = {}
     },
     openAddPodcastDialog() {
-      this.show_url_modal = true
+      this.showAddPodcastModal = true
     },
     reloadNewEpisodes() {
       webapi.library_podcasts_new_episodes().then(({ data }) => {
@@ -145,7 +145,7 @@ export default {
     },
     updateRss() {
       this.libraryStore.update_dialog_scan_kind = 'rss'
-      this.uiStore.show_update_dialog = true
+      this.uiStore.showUpdateDialog = true
     }
   }
 }

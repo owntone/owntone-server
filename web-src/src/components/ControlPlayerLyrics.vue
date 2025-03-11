@@ -1,5 +1,5 @@
 <template>
-  <a :class="{ 'is-dark': isActive }" @click="toggle">
+  <a :class="{ 'is-dark': lyricsStore.active }" @click="lyricsStore.toggle">
     <mdicon
       class="icon"
       :name="icon"
@@ -21,15 +21,9 @@ export default {
   },
   computed: {
     icon() {
-      return this.isActive ? 'script-text-play' : 'script-text-outline'
-    },
-    isActive() {
-      return this.lyricsStore.pane
-    }
-  },
-  methods: {
-    toggle() {
-      this.lyricsStore.pane = !this.lyricsStore.pane
+      return this.lyricsStore.active
+        ? 'script-text-play'
+        : 'script-text-outline'
     }
   }
 }

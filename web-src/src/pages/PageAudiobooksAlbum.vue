@@ -15,7 +15,7 @@
             :button="{
               handler: play,
               icon: 'play',
-              key: 'page.audiobooks.album.play'
+              key: 'actions.play'
             }"
           />
           <control-button
@@ -33,12 +33,12 @@
         />
       </template>
       <template #content>
-        <list-tracks :items="tracks" :show_progress="true" :uris="album.uri" />
+        <list-tracks :items="tracks" :show-progress="true" :uris="album.uri" />
         <modal-dialog-album
           :item="album"
-          :show="show_details_modal"
+          :show="showDetailsModal"
           :media_kind="'audiobook'"
-          @close="show_details_modal = false"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-hero>
@@ -84,13 +84,13 @@ export default {
   data() {
     return {
       album: {},
-      show_details_modal: false,
+      showDetailsModal: false,
       tracks: new GroupedList()
     }
   },
   methods: {
     openArtist() {
-      this.show_details_modal = false
+      this.showDetailsModal = false
       this.$router.push({
         name: 'audiobooks-artist',
         params: { id: this.album.artist_id }
@@ -100,7 +100,7 @@ export default {
       webapi.player_play_uri(this.album.uri, false)
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

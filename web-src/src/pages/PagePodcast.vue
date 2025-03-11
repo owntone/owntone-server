@@ -31,22 +31,22 @@
       <template #content>
         <list-tracks
           :items="tracks"
-          :show_progress="true"
+          :show-progress="true"
           @play-count-changed="reloadTracks"
         />
         <modal-dialog-album
           :item="album"
-          :show="show_details_modal"
+          :show="showDetailsModal"
           :media_kind="'podcast'"
-          @close="show_details_modal = false"
+          @close="showDetailsModal = false"
           @play-count-changed="reloadTracks"
           @remove-podcast="openRemovePodcastDialog"
         />
         <modal-dialog
           :actions="actions"
-          :show="show_remove_podcast_modal"
+          :show="showRemovePodcastModal"
           :title="$t('page.podcast.remove-podcast')"
-          @cancel="show_remove_podcast_modal = false"
+          @cancel="showRemovePodcastModal = false"
           @remove="removePodcast"
         >
           <template #content>
@@ -107,8 +107,8 @@ export default {
     return {
       album: {},
       rss_playlist_to_remove: {},
-      show_details_modal: false,
-      show_remove_podcast_modal: false,
+      showDetailsModal: false,
+      showRemovePodcastModal: false,
       tracks: new GroupedList()
     }
   },
@@ -136,8 +136,8 @@ export default {
           ;[this.rss_playlist_to_remove] = data.items.filter(
             (pl) => pl.type === 'rss'
           )
-          this.show_remove_podcast_modal = true
-          this.show_details_modal = false
+          this.showRemovePodcastModal = true
+          this.showDetailsModal = false
         })
     },
     play() {
@@ -149,7 +149,7 @@ export default {
       })
     },
     removePodcast() {
-      this.show_remove_podcast_modal = false
+      this.showRemovePodcastModal = false
       webapi
         .library_playlist_delete(this.rss_playlist_to_remove.id)
         .then(() => {
@@ -157,7 +157,7 @@ export default {
         })
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

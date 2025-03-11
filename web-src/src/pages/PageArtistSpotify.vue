@@ -14,7 +14,7 @@
       </template>
       <template #content>
         <list-albums-spotify :items="albums" />
-        <vue-eternal-loading v-if="offset < total" :load="load_next">
+        <vue-eternal-loading v-if="offset < total" :load="loadNext">
           <template #loading>
             <div class="columns is-centered">
               <div class="column has-text-centered">
@@ -31,8 +31,8 @@
         </vue-eternal-loading>
         <modal-dialog-artist-spotify
           :item="artist"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -71,7 +71,7 @@ const dataObject = {
     vm.albums = []
     vm.total = 0
     vm.offset = 0
-    vm.append_albums(response.shift())
+    vm.appendAlbums(response.shift())
   }
 }
 
@@ -98,7 +98,7 @@ export default {
       albums: [],
       artist: {},
       offset: 0,
-      show_details_modal: false,
+      showDetailsModal: false,
       total: 0
     }
   },
@@ -111,12 +111,12 @@ export default {
     }
   },
   methods: {
-    append_albums(data) {
+    appendAlbums(data) {
       this.albums = this.albums.concat(data.items)
       this.total = data.total
       this.offset += data.limit
     },
-    load_next({ loaded }) {
+    loadNext({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
       spotifyApi
@@ -126,16 +126,16 @@ export default {
           offset: this.offset
         })
         .then((data) => {
-          this.append_albums(data)
+          this.appendAlbums(data)
           loaded(data.items.length, PAGE_SIZE)
         })
     },
     play() {
-      this.show_album_details_modal = false
+      this.showDetailsModal = false
       webapi.player_play_uri(this.artist.uri, true)
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

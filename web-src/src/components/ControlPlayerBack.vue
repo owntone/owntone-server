@@ -18,36 +18,26 @@ export default {
   props: {
     offset: { required: true, type: Number }
   },
-
   setup() {
     return {
       playerStore: usePlayerStore(),
       queueStore: useQueueStore()
     }
   },
-
   computed: {
     disabled() {
       return (
         this.queueStore?.count <= 0 ||
-        this.is_stopped ||
-        this.current.data_kind === 'pipe'
+        this.playerStore.isStopped ||
+        this.queueStore.current.data_kind === 'pipe'
       )
     },
-    is_stopped() {
-      return this.player.state === 'stop'
-    },
-    current() {
-      return this.queueStore.current
-    },
-    player() {
-      return this.playerStore
-    },
     visible() {
-      return ['podcast', 'audiobook'].includes(this.current.media_kind)
+      return ['podcast', 'audiobook'].includes(
+        this.queueStore.current.media_kind
+      )
     }
   },
-
   methods: {
     seek() {
       if (!this.disabled) {

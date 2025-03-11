@@ -40,18 +40,18 @@
   </template>
   <teleport to="#app">
     <modal-dialog-album
-      :item="selected_item"
+      :item="selectedItem"
       :media_kind="media_kind"
-      :show="show_details_modal"
-      @close="show_details_modal = false"
+      :show="showDetailsModal"
+      @close="showDetailsModal = false"
       @remove-podcast="openRemovePodcastDialog()"
       @play-count-changed="onPlayCountChange()"
     />
     <modal-dialog
       :actions="actions"
-      :show="show_remove_podcast_modal"
+      :show="showRemovePodcastModal"
       :title="$t('page.podcast.remove-podcast')"
-      @cancel="show_remove_podcast_modal = false"
+      @cancel="showRemovePodcastModal = false"
       @remove="removePodcast"
     >
       <template #content>
@@ -89,9 +89,9 @@ export default {
   data() {
     return {
       rss_playlist_to_remove: {},
-      selected_item: {},
-      show_details_modal: false,
-      show_remove_podcast_modal: false
+      selectedItem: {},
+      showDetailsModal: false,
+      showRemovePodcastModal: false
     }
   },
   computed: {
@@ -102,12 +102,12 @@ export default {
       ]
     },
     media_kind_resolved() {
-      return this.media_kind || this.selected_item.media_kind
+      return this.media_kind || this.selectedItem.media_kind
     }
   },
   methods: {
     open(item) {
-      this.selected_item = item
+      this.selectedItem = item
       if (this.media_kind_resolved === 'podcast') {
         this.$router.push({ name: 'podcast', params: { id: item.id } })
       } else if (this.media_kind_resolved === 'audiobook') {
@@ -120,19 +120,19 @@ export default {
       }
     },
     openDialog(item) {
-      this.selected_item = item
-      this.show_details_modal = true
+      this.selectedItem = item
+      this.showDetailsModal = true
     },
     openRemovePodcastDialog() {
       webapi
-        .library_album_tracks(this.selected_item.id, { limit: 1 })
+        .library_album_tracks(this.selectedItem.id, { limit: 1 })
         .then(({ data: album }) => {
           webapi.library_track_playlists(album.items[0].id).then(({ data }) => {
             ;[this.rss_playlist_to_remove] = data.items.filter(
               (playlist) => playlist.type === 'rss'
             )
-            this.show_remove_podcast_modal = true
-            this.show_details_modal = false
+            this.showRemovePodcastModal = true
+            this.showDetailsModal = false
           })
         })
     },
@@ -140,7 +140,7 @@ export default {
       this.$emit('play-count-changed')
     },
     removePodcast() {
-      this.show_remove_podcast_modal = false
+      this.showRemovePodcastModal = false
       webapi
         .library_playlist_delete(this.rss_playlist_to_remove.id)
         .then(() => {

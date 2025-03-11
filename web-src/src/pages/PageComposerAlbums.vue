@@ -16,8 +16,8 @@
         <list-albums :items="albums" />
         <modal-dialog-composer
           :item="composer"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -64,7 +64,7 @@ export default {
     return {
       albums: new GroupedList(),
       composer: {},
-      show_details_modal: false
+      showDetailsModal: false
     }
   },
   computed: {
@@ -99,7 +99,7 @@ export default {
       webapi.player_play_expression(this.expression, true)
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

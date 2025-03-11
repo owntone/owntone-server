@@ -9,8 +9,8 @@
               v-text="$t('page.artist.filter.title')"
             />
             <control-switch
-              v-if="spotify_enabled"
-              v-model="uiStore.hide_spotify"
+              v-if="servicesStore.isSpotifyEnabled"
+              v-model="uiStore.hideSpotify"
             >
               <template #label>
                 <span v-text="$t('page.artist.filter.hide-spotify')" />
@@ -47,8 +47,8 @@
         <list-albums :items="albums" />
         <modal-dialog-artist
           :item="artist"
-          :show="show_details_modal"
-          @close="show_details_modal = false"
+          :show="showDetailsModal"
+          @close="showDetailsModal = false"
         />
       </template>
     </content-with-heading>
@@ -77,7 +77,7 @@ const dataObject = {
   },
   set(vm, response) {
     vm.artist = response[0].data
-    vm.albums_list = new GroupedList(response[1].data)
+    vm.albumList = new GroupedList(response[1].data)
   }
 }
 
@@ -102,9 +102,9 @@ export default {
   },
   data() {
     return {
-      albums_list: new GroupedList(),
+      albumList: new GroupedList(),
       artist: {},
-      show_details_modal: false
+      showDetailsModal: false
     }
   },
   computed: {
@@ -113,9 +113,9 @@ export default {
         (grouping) => grouping.id === this.uiStore.artist_albums_sort
       )
       options.filters = [
-        (album) => !this.uiStore.hide_spotify || album.data_kind !== 'spotify'
+        (album) => !this.uiStore.hideSpotify || album.data_kind !== 'spotify'
       ]
-      return this.albums_list.group(options)
+      return this.albumList.group(options)
     },
     groupings() {
       return [
@@ -136,7 +136,7 @@ export default {
         subtitle: [
           { count: this.albums.count, key: 'count.albums' },
           {
-            count: this.track_count,
+            count: this.trackCount,
             handler: this.openTracks,
             key: 'count.tracks'
           }
@@ -144,10 +144,7 @@ export default {
         title: this.artist.name
       }
     },
-    spotify_enabled() {
-      return this.servicesStore.spotify.webapi_token_valid
-    },
-    track_count() {
+    trackCount() {
       // The count of tracks is incorrect when albums have Spotify tracks.
       return [...this.albums].reduce(
         (total, album) => total + (album.isItem ? album.item.track_count : 0),
@@ -169,7 +166,7 @@ export default {
       )
     },
     showDetails() {
-      this.show_details_modal = true
+      this.showDetailsModal = true
     }
   }
 }

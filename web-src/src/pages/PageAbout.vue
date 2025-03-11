@@ -7,7 +7,7 @@
       <template #heading-right>
         <control-button
           :button="{
-            handler: showUpdateDialog,
+            handler: openUpdateDialog,
             icon: 'refresh',
             key: 'page.about.update'
           }"
@@ -139,8 +139,8 @@ export default {
     }
   },
   methods: {
-    showUpdateDialog() {
-      this.uiStore.show_update_dialog = true
+    openUpdateDialog() {
+      this.uiStore.showUpdateDialog = true
     }
   }
 }
