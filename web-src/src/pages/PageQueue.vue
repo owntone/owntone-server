@@ -53,12 +53,12 @@
             <list-item-queue-item
               :item="element"
               :position="index"
-              :current_position="current_position"
+              :current-position="currentPosition"
               :hide-read-items="uiStore.hideReadItems"
               :editing="editing"
             >
               <template #actions>
-                <a v-if="!editing" @click.prevent.stop="openDialog(element)">
+                <a v-if="!editing" @click.prevent.stop="openDetails(element)">
                   <mdicon
                     class="icon has-text-grey"
                     name="dots-vertical"
@@ -139,7 +139,7 @@ export default {
     }
   },
   computed: {
-    current_position() {
+    currentPosition() {
       return this.queueStore.current?.position ?? -1
     },
     heading() {
@@ -166,7 +166,7 @@ export default {
     },
     moveItem(event) {
       const oldPosition =
-        event.oldIndex + (this.uiStore.hideReadItems && this.current_position)
+        event.oldIndex + (this.uiStore.hideReadItems && this.currentPosition)
       const item = this.items[oldPosition]
       const newPosition = item.position + (event.newIndex - event.oldIndex)
       if (newPosition !== oldPosition) {
@@ -176,7 +176,7 @@ export default {
     openAddStreamDialog() {
       this.showAddStreamDialog = true
     },
-    openDialog(item) {
+    openDetails(item) {
       this.selectedItem = item
       this.showDetailsModal = true
     },

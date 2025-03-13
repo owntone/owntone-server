@@ -35,7 +35,7 @@
               v-text="$t('options.sort.title')"
             />
             <control-dropdown
-              v-model:value="uiStore.artists_sort"
+              v-model:value="uiStore.artistsSort"
               :options="groupings"
             />
           </div>
@@ -100,7 +100,7 @@ export default {
   computed: {
     artists() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.artists_sort
+        (grouping) => grouping.id === this.uiStore.artistsSort
       )
       options.filters = [
         (artist) =>

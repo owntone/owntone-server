@@ -9,7 +9,7 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
           :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
@@ -95,6 +95,9 @@ export default {
     }
   },
   methods: {
+    openDetails() {
+      this.showDetailsModal = true
+    },
     openTracks() {
       this.showDetailsModal = false
       this.$router.push({
@@ -108,9 +111,6 @@ export default {
         `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`,
         true
       )
-    },
-    showDetails() {
-      this.showDetailsModal = true
     }
   }
 }

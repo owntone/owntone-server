@@ -1,40 +1,27 @@
 <template>
-  <template v-for="item in items" :key="item.id">
-    <div
-      class="media is-align-items-center is-clickable mb-0"
-      @click="open(item)"
-    >
-      <div class="media-content">
-        <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
-        <div
-          class="is-size-7 has-text-weight-bold has-text-grey"
-          v-text="item.owner.display_name"
-        />
-      </div>
-      <div class="media-right">
-        <a @click.prevent.stop="openDialog(item)">
-          <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
-        </a>
-      </div>
-    </div>
-  </template>
-  <teleport to="#app">
-    <modal-dialog-playlist-spotify
-      :item="selectedItem"
-      :show="showDetailsModal"
-      @close="showDetailsModal = false"
-    />
-  </teleport>
+  <list-item
+    v-for="item in items"
+    :key="item.id"
+    :is-item="item.isItem"
+    :index="item.index"
+    :lines="[item.name, item.owner.display_name]"
+    @open="open(item)"
+    @open-details="openDetails(item)"
+  />
+  <modal-dialog-playlist-spotify
+    :item="selectedItem"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>
+import ListItem from '@/components/ListItem.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 
 export default {
   name: 'ListPlaylistsSpotify',
-  components: {
-    ModalDialogPlaylistSpotify
-  },
+  components: { ListItem, ModalDialogPlaylistSpotify },
   props: { items: { required: true, type: Object } },
 
   data() {
@@ -45,7 +32,7 @@ export default {
     open(item) {
       this.$router.push({ name: 'playlist-spotify', params: { id: item.id } })
     },
-    openDialog(item) {
+    openDetails(item) {
       this.selectedItem = item
       this.showDetailsModal = true
     }

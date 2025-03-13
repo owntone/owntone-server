@@ -5,8 +5,8 @@
     <component :is="Component" />
   </router-view>
   <modal-dialog-remote-pairing
-    :show="pairing_active"
-    @close="pairing_active = false"
+    :show="pairingActive"
+    @close="pairingActive = false"
   />
   <modal-dialog-update
     :show="showUpdateDialog"
@@ -67,9 +67,9 @@ export default {
   },
   data() {
     return {
-      pairing_active: false,
+      pairingActive: false,
       reconnect_attempts: 0,
-      token_timer_id: 0
+      timerId: 0
     }
   },
   computed: {
@@ -100,10 +100,10 @@ export default {
   },
   watch: {
     showBurgerMenu() {
-      this.update_is_clipped()
+      this.updateClipping()
     },
     showPlayerMenu() {
-      this.update_is_clipped()
+      this.updateClipping()
     }
   },
   created() {
@@ -145,7 +145,7 @@ export default {
         })
     },
     openWebsocket() {
-      const socket = this.create_websocket()
+      const socket = this.createWebsocket()
       const vm = this
       socket.onopen = () => {
         vm.reconnect_attempts = 0
@@ -165,14 +165,14 @@ export default {
             ]
           })
         )
-        vm.update_outputs()
-        vm.update_player_status()
-        vm.update_library_stats()
-        vm.update_settings()
-        vm.update_queue()
-        vm.update_spotify()
-        vm.update_lastfm()
-        vm.update_pairing()
+        vm.updateOutputs()
+        vm.updatePlayerStatus()
+        vm.updateLibraryStats()
+        vm.updateSettings()
+        vm.updateQueue()
+        vm.updateSpotify()
+        vm.updateLastfm()
+        vm.updatePairing()
       }
 
       /*
@@ -181,23 +181,23 @@ export default {
        * There are two relevant events - focus and visibilitychange, so we
        * throttle the updates to avoid multiple redundant updates.
        */
-      let update_throttled = false
+      let updateThrottled = false
 
-      const update_info = () => {
-        if (update_throttled) {
+      const updateInfo = () => {
+        if (updateThrottled) {
           return
         }
-        vm.update_outputs()
-        vm.update_player_status()
-        vm.update_library_stats()
-        vm.update_settings()
-        vm.update_queue()
-        vm.update_spotify()
-        vm.update_lastfm()
-        vm.update_pairing()
-        update_throttled = true
+        vm.updateOutputs()
+        vm.updatePlayerStatus()
+        vm.updateLibraryStats()
+        vm.updateSettings()
+        vm.updateQueue()
+        vm.updateSpotify()
+        vm.updateLastfm()
+        vm.updatePairing()
+        updateThrottled = true
         setTimeout(() => {
-          update_throttled = false
+          updateThrottled = false
         }, 500)
       }
 
@@ -205,10 +205,10 @@ export default {
        * These events are fired when the window becomes active in different
        * ways. When this happens, we should update 'now playing' info, etc.
        */
-      window.addEventListener('focus', update_info)
+      window.addEventListener('focus', updateInfo)
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-          update_info()
+          updateInfo()
         }
       })
 
@@ -218,33 +218,33 @@ export default {
           data.notify.includes('update') ||
           data.notify.includes('database')
         ) {
-          vm.update_library_stats()
+          vm.updateLibraryStats()
         }
         if (
           data.notify.includes('player') ||
           data.notify.includes('options') ||
           data.notify.includes('volume')
         ) {
-          vm.update_player_status()
+          vm.updatePlayerStatus()
         }
         if (data.notify.includes('outputs') || data.notify.includes('volume')) {
-          vm.update_outputs()
+          vm.updateOutputs()
         }
         if (data.notify.includes('queue')) {
-          vm.update_queue()
+          vm.updateQueue()
         }
         if (data.notify.includes('spotify')) {
-          vm.update_spotify()
+          vm.updateSpotify()
         }
         if (data.notify.includes('lastfm')) {
-          vm.update_lastfm()
+          vm.updateLastfm()
         }
         if (data.notify.includes('pairing')) {
-          vm.update_pairing()
+          vm.updatePairing()
         }
       }
     },
-    create_websocket() {
+    createWebsocket() {
       const protocol = window.location.protocol.replace('http', 'ws')
       const hostname =
         (import.meta.env.DEV &&
@@ -258,19 +258,19 @@ export default {
         reconnectInterval: 1000
       })
     },
-    update_is_clipped() {
+    updateClipping() {
       if (this.showBurgerMenu || this.showPlayerMenu) {
         document.querySelector('html').classList.add('is-clipped')
       } else {
         document.querySelector('html').classList.remove('is-clipped')
       }
     },
-    update_lastfm() {
+    updateLastfm() {
       webapi.lastfm().then(({ data }) => {
         this.servicesStore.lastfm = data
       })
     },
-    update_library_stats() {
+    updateLibraryStats() {
       webapi.library_stats().then(({ data }) => {
         this.libraryStore.$state = data
       })
@@ -278,7 +278,7 @@ export default {
         this.libraryStore.rss = data
       })
     },
-    update_lyrics() {
+    updateLyrics() {
       const track = this.queueStore.current
       if (track?.track_id) {
         webapi.library_track(track.track_id).then(({ data }) => {
@@ -288,44 +288,44 @@ export default {
         this.lyricsStore.$reset()
       }
     },
-    update_outputs() {
+    updateOutputs() {
       webapi.outputs().then(({ data }) => {
         this.outputsStore.outputs = data.outputs
       })
     },
-    update_pairing() {
+    updatePairing() {
       webapi.pairing().then(({ data }) => {
         this.remotesStore.$state = data
-        this.pairing_active = data.active
+        this.pairingActive = data.active
       })
     },
-    update_player_status() {
+    updatePlayerStatus() {
       webapi.player_status().then(({ data }) => {
         this.playerStore.$state = data
-        this.update_lyrics()
+        this.updateLyrics()
       })
     },
-    update_queue() {
+    updateQueue() {
       webapi.queue().then(({ data }) => {
         this.queueStore.$state = data
-        this.update_lyrics()
+        this.updateLyrics()
       })
     },
-    update_settings() {
+    updateSettings() {
       webapi.settings().then(({ data }) => {
         this.settingsStore.$state = data
       })
     },
-    update_spotify() {
+    updateSpotify() {
       webapi.spotify().then(({ data }) => {
         this.servicesStore.spotify = data
-        if (this.token_timer_id > 0) {
-          window.clearTimeout(this.token_timer_id)
-          this.token_timer_id = 0
+        if (this.timerId > 0) {
+          window.clearTimeout(this.timerId)
+          this.timerId = 0
         }
         if (data.webapi_token_expires_in > 0 && data.webapi_token) {
-          this.token_timer_id = window.setTimeout(
-            this.update_spotify,
+          this.timerId = window.setTimeout(
+            this.updateSpotify,
             1000 * data.webapi_token_expires_in
           )
         }

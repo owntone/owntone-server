@@ -15,7 +15,7 @@
             :button="{ handler: play, icon: 'play', key: 'actions.play' }"
           />
           <control-button
-            :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+            :button="{ handler: openDetails, icon: 'dots-horizontal' }"
           />
         </div>
       </template>
@@ -25,7 +25,7 @@
           :artist="album.artist"
           :album="album.name"
           class="is-clickable is-medium"
-          @click="showDetails"
+          @click="openDetails"
         />
       </template>
       <template #content>
@@ -55,7 +55,7 @@
                 <br />
               </template>
               <template #name>
-                <b v-text="rss_playlist_to_remove.name" />
+                <b v-text="playlistToRemove.name" />
               </template>
             </i18n-t>
           </template>
@@ -106,7 +106,7 @@ export default {
   data() {
     return {
       album: {},
-      rss_playlist_to_remove: {},
+      playlistToRemove: {},
       showDetailsModal: false,
       showRemovePodcastModal: false,
       tracks: new GroupedList()
@@ -133,7 +133,7 @@ export default {
       webapi
         .library_track_playlists(this.tracks.items[0].id)
         .then(({ data }) => {
-          ;[this.rss_playlist_to_remove] = data.items.filter(
+          ;[this.playlistToRemove] = data.items.filter(
             (pl) => pl.type === 'rss'
           )
           this.showRemovePodcastModal = true
@@ -150,13 +150,11 @@ export default {
     },
     removePodcast() {
       this.showRemovePodcastModal = false
-      webapi
-        .library_playlist_delete(this.rss_playlist_to_remove.id)
-        .then(() => {
-          this.$router.replace({ name: 'podcasts' })
-        })
+      webapi.library_playlist_delete(this.playlistToRemove.id).then(() => {
+        this.$router.replace({ name: 'podcasts' })
+      })
     },
-    showDetails() {
+    openDetails() {
       this.showDetailsModal = true
     }
   }

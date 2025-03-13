@@ -20,7 +20,8 @@
     "save": "Save",
     "send": "Send",
     "show-more": "Show more",
-    "shuffle": "Shuffle"
+    "shuffle": "Shuffle",
+    "update": "Update"
   },
   "count": {
     "albums": "{count} album|{count} album|{count} albums",
@@ -116,6 +117,7 @@
     "albums": "Albums",
     "artists": "Artists",
     "audiobooks": "Audiobooks",
+    "composers": "Composers",
     "now-playing": " - {album}",
     "stream-error": "HTTP stream error: failed to load stream or stopped loading due to network problem",
     "stream": "HTTP stream",
@@ -216,8 +218,7 @@
     },
     "podcasts": {
       "new-episodes": "New Episodes",
-      "title": "Podcasts",
-      "update": "Update"
+      "title": "Podcasts"
     },
     "queue": {
       "title": "Queue"

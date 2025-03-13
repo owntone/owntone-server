@@ -33,7 +33,7 @@
         />
         <div class="content">
           <control-setting-switch
-            v-if="spotify.spotify_logged_in"
+            v-if="servicesStore.spotify_logged_in"
             category="artwork"
             name="use_artwork_source_spotify"
           >
@@ -95,11 +95,6 @@ export default {
   },
   setup() {
     return { servicesStore: useServicesStore() }
-  },
-  computed: {
-    spotify() {
-      return this.servicesStore.spotify
-    }
   }
 }
 </script>

@@ -23,7 +23,7 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
 
 const dataObject = {
-  load(to) {
+  load() {
     return webapi.search({
       expression:
         'time_played after 8 weeks ago and media_kind is music order by time_played desc',
@@ -40,7 +40,7 @@ export default {
   name: 'PageMusicRecentlyPlayed',
   components: { ContentWithHeading, HeadingTitle, ListTracks, TabsMusic },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
+    dataObject.load().then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },

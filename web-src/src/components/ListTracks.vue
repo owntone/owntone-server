@@ -1,73 +1,36 @@
 <template>
-  <template v-for="item in items" :key="item.itemId">
-    <div v-if="!item.isItem" class="py-5">
-      <span
-        :id="`index_${item.index}`"
-        class="tag is-small has-text-weight-bold"
-        v-text="item.index"
-      />
-    </div>
-    <div
-      v-else
-      class="media is-align-items-center is-clickable mb-0"
-      :class="{ 'with-progress': showProgress }"
-      @click="play(item.item)"
-    >
-      <mdicon
-        v-if="showIcon"
-        class="media-left icon"
-        name="file-music-outline"
-      />
-      <div class="media-content">
-        <div
-          class="is-size-6 has-text-weight-bold"
-          :class="{
-            'has-text-grey':
-              item.item.media_kind === 'podcast' && item.item.play_count > 0
-          }"
-          v-text="item.item.title"
-        />
-        <div
-          class="is-size-7 has-text-weight-bold has-text-grey"
-          v-text="item.item.artist"
-        />
-        <div class="is-size-7 has-text-grey" v-text="item.item.album" />
-        <progress
-          v-if="showProgress && item.item.seek_ms > 0"
-          class="progress is-dark"
-          :max="item.item.length_ms"
-          :value="item.item.seek_ms"
-        />
-      </div>
-      <div class="media-right">
-        <a @click.prevent.stop="openDialog(item.item)">
-          <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
-        </a>
-      </div>
-    </div>
-  </template>
-  <teleport to="#app">
-    <modal-dialog-track
-      :item="selectedItem"
-      :show="showDetailsModal"
-      @close="showDetailsModal = false"
-      @play-count-changed="$emit('play-count-changed')"
-    />
-  </teleport>
+  <list-item
+    v-for="item in items"
+    :key="item.itemId"
+    :icon="icon"
+    :is-item="item.isItem"
+    :index="item.index"
+    :lines="[item.item.title, item.item.artist, item.item.album]"
+    :progress="progress(item.item)"
+    @open="open(item.item)"
+    @open-details="openDetails(item.item)"
+  />
+  <modal-dialog-track
+    :item="selectedItem"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+    @play-count-changed="$emit('play-count-changed')"
+  />
 </template>
 
 <script>
+import ListItem from '@/components/ListItem.vue'
 import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ListTracks',
-  components: { ModalDialogTrack },
+  components: { ListItem, ModalDialogTrack },
   props: {
     expression: { default: '', type: String },
-    items: { required: true, type: Object },
-    showIcon: Boolean,
-    showProgress: Boolean,
+    items: { default: null, type: Object },
+    icon: { default: null, type: String },
+    showProgress: { default: false, type: Boolean },
     uris: { default: '', type: String }
   },
   emits: ['play-count-changed'],
@@ -75,11 +38,7 @@ export default {
     return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
-    openDialog(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    },
-    play(item) {
+    open(item) {
       if (this.uris) {
         webapi.player_play_uri(this.uris, false, this.items.items.indexOf(item))
       } else if (this.expression) {
@@ -91,17 +50,20 @@ export default {
       } else {
         webapi.player_play_uri(item.uri, false)
       }
+    },
+    openDetails(item) {
+      this.selectedItem = item
+      this.showDetailsModal = true
+    },
+    //             'has-text-grey': item.item.media_kind === 'podcast' && item.item.play_count > 0
+    progress(item) {
+      if (item.item) {
+        if (this.showProgress && item.item.seek_ms > 0) {
+          return item.item.seek_ms / item.item.length_ms
+        }
+      }
+      return null
     }
   }
 }
 </script>
-
-<style scoped>
-.progress {
-  height: 0.25rem;
-}
-
-.media.with-progress {
-  margin-top: 0.375rem;
-}
-</style>

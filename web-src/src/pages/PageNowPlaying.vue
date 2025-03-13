@@ -9,21 +9,21 @@
         :album="track.album"
         class="is-clickable is-big"
         :class="{ 'is-masked': lyricsStore.active }"
-        @click="openDialog(track)"
+        @click="openDetails(track)"
       />
       <lyrics-pane v-if="lyricsStore.active" />
       <control-slider
-        v-model:value="track_progress"
+        v-model:value="trackProgress"
         class="mt-5"
-        :disabled="is_live"
-        :max="track_progress_max"
+        :disabled="isLive"
+        :max="trackProgressMax"
         @change="seek"
-        @mousedown="start_dragging"
-        @mouseup="end_dragging"
+        @mousedown="startDragging"
+        @mouseup="endDragging"
       />
       <div class="is-flex is-justify-content-space-between">
-        <p class="subtitle is-7" v-text="track_elapsed_time" />
-        <p class="subtitle is-7" v-text="track_total_time" />
+        <p class="subtitle is-7" v-text="trackElapsedTime" />
+        <p class="subtitle is-7" v-text="trackTotalTime" />
       </div>
       <p class="title is-5" v-text="track.title" />
       <p class="title is-6" v-text="track.artist" />
@@ -83,8 +83,8 @@ export default {
   data() {
     return {
       INTERVAL,
-      interval_id: 0,
-      is_dragged: false,
+      intervalId: 0,
+      isDragged: false,
       selectedItem: {},
       showDetailsModal: false
     }
@@ -109,16 +109,16 @@ export default {
       }
       return null
     },
-    is_live() {
+    isLive() {
       return this.track.length_ms === 0
     },
     track() {
       return this.queueStore.current
     },
-    track_elapsed_time() {
-      return this.$filters.toTimecode(this.track_progress * INTERVAL)
+    trackElapsedTime() {
+      return this.$filters.toTimecode(this.trackProgress * INTERVAL)
     },
-    track_progress: {
+    trackProgress: {
       get() {
         return Math.floor(this.playerStore.item_progress_ms / INTERVAL)
       },
@@ -126,23 +126,23 @@ export default {
         this.playerStore.item_progress_ms = value * INTERVAL
       }
     },
-    track_progress_max() {
-      return this.is_live ? 1 : Math.floor(this.track.length_ms / INTERVAL)
+    trackProgressMax() {
+      return this.isLive ? 1 : Math.floor(this.track.length_ms / INTERVAL)
     },
-    track_total_time() {
-      return this.is_live
+    trackTotalTime() {
+      return this.isLive
         ? this.$t('page.now-playing.live')
         : this.$filters.toTimecode(this.track.length_ms)
     }
   },
   watch: {
     'playerStore.state'(newState) {
-      if (this.interval_id > 0) {
-        window.clearTimeout(this.interval_id)
-        this.interval_id = 0
+      if (this.intervalId > 0) {
+        window.clearTimeout(this.intervalId)
+        this.intervalId = 0
       }
       if (newState === 'play') {
-        this.interval_id = window.setInterval(this.tick, INTERVAL)
+        this.intervalId = window.setInterval(this.tick, INTERVAL)
       }
     }
   },
@@ -150,35 +150,35 @@ export default {
     webapi.player_status().then(({ data }) => {
       this.playerStore.$state = data
       if (this.playerStore.state === 'play') {
-        this.interval_id = window.setInterval(this.tick, INTERVAL)
+        this.intervalId = window.setInterval(this.tick, INTERVAL)
       }
     })
   },
   unmounted() {
-    if (this.interval_id > 0) {
-      window.clearTimeout(this.interval_id)
-      this.interval_id = 0
+    if (this.intervalId > 0) {
+      window.clearTimeout(this.intervalId)
+      this.intervalId = 0
     }
   },
   methods: {
-    end_dragging() {
-      this.is_dragged = false
+    endDragging() {
+      this.isDragged = false
     },
-    openDialog(item) {
+    openDetails(item) {
       this.selectedItem = item
       this.showDetailsModal = true
     },
     seek() {
-      if (!this.is_live) {
-        webapi.player_seek_to_pos(this.track_progress * INTERVAL)
+      if (!this.isLive) {
+        webapi.player_seek_to_pos(this.trackProgress * INTERVAL)
       }
     },
-    start_dragging() {
-      this.is_dragged = true
+    startDragging() {
+      this.isDragged = true
     },
     tick() {
-      if (!this.is_dragged) {
-        this.track_progress += 1
+      if (!this.isDragged) {
+        this.trackProgress += 1
       }
     }
   }

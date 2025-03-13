@@ -6,7 +6,7 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
           :button="{
@@ -91,7 +91,7 @@ export default {
     play() {
       webapi.player_play_uri(this.uris, true)
     },
-    showDetails() {
+    openDetails() {
       this.showDetailsModal = true
     }
   }

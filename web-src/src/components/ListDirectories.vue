@@ -27,22 +27,20 @@
     >
       <mdicon class="media-left icon" name="folder" />
       <div class="media-content">
-        <p class="is-size-6 has-text-weight-bold" v-text="item.name" />
+        <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
       </div>
       <div class="media-right">
-        <a @click.prevent.stop="openDialog(item)">
+        <a @click.prevent.stop="openDetails(item)">
           <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>
   </template>
-  <teleport to="#app">
-    <modal-dialog-directory
-      :item="selectedItem"
-      :show="showDetailsModal"
-      @close="showDetailsModal = false"
-    />
-  </teleport>
+  <modal-dialog-directory
+    :item="selectedItem"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>
@@ -80,7 +78,7 @@ export default {
       }
       this.$router.push(route)
     },
-    openDialog(item) {
+    openDetails(item) {
       this.selectedItem = item.path
       this.showDetailsModal = true
     },

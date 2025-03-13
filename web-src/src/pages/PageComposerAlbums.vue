@@ -6,7 +6,7 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
           :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
@@ -89,6 +89,9 @@ export default {
     }
   },
   methods: {
+    openDetails() {
+      this.showDetailsModal = true
+    },
     openTracks() {
       this.$router.push({
         name: 'music-composer-tracks',
@@ -97,9 +100,6 @@ export default {
     },
     play() {
       webapi.player_play_expression(this.expression, true)
-    },
-    showDetails() {
-      this.showDetailsModal = true
     }
   }
 }

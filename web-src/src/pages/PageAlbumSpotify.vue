@@ -15,7 +15,7 @@
             :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
           />
           <control-button
-            :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+            :button="{ handler: openDetails, icon: 'dots-horizontal' }"
           />
         </div>
       </template>
@@ -25,7 +25,7 @@
           :artist="album.artists[0].name"
           :album="album.name"
           class="is-clickable is-medium"
-          @click="showDetails"
+          @click="openDetails"
         />
       </template>
       <template #content>
@@ -102,12 +102,12 @@ export default {
         params: { id: this.album.artists[0].id }
       })
     },
+    openDetails() {
+      this.showDetailsModal = true
+    },
     play() {
       this.showDetailsModal = false
       webapi.player_play_uri(this.album.uri, true)
-    },
-    showDetails() {
-      this.showDetailsModal = true
     }
   }
 }

@@ -28,7 +28,7 @@ const dataObject = {
   },
   set(vm, response) {
     vm.playlist = response[0].data
-    vm.playlists_list = new GroupedList(response[1].data)
+    vm.playlistList = new GroupedList(response[1].data)
   }
 }
 
@@ -54,7 +54,7 @@ export default {
   data() {
     return {
       playlist: {},
-      playlists_list: new GroupedList()
+      playlistList: new GroupedList()
     }
   },
   computed: {
@@ -68,7 +68,7 @@ export default {
       }
     },
     playlists() {
-      return this.playlists_list.group({
+      return this.playlistList.group({
         filters: [
           (playlist) =>
             playlist.folder ||

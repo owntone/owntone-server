@@ -24,7 +24,7 @@ import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
 const dataObject = {
-  load(to) {
+  load() {
     const limit = useSettingsStore().recently_added_limit
     return webapi.search({
       expression:
@@ -45,7 +45,7 @@ export default {
   name: 'PageMusicRecentlyAdded',
   components: { ContentWithHeading, HeadingTitle, ListAlbums, TabsMusic },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
+    dataObject.load().then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },

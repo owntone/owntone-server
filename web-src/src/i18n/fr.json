@@ -20,7 +20,8 @@
     "save": "Enregistrer",
     "send": "Envoyer",
     "show-more": "Afficher plus",
-    "shuffle": "Lecture aléatoire"
+    "shuffle": "Lecture aléatoire",
+    "update": "Actualiser"
   },
   "count": {
     "albums": "{count} album|{count} album|{count} albums",
@@ -116,6 +117,7 @@
     "albums": "Albums",
     "artists": "Artistes",
     "audiobooks": "Livres audio",
+    "composers": "Compositeurs",
     "now-playing": " - {album}",
     "stream-error": "Erreur du flux HTTP : échec du chargement du flux ou arrêt du chargement en raison d’un problème réseau",
     "stream": "Flux HTTP",
@@ -216,8 +218,7 @@
     },
     "podcasts": {
       "new-episodes": "Nouveaux épisodes",
-      "title": "Podcasts",
-      "update": "Actualiser"
+      "title": "Podcasts"
     },
     "queue": {
       "title": "File d’attente"

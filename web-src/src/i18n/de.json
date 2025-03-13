@@ -20,7 +20,8 @@
     "save": "Speichern",
     "send": "Senden",
     "show-more": "Zeige mehr",
-    "shuffle": "Zufallswiedergabe"
+    "shuffle": "Zufallswiedergabe",
+    "update": "Neu einlesen"
   },
   "count": {
     "albums": "{count} Album|{count} Album|{count} Alben",
@@ -116,6 +117,7 @@
     "albums": "Alben",
     "artists": "Künstler",
     "audiobooks": "Hörbücher",
+    "composers": "Komponisten",
     "now-playing": " - {album}",
     "stream-error": "HTTP-stream-Fehler: Stream kann nicht geladen werden oder wurde wg. Netzwerkfehler gestopt",
     "stream": "HTTP-stream",
@@ -216,8 +218,7 @@
     },
     "podcasts": {
       "new-episodes": "Neue Episoden",
-      "title": "Podcasts",
-      "update": "Neu einlesen"
+      "title": "Podcasts"
     },
     "queue": {
       "title": "Warteschlange"

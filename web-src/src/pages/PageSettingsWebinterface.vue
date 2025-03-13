@@ -8,7 +8,10 @@
         />
       </template>
       <template #content>
-        <control-dropdown v-model:value="locale" :options="locales" />
+        <control-dropdown
+          v-model:value="locale"
+          :options="settingsStore.locales"
+        />
       </template>
     </content-with-heading>
     <content-with-heading>
@@ -197,14 +200,6 @@ export default {
       },
       set(locale) {
         this.$i18n.locale = locale
-      }
-    },
-    locales: {
-      get() {
-        return this.$i18n.availableLocales.map((item) => ({
-          id: item,
-          name: this.$t(`language.${item}`)
-        }))
       }
     }
   }

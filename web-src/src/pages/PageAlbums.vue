@@ -36,7 +36,7 @@
               v-text="$t('options.sort.title')"
             />
             <control-dropdown
-              v-model:value="uiStore.albums_sort"
+              v-model:value="uiStore.albumsSort"
               :options="groupings"
             />
           </div>
@@ -101,7 +101,7 @@ export default {
   computed: {
     albums() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.albums_sort
+        (grouping) => grouping.id === this.uiStore.albumsSort
       )
       options.filters = [
         (album) => !this.uiStore.hideSingles || album.track_count > 2,

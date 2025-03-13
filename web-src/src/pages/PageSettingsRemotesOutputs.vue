@@ -9,7 +9,7 @@
       </template>
       <template #content>
         <div v-if="pairing.active">
-          <form @submit.prevent="kickoff_pairing">
+          <form @submit.prevent="kickoffPairing">
             <label class="label has-text-weight-normal content">
               <span v-text="$t('page.settings.devices.pairing-request')" />
               <b v-text="pairing.remote" />
@@ -17,7 +17,7 @@
             <div class="field is-grouped">
               <div class="control">
                 <input
-                  v-model="pairing_req.pin"
+                  v-model="pairingRequest.pin"
                   class="input"
                   inputmode="numeric"
                   pattern="[\d]{4}"
@@ -62,12 +62,12 @@
           <form
             v-if="output.needs_auth_key"
             class="mb-5"
-            @submit.prevent="kickoff_verification(output.id)"
+            @submit.prevent="kickoffVerification(output.id)"
           >
             <div class="field is-grouped">
               <div class="control">
                 <input
-                  v-model="verification_req.pin"
+                  v-model="verificationRequest.pin"
                   class="input"
                   inputmode="numeric"
                   pattern="[\d]{4}"
@@ -106,8 +106,8 @@ export default {
   },
   data() {
     return {
-      pairing_req: { pin: '' },
-      verification_req: { pin: '' }
+      pairingRequest: { pin: '' },
+      verificationRequest: { pin: '' }
     }
   },
   computed: {
@@ -119,11 +119,11 @@ export default {
     }
   },
   methods: {
-    kickoff_pairing() {
-      webapi.pairing_kickoff(this.pairing_req)
+    kickoffPairing() {
+      webapi.pairing_kickoff(this.pairingRequest)
     },
-    kickoff_verification(identifier) {
-      webapi.output_update(identifier, this.verification_req)
+    kickoffVerification(identifier) {
+      webapi.output_update(identifier, this.verificationRequest)
     },
     toggleOutput(identifier) {
       webapi.output_toggle(identifier)

@@ -108,6 +108,12 @@ export default {
           sub: true
         },
         {
+          key: 'navigation.composers',
+          name: 'music-composers',
+          show: true,
+          sub: true
+        },
+        {
           key: 'navigation.spotify',
           name: 'music-spotify',
           show: this.servicesStore.spotify.webapi_token_valid,

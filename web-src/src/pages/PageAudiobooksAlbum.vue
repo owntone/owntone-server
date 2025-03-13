@@ -19,7 +19,7 @@
             }"
           />
           <control-button
-            :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+            :button="{ handler: openDetails, icon: 'dots-horizontal' }"
           />
         </div>
       </template>
@@ -29,7 +29,7 @@
           :artist="album.artist"
           :album="album.name"
           class="is-clickable is-medium"
-          @click="showDetails"
+          @click="openDetails"
         />
       </template>
       <template #content>
@@ -96,11 +96,11 @@ export default {
         params: { id: this.album.artist_id }
       })
     },
+    openDetails() {
+      this.showDetailsModal = true
+    },
     play() {
       webapi.player_play_uri(this.album.uri, false)
-    },
-    showDetails() {
-      this.showDetailsModal = true
     }
   }
 }

@@ -50,7 +50,7 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
 
 const dataObject = {
-  load(to) {
+  load() {
     return webapi.spotify().then(({ data }) => {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(data.webapi_token)
@@ -82,7 +82,7 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
+    dataObject.load().then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },

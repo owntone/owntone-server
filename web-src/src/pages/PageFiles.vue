@@ -6,7 +6,7 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
           :button="{ handler: play, icon: 'play', key: 'actions.play' }"
@@ -18,7 +18,7 @@
         <list-tracks
           :expression="expression"
           :items="tracks"
-          :show-icon="true"
+          icon="file-music-outline"
         />
         <modal-dialog-directory
           :item="current"
@@ -120,11 +120,11 @@ export default {
     }
   },
   methods: {
+    openDetails() {
+      this.showDetailsModal = true
+    },
     play() {
       webapi.player_play_expression(this.expression, false)
-    },
-    showDetails() {
-      this.showDetailsModal = true
     },
     transform(path) {
       return { name: path.slice(path.lastIndexOf('/') + 1), path }

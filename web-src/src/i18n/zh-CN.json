@@ -20,7 +20,8 @@
     "save": "保存",
     "send": "发送",
     "show-more": "显示更多",
-    "shuffle": "随机播放"
+    "shuffle": "随机播放",
+    "update": "更新"
   },
   "count": {
     "albums": "{count} 张专辑|{count} 张专辑",
@@ -116,6 +117,7 @@
     "albums": "专辑",
     "artists": "艺人",
     "audiobooks": "有声读物",
+    "composers": "作曲家",
     "now-playing": " - {album}",
     "stream-error": "HTTP流错误：流载入失败或者由于网络原因无法载入",
     "stream": "HTTP流",
@@ -216,8 +218,7 @@
     },
     "podcasts": {
       "new-episodes": "最新单集",
-      "title": "播客",
-      "update": "更新"
+      "title": "播客"
     },
     "queue": {
       "title": "清单"

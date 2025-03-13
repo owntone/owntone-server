@@ -6,14 +6,10 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
-          :button="{
-            handler: play,
-            icon: 'play',
-            key: 'page.audiobooks.artist.play'
-          }"
+          :button="{ handler: play, icon: 'play', key: 'actions.play' }"
         />
       </template>
       <template #content>
@@ -85,14 +81,14 @@ export default {
     }
   },
   methods: {
+    openDetails() {
+      this.showDetailsModal = true
+    },
     play() {
       webapi.player_play_uri(
         this.albums.items.map((item) => item.uri).join(),
         false
       )
-    },
-    showDetails() {
-      this.showDetailsModal = true
     }
   }
 }

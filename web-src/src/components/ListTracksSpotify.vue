@@ -36,19 +36,17 @@
         </div>
       </div>
       <div class="media-right">
-        <a @click.prevent.stop="openDialog(item)">
+        <a @click.prevent.stop="openDetails(item)">
           <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
         </a>
       </div>
     </div>
   </template>
-  <teleport to="#app">
-    <modal-dialog-track-spotify
-      :item="selectedItem"
-      :show="showDetailsModal"
-      @close="showDetailsModal = false"
-    />
-  </teleport>
+  <modal-dialog-track-spotify
+    :item="selectedItem"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>
@@ -66,7 +64,7 @@ export default {
     return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
-    openDialog(item) {
+    openDetails(item) {
       this.selectedItem = item
       this.showDetailsModal = true
     },

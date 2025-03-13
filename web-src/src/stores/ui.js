@@ -19,12 +19,12 @@ export const useUIStore = defineStore('UIStore', {
     }
   },
   state: () => ({
-    albums_sort: 1,
-    artist_albums_sort: 1,
-    artist_tracks_sort: 1,
-    artists_sort: 1,
-    composer_tracks_sort: 1,
-    genre_tracks_sort: 1,
+    albumsSort: 1,
+    artistAlbumsSort: 1,
+    artistTracksSort: 1,
+    artistsSort: 1,
+    composerTracksSort: 1,
+    genreTracksSort: 1,
     hideReadItems: false,
     hideSingles: false,
     hideSpotify: false,

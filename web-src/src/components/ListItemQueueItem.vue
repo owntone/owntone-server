@@ -52,7 +52,7 @@ import webapi from '@/webapi'
 export default {
   name: 'ListItemQueueItem',
   props: {
-    current_position: { required: true, type: Number },
+    currentPosition: { required: true, type: Number },
     editing: Boolean,
     item: { required: true, type: Object },
     position: { required: true, type: Number },
@@ -66,7 +66,7 @@ export default {
       return this.item.id === this.playerStore.item_id
     },
     isNext() {
-      return this.current_position < 0 || this.position >= this.current_position
+      return this.currentPosition < 0 || this.position >= this.currentPosition
     }
   },
   methods: {

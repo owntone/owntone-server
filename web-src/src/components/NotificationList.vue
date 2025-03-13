@@ -1,14 +1,17 @@
 <template>
-  <section v-if="notifications.length > 0" class="notifications">
+  <section v-if="!notificationsStore.isEmpty" class="notifications">
     <div class="columns is-centered">
       <div class="column is-half">
         <div
-          v-for="notification in notifications"
+          v-for="notification in notificationsStore.list"
           :key="notification.id"
           class="notification"
           :class="notification.type ? `is-${notification.type}` : ''"
         >
-          <button class="delete" @click="remove(notification)" />
+          <button
+            class="delete"
+            @click="notificationsStore.remove(notification)"
+          />
           <div class="text" v-text="notification.text" />
         </div>
       </div>
@@ -21,21 +24,8 @@ import { useNotificationsStore } from '@/stores/notifications'
 
 export default {
   name: 'NotificationList',
-
   setup() {
     return { notificationsStore: useNotificationsStore() }
-  },
-
-  computed: {
-    notifications() {
-      return this.notificationsStore.list
-    }
-  },
-
-  methods: {
-    remove(notification) {
-      this.notificationsStore.remove(notification)
-    }
   }
 }
 </script>

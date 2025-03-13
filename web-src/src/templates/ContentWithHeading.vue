@@ -34,11 +34,12 @@
               </div>
             </nav>
             <slot name="content" />
-            <nav v-if="$slots.footer" class="level mt-4">
-              <div class="level-item">
-                <slot name="footer" />
-              </div>
-            </nav>
+            <div
+              v-if="$slots.footer"
+              class="is-flex is-justify-content-center mt-4"
+            >
+              <slot name="footer" />
+            </div>
           </div>
         </div>
       </div>

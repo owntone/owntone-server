@@ -20,7 +20,8 @@
     "save": "儲存",
     "send": "發送",
     "show-more": "顯示更多",
-    "shuffle": "隨機播放"
+    "shuffle": "隨機播放",
+    "update": "更新"
   },
   "count": {
     "albums": "{count} 張專輯|{count} 張專輯",
@@ -116,6 +117,7 @@
     "albums": "專輯",
     "artists": "藝人",
     "audiobooks": "有聲書",
+    "composers": "作曲家",
     "now-playing": " - {album}",
     "stream-error": "HTTP串流錯誤：串流載入失敗或者由於網絡原因無法載入",
     "stream": "HTTP串流",
@@ -216,8 +218,7 @@
     },
     "podcasts": {
       "new-episodes": "最新單集",
-      "title": "Podcast",
-      "update": "更新"
+      "title": "Podcast"
     },
     "queue": {
       "title": "清單"

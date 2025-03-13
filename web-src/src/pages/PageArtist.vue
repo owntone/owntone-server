@@ -26,7 +26,7 @@
               v-text="$t('page.artist.sort.title')"
             />
             <control-dropdown
-              v-model:value="uiStore.artist_albums_sort"
+              v-model:value="uiStore.artistAlbumsSort"
               :options="groupings"
             />
           </div>
@@ -37,7 +37,7 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
           :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
@@ -110,7 +110,7 @@ export default {
   computed: {
     albums() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.artist_albums_sort
+        (grouping) => grouping.id === this.uiStore.artistAlbumsSort
       )
       options.filters = [
         (album) => !this.uiStore.hideSpotify || album.data_kind !== 'spotify'
@@ -153,6 +153,9 @@ export default {
     }
   },
   methods: {
+    openDetails() {
+      this.showDetailsModal = true
+    },
     openTracks() {
       this.$router.push({
         name: 'music-artist-tracks',
@@ -164,9 +167,6 @@ export default {
         this.albums.items.map((item) => item.uri).join(),
         true
       )
-    },
-    showDetails() {
-      this.showDetailsModal = true
     }
   }
 }

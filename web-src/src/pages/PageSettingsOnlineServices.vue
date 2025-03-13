@@ -47,8 +47,8 @@
               <div class="control">
                 <a
                   class="button is-danger"
-                  @click="logout_spotify"
-                  v-text="$t('page.settings.services.logout')"
+                  @click="logoutSpotify"
+                  v-text="$t('actions.logout')"
                 />
               </div>
             </div>
@@ -75,11 +75,11 @@
             <a
               class="button is-danger"
               @click="logoutLastfm"
-              v-text="$t('page.settings.services.logout')"
+              v-text="$t('actions.logout')"
             />
           </div>
           <div v-if="!lastfm.scrobbling_enabled">
-            <form @submit.prevent="login_lastfm">
+            <form @submit.prevent="loginLastfm">
               <div class="field is-grouped">
                 <div class="control">
                   <input
@@ -106,7 +106,7 @@
                   <button
                     class="button"
                     type="submit"
-                    v-text="$t('page.settings.services.login')"
+                    v-text="$t('actions.login')"
                   />
                 </div>
               </div>
@@ -172,7 +172,7 @@ export default {
     }
   },
   methods: {
-    login_lastfm() {
+    loginLastfm() {
       webapi.lastfm_login(this.lastfm_login).then((response) => {
         this.lastfm_login.user = ''
         this.lastfm_login.password = ''
@@ -190,7 +190,7 @@ export default {
     logoutLastfm() {
       webapi.lastfm_logout()
     },
-    logout_spotify() {
+    logoutSpotify() {
       webapi.spotify_logout()
     }
   }

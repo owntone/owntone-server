@@ -50,7 +50,7 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
 
 const dataObject = {
-  load(to) {
+  load() {
     return Promise.all([
       webapi.search({
         expression:
@@ -82,14 +82,14 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
+    dataObject.load().then((response) => {
       next((vm) => dataObject.set(vm, response))
     })
   },
   data() {
     return {
       albums: [],
-      tracks: { items: [] }
+      tracks: null
     }
   }
 }

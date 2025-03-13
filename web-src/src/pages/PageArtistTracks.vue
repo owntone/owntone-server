@@ -27,7 +27,7 @@
               v-text="$t('options.sort.title')"
             />
             <control-dropdown
-              v-model:value="uiStore.artist_tracks_sort"
+              v-model:value="uiStore.artistTracksSort"
               :options="groupings"
             />
           </div>
@@ -38,14 +38,14 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
           :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
         />
       </template>
       <template #content>
-        <list-tracks :items="tracks" :uris="track_uris" />
+        <list-tracks :items="tracks" :uris="trackUris" />
         <modal-dialog-artist
           :item="artist"
           :show="showDetailsModal"
@@ -111,7 +111,7 @@ export default {
     }
   },
   computed: {
-    album_count() {
+    albumCount() {
       return new Set(
         [...this.tracks]
           .filter((track) => track.isItem)
@@ -139,7 +139,7 @@ export default {
       return {
         subtitle: [
           {
-            count: this.album_count,
+            count: this.albumCount,
             handler: this.openArtist,
             key: 'count.albums'
           },
@@ -148,12 +148,12 @@ export default {
         title: this.artist.name
       }
     },
-    track_uris() {
+    trackUris() {
       return this.trackList.items.map((item) => item.uri).join()
     },
     tracks() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.artist_tracks_sort
+        (grouping) => grouping.id === this.uiStore.artistTracksSort
       )
       options.filters = [
         (track) => !this.uiStore.hideSpotify || track.data_kind !== 'spotify'
@@ -169,14 +169,14 @@ export default {
         params: { id: this.artist.id }
       })
     },
+    openDetails() {
+      this.showDetailsModal = true
+    },
     play() {
       webapi.player_play_uri(
         this.trackList.items.map((item) => item.uri).join(),
         true
       )
-    },
-    showDetails() {
-      this.showDetailsModal = true
     }
   }
 }

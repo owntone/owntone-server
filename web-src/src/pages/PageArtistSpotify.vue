@@ -6,7 +6,7 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
           :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
@@ -106,7 +106,7 @@ export default {
     heading() {
       return {
         subtitle: [{ count: this.total, key: 'count.albums' }],
-        title: this.$t('artist.name')
+        title: this.artist.name
       }
     }
   },
@@ -130,12 +130,12 @@ export default {
           loaded(data.items.length, PAGE_SIZE)
         })
     },
+    openDetails() {
+      this.showDetailsModal = true
+    },
     play() {
       this.showDetailsModal = false
       webapi.player_play_uri(this.artist.uri, true)
-    },
-    showDetails() {
-      this.showDetailsModal = true
     }
   }
 }

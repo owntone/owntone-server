@@ -23,7 +23,7 @@ export default {
   },
   data() {
     return {
-      spotify_track: {}
+      spotifyTrack: {}
     }
   },
   computed: {
@@ -89,10 +89,10 @@ export default {
         spotifyApi
           .getTrack(this.item.path.slice(this.item.path.lastIndexOf(':') + 1))
           .then((response) => {
-            this.spotify_track = response
+            this.spotifyTrack = response
           })
       } else {
-        this.spotify_track = {}
+        this.spotifyTrack = {}
       }
     }
   },
@@ -102,7 +102,7 @@ export default {
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
           name: 'music-spotify-album',
-          params: { id: this.spotify_track.album.id }
+          params: { id: this.spotifyTrack.album.id }
         })
       } else if (this.item.media_kind === 'podcast') {
         this.$router.push({
@@ -126,7 +126,7 @@ export default {
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
           name: 'music-spotify-artist',
-          params: { id: this.spotify_track.artists[0].id }
+          params: { id: this.spotifyTrack.artists[0].id }
         })
       } else if (
         this.item.media_kind === 'music' ||

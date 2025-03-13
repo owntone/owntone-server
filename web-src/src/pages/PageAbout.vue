@@ -34,8 +34,6 @@
             />
           </div>
         </div>
-      </template>
-      <template #footer>
         <div
           class="is-size-7 mt-6"
           v-text="

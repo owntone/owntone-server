@@ -31,7 +31,7 @@
             </div>
           </div>
         </div>
-        <control-switch v-model="rescan_metadata">
+        <control-switch v-model="rescanMetadata">
           <template #label>
             <span v-text="$t('dialog.update.rescan-metadata')" />
           </template>
@@ -64,7 +64,7 @@ export default {
   },
   data() {
     return {
-      rescan_metadata: false
+      rescanMetadata: false
     }
   },
   computed: {
@@ -87,7 +87,7 @@ export default {
   },
   methods: {
     analyse() {
-      if (this.rescan_metadata) {
+      if (this.rescanMetadata) {
         webapi.library_rescan(this.libraryStore.update_dialog_scan_kind)
       } else {
         webapi.library_update(this.libraryStore.update_dialog_scan_kind)

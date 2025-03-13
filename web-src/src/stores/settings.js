@@ -1,4 +1,7 @@
 import { defineStore } from 'pinia'
+import i18n from '@/i18n'
+
+const { t, availableLocales } = i18n.global
 
 export const useSettingsStore = defineStore('SettingsStore', {
   actions: {
@@ -25,6 +28,12 @@ export const useSettingsStore = defineStore('SettingsStore', {
     }
   },
   getters: {
+    locales(state) {
+      return availableLocales.map((item) => ({
+        id: item,
+        name: t(`language.${item}`)
+      }))
+    },
     recently_added_limit: (state) =>
       state.setting('webinterface', 'recently_added_limit')?.value ?? 100,
     show_composer_for_genre: (state) =>

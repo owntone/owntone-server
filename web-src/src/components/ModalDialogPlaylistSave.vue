@@ -11,14 +11,14 @@
           <p class="control has-icons-left">
             <input
               ref="playlist_name_field"
-              v-model="playlist_name"
+              v-model="playlistName"
               class="input"
               type="text"
               pattern=".+"
               required
               :placeholder="$t('dialog.playlist.save.playlist-name')"
               :disabled="loading"
-              @input="check_name"
+              @input="check"
             />
             <mdicon class="icon is-left" name="playlist-music" size="16" />
           </p>
@@ -41,7 +41,7 @@ export default {
     return {
       disabled: true,
       loading: false,
-      playlist_name: ''
+      playlistName: ''
     }
   },
   computed: {
@@ -75,17 +75,17 @@ export default {
     cancel() {
       this.$emit('close')
     },
-    check_name(event) {
+    check(event) {
       const { validity } = event.target
       this.disabled = validity.patternMismatch || validity.valueMissing
     },
     save() {
       this.loading = true
       webapi
-        .queue_save_playlist(this.playlist_name)
+        .queue_save_playlist(this.playlistName)
         .then(() => {
           this.$emit('close')
-          this.playlist_name = ''
+          this.playlistName = ''
         })
         .catch(() => {
           this.loading = false

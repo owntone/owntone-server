@@ -4,12 +4,12 @@
     class="lyrics"
     @touchstart="autoScrolling = false"
     @touchend="autoScrolling = true"
-    @scroll.passive="start_scrolling"
-    @wheel.passive="start_scrolling"
+    @scroll.passive="startScrolling"
+    @wheel.passive="startScrolling"
   >
     <template v-for="(verse, index) in lyrics" :key="index">
       <div
-        v-if="index === verse_index"
+        v-if="index === verseIndex"
         :class="{ 'is-highlighted': playerStore.isPlaying }"
       >
         <span
@@ -85,7 +85,7 @@ export default {
       }
       return parsed
     },
-    verse_index() {
+    verseIndex() {
       if (this.lyrics.length && this.lyrics[0].time) {
         const currentTime = this.playerStore.item_progress_ms / 1000,
           la = this.lyrics,
@@ -96,7 +96,7 @@ export default {
             la[this.lastIndex].time > currentTime
         // Reset the cache when the track has changed or has been seeked
         if (trackChanged || trackSeeked) {
-          this.reset_scrolling()
+          this.resetScrolling()
         }
         // Check the next two items and the last one before searching
         if (
@@ -134,20 +134,20 @@ export default {
         }
         return index
       }
-      this.reset_scrolling()
+      this.resetScrolling()
       return -1
     }
   },
   watch: {
-    verse_index() {
+    verseIndex() {
       if (this.autoScrolling) {
-        this.scroll_to_verse()
+        this.scrollToVerse()
       }
-      this.lastIndex = this.verse_index
+      this.lastIndex = this.verseIndex
     }
   },
   methods: {
-    reset_scrolling() {
+    resetScrolling() {
       // Scroll to the start of the lyrics in all cases
       if (this.playerStore.item_id !== this.lastItemId && this.$refs.lyrics) {
         this.$refs.lyrics.scrollTo(0, 0)
@@ -155,13 +155,13 @@ export default {
       this.lastItemId = this.playerStore.item_id
       this.lastIndex = -1
     },
-    scroll_to_verse() {
+    scrollToVerse() {
       const pane = this.$refs.lyrics
-      if (this.verse_index === -1) {
+      if (this.verseIndex === -1) {
         pane.scrollTo(0, 0)
         return
       }
-      const currentVerse = pane.children[this.verse_index]
+      const currentVerse = pane.children[this.verseIndex]
       pane.scrollBy({
         behavior: 'smooth',
         left: 0,
@@ -172,7 +172,7 @@ export default {
           pane.scrollTop
       })
     },
-    start_scrolling(event) {
+    startScrolling(event) {
       // Consider only user events
       if (event.screenX ?? event.screenY) {
         this.autoScrolling = false

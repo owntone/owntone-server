@@ -10,7 +10,7 @@
               v-text="$t('options.sort.title')"
             />
             <control-dropdown
-              v-model:value="uiStore.genre_tracks_sort"
+              v-model:value="uiStore.genreTracksSort"
               :options="groupings"
             />
           </div>
@@ -21,7 +21,7 @@
       </template>
       <template #heading-right>
         <control-button
-          :button="{ handler: showDetails, icon: 'dots-horizontal' }"
+          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />
         <control-button
           :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
@@ -131,7 +131,7 @@ export default {
     },
     tracks() {
       const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.genre_tracks_sort
+        (grouping) => grouping.id === this.uiStore.genreTracksSort
       )
       return this.trackList.group(options)
     }
@@ -148,7 +148,7 @@ export default {
     play() {
       webapi.player_play_expression(this.expression, true)
     },
-    showDetails() {
+    openDetails() {
       this.showDetailsModal = true
     }
   }
