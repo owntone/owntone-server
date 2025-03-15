@@ -6,6 +6,7 @@
   >
     <mdicon v-if="button.icon" class="icon" :name="button.icon" size="16" />
     <span v-if="button.key" v-text="$t(button.key)" />
+    <span v-if="button.title" v-text="button.title" />
   </button>
 </template>
 
