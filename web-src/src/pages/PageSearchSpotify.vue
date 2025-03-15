@@ -33,7 +33,7 @@
   <tabs-search @search-library="searchLibrary" @search-spotify="search" />
   <template v-for="[type, items] in results" :key="type">
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t(`page.spotify.search.${type}s`) }"
         />

@@ -5,7 +5,7 @@
       <template #options>
         <index-button-list :indices="albums.indices" />
       </template>
-      <template #heading-left>
+      <template #heading>
         <heading-title :content="heading" />
       </template>
       <template #content>

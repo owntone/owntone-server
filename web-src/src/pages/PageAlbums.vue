@@ -34,7 +34,7 @@
           </template>
         </list-options>
       </template>
-      <template #heading-left>
+      <template #heading>
         <heading-title :content="heading" />
       </template>
       <template #content>

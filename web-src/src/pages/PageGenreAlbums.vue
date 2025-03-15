@@ -4,10 +4,10 @@
       <template #options>
         <index-button-list :indices="albums.indices" />
       </template>
-      <template #heading-left>
+      <template #heading>
         <heading-title :content="heading" />
       </template>
-      <template #heading-right>
+      <template #actions>
         <control-button
           :button="{ handler: openDetails, icon: 'dots-horizontal' }"
         />

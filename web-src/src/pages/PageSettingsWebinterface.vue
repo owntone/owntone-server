@@ -2,7 +2,7 @@
   <div>
     <tabs-settings />
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.settings.general.language') }"
         />
@@ -15,7 +15,7 @@
       </template>
     </content-with-heading>
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.settings.general.navigation-items') }"
         />
@@ -88,7 +88,7 @@
       </template>
     </content-with-heading>
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.settings.general.now-playing-page') }"
         />
@@ -136,7 +136,7 @@
       </template>
     </content-with-heading>
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.settings.general.recently-added-page') }"
         />

@@ -2,15 +2,12 @@
   <div>
     <tabs-settings />
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.settings.services.spotify.title') }"
         />
       </template>
       <template #content>
-        <div v-if="!spotify.spotify_installed" class="notification help">
-          <p v-text="$t('page.settings.services.spotify.no-support')" />
-        </div>
         <div v-if="spotify.spotify_installed">
           <div>
             <p
@@ -54,18 +51,16 @@
             </div>
           </div>
         </div>
+        <div v-else v-text="$t('page.settings.services.spotify.no-support')" />
       </template>
     </content-with-heading>
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.settings.services.lastfm.title') }"
         />
       </template>
       <template #content>
-        <div v-if="!lastfm.enabled" class="notification is-size-7">
-          <p v-text="$t('page.settings.services.lastfm.no-support')" />
-        </div>
         <div v-if="lastfm.enabled">
           <p
             class="content"
@@ -118,6 +113,7 @@
             </form>
           </div>
         </div>
+        <div v-else v-text="$t('page.settings.services.lastfm.no-support')" />
       </template>
     </content-with-heading>
   </div>

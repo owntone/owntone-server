@@ -1,7 +1,7 @@
 <template>
   <div>
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title :content="heading" />
       </template>
       <template #content>

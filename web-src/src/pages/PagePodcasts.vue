@@ -1,10 +1,10 @@
 <template>
   <div>
     <content-with-heading v-if="tracks.items.length > 0">
-      <template #heading-left>
+      <template #heading>
         <heading-title :content="{ title: $t('page.podcasts.new-episodes') }" />
       </template>
-      <template #heading-right>
+      <template #actions>
         <control-button
           :button="{
             handler: markAllAsPlayed,
@@ -22,10 +22,10 @@
       </template>
     </content-with-heading>
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title :content="heading" />
       </template>
-      <template #heading-right>
+      <template #actions>
         <control-button
           v-if="rss.tracks > 0"
           :button="{
@@ -36,7 +36,7 @@
         />
         <control-button
           :button="{
-            handler: 'openAddPodcastDialog',
+            handler: openAddPodcastDialog,
             icon: 'rss',
             key: 'actions.add'
           }"

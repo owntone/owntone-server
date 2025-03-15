@@ -1,10 +1,10 @@
 <template>
   <div>
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title :content="{ title: $t('page.about.library') }" />
       </template>
-      <template #heading-right>
+      <template #actions>
         <control-button
           :button="{
             handler: openUpdateDialog,

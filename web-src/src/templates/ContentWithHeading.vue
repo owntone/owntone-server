@@ -20,16 +20,16 @@
                   class="level-item is-flex-shrink-1 has-text-centered-mobile"
                 >
                   <div>
-                    <slot name="heading-left" />
+                    <slot name="heading" />
                   </div>
                 </div>
               </div>
               <div
-                v-if="$slots['heading-right']"
+                v-if="$slots.actions"
                 class="level-right has-text-centered-mobile"
               >
                 <div class="buttons">
-                  <slot name="heading-right" />
+                  <slot name="actions" />
                 </div>
               </div>
             </nav>

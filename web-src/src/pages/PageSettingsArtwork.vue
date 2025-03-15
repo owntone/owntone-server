@@ -2,7 +2,7 @@
   <div>
     <tabs-settings />
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.settings.artwork.title') }"
         />

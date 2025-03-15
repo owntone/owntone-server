@@ -2,7 +2,7 @@
   <div>
     <tabs-music />
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.music.recently-added.title') }"
         />
@@ -20,7 +20,7 @@
       </template>
     </content-with-heading>
     <content-with-heading>
-      <template #heading-left>
+      <template #heading>
         <heading-title
           :content="{ title: $t('page.music.recently-played.title') }"
         />
