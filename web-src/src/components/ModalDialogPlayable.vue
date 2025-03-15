@@ -1,5 +1,10 @@
 <template>
-  <modal-dialog :actions="actions" :show="show" @close="$emit('close')">
+  <modal-dialog
+    :actions="actions"
+    :show="show"
+    :title="item.name"
+    @close="$emit('close')"
+  >
     <template #content>
       <list-properties :item="item">
         <template v-if="buttons.length" #buttons>

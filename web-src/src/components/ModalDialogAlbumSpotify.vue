@@ -17,7 +17,6 @@ export default {
   computed: {
     playable() {
       return {
-        handler: this.open,
         image: this.item?.images?.[0]?.url || '',
         name: this.item.name || '',
         properties: [
@@ -37,13 +36,6 @@ export default {
     }
   },
   methods: {
-    open() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-spotify-album',
-        params: { id: this.item.id }
-      })
-    },
     openArtist() {
       this.$emit('close')
       this.$router.push({

@@ -38,7 +38,6 @@ export default {
     },
     playable() {
       return {
-        handler: this.open,
         image: this.item.artwork_url,
         name: this.item.name,
         properties: [
@@ -78,22 +77,6 @@ export default {
           this.$emit('play-count-changed')
           this.$emit('close')
         })
-    },
-    open() {
-      this.$emit('close')
-      if (this.media_kind_resolved === 'podcast') {
-        this.$router.push({ name: 'podcast', params: { id: this.item.id } })
-      } else if (this.media_kind_resolved === 'audiobook') {
-        this.$router.push({
-          name: 'audiobooks-album',
-          params: { id: this.item.id }
-        })
-      } else {
-        this.$router.push({
-          name: 'music-album',
-          params: { id: this.item.id }
-        })
-      }
     },
     openArtist() {
       this.$emit('close')

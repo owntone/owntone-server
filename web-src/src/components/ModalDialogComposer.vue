@@ -18,7 +18,6 @@ export default {
     playable() {
       return {
         expression: `composer is "${this.item.name}" and media_kind is music`,
-        handler: this.openAlbums,
         name: this.item.name,
         properties: [
           {

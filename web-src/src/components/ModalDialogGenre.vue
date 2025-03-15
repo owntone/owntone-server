@@ -22,7 +22,6 @@ export default {
     playable() {
       return {
         expression: `genre is "${this.item.name}" and media_kind is ${this.media_kind}`,
-        handler: this.open,
         name: this.item.name,
         properties: [
           { key: 'property.albums', value: this.item.album_count },
@@ -33,16 +32,6 @@ export default {
           }
         ]
       }
-    }
-  },
-  methods: {
-    open() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'genre-albums',
-        params: { name: this.item.name },
-        query: { media_kind: this.media_kind }
-      })
     }
   }
 }

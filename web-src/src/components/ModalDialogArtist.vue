@@ -17,7 +17,6 @@ export default {
   computed: {
     playable() {
       return {
-        handler: this.open,
         name: this.item.name,
         properties: [
           { key: 'property.albums', value: this.item.album_count },
@@ -33,15 +32,6 @@ export default {
         ],
         uri: this.item.uri
       }
-    }
-  },
-  methods: {
-    open() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-artist',
-        params: { id: this.item.id }
-      })
     }
   }
 }

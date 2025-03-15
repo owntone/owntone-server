@@ -17,7 +17,6 @@ export default {
   computed: {
     playable() {
       return {
-        handler: this.open,
         name: this.item.name,
         properties: [
           { key: 'property.owner', value: this.item.owner?.display_name },
@@ -26,15 +25,6 @@ export default {
         ],
         uri: this.item.uri
       }
-    }
-  },
-  methods: {
-    open() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'playlist-spotify',
-        params: { id: this.item.id }
-      })
     }
   }
 }

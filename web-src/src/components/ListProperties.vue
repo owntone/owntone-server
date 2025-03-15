@@ -1,8 +1,4 @@
 <template>
-  <div class="title is-4">
-    <a v-if="item.handler" @click="item.handler" v-text="item.name"></a>
-    <span v-else v-text="item.name" />
-  </div>
   <control-image
     v-if="item.image"
     :url="item.image"

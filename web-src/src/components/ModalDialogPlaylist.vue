@@ -21,7 +21,6 @@ export default {
   computed: {
     playable() {
       return {
-        handler: this.open,
         name: this.item.name,
         properties: [
           { key: 'property.tracks', value: this.item.item_count },
@@ -34,15 +33,6 @@ export default {
         uri: this.item.uri,
         uris: this.uris
       }
-    }
-  },
-  methods: {
-    open() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'playlist',
-        params: { id: this.item.id }
-      })
     }
   }
 }

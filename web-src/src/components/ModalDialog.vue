@@ -4,8 +4,13 @@
       <div class="modal-background" @click="$emit('close')" />
       <div class="modal-content">
         <div class="card is-shadowless">
+          <div class="card-header">
+            <div v-if="title" class="card-header-title" v-text="title" />
+            <div class="card-header-icon">
+              <button class="delete" @click="$emit('close')"></button>
+            </div>
+          </div>
           <div class="card-content">
-            <p v-if="title" class="title is-4" v-text="title" />
             <slot name="content" />
           </div>
           <footer v-if="actions.length" class="card-footer">
