@@ -12,7 +12,7 @@
     :show="showUpdateDialog"
     @close="showUpdateDialog = false"
   />
-  <notification-list v-show="!showBurgerMenu" />
+  <list-notifications v-show="!showBurgerMenu" />
   <navbar-bottom />
   <div
     v-show="showBurgerMenu || showPlayerMenu"
@@ -22,11 +22,11 @@
 </template>
 
 <script>
+import ListNotifications from '@/components/ListNotifications.vue'
 import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing.vue'
 import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
 import NavbarBottom from '@/components/NavbarBottom.vue'
 import NavbarTop from '@/components/NavbarTop.vue'
-import NotificationList from '@/components/NotificationList.vue'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
 import { useConfigurationStore } from '@/stores/configuration'
 import { useLibraryStore } from '@/stores/library'
@@ -44,11 +44,11 @@ import webapi from '@/webapi'
 export default {
   name: 'App',
   components: {
+    ListNotifications,
     ModalDialogRemotePairing,
     ModalDialogUpdate,
     NavbarBottom,
-    NavbarTop,
-    NotificationList
+    NavbarTop
   },
   setup() {
     return {

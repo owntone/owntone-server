@@ -23,7 +23,7 @@
 import { useNotificationsStore } from '@/stores/notifications'
 
 export default {
-  name: 'NotificationList',
+  name: 'ListNotifications',
   setup() {
     return { notificationsStore: useNotificationsStore() }
   }
