@@ -3,18 +3,14 @@
     <content-with-heading>
       <template #options>
         <index-button-list :indices="tracks.indices" />
-        <div class="columns">
-          <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('options.sort.title')"
-            />
+        <list-options>
+          <template #sort>
             <control-dropdown
               v-model:value="uiStore.genreTracksSort"
               :options="groupings"
             />
-          </div>
-        </div>
+          </template>
+        </list-options>
       </template>
       <template #heading-left>
         <heading-title :content="heading" />
@@ -47,6 +43,7 @@ import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListOptions from '@/components/ListOptions.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import { useUIStore } from '@/stores/ui'
@@ -73,6 +70,7 @@ export default {
     ControlDropdown,
     HeadingTitle,
     IndexButtonList,
+    ListOptions,
     ListTracks,
     ModalDialogGenre
   },

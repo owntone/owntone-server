@@ -3,12 +3,8 @@
     <content-with-heading>
       <template #options>
         <index-button-list :indices="tracks.indices" />
-        <div class="columns">
-          <div class="column">
-            <p
-              class="is-size-7 is-uppercase"
-              v-text="$t('options.filter.title')"
-            />
+        <list-options>
+          <template #filter>
             <control-switch
               v-if="servicesStore.isSpotifyEnabled"
               v-model="uiStore.hideSpotify"
@@ -20,18 +16,14 @@
                 <span v-text="$t('options.filter.hide-spotify-help')" />
               </template>
             </control-switch>
-          </div>
-          <div class="column">
-            <p
-              class="is-size-7 is-uppercase"
-              v-text="$t('options.sort.title')"
-            />
+          </template>
+          <template #sort>
             <control-dropdown
               v-model:value="uiStore.artistTracksSort"
               :options="groupings"
             />
-          </div>
-        </div>
+          </template>
+        </list-options>
       </template>
       <template #heading-left>
         <heading-title :content="heading" />
@@ -64,6 +56,7 @@ import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListOptions from '@/components/ListOptions.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import { useServicesStore } from '@/stores/services'
@@ -92,6 +85,7 @@ export default {
     ControlSwitch,
     HeadingTitle,
     IndexButtonList,
+    ListOptions,
     ListTracks,
     ModalDialogArtist
   },

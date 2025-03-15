@@ -2,12 +2,8 @@
   <div>
     <content-with-heading>
       <template #options>
-        <div class="columns">
-          <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.filter.title')"
-            />
+        <list-options>
+          <template #filter>
             <control-switch
               v-if="servicesStore.isSpotifyEnabled"
               v-model="uiStore.hideSpotify"
@@ -19,18 +15,14 @@
                 <span v-text="$t('page.artist.filter.hide-spotify-help')" />
               </template>
             </control-switch>
-          </div>
-          <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('page.artist.sort.title')"
-            />
+          </template>
+          <template #sort>
             <control-dropdown
               v-model:value="uiStore.artistAlbumsSort"
               :options="groupings"
             />
-          </div>
-        </div>
+          </template>
+        </list-options>
       </template>
       <template #heading-left>
         <heading-title :content="heading" />
@@ -61,8 +53,9 @@ import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '../components/HeadingTitle.vue'
+import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
+import ListOptions from '@/components/ListOptions.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
@@ -90,6 +83,7 @@ export default {
     ControlSwitch,
     HeadingTitle,
     ListAlbums,
+    ListOptions,
     ModalDialogArtist
   },
   beforeRouteEnter(to, from, next) {

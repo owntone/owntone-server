@@ -4,12 +4,8 @@
     <content-with-heading>
       <template #options>
         <index-button-list :indices="artists.indices" />
-        <div class="columns">
-          <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('options.filter.title')"
-            />
+        <list-options>
+          <template #filter>
             <control-switch v-model="uiStore.hideSingles">
               <template #label>
                 <span v-text="$t('options.filter.hide-singles')" />
@@ -18,28 +14,25 @@
                 <span v-text="$t('options.filter.hide-singles-help')" />
               </template>
             </control-switch>
-            <div v-if="servicesStore.isSpotifyEnabled" class="field">
-              <control-switch v-model="uiStore.hideSpotify">
-                <template #label>
-                  <span v-text="$t('options.filter.hide-spotify')" />
-                </template>
-                <template #help>
-                  <span v-text="$t('options.filter.hide-spotify-help')" />
-                </template>
-              </control-switch>
-            </div>
-          </div>
-          <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('options.sort.title')"
-            />
+            <control-switch
+              v-if="servicesStore.isSpotifyEnabled"
+              v-model="uiStore.hideSpotify"
+            >
+              <template #label>
+                <span v-text="$t('options.filter.hide-spotify')" />
+              </template>
+              <template #help>
+                <span v-text="$t('options.filter.hide-spotify-help')" />
+              </template>
+            </control-switch>
+          </template>
+          <template #sort>
             <control-dropdown
               v-model:value="uiStore.artistsSort"
               :options="groupings"
             />
-          </div>
-        </div>
+          </template>
+        </list-options>
       </template>
       <template #heading-left>
         <heading-title :content="heading" />
@@ -59,6 +52,7 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListArtists from '@/components/ListArtists.vue'
+import ListOptions from '@/components/ListOptions.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
@@ -82,6 +76,7 @@ export default {
     HeadingTitle,
     IndexButtonList,
     ListArtists,
+    ListOptions,
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {

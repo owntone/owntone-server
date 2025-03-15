@@ -5,7 +5,7 @@
         <div class="column is-four-fifths">
           <form @submit.prevent="search">
             <div class="field">
-              <p class="control has-icons-left">
+              <div class="control has-icons-left">
                 <input
                   ref="search_field"
                   v-model="query"
@@ -15,7 +15,7 @@
                   autocomplete="off"
                 />
                 <mdicon class="icon is-left" name="magnify" size="16" />
-              </p>
+              </div>
             </div>
           </form>
           <div class="field is-grouped is-grouped-multiline mt-4">
@@ -55,23 +55,22 @@
       </template>
       <template v-if="!expanded" #footer>
         <nav v-if="showAllButton(items)" class="level">
-          <p class="level-item">
-            <a
-              class="button is-small is-rounded"
-              @click="expand(type)"
-              v-text="
-                $t(
+          <div class="level-item">
+            <control-button
+              :button="{
+                handler: () => expand(type),
+                title: $t(
                   `page.spotify.search.show-${type}s`,
                   { count: `${$n(items.total)}` },
                   items.total
                 )
-              "
+              }"
             />
-          </p>
+          </div>
         </nav>
-        <p v-if="!items.total" class="has-text-centered-mobile">
+        <div v-if="!items.total" class="has-text-centered-mobile">
           <i v-text="$t(`page.spotify.search.no-results`)" />
-        </p>
+        </div>
       </template>
     </content-with-heading>
   </template>
@@ -79,6 +78,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlButton from '@/components/ControlButton.vue'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
@@ -97,6 +97,7 @@ const PAGE_SIZE = 3,
 export default {
   name: 'PageSearchSpotify',
   components: {
+    ControlButton,
     ContentWithHeading,
     HeadingTitle,
     ListAlbumsSpotify,

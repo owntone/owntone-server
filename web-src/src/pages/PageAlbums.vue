@@ -4,12 +4,8 @@
     <content-with-heading>
       <template #options>
         <index-button-list :indices="albums.indices" />
-        <div class="columns">
-          <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('options.filter.title')"
-            />
+        <list-options>
+          <template #filter>
             <control-switch v-model="uiStore.hideSingles">
               <template #label>
                 <span v-text="$t('options.filter.hide-singles')" />
@@ -29,18 +25,14 @@
                 <span v-text="$t('options.filter.hide-spotify-help')" />
               </template>
             </control-switch>
-          </div>
-          <div class="column">
-            <div
-              class="is-size-7 is-uppercase"
-              v-text="$t('options.sort.title')"
-            />
+          </template>
+          <template #sort>
             <control-dropdown
               v-model:value="uiStore.albumsSort"
               :options="groupings"
             />
-          </div>
-        </div>
+          </template>
+        </list-options>
       </template>
       <template #heading-left>
         <heading-title :content="heading" />
@@ -60,6 +52,7 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
+import ListOptions from '@/components/ListOptions.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
@@ -83,6 +76,7 @@ export default {
     HeadingTitle,
     IndexButtonList,
     ListAlbums,
+    ListOptions,
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
