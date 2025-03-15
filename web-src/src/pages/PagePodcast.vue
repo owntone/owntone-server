@@ -1,25 +1,10 @@
 <template>
   <div>
     <content-with-hero>
-      <template #heading-left>
-        <div class="title is-5" v-text="album.name" />
-        <div class="subtitle is-6">
-          <br />
-        </div>
-        <div
-          class="is-size-7 is-uppercase has-text-centered-mobile"
-          v-text="$t('count.tracks', { count: album.track_count })"
-        />
-        <div class="buttons is-centered-mobile mt-5">
-          <control-button
-            :button="{ handler: play, icon: 'play', key: 'actions.play' }"
-          />
-          <control-button
-            :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-          />
-        </div>
+      <template #heading>
+        <heading-hero :content="heading" />
       </template>
-      <template #heading-right>
+      <template #image>
         <control-image
           :url="album.artwork_url"
           :artist="album.artist"
@@ -67,9 +52,9 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
-import ControlButton from '@/components/ControlButton.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
+import HeadingHero from '@/components/HeadingHero.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
@@ -92,8 +77,8 @@ export default {
   name: 'PagePodcast',
   components: {
     ContentWithHero,
-    ControlButton,
     ControlImage,
+    HeadingHero,
     ListTracks,
     ModalDialog,
     ModalDialogAlbum
@@ -126,6 +111,17 @@ export default {
           key: this.$t('page.podcast.remove')
         }
       ]
+    },
+    heading() {
+      return {
+        count: this.$t('count.tracks', { count: this.album.track_count }),
+        subtitle: '',
+        title: this.album.name,
+        actions: [
+          { handler: this.play, icon: 'play', key: 'actions.play' },
+          { handler: this.openDetails, icon: 'dots-horizontal' }
+        ]
+      }
     }
   },
   methods: {

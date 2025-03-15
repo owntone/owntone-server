@@ -5,10 +5,10 @@
         <div class="column is-four-fifths">
           <div class="columns is-flex-direction-row-reverse">
             <div class="column is-flex has-image">
-              <slot name="heading-right" />
+              <slot name="image" />
             </div>
             <div class="column m-auto is-three-fifths has-text-centered-mobile">
-              <slot name="heading-left" />
+              <slot name="heading" />
             </div>
           </div>
         </div>

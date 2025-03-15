@@ -1,25 +1,10 @@
 <template>
   <div>
     <content-with-hero>
-      <template #heading-left>
-        <div class="title is-5" v-text="album.name" />
-        <div class="subtitle is-6">
-          <a @click="openArtist" v-text="album.artists[0].name" />
-        </div>
-        <div
-          class="is-size-7 is-uppercase has-text-centered-mobile"
-          v-text="$t('count.tracks', { count: album.tracks.total })"
-        />
-        <div class="buttons is-centered-mobile mt-5">
-          <control-button
-            :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
-          />
-          <control-button
-            :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-          />
-        </div>
+      <template #heading>
+        <heading-hero :content="heading" />
       </template>
-      <template #heading-right>
+      <template #image>
         <control-image
           :url="album.images?.[0]?.url ?? ''"
           :artist="album.artists[0].name"
@@ -42,8 +27,8 @@
 
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
-import ControlButton from '@/components/ControlButton.vue'
 import ControlImage from '@/components/ControlImage.vue'
+import HeadingHero from '@/components/HeadingHero.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -67,8 +52,8 @@ export default {
   name: 'PageAlbumSpotify',
   components: {
     ContentWithHero,
-    ControlButton,
     ControlImage,
+    HeadingHero,
     ListTracksSpotify,
     ModalDialogAlbumSpotify
   },
@@ -87,6 +72,18 @@ export default {
     }
   },
   computed: {
+    heading() {
+      return {
+        count: this.$t('count.tracks', { count: this.album.tracks.total }),
+        handler: this.openArtist,
+        subtitle: this.album.artists[0].name,
+        title: this.album.name,
+        actions: [
+          { handler: this.play, icon: 'shuffle', key: 'actions.shuffle' },
+          { handler: this.openDetails, icon: 'dots-horizontal' }
+        ]
+      }
+    },
     tracks() {
       const { album } = this
       if (album.tracks.total) {
