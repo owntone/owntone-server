@@ -8,7 +8,7 @@
     <template #content>
       <div v-if="!libraryStore.updating">
         <div
-          v-if="servicesStore.isSpotifyEnabled || rss.tracks > 0"
+          v-if="servicesStore.isSpotifyActive || rss.tracks > 0"
           class="field"
         >
           <label class="label" v-text="$t('dialog.update.info')" />
@@ -18,7 +18,7 @@
                 <option value="" v-text="$t('dialog.update.all')" />
                 <option value="files" v-text="$t('dialog.update.local')" />
                 <option
-                  v-if="servicesStore.isSpotifyEnabled"
+                  v-if="servicesStore.isSpotifyActive"
                   value="spotify"
                   v-text="$t('dialog.update.spotify')"
                 />
@@ -38,7 +38,7 @@
         </control-switch>
       </div>
       <div v-else>
-        <p class="mb-3" v-text="$t('dialog.update.progress')" />
+        <div class="mb-3" v-text="$t('dialog.update.progress')" />
       </div>
     </template>
   </modal-dialog>

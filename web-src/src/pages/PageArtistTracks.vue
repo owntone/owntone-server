@@ -6,7 +6,7 @@
         <list-options>
           <template #filter>
             <control-switch
-              v-if="servicesStore.isSpotifyEnabled"
+              v-if="servicesStore.isSpotifyActive"
               v-model="uiStore.hideSpotify"
             >
               <template #label>

@@ -1,5 +1,5 @@
 <template>
-  <section v-if="servicesStore.isSpotifyEnabled">
+  <section v-if="servicesStore.isSpotifyActive">
     <div class="container">
       <div class="columns is-centered">
         <div class="column is-four-fifths">

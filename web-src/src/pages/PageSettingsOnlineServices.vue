@@ -8,46 +8,48 @@
         />
       </template>
       <template #content>
-        <div v-if="spotify.spotify_installed">
-          <div>
-            <p
-              class="content"
-              v-text="$t('page.settings.services.spotify.grant-access')"
-            />
-            <div class="notification help">
-              <p v-text="$t('page.settings.services.spotify.requirements')" />
-              <p v-text="spotify_required_scope.join(', ')" />
-            </div>
-            <p v-if="spotify.webapi_token_valid" class="content">
-              <span v-text="$t('page.settings.services.spotify.user')" />
-              <code v-text="spotify.webapi_user" />
-            </p>
-            <p v-if="spotify_missing_scope.length > 0" class="help is-danger">
-              <span v-text="$t('page.settings.services.spotify.reauthorize')" />
-              <code v-text="spotify_missing_scope.join()" />
-            </p>
+        <div v-if="servicesStore.isSpotifyEnabled">
+          <div v-text="$t('page.settings.services.spotify.grant-access')" />
+          <div
+            class="notification help"
+            v-text="
+              $t('page.settings.services.spotify.requirements', {
+                scopes: servicesStore.requiredSpotifyScopes.join(', ')
+              })
+            "
+          />
+          <div v-if="servicesStore.isSpotifyActive">
             <div
-              v-if="
-                !spotify.webapi_token_valid || spotify_missing_scope.length > 0
+              v-text="
+                $t('page.settings.services.spotify.user', {
+                  user: servicesStore.spotify.webapi_user
+                })
               "
-              class="field"
-            >
-              <div class="control">
-                <a
-                  class="button"
-                  :href="spotify.oauth_uri"
-                  v-text="$t('page.settings.services.spotify.authorize')"
-                />
-              </div>
+            />
+            <div
+              v-if="servicesStore.hasMissingSpotifyScopes"
+              class="notification help is-danger is-light"
+              v-text="
+                $t('page.settings.services.spotify.reauthorize', {
+                  scopes: servicesStore.missingSpotifyScopes.join(', ')
+                })
+              "
+            />
+          </div>
+          <div class="field is-grouped mt-5">
+            <div v-if="servicesStore.isAuthorizationRequired" class="control">
+              <a
+                class="button"
+                :href="servicesStore.spotify.oauth_uri"
+                v-text="$t('page.settings.services.spotify.authorize')"
+              />
             </div>
-            <div v-if="spotify.webapi_token_valid" class="field">
-              <div class="control">
-                <a
-                  class="button is-danger"
-                  @click="logoutSpotify"
-                  v-text="$t('actions.logout')"
-                />
-              </div>
+            <div v-if="servicesStore.isSpotifyActive" class="control">
+              <button
+                class="button is-danger"
+                @click="logoutSpotify"
+                v-text="$t('actions.logout')"
+              />
             </div>
           </div>
         </div>
@@ -61,19 +63,13 @@
         />
       </template>
       <template #content>
-        <div v-if="lastfm.enabled">
-          <p
-            class="content"
-            v-text="$t('page.settings.services.lastfm.grant-access')"
+        <div v-if="servicesStore.isLastfmEnabled">
+          <div v-text="$t('page.settings.services.lastfm.grant-access')" />
+          <div
+            class="notification help"
+            v-text="$t('page.settings.services.lastfm.info')"
           />
-          <div v-if="lastfm.scrobbling_enabled">
-            <a
-              class="button is-danger"
-              @click="logoutLastfm"
-              v-text="$t('actions.logout')"
-            />
-          </div>
-          <div v-if="!lastfm.scrobbling_enabled">
+          <div v-if="!servicesStore.isLastfmActive">
             <form @submit.prevent="loginLastfm">
               <div class="field is-grouped">
                 <div class="control">
@@ -83,7 +79,10 @@
                     type="text"
                     :placeholder="$t('page.settings.services.username')"
                   />
-                  <p class="help is-danger" v-text="lastfm_login.errors.user" />
+                  <div
+                    class="help is-danger"
+                    v-text="lastfm_login.errors.user"
+                  />
                 </div>
                 <div class="control">
                   <input
@@ -92,7 +91,7 @@
                     type="password"
                     :placeholder="$t('page.settings.services.password')"
                   />
-                  <p
+                  <div
                     class="help is-danger"
                     v-text="lastfm_login.errors.password"
                   />
@@ -105,12 +104,15 @@
                   />
                 </div>
               </div>
-              <p class="help is-danger" v-text="lastfm_login.errors.error" />
-              <p
-                class="help"
-                v-text="$t('page.settings.services.lastfm.info')"
-              />
+              <div class="help is-danger" v-text="lastfm_login.errors.error" />
             </form>
+          </div>
+          <div v-else>
+            <button
+              class="button is-danger"
+              @click="logoutLastfm"
+              v-text="$t('actions.logout')"
+            />
           </div>
         </div>
         <div v-else v-text="$t('page.settings.services.lastfm.no-support')" />
@@ -141,32 +143,6 @@ export default {
       }
     }
   },
-  computed: {
-    lastfm() {
-      return this.servicesStore.lastfm
-    },
-    spotify() {
-      return this.servicesStore.spotify
-    },
-    spotify_missing_scope() {
-      if (
-        this.spotify.webapi_token_valid &&
-        this.spotify.webapi_granted_scope &&
-        this.spotify.webapi_required_scope
-      ) {
-        return this.spotify.webapi_required_scope
-          .split(' ')
-          .filter((scope) => !this.spotify.webapi_granted_scope.includes(scope))
-      }
-      return []
-    },
-    spotify_required_scope() {
-      if (this.spotify.webapi_required_scope) {
-        return this.spotify.webapi_required_scope.split(' ')
-      }
-      return []
-    }
-  },
   methods: {
     loginLastfm() {
       webapi.lastfm_login(this.lastfm_login).then((response) => {
@@ -175,7 +151,6 @@ export default {
         this.lastfm_login.errors.user = ''
         this.lastfm_login.errors.password = ''
         this.lastfm_login.errors.error = ''
-
         if (!response.data.success) {
           this.lastfm_login.errors.user = response.data.errors.user
           this.lastfm_login.errors.password = response.data.errors.password

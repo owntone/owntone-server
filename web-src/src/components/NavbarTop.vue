@@ -116,7 +116,7 @@ export default {
         {
           key: 'navigation.spotify',
           name: 'music-spotify',
-          show: this.servicesStore.spotify.webapi_token_valid,
+          show: this.servicesStore.isSpotifyActive,
           sub: true
         },
         {

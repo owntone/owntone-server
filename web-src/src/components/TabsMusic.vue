@@ -41,7 +41,7 @@ export default {
           to: { name: 'music-composers' }
         }
       ]
-      if (this.servicesStore.spotify.webapi_token_valid) {
+      if (this.servicesStore.isSpotifyActive) {
         links.push({
           icon: 'spotify',
           key: 'page.music.tabs.spotify',
