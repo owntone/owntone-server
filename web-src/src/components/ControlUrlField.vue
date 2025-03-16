@@ -1,9 +1,9 @@
 <template>
   <div class="field">
-    <p class="control has-icons-left">
+    <div class="control has-icons-left">
       <input
         ref="input"
-        v-model="url"
+        v-model="value"
         class="input"
         type="url"
         pattern="http[s]?://.+"
@@ -13,8 +13,8 @@
         @input="validate"
       />
       <mdicon class="icon is-left" :name="icon" size="16" />
-    </p>
-    <p v-if="help" class="help" v-text="help" />
+    </div>
+    <div v-if="help" class="help" v-text="help" />
   </div>
 </template>
 
@@ -27,11 +27,11 @@ export default {
     loading: { default: false, type: Boolean },
     placeholder: { required: true, type: String }
   },
-  emits: ['url-changed'],
+  emits: ['input'],
   data() {
     return {
       disabled: true,
-      url: ''
+      value: ''
     }
   },
   mounted() {
@@ -43,7 +43,7 @@ export default {
     validate(event) {
       const { validity } = event.target
       this.disabled = validity.patternMismatch || validity.valueMissing
-      this.$emit('url-changed', this.url, this.disabled)
+      this.$emit('input', this.value, this.disabled)
     }
   }
 }

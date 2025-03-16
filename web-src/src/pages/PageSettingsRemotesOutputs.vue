@@ -34,9 +34,7 @@
             </div>
           </form>
         </div>
-        <div v-else>
-          <p v-text="$t('page.settings.devices.no-active-pairing')" />
-        </div>
+        <div v-else v-text="$t('page.settings.devices.no-active-pairing')" />
       </template>
     </content-with-heading>
     <content-with-heading>
@@ -46,7 +44,7 @@
         />
       </template>
       <template #content>
-        <p
+        <div
           class="content"
           v-text="$t('page.settings.devices.speaker-pairing-info')"
         />
@@ -78,7 +76,7 @@
                 <button
                   class="button"
                   type="submit"
-                  v-text="$t('page.settings.devices.verify')"
+                  v-text="$t('actions.verify')"
                 />
               </div>
             </div>

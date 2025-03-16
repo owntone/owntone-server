@@ -11,7 +11,7 @@
           icon="web"
           :loading="loading"
           :placeholder="$t('dialog.add.stream.placeholder')"
-          @url-changed="onUrlChanged"
+          @input="onUrlChange"
         />
       </form>
     </template>
@@ -73,7 +73,7 @@ export default {
     cancel() {
       this.$emit('close')
     },
-    onUrlChanged(url, disabled) {
+    onUrlChange(url, disabled) {
       this.url = url
       this.disabled = disabled
     },

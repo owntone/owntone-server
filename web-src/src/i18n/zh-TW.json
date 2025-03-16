@@ -21,7 +21,8 @@
     "send": "發送",
     "show-more": "顯示更多",
     "shuffle": "隨機播放",
-    "update": "更新"
+    "update": "更新",
+    "verify": "驗證"
   },
   "count": {
     "albums": "{count} 張專輯|{count} 張專輯",
@@ -268,8 +269,7 @@
         "pairing": "遙控配對",
         "speaker-pairing-info": "如果您的揚聲器需要配對，請在下面輸入它顯示的 PIN以啓用",
         "speaker-pairing": "揚聲器配對和設備驗證",
-        "verification-code": "驗證碼",
-        "verify": "驗證"
+        "verification-code": "驗證碼"
       },
       "general": {
         "audiobooks": "有聲書",
@@ -301,14 +301,13 @@
           "no-support": "OwnTone並無Last.fm的官方支持"
         },
         "spotify": {
+          "authorize": "授權 API 訪問",
+          "grant-access": "授予對 Spotify API 的訪問權限",
           "no-support": "OwnTone並無 Spotify 官方的支持，也未安裝 libspotify",
-          "logged-as": "登入為 ",
-          "requirements": "您必須擁有 Spotify付費帳戶。訪問 Spotify Web API 可以掃描您的 Spotify庫。所需範圍是：",
-          "user": "授予訪問權限",
-          "authorize": "授權 Web API 訪問",
-          "grant-access": "授予對 Spotify Web API 的訪問權限",
-          "reauthorize": "請重新授權 Web API 訪問權限，以授予 OwnTone 以下附加訪問權限：",
-          "title": "Spotify"
+          "reauthorize": "請重新授權 API 訪問權限，以授予 OwnTone 以下附加訪問權限：{scopes}",
+          "requirements": "您必須擁有 Spotify付費帳戶。訪問 Spotify API 可以掃描您的 Spotify庫。所需範圍是：{scopes}",
+          "title": "Spotify",
+          "user": "授予訪問權限 {user}"
         },
         "password": "密碼",
         "username": "用戶名"

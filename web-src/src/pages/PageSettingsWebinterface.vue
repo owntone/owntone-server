@@ -21,8 +21,8 @@
         />
       </template>
       <template #content>
-        <p
-          class="content"
+        <div
+          class=" "
           v-text="$t('page.settings.general.navigation-item-selection')"
         />
         <div

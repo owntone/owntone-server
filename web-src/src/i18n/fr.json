@@ -21,7 +21,8 @@
     "send": "Envoyer",
     "show-more": "Afficher plus",
     "shuffle": "Lecture aléatoire",
-    "update": "Actualiser"
+    "update": "Actualiser",
+    "verify": "Vérifier"
   },
   "count": {
     "albums": "{count} album|{count} album|{count} albums",
@@ -268,8 +269,7 @@
         "pairing": "Jumelage de télécommande",
         "speaker-pairing-info": "Si votre enceinte nécessite un jumelage, activez-la ci-dessous et entrez le code PIN qu’elle affiche.",
         "speaker-pairing": "Jumelage d’enceinte et vérification d’appareil",
-        "verification-code": "Code de vérification",
-        "verify": "Vérifier"
+        "verification-code": "Code de vérification"
       },
       "general": {
         "audiobooks": "Livres audio",
@@ -301,14 +301,13 @@
           "no-support": "L’option Last.fm n’est pas présente."
         },
         "spotify": {
-          "no-support": "L’option Spotify n’est pas présente.",
-          "logged-as": "Connecté en tant que ",
-          "requirements": "Vous devez posséder un compte Spotify Premium. L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants :",
-          "user": "Accès autorisé pour ",
           "authorize": "Autoriser l’accès à l’API",
-          "grant-access": "Accordez l’accès à l’API de Spotify",
-          "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants :",
-          "title": "Spotify"
+          "grant-access": "Accordez l’accès à l’API de Spotify.",
+          "no-support": "L’option Spotify n’est pas présente.",
+          "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants : {scopes}.",
+          "requirements": "Vous devez posséder un compte Spotify Premium. L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants : {scopes}.",
+          "title": "Spotify",
+          "user": "Accès autorisé pour {user}."
         },
         "password": "Mot de passe",
         "username": "Nom d’utilisateur"

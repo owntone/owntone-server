@@ -8,7 +8,7 @@
     <template #content>
       <form @submit.prevent="save">
         <div class="field">
-          <p class="control has-icons-left">
+          <div class="control has-icons-left">
             <input
               ref="playlist_name_field"
               v-model="playlistName"
@@ -21,7 +21,7 @@
               @input="check"
             />
             <mdicon class="icon is-left" name="playlist-music" size="16" />
-          </p>
+          </div>
         </div>
       </form>
     </template>

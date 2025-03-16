@@ -21,7 +21,8 @@
     "send": "Senden",
     "show-more": "Zeige mehr",
     "shuffle": "Zufallswiedergabe",
-    "update": "Neu einlesen"
+    "update": "Neu einlesen",
+    "verify": "Verifizieren"
   },
   "count": {
     "albums": "{count} Album|{count} Album|{count} Alben",
@@ -268,8 +269,7 @@
         "pairing": "Pairing Remote",
         "speaker-pairing-info": "Wenn der Laufsprecher PIN-basiertes Pairing verlangt, aktiviere ihn hier und gib dann den hier PIN an, der am Lautsprecher angezeigt wird.",
         "speaker-pairing": "Lautsprecher-Pairing und Geräteverifikation",
-        "verification-code": "Verifikationscode",
-        "verify": "Verifizieren"
+        "verification-code": "Verifikationscode"
       },
       "general": {
         "audiobooks": "Hörbücher",
@@ -295,20 +295,19 @@
       },
       "services": {
         "lastfm": {
-          "grant-access": "Melde Dich mit Deinem Last.fm-Benutzernamen und Passwort an, um Scrobbeln zu aktivieren",
+          "grant-access": "Melde Dich mit Deinem Last.fm-Benutzernamen und Passwort an, um Scrobbeln zu aktivieren.",
           "info": "OwnTone wird den Benutzernamen und das Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
           "title": "Last.fm",
           "no-support": "OwnTone wurde ohne Unterstützung für Last.fm erstellt."
         },
         "spotify": {
+          "authorize": "Authorisiere API-Zugriff",
+          "grant-access": "Zugriff auf die Spotify API gestatten.",
           "no-support": "OwnTone wurde entweder ohne Unterstützung für Spotify erstellt oder libspotify ist nicht installiert.",
-          "logged-as": "Angemeldet als ",
-          "requirements": "Spotify Premium Abo erforderlich. Zugriff auf die Spotify Web-Api ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: ",
-          "user": "Zugriff gestattet für ",
-          "authorize": "Authorisiere Web-API-Zugriff",
-          "grant-access": "Zugriff auf die Spotify Web-API gestatten",
-          "reauthorize": "Bitte den Zugriff der Web-API durch setzen folgender Zugriffsrechte für OwnTone: ",
-          "title": "Spotify"
+          "reauthorize": "Bitte den Zugriff der API durch setzen folgender Zugriffsrechte für OwnTone: {scopes}.",
+          "requirements": "Spotify Premium Abo erforderlich. Zugriff auf die Spotify API ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: {scopes}.",
+          "title": "Spotify",
+          "user": "Zugriff gestattet für {user}."
         },
         "password": "Passwort",
         "username": "Benutzername"

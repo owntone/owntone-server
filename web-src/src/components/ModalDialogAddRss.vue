@@ -11,7 +11,7 @@
         :help="$t('dialog.add.rss.help')"
         :loading="loading"
         :placeholder="$t('dialog.add.rss.placeholder')"
-        @url-changed="onUrlChanged"
+        @input="onUrlChange"
       />
     </template>
   </modal-dialog>
@@ -67,7 +67,7 @@ export default {
     cancel() {
       this.$emit('close')
     },
-    onUrlChanged(url, disabled) {
+    onUrlChange(url, disabled) {
       this.url = url
       this.disabled = disabled
     }

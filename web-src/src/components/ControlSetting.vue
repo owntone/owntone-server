@@ -13,9 +13,9 @@
           size="16"
         />
       </div>
-      <p v-if="$slots.help" class="help mb-4">
+      <div v-if="$slots.help" class="help mb-4">
         <slot name="help" />
-      </p>
+      </div>
     </div>
   </fieldset>
 </template>

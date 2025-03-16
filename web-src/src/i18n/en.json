@@ -21,7 +21,8 @@
     "send": "Send",
     "show-more": "Show more",
     "shuffle": "Shuffle",
-    "update": "Update"
+    "update": "Update",
+    "verify": "Verify"
   },
   "count": {
     "albums": "{count} album|{count} album|{count} albums",
@@ -268,8 +269,7 @@
         "pairing": "Remote Pairing",
         "speaker-pairing-info": "If your speaker requires pairing then activate it below and enter the PIN that it displays.",
         "speaker-pairing": "Speaker pairing and device verification",
-        "verification-code": "Verification code",
-        "verify": "Verify"
+        "verification-code": "Verification code"
       },
       "general": {
         "audiobooks": "Audiobooks",
@@ -295,20 +295,19 @@
       },
       "services": {
         "lastfm": {
-          "grant-access": "Login with your Last.fm username and password to enable scrobbling",
+          "grant-access": "Login with your Last.fm username and password to enable scrobbling.",
           "info": "OwnTone will not store your Last.fm username/password, only the session key. The session key does not expire.",
           "title": "Last.fm",
           "no-support": "OwnTone was built without support for Last.fm."
         },
         "spotify": {
+          "authorize": "Authorize API access",
+          "grant-access": "Grant access to the Spotify API.",
           "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",
-          "logged-as": "Logged in as ",
-          "requirements": "You must have a Spotify premium account. Access to the Spotify Web API enables scanning of your Spotify library. Required scopes are: ",
-          "user": "Access granted for ",
-          "authorize": "Authorize Web API access",
-          "grant-access": "Grant access to the Spotify Web API",
-          "reauthorize": "Please reauthorize Web API access to grant OwnTone the following additional access rights: ",
-          "title": "Spotify"
+          "reauthorize": "Please reauthorize API access to grant OwnTone the following additional access rights: {scopes}.",
+          "requirements": "You must have a Spotify premium account. Access to the Spotify API enables scanning of your Spotify library. Required scopes are: {scopes}.",
+          "title": "Spotify",
+          "user": "Access granted for {user}"
         },
         "password": "Password",
         "username": "Username"
