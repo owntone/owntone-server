@@ -48,35 +48,33 @@
     </div>
   </section>
   <tabs-search @search-library="search" @search-spotify="searchSpotify" />
-  <template v-for="[type, items] in results" :key="type">
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="{ title: $t(`page.search.${type}s`) }" />
-      </template>
-      <template #content>
-        <component :is="components[type]" :items="items" />
-      </template>
-      <template v-if="!expanded" #footer>
-        <nav v-if="showAllButton(items)" class="level">
-          <div class="level-item">
-            <control-button
-              :button="{
-                handler: () => expand(type),
-                title: $t(
-                  `page.search.show-${type}s`,
-                  { count: $n(items.total) },
-                  items.total
-                )
-              }"
-            />
-          </div>
-        </nav>
-        <div v-if="!items.total" class="has-text-centered-mobile">
-          <i v-text="$t('page.search.no-results')" />
+  <content-with-heading v-for="[type, items] in results" :key="type">
+    <template #heading>
+      <heading-title :content="{ title: $t(`page.search.${type}s`) }" />
+    </template>
+    <template #content>
+      <component :is="components[type]" :items="items" />
+    </template>
+    <template v-if="!expanded" #footer>
+      <nav v-if="showAllButton(items)" class="level">
+        <div class="level-item">
+          <control-button
+            :button="{
+              handler: () => expand(type),
+              title: $t(
+                `page.search.show-${type}s`,
+                { count: $n(items.total) },
+                items.total
+              )
+            }"
+          />
         </div>
-      </template>
-    </content-with-heading>
-  </template>
+      </nav>
+      <div v-if="!items.total" class="has-text-centered-mobile">
+        <i v-text="$t('page.search.no-results')" />
+      </div>
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

@@ -323,18 +323,6 @@
       "music": {
         "featured-playlists": "特色列表",
         "new-releases": "最新發行"
-      },
-      "search": {
-        "albums": "專輯",
-        "artists": "藝人",
-        "no-results": "未找到結果",
-        "placeholder": "搜尋",
-        "playlists": "播放列表",
-        "show-albums": "顯示專輯|顯示所有 {count} 個專輯",
-        "show-artists": "顯示藝人|顯示所有 {count} 位藝人",
-        "show-playlists": "顯示播放列表|顯示所有 {count} 個播放列表",
-        "show-tracks": "顯示曲目|顯示所有 {count} 首曲目",
-        "tracks": "曲目"
       }
     }
   },

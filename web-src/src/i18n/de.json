@@ -323,18 +323,6 @@
       "music": {
         "featured-playlists": "Ausgezeichnete Playlisten",
         "new-releases": "Neuvorstellung"
-      },
-      "search": {
-        "albums": "Alben",
-        "artists": "Künstler",
-        "no-results": "Keine Ergebnisse gefunden",
-        "placeholder": "Suche",
-        "playlists": "Playlisten",
-        "show-albums": "Zeige das Album|Zeige alle {count} Alben",
-        "show-artists": "Zeige den Künstler|Zeige alle {count} Künstler",
-        "show-playlists": "Zeige die Playlist|Zeige alle {count} Playlisten",
-        "show-tracks": "Zeige den Track|Zeige alle {count} Tracks",
-        "tracks": "Tracks"
       }
     }
   },

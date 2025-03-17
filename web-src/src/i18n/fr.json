@@ -323,18 +323,6 @@
       "music": {
         "featured-playlists": "Listes de lecture en vedette",
         "new-releases": "Nouvelle sorties"
-      },
-      "search": {
-        "albums": "Albums",
-        "artists": "Artistes",
-        "no-results": "Aucun résultat trouvé",
-        "placeholder": "Recherche",
-        "playlists": "Listes de lecture",
-        "show-albums": "Afficher l’album|Afficher les {count} albums",
-        "show-artists": "Afficher l’artiste|Afficher les {count} artistes",
-        "show-playlists": "Afficher la liste de lecture|Afficher les {count} listes de lecture",
-        "show-tracks": "Afficher la piste|Afficher les {count} pistes",
-        "tracks": "Pistes"
       }
     }
   },

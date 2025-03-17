@@ -323,18 +323,6 @@
       "music": {
         "featured-playlists": "Featured Playlists",
         "new-releases": "New Releases"
-      },
-      "search": {
-        "albums": "Albums",
-        "artists": "Artists",
-        "no-results": "No results found",
-        "placeholder": "Search",
-        "playlists": "Playlists",
-        "show-albums": "Show the album|Show all {count} albums",
-        "show-artists": "Show the artist|Show all {count} artists",
-        "show-playlists": "Show the playlist|Show all {count} playlists",
-        "show-tracks": "Show the track|Show all {count} tracks",
-        "tracks": "Tracks"
       }
     }
   },

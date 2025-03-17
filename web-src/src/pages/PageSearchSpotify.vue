@@ -11,7 +11,7 @@
                   v-model="query"
                   class="input is-rounded"
                   type="text"
-                  :placeholder="$t('page.spotify.search.placeholder')"
+                  :placeholder="$t('page.search.placeholder')"
                   autocomplete="off"
                 />
                 <mdicon class="icon is-left" name="magnify" size="16" />
@@ -31,49 +31,45 @@
     </div>
   </section>
   <tabs-search @search-library="searchLibrary" @search-spotify="search" />
-  <template v-for="[type, items] in results" :key="type">
-    <content-with-heading>
-      <template #heading>
-        <heading-title
-          :content="{ title: $t(`page.spotify.search.${type}s`) }"
-        />
-      </template>
-      <template #content>
-        <component :is="components[type]" :items="items.items" />
-        <vue-eternal-loading v-if="expanded" :load="searchNext">
-          <template #loading>
-            <div class="columns is-centered">
-              <div class="column has-text-centered">
-                <mdicon class="icon mdi-spin" name="loading" />
-              </div>
+  <content-with-heading v-for="[type, items] in results" :key="type">
+    <template #heading>
+      <heading-title :content="{ title: $t(`page.search.${type}s`) }" />
+    </template>
+    <template #content>
+      <component :is="components[type]" :items="items.items" />
+      <vue-eternal-loading v-if="expanded" :load="searchNext">
+        <template #loading>
+          <div class="columns is-centered">
+            <div class="column has-text-centered">
+              <mdicon class="icon mdi-spin" name="loading" />
             </div>
-          </template>
-          <template #no-more>
-            <br />
-          </template>
-        </vue-eternal-loading>
-      </template>
-      <template v-if="!expanded" #footer>
-        <nav v-if="showAllButton(items)" class="level">
-          <div class="level-item">
-            <control-button
-              :button="{
-                handler: () => expand(type),
-                title: $t(
-                  `page.spotify.search.show-${type}s`,
-                  { count: `${$n(items.total)}` },
-                  items.total
-                )
-              }"
-            />
           </div>
-        </nav>
-        <div v-if="!items.total" class="has-text-centered-mobile">
-          <i v-text="$t(`page.spotify.search.no-results`)" />
+        </template>
+        <template #no-more>
+          <br />
+        </template>
+      </vue-eternal-loading>
+    </template>
+    <template v-if="!expanded" #footer>
+      <nav v-if="showAllButton(items)" class="level">
+        <div class="level-item">
+          <control-button
+            :button="{
+              handler: () => expand(type),
+              title: $t(
+                `page.search.show-${type}s`,
+                { count: $n(items.total) },
+                items.total
+              )
+            }"
+          />
         </div>
-      </template>
-    </content-with-heading>
-  </template>
+      </nav>
+      <div v-if="!items.total" class="has-text-centered-mobile">
+        <i v-text="$t('page.search.no-results')" />
+      </div>
+    </template>
+  </content-with-heading>
 </template>
 
 <script>
