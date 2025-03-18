@@ -1,27 +1,25 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-        />
-        <control-button
-          :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
-        />
-      </template>
-      <template #content>
-        <list-albums :items="albums" />
-        <modal-dialog-composer
-          :item="composer"
-          :show="showDetailsModal"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
+      />
+      <control-button
+        :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
+      />
+    </template>
+    <template #content>
+      <list-albums :items="albums" />
+    </template>
+  </content-with-heading>
+  <modal-dialog-composer
+    :item="composer"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

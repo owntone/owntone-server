@@ -1,43 +1,41 @@
 <template>
-  <div>
-    <tabs-music />
-    <content-with-heading>
-      <template #heading>
-        <heading-title
-          :content="{ title: $t('page.spotify.music.new-releases') }"
-        />
-      </template>
-      <template #content>
-        <list-albums-spotify :items="albums" />
-      </template>
-      <template #footer>
-        <router-link
-          :to="{ name: 'music-spotify-new-releases' }"
-          class="button is-small is-rounded"
-        >
-          {{ $t('actions.show-more') }}
-        </router-link>
-      </template>
-    </content-with-heading>
-    <content-with-heading>
-      <template #heading>
-        <heading-title
-          :content="{ title: $t('page.spotify.music.featured-playlists') }"
-        />
-      </template>
-      <template #content>
-        <list-playlists-spotify :items="playlists" />
-      </template>
-      <template #footer>
-        <router-link
-          :to="{ name: 'music-spotify-featured-playlists' }"
-          class="button is-small is-rounded"
-        >
-          {{ $t('actions.show-more') }}
-        </router-link>
-      </template>
-    </content-with-heading>
-  </div>
+  <tabs-music />
+  <content-with-heading>
+    <template #heading>
+      <heading-title
+        :content="{ title: $t('page.spotify.music.new-releases') }"
+      />
+    </template>
+    <template #content>
+      <list-albums-spotify :items="albums" />
+    </template>
+    <template #footer>
+      <router-link
+        :to="{ name: 'music-spotify-new-releases' }"
+        class="button is-small is-rounded"
+      >
+        {{ $t('actions.show-more') }}
+      </router-link>
+    </template>
+  </content-with-heading>
+  <content-with-heading>
+    <template #heading>
+      <heading-title
+        :content="{ title: $t('page.spotify.music.featured-playlists') }"
+      />
+    </template>
+    <template #content>
+      <list-playlists-spotify :items="playlists" />
+    </template>
+    <template #footer>
+      <router-link
+        :to="{ name: 'music-spotify-featured-playlists' }"
+        class="button is-small is-rounded"
+      >
+        {{ $t('actions.show-more') }}
+      </router-link>
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

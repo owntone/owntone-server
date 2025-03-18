@@ -1,42 +1,40 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-        />
-        <control-button
-          :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
-        />
-      </template>
-      <template #content>
-        <list-albums-spotify :items="albums" />
-        <vue-eternal-loading v-if="offset < total" :load="loadNext">
-          <template #loading>
-            <div class="columns is-centered">
-              <div class="column has-text-centered">
-                <mdicon class="icon mdi-spin" name="loading" />
-              </div>
+  <content-with-heading>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
+      />
+      <control-button
+        :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
+      />
+    </template>
+    <template #content>
+      <list-albums-spotify :items="albums" />
+      <vue-eternal-loading v-if="offset < total" :load="loadNext">
+        <template #loading>
+          <div class="columns is-centered">
+            <div class="column has-text-centered">
+              <mdicon class="icon mdi-spin" name="loading" />
             </div>
-          </template>
-          <template #no-more>
-            <br />
-          </template>
-          <template #no-results>
-            <br />
-          </template>
-        </vue-eternal-loading>
-        <modal-dialog-artist-spotify
-          :item="artist"
-          :show="showDetailsModal"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+          </div>
+        </template>
+        <template #no-more>
+          <br />
+        </template>
+        <template #no-results>
+          <br />
+        </template>
+      </vue-eternal-loading>
+    </template>
+  </content-with-heading>
+  <modal-dialog-artist-spotify
+    :item="artist"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

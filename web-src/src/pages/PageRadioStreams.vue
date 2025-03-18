@@ -1,14 +1,12 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #content>
-        <list-tracks :items="tracks" />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #content>
+      <list-tracks :items="tracks" />
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

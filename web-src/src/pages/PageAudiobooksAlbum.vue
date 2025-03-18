@@ -1,28 +1,26 @@
 <template>
-  <div>
-    <content-with-hero>
-      <template #heading>
-        <heading-hero :content="heading" />
-      </template>
-      <template #image>
-        <control-image
-          :url="album.artwork_url"
-          :caption="album.name"
-          class="is-clickable is-medium"
-          @click="openDetails"
-        />
-      </template>
-      <template #content>
-        <list-tracks :items="tracks" :show-progress="true" :uris="album.uri" />
-        <modal-dialog-album
-          :item="album"
-          :show="showDetailsModal"
-          :media_kind="'audiobook'"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-hero>
-  </div>
+  <content-with-hero>
+    <template #heading>
+      <heading-hero :content="heading" />
+    </template>
+    <template #image>
+      <control-image
+        :url="album.artwork_url"
+        :caption="album.name"
+        class="is-clickable is-medium"
+        @click="openDetails"
+      />
+    </template>
+    <template #content>
+      <list-tracks :items="tracks" :show-progress="true" :uris="album.uri" />
+    </template>
+  </content-with-hero>
+  <modal-dialog-album
+    :item="album"
+    :show="showDetailsModal"
+    :media_kind="'audiobook'"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

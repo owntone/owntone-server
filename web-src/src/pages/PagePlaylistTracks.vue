@@ -1,33 +1,31 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-        />
-        <control-button
-          :button="{
-            handler: play,
-            icon: 'shuffle',
-            key: 'actions.shuffle'
-          }"
-          :disabled="tracks.count === 0"
-        />
-      </template>
-      <template #content>
-        <list-tracks :items="tracks" :uris="uris" />
-        <modal-dialog-playlist
-          :item="playlist"
-          :show="showDetailsModal"
-          :uris="uris"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
+      />
+      <control-button
+        :button="{
+          handler: play,
+          icon: 'shuffle',
+          key: 'actions.shuffle'
+        }"
+        :disabled="tracks.count === 0"
+      />
+    </template>
+    <template #content>
+      <list-tracks :items="tracks" :uris="uris" />
+    </template>
+  </content-with-heading>
+  <modal-dialog-playlist
+    :item="playlist"
+    :show="showDetailsModal"
+    :uris="uris"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

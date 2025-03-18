@@ -1,18 +1,16 @@
 <template>
-  <div>
-    <tabs-audiobooks />
-    <content-with-heading>
-      <template #options>
-        <index-button-list :indices="albums.indices" />
-      </template>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #content>
-        <list-albums :items="albums" />
-      </template>
-    </content-with-heading>
-  </div>
+  <tabs-audiobooks />
+  <content-with-heading>
+    <template #options>
+      <index-button-list :indices="albums.indices" />
+    </template>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #content>
+      <list-albums :items="albums" />
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

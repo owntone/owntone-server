@@ -1,17 +1,15 @@
 <template>
-  <div>
-    <tabs-music />
-    <content-with-heading>
-      <template #heading>
-        <heading-title
-          :content="{ title: $t('page.music.recently-added.title') }"
-        />
-      </template>
-      <template #content>
-        <list-albums :items="albums" />
-      </template>
-    </content-with-heading>
-  </div>
+  <tabs-music />
+  <content-with-heading>
+    <template #heading>
+      <heading-title
+        :content="{ title: $t('page.music.recently-added.title') }"
+      />
+    </template>
+    <template #content>
+      <list-albums :items="albums" />
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

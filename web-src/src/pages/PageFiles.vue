@@ -1,28 +1,22 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="{ title: name }" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-        />
-        <control-button
-          :button="{ handler: play, icon: 'play', key: 'actions.play' }"
-        />
-      </template>
-      <template #content>
-        <list-directories :items="directories" />
-        <list-playlists :items="playlists" />
-        <list-tracks
-          :expression="expression"
-          :items="tracks"
-          icon="file-music-outline"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading>
+    <template #heading>
+      <heading-title :content="{ title: name }" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
+      />
+      <control-button
+        :button="{ handler: play, icon: 'play', key: 'actions.play' }"
+      />
+    </template>
+    <template #content>
+      <list-directories :items="directories" />
+      <list-playlists :items="playlists" />
+      <list-tracks :items="tracks" icon="file-music-outline" />
+    </template>
+  </content-with-heading>
   <modal-dialog-playable
     :item="playable"
     :show="showDetailsModal"
@@ -108,9 +102,6 @@ export default {
   computed: {
     current() {
       return this.$route.query?.directory || '/'
-    },
-    expression() {
-      return `path starts with "${this.current}" order by path asc`
     },
     name() {
       if (this.current !== '/') {

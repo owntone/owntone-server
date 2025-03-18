@@ -1,90 +1,88 @@
 <template>
-  <div>
-    <tabs-settings />
-    <content-with-heading>
-      <template #heading>
-        <heading-title
-          :content="{ title: $t('page.settings.devices.pairing') }"
-        />
-      </template>
-      <template #content>
-        <div v-if="pairing.active">
-          <form @submit.prevent="kickoffPairing">
-            <label class="label has-text-weight-normal content">
-              <span v-text="$t('page.settings.devices.pairing-request')" />
-              <b v-text="pairing.remote" />
-            </label>
-            <div class="field is-grouped">
-              <div class="control">
-                <input
-                  v-model="pairingRequest.pin"
-                  class="input"
-                  inputmode="numeric"
-                  pattern="[\d]{4}"
-                  :placeholder="$t('page.settings.devices.pairing-code')"
-                />
-              </div>
-              <div class="control">
-                <button
-                  class="button"
-                  type="submit"
-                  v-text="$t('actions.send')"
-                />
-              </div>
+  <tabs-settings />
+  <content-with-heading>
+    <template #heading>
+      <heading-title
+        :content="{ title: $t('page.settings.devices.pairing') }"
+      />
+    </template>
+    <template #content>
+      <div v-if="pairing.active">
+        <form @submit.prevent="kickoffPairing">
+          <label class="label has-text-weight-normal content">
+            <span v-text="$t('page.settings.devices.pairing-request')" />
+            <b v-text="pairing.remote" />
+          </label>
+          <div class="field is-grouped">
+            <div class="control">
+              <input
+                v-model="pairingRequest.pin"
+                class="input"
+                inputmode="numeric"
+                pattern="[\d]{4}"
+                :placeholder="$t('page.settings.devices.pairing-code')"
+              />
             </div>
-          </form>
-        </div>
-        <div v-else v-text="$t('page.settings.devices.no-active-pairing')" />
-      </template>
-    </content-with-heading>
-    <content-with-heading>
-      <template #heading>
-        <heading-title
-          :content="{ title: $t('page.settings.devices.speaker-pairing') }"
-        />
-      </template>
-      <template #content>
-        <div
-          class="content"
-          v-text="$t('page.settings.devices.speaker-pairing-info')"
-        />
-        <div v-for="output in outputs" :key="output.id">
-          <control-switch
-            v-model="output.selected"
-            @update:model-value="toggleOutput(output.id)"
-          >
-            <template #label>
-              <span v-text="output.name" />
-            </template>
-          </control-switch>
-          <form
-            v-if="output.needs_auth_key"
-            class="mb-5"
-            @submit.prevent="kickoffVerification(output.id)"
-          >
-            <div class="field is-grouped">
-              <div class="control">
-                <input
-                  v-model="verificationRequest.pin"
-                  class="input"
-                  inputmode="numeric"
-                  pattern="[\d]{4}"
-                  :placeholder="$t('page.settings.devices.verification-code')"
-                />
-              </div>
-              <div class="control">
-                <button
-                  class="button"
-                  type="submit"
-                  v-text="$t('actions.verify')"
-                />
-              </div>
+            <div class="control">
+              <button
+                class="button"
+                type="submit"
+                v-text="$t('actions.send')"
+              />
             </div>
-          </form>
-        </div>
-      </template>
-    </content-with-heading>
-  </div>
+          </div>
+        </form>
+      </div>
+      <div v-else v-text="$t('page.settings.devices.no-active-pairing')" />
+    </template>
+  </content-with-heading>
+  <content-with-heading>
+    <template #heading>
+      <heading-title
+        :content="{ title: $t('page.settings.devices.speaker-pairing') }"
+      />
+    </template>
+    <template #content>
+      <div
+        class="content"
+        v-text="$t('page.settings.devices.speaker-pairing-info')"
+      />
+      <div v-for="output in outputs" :key="output.id">
+        <control-switch
+          v-model="output.selected"
+          @update:model-value="toggleOutput(output.id)"
+        >
+          <template #label>
+            <span v-text="output.name" />
+          </template>
+        </control-switch>
+        <form
+          v-if="output.needs_auth_key"
+          class="mb-5"
+          @submit.prevent="kickoffVerification(output.id)"
+        >
+          <div class="field is-grouped">
+            <div class="control">
+              <input
+                v-model="verificationRequest.pin"
+                class="input"
+                inputmode="numeric"
+                pattern="[\d]{4}"
+                :placeholder="$t('page.settings.devices.verification-code')"
+              />
+            </div>
+            <div class="control">
+              <button
+                class="button"
+                type="submit"
+                v-text="$t('actions.verify')"
+              />
+            </div>
+          </div>
+        </form>
+      </div>
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

@@ -20,22 +20,14 @@
       <slot name="actions" />
     </div>
   </div>
-  <template v-for="item in items" :key="item.path">
-    <div
-      class="media is-align-items-center is-clickable mb-0"
-      @click="open(item)"
-    >
-      <mdicon class="media-left icon" name="folder" />
-      <div class="media-content">
-        <div class="is-size-6 has-text-weight-bold" v-text="item.name" />
-      </div>
-      <div class="media-right">
-        <a @click.prevent.stop="openDetails(item)">
-          <mdicon class="icon has-text-grey" name="dots-vertical" size="16" />
-        </a>
-      </div>
-    </div>
-  </template>
+  <list-item
+    v-for="item in items"
+    :key="item.path"
+    icon="folder"
+    :lines="[item.name]"
+    @open="open(item)"
+    @open-details="openDetails(item)"
+  />
   <modal-dialog-directory
     :item="selectedItem"
     :show="showDetailsModal"
@@ -44,17 +36,16 @@
 </template>
 
 <script>
+import ListItem from '@/components/ListItem.vue'
 import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
 
 export default {
   name: 'ListDirectories',
-  components: { ModalDialogDirectory },
+  components: { ListItem, ModalDialogDirectory },
   props: { items: { required: true, type: Array } },
-
   data() {
     return { selectedItem: '', showDetailsModal: false }
   },
-
   computed: {
     directories() {
       const directories = []
@@ -69,7 +60,6 @@ export default {
       return directories
     }
   },
-
   methods: {
     open(item) {
       const route = { name: 'files' }

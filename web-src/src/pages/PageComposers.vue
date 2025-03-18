@@ -1,18 +1,16 @@
 <template>
-  <div>
-    <tabs-music />
-    <content-with-heading>
-      <template #options>
-        <index-button-list :indices="composers.indices" />
-      </template>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #content>
-        <list-composers :items="composers" />
-      </template>
-    </content-with-heading>
-  </div>
+  <tabs-music />
+  <content-with-heading>
+    <template #options>
+      <index-button-list :indices="composers.indices" />
+    </template>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #content>
+      <list-composers :items="composers" />
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

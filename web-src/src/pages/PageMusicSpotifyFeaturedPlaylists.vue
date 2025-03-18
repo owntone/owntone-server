@@ -1,15 +1,13 @@
 <template>
-  <div>
-    <tabs-music />
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #content>
-        <list-playlists-spotify :items="playlists" />
-      </template>
-    </content-with-heading>
-  </div>
+  <tabs-music />
+  <content-with-heading>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #content>
+      <list-playlists-spotify :items="playlists" />
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

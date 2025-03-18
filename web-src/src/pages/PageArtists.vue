@@ -1,47 +1,45 @@
 <template>
-  <div>
-    <tabs-music />
-    <content-with-heading>
-      <template #options>
-        <index-button-list :indices="artists.indices" />
-        <list-options>
-          <template #filter>
-            <control-switch v-model="uiStore.hideSingles">
-              <template #label>
-                <span v-text="$t('options.filter.hide-singles')" />
-              </template>
-              <template #help>
-                <span v-text="$t('options.filter.hide-singles-help')" />
-              </template>
-            </control-switch>
-            <control-switch
-              v-if="servicesStore.isSpotifyActive"
-              v-model="uiStore.hideSpotify"
-            >
-              <template #label>
-                <span v-text="$t('options.filter.hide-spotify')" />
-              </template>
-              <template #help>
-                <span v-text="$t('options.filter.hide-spotify-help')" />
-              </template>
-            </control-switch>
-          </template>
-          <template #sort>
-            <control-dropdown
-              v-model:value="uiStore.artistsSort"
-              :options="groupings"
-            />
-          </template>
-        </list-options>
-      </template>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #content>
-        <list-artists :items="artists" />
-      </template>
-    </content-with-heading>
-  </div>
+  <tabs-music />
+  <content-with-heading>
+    <template #options>
+      <index-button-list :indices="artists.indices" />
+      <list-options>
+        <template #filter>
+          <control-switch v-model="uiStore.hideSingles">
+            <template #label>
+              <span v-text="$t('options.filter.hide-singles')" />
+            </template>
+            <template #help>
+              <span v-text="$t('options.filter.hide-singles-help')" />
+            </template>
+          </control-switch>
+          <control-switch
+            v-if="servicesStore.isSpotifyActive"
+            v-model="uiStore.hideSpotify"
+          >
+            <template #label>
+              <span v-text="$t('options.filter.hide-spotify')" />
+            </template>
+            <template #help>
+              <span v-text="$t('options.filter.hide-spotify-help')" />
+            </template>
+          </control-switch>
+        </template>
+        <template #sort>
+          <control-dropdown
+            v-model:value="uiStore.artistsSort"
+            :options="groupings"
+          />
+        </template>
+      </list-options>
+    </template>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #content>
+      <list-artists :items="artists" />
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

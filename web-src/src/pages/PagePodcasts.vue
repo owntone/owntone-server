@@ -1,61 +1,59 @@
 <template>
-  <div>
-    <content-with-heading v-if="tracks.items.length > 0">
-      <template #heading>
-        <heading-title :content="{ title: $t('page.podcasts.new-episodes') }" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{
-            handler: markAllAsPlayed,
-            icon: 'pencil',
-            key: 'actions.mark-all-played'
-          }"
-        />
-      </template>
-      <template #content>
-        <list-tracks
-          :items="tracks"
-          :show-progress="true"
-          @play-count-changed="reloadNewEpisodes"
-        />
-      </template>
-    </content-with-heading>
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #actions>
-        <control-button
-          v-if="rss.tracks > 0"
-          :button="{
-            handler: updateRss,
-            icon: 'refresh',
-            key: 'actions.update'
-          }"
-        />
-        <control-button
-          :button="{
-            handler: openAddPodcastDialog,
-            icon: 'rss',
-            key: 'actions.add'
-          }"
-        />
-      </template>
-      <template #content>
-        <list-albums
-          :items="albums"
-          @play-count-changed="reloadNewEpisodes()"
-          @podcast-deleted="reloadPodcasts()"
-        />
-        <modal-dialog-add-rss
-          :show="showAddPodcastModal"
-          @close="showAddPodcastModal = false"
-          @podcast-added="reloadPodcasts()"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading v-if="tracks.items.length > 0">
+    <template #heading>
+      <heading-title :content="{ title: $t('page.podcasts.new-episodes') }" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{
+          handler: markAllAsPlayed,
+          icon: 'pencil',
+          key: 'actions.mark-all-played'
+        }"
+      />
+    </template>
+    <template #content>
+      <list-tracks
+        :items="tracks"
+        :show-progress="true"
+        @play-count-changed="reloadNewEpisodes"
+      />
+    </template>
+  </content-with-heading>
+  <content-with-heading>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #actions>
+      <control-button
+        v-if="rss.tracks > 0"
+        :button="{
+          handler: updateRss,
+          icon: 'refresh',
+          key: 'actions.update'
+        }"
+      />
+      <control-button
+        :button="{
+          handler: openAddPodcastDialog,
+          icon: 'rss',
+          key: 'actions.add'
+        }"
+      />
+    </template>
+    <template #content>
+      <list-albums
+        :items="albums"
+        @play-count-changed="reloadNewEpisodes()"
+        @podcast-deleted="reloadPodcasts()"
+      />
+    </template>
+  </content-with-heading>
+  <modal-dialog-add-rss
+    :show="showAddPodcastModal"
+    @close="showAddPodcastModal = false"
+    @podcast-added="reloadPodcasts()"
+  />
 </template>
 
 <script>

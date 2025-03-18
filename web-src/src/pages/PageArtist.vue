@@ -1,50 +1,48 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #options>
-        <list-options>
-          <template #filter>
-            <control-switch
-              v-if="servicesStore.isSpotifyActive"
-              v-model="uiStore.hideSpotify"
-            >
-              <template #label>
-                <span v-text="$t('page.artist.filter.hide-spotify')" />
-              </template>
-              <template #help>
-                <span v-text="$t('page.artist.filter.hide-spotify-help')" />
-              </template>
-            </control-switch>
-          </template>
-          <template #sort>
-            <control-dropdown
-              v-model:value="uiStore.artistAlbumsSort"
-              :options="groupings"
-            />
-          </template>
-        </list-options>
-      </template>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-        />
-        <control-button
-          :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
-        />
-      </template>
-      <template #content>
-        <list-albums :items="albums" />
-        <modal-dialog-artist
-          :item="artist"
-          :show="showDetailsModal"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading>
+    <template #options>
+      <list-options>
+        <template #filter>
+          <control-switch
+            v-if="servicesStore.isSpotifyActive"
+            v-model="uiStore.hideSpotify"
+          >
+            <template #label>
+              <span v-text="$t('page.artist.filter.hide-spotify')" />
+            </template>
+            <template #help>
+              <span v-text="$t('page.artist.filter.hide-spotify-help')" />
+            </template>
+          </control-switch>
+        </template>
+        <template #sort>
+          <control-dropdown
+            v-model:value="uiStore.artistAlbumsSort"
+            :options="groupings"
+          />
+        </template>
+      </list-options>
+    </template>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
+      />
+      <control-button
+        :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
+      />
+    </template>
+    <template #content>
+      <list-albums :items="albums" />
+    </template>
+  </content-with-heading>
+  <modal-dialog-artist
+    :item="artist"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

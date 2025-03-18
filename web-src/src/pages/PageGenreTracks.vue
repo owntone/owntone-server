@@ -1,39 +1,37 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #options>
-        <index-button-list :indices="tracks.indices" />
-        <list-options>
-          <template #sort>
-            <control-dropdown
-              v-model:value="uiStore.genreTracksSort"
-              :options="groupings"
-            />
-          </template>
-        </list-options>
-      </template>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-        />
-        <control-button
-          :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
-        />
-      </template>
-      <template #content>
-        <list-tracks :items="tracks" :expression="expression" />
-        <modal-dialog-genre
-          :item="genre"
-          :media_kind="media_kind"
-          :show="showDetailsModal"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading>
+    <template #options>
+      <index-button-list :indices="tracks.indices" />
+      <list-options>
+        <template #sort>
+          <control-dropdown
+            v-model:value="uiStore.genreTracksSort"
+            :options="groupings"
+          />
+        </template>
+      </list-options>
+    </template>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
+      />
+      <control-button
+        :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
+      />
+    </template>
+    <template #content>
+      <list-tracks :items="tracks" :expression="expression" />
+    </template>
+  </content-with-heading>
+  <modal-dialog-genre
+    :item="genre"
+    :media_kind="media_kind"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

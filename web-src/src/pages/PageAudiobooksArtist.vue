@@ -1,27 +1,25 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-        />
-        <control-button
-          :button="{ handler: play, icon: 'play', key: 'actions.play' }"
-        />
-      </template>
-      <template #content>
-        <list-albums :items="albums" />
-        <modal-dialog-artist
-          :item="artist"
-          :show="showDetailsModal"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
+      />
+      <control-button
+        :button="{ handler: play, icon: 'play', key: 'actions.play' }"
+      />
+    </template>
+    <template #content>
+      <list-albums :items="albums" />
+    </template>
+  </content-with-heading>
+  <modal-dialog-artist
+    :item="artist"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

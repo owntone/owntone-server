@@ -1,27 +1,25 @@
 <template>
-  <div>
-    <content-with-hero>
-      <template #heading>
-        <heading-hero :content="heading" />
-      </template>
-      <template #image>
-        <control-image
-          :url="album.images?.[0]?.url ?? ''"
-          :caption="album.name"
-          class="is-clickable is-medium"
-          @click="openDetails"
-        />
-      </template>
-      <template #content>
-        <list-tracks-spotify :items="tracks" :context_uri="album.uri" />
-        <modal-dialog-album-spotify
-          :item="album"
-          :show="showDetailsModal"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-hero>
-  </div>
+  <content-with-hero>
+    <template #heading>
+      <heading-hero :content="heading" />
+    </template>
+    <template #image>
+      <control-image
+        :url="album.images?.[0]?.url ?? ''"
+        :caption="album.name"
+        class="is-clickable is-medium"
+        @click="openDetails"
+      />
+    </template>
+    <template #content>
+      <list-tracks-spotify :items="tracks" :context_uri="album.uri" />
+    </template>
+  </content-with-hero>
+  <modal-dialog-album-spotify
+    :item="album"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

@@ -1,18 +1,16 @@
 <template>
-  <div>
-    <tabs-music />
-    <content-with-heading>
-      <template #options>
-        <index-button-list :indices="genres.indices" />
-      </template>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #content>
-        <list-genres :items="genres" :media_kind="'music'" />
-      </template>
-    </content-with-heading>
-  </div>
+  <tabs-music />
+  <content-with-heading>
+    <template #options>
+      <index-button-list :indices="genres.indices" />
+    </template>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #content>
+      <list-genres :items="genres" :media_kind="'music'" />
+    </template>
+  </content-with-heading>
 </template>
 
 <script>

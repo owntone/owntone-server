@@ -1,51 +1,49 @@
 <template>
-  <div>
-    <content-with-heading>
-      <template #options>
-        <index-button-list :indices="tracks.indices" />
-        <list-options>
-          <template #filter>
-            <control-switch
-              v-if="servicesStore.isSpotifyActive"
-              v-model="uiStore.hideSpotify"
-            >
-              <template #label>
-                <span v-text="$t('options.filter.hide-spotify')" />
-              </template>
-              <template #help>
-                <span v-text="$t('options.filter.hide-spotify-help')" />
-              </template>
-            </control-switch>
-          </template>
-          <template #sort>
-            <control-dropdown
-              v-model:value="uiStore.artistTracksSort"
-              :options="groupings"
-            />
-          </template>
-        </list-options>
-      </template>
-      <template #heading>
-        <heading-title :content="heading" />
-      </template>
-      <template #actions>
-        <control-button
-          :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-        />
-        <control-button
-          :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
-        />
-      </template>
-      <template #content>
-        <list-tracks :items="tracks" :uris="trackUris" />
-        <modal-dialog-artist
-          :item="artist"
-          :show="showDetailsModal"
-          @close="showDetailsModal = false"
-        />
-      </template>
-    </content-with-heading>
-  </div>
+  <content-with-heading>
+    <template #options>
+      <index-button-list :indices="tracks.indices" />
+      <list-options>
+        <template #filter>
+          <control-switch
+            v-if="servicesStore.isSpotifyActive"
+            v-model="uiStore.hideSpotify"
+          >
+            <template #label>
+              <span v-text="$t('options.filter.hide-spotify')" />
+            </template>
+            <template #help>
+              <span v-text="$t('options.filter.hide-spotify-help')" />
+            </template>
+          </control-switch>
+        </template>
+        <template #sort>
+          <control-dropdown
+            v-model:value="uiStore.artistTracksSort"
+            :options="groupings"
+          />
+        </template>
+      </list-options>
+    </template>
+    <template #heading>
+      <heading-title :content="heading" />
+    </template>
+    <template #actions>
+      <control-button
+        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
+      />
+      <control-button
+        :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
+      />
+    </template>
+    <template #content>
+      <list-tracks :items="tracks" :uris="trackUris" />
+    </template>
+  </content-with-heading>
+  <modal-dialog-artist
+    :item="artist"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>

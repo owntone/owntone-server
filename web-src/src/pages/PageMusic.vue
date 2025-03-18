@@ -1,43 +1,41 @@
 <template>
-  <div>
-    <tabs-music />
-    <content-with-heading>
-      <template #heading>
-        <heading-title
-          :content="{ title: $t('page.music.recently-added.title') }"
-        />
-      </template>
-      <template #content>
-        <list-albums :items="albums" />
-      </template>
-      <template #footer>
-        <router-link
-          class="button is-small is-rounded"
-          :to="{ name: 'music-recently-added' }"
-        >
-          {{ $t('actions.show-more') }}
-        </router-link>
-      </template>
-    </content-with-heading>
-    <content-with-heading>
-      <template #heading>
-        <heading-title
-          :content="{ title: $t('page.music.recently-played.title') }"
-        />
-      </template>
-      <template #content>
-        <list-tracks :items="tracks" />
-      </template>
-      <template #footer>
-        <router-link
-          class="button is-small is-rounded"
-          :to="{ name: 'music-recently-played' }"
-        >
-          {{ $t('actions.show-more') }}
-        </router-link>
-      </template>
-    </content-with-heading>
-  </div>
+  <tabs-music />
+  <content-with-heading>
+    <template #heading>
+      <heading-title
+        :content="{ title: $t('page.music.recently-added.title') }"
+      />
+    </template>
+    <template #content>
+      <list-albums :items="albums" />
+    </template>
+    <template #footer>
+      <router-link
+        class="button is-small is-rounded"
+        :to="{ name: 'music-recently-added' }"
+      >
+        {{ $t('actions.show-more') }}
+      </router-link>
+    </template>
+  </content-with-heading>
+  <content-with-heading>
+    <template #heading>
+      <heading-title
+        :content="{ title: $t('page.music.recently-played.title') }"
+      />
+    </template>
+    <template #content>
+      <list-tracks :items="tracks" />
+    </template>
+    <template #footer>
+      <router-link
+        class="button is-small is-rounded"
+        :to="{ name: 'music-recently-played' }"
+      >
+        {{ $t('actions.show-more') }}
+      </router-link>
+    </template>
+  </content-with-heading>
 </template>
 
 <script>
