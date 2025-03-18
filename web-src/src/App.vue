@@ -68,7 +68,6 @@ export default {
   data() {
     return {
       pairingActive: false,
-      reconnect_attempts: 0,
       timerId: 0
     }
   },
@@ -148,7 +147,6 @@ export default {
       const socket = this.createWebsocket()
       const vm = this
       socket.onopen = () => {
-        vm.reconnect_attempts = 0
         socket.send(
           JSON.stringify({
             notify: [
