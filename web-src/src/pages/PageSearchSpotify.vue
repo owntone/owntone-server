@@ -8,7 +8,7 @@
               <div class="control has-icons-left">
                 <input
                   ref="search_field"
-                  v-model="query"
+                  v-model="searchStore.query"
                   class="input is-rounded"
                   type="text"
                   :placeholder="$t('page.search.placeholder')"
@@ -22,7 +22,7 @@
             <div v-for="item in history" :key="item" class="control">
               <div class="tags has-addons">
                 <a class="tag" @click="openSearch(item)" v-text="item" />
-                <a class="tag is-delete" @click="removeSearch(item)" />
+                <a class="tag is-delete" @click="searchStore.remove(item)" />
               </div>
             </div>
           </div>
@@ -51,20 +51,17 @@
       </vue-eternal-loading>
     </template>
     <template v-if="!expanded" #footer>
-      <nav v-if="showAllButton(items)" class="level">
-        <div class="level-item">
-          <control-button
-            :button="{
-              handler: () => expand(type),
-              title: $t(
-                `page.search.show-${type}s`,
-                { count: $n(items.total) },
-                items.total
-              )
-            }"
-          />
-        </div>
-      </nav>
+      <control-button
+        v-if="showAllButton(items)"
+        :button="{
+          handler: () => expand(type),
+          title: $t(
+            `page.search.show-${type}s`,
+            { count: $n(items.total) },
+            items.total
+          )
+        }"
+      />
       <div v-if="!items.total" class="has-text-centered-mobile">
         <i v-text="$t('page.search.no-results')" />
       </div>
@@ -116,7 +113,6 @@ export default {
       },
       results: new Map(),
       parameters: {},
-      query: '',
       types: SEARCH_TYPES
     }
   },
@@ -130,34 +126,24 @@ export default {
       )
     }
   },
-  watch: {
-    query() {
-      this.searchStore.query = this.query
-    }
-  },
   mounted() {
     this.searchStore.source = this.$route.name
-    this.query = this.searchStore.query
     this.parameters.limit = PAGE_SIZE
     this.search()
   },
   methods: {
     expand(type) {
-      this.query = this.searchStore.query
       this.types = [type]
       this.parameters.limit = PAGE_SIZE_EXPANDED
       this.parameters.offset = 0
       this.search()
     },
     openSearch(query) {
-      this.query = query
+      this.searchStore.query = query
       this.types = SEARCH_TYPES
       this.parameters.limit = PAGE_SIZE
       this.parameters.offset = 0
       this.search()
-    },
-    removeSearch(query) {
-      this.searchStore.remove(query)
     },
     reset() {
       this.results.clear()
@@ -170,8 +156,8 @@ export default {
         this.types = SEARCH_TYPES
         this.parameters.limit = PAGE_SIZE
       }
-      this.query = this.query.trim()
-      if (!this.query) {
+      this.searchStore.query = this.searchStore.query.trim()
+      if (!this.searchStore.query) {
         this.$refs.search_field.focus()
         return
       }
@@ -181,20 +167,22 @@ export default {
           this.results.set(type, data[`${type}s`])
         })
       })
-      this.searchStore.add(this.query)
+      this.searchStore.add(this.searchStore.query)
     },
     searchItems() {
       return webapi.spotify().then(({ data }) => {
         this.parameters.market = data.webapi_country
         const spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(data.webapi_token)
-        return spotifyApi.search(this.query, this.types, this.parameters)
+        return spotifyApi.search(
+          this.searchStore.query,
+          this.types,
+          this.parameters
+        )
       })
     },
     searchLibrary() {
-      this.$router.push({
-        name: 'search-library'
-      })
+      this.$router.push({ name: 'search-library' })
     },
     searchNext({ loaded }) {
       const [type] = this.types,

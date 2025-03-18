@@ -8,7 +8,7 @@
               <div class="control has-icons-left">
                 <input
                   ref="search_field"
-                  v-model="query"
+                  v-model="searchStore.query"
                   class="input is-rounded"
                   type="text"
                   :placeholder="$t('page.search.placeholder')"
@@ -39,7 +39,7 @@
             <div v-for="item in history" :key="item" class="control">
               <div class="tags has-addons">
                 <a class="tag" @click="openSearch(item)" v-text="item" />
-                <a class="tag is-delete" @click="removeSearch(item)" />
+                <a class="tag is-delete" @click="searchStore.remove(item)" />
               </div>
             </div>
           </div>
@@ -56,20 +56,17 @@
       <component :is="components[type]" :items="items" />
     </template>
     <template v-if="!expanded" #footer>
-      <nav v-if="showAllButton(items)" class="level">
-        <div class="level-item">
-          <control-button
-            :button="{
-              handler: () => expand(type),
-              title: $t(
-                `page.search.show-${type}s`,
-                { count: $n(items.total) },
-                items.total
-              )
-            }"
-          />
-        </div>
-      </nav>
+      <control-button
+        v-if="showAllButton(items)"
+        :button="{
+          handler: () => expand(type),
+          title: $t(
+            `page.search.show-${type}s`,
+            { count: $n(items.total) },
+            items.total
+          )
+        }"
+      />
       <div v-if="!items.total" class="has-text-centered-mobile">
         <i v-text="$t('page.search.no-results')" />
       </div>
@@ -131,7 +128,6 @@ export default {
       },
       results: new Map(),
       limit: {},
-      query: '',
       types: SEARCH_TYPES
     }
   },
@@ -143,32 +139,22 @@ export default {
       return this.searchStore.history
     }
   },
-  watch: {
-    query() {
-      this.searchStore.query = this.query
-    }
-  },
   mounted() {
     this.searchStore.source = this.$route.name
-    this.query = this.searchStore.query
     this.limit = PAGE_SIZE
     this.search()
   },
   methods: {
     expand(type) {
-      this.query = this.searchStore.query
       this.types = [type]
       this.limit = -1
       this.search()
     },
     openSearch(query) {
-      this.query = query
+      this.searchStore.query = query
       this.types = SEARCH_TYPES
       this.limit = PAGE_SIZE
       this.search()
-    },
-    removeSearch(query) {
-      this.searchStore.remove(query)
     },
     reset() {
       this.results.clear()
@@ -181,8 +167,11 @@ export default {
         this.types = SEARCH_TYPES
         this.limit = PAGE_SIZE
       }
-      this.query = this.query.trim()
-      if (!this.query || !this.query.replace(/^query:/u, '')) {
+      this.searchStore.query = this.searchStore.query.trim()
+      if (
+        !this.searchStore.query ||
+        !this.searchStore.query.replace(/^query:/u, '')
+      ) {
         this.$refs.search_field.focus()
         return
       }
@@ -190,7 +179,7 @@ export default {
       this.types.forEach((type) => {
         this.searchItems(type)
       })
-      this.searchStore.add(this.query)
+      this.searchStore.add(this.searchStore.query)
     },
     searchItems(type) {
       const music = type !== 'audiobook' && type !== 'podcast'
@@ -199,13 +188,13 @@ export default {
         limit: this.limit,
         type: music ? type : 'album'
       }
-      if (this.query.startsWith('query:')) {
-        parameters.expression = `(${this.query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
+      if (this.searchStore.query.startsWith('query:')) {
+        parameters.expression = `(${this.searchStore.query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
       } else if (music) {
-        parameters.query = this.query
+        parameters.query = this.searchStore.query
         parameters.media_kind = kind
       } else {
-        parameters.expression = `(album includes "${this.query}" or artist includes "${this.query}") and media_kind is ${kind}`
+        parameters.expression = `(album includes "${this.searchStore.query}" or artist includes "${this.searchStore.query}") and media_kind is ${kind}`
       }
       webapi.search(parameters).then(({ data }) => {
         this.results.set(type, new GroupedList(data[`${parameters.type}s`]))
