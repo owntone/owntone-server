@@ -20,14 +20,14 @@
           :items="tracks"
           icon="file-music-outline"
         />
-        <modal-dialog-directory
-          :item="current"
-          :show="showDetailsModal"
-          @close="showDetailsModal = false"
-        />
       </template>
     </content-with-heading>
   </div>
+  <modal-dialog-playable
+    :item="playable"
+    :show="showDetailsModal"
+    @close="showDetailsModal = false"
+  />
 </template>
 
 <script>
@@ -38,7 +38,7 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
-import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
+import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 import { useConfigurationStore } from '@/stores/configuration'
 import webapi from '@/webapi'
 
@@ -79,7 +79,7 @@ export default {
     ListDirectories,
     ListPlaylists,
     ListTracks,
-    ModalDialogDirectory
+    ModalDialogPlayable
   },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
@@ -117,6 +117,17 @@ export default {
         return this.current?.slice(this.current.lastIndexOf('/') + 1)
       }
       return this.$t('page.files.title')
+    },
+    playable() {
+      return {
+        expression: `path starts with "${this.current}" order by path asc`,
+        name: this.current,
+        properties: [
+          { key: 'property.folders', value: this.directories.length },
+          { key: 'property.playlists', value: this.playlists.total },
+          { key: 'property.tracks', value: this.tracks.total }
+        ]
+      }
     }
   },
   methods: {
