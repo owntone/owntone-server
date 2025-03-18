@@ -72,14 +72,11 @@ export default {
         filters: [
           (playlist) =>
             playlist.folder ||
-            this.radio_playlists ||
+            this.configurationStore.radio_playlists ||
             playlist.stream_count === 0 ||
             playlist.item_count > playlist.stream_count
         ]
       })
-    },
-    radio_playlists() {
-      return this.configurationStore.radio_playlists
     }
   }
 }
