@@ -34,7 +34,7 @@
         :class="{
           'has-text-primary': isCurrent,
           'has-text-grey-light': !isNext,
-          'has-text-grey': isNext && isCurrent
+          'has-text-grey': isNext && !isCurrent
         }"
         v-text="item.album"
       />
