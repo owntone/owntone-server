@@ -3,7 +3,7 @@
     v-for="item in items"
     :key="item.itemId"
     :is-item="item.isItem"
-    :image="url(item)"
+    :image="image(item)"
     :index="item.index"
     :lines="[
       item.item.name,
@@ -79,6 +79,12 @@ export default {
     }
   },
   methods: {
+    image(item) {
+      if (this.settingsStore.show_cover_artwork_in_album_lists) {
+        return { url: item.item.artwork_url, caption: item.item.name }
+      }
+      return null
+    },
     open(item) {
       this.selectedItem = item
       if (this.media_kind_resolved === 'podcast') {
@@ -117,12 +123,6 @@ export default {
       webapi.library_playlist_delete(this.playlistToRemove.id).then(() => {
         this.$emit('podcast-deleted')
       })
-    },
-    url(item) {
-      if (this.settingsStore.show_cover_artwork_in_album_lists) {
-        return item.item.artwork_url
-      }
-      return null
     }
   }
 }

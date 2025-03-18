@@ -2,8 +2,7 @@
   <control-image
     v-if="item.image"
     :url="item.image"
-    :artist="item.artist"
-    :album="item.name"
+    :caption="item.name"
     class="is-normal mb-5"
   />
   <slot v-if="$slots.buttons" name="buttons" />

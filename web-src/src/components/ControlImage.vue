@@ -10,8 +10,7 @@ import { renderSVG } from '@/lib/SVGRenderer'
 export default {
   name: 'ControlImage',
   props: {
-    album: { default: '', type: String },
-    artist: { default: '', type: String },
+    caption: { default: '', type: String },
     url: { default: '', type: String }
   },
   emits: ['click'],
@@ -29,8 +28,8 @@ export default {
   methods: {
     dataURI() {
       return renderSVG({
-        alternate: `${this.artist} - ${this.album}`,
-        caption: (this.album || this.artist || '').substring(0, 2),
+        alternate: this.caption,
+        caption: this.caption.substring(0, 2),
         font: this.font,
         size: this.size
       })

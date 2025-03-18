@@ -15,7 +15,12 @@
     @click="open"
   >
     <mdicon v-if="icon" class="media-left icon" :name="icon" />
-    <control-image v-if="image" :url="image" class="media-left is-small" />
+    <control-image
+      v-if="image"
+      :url="image.url"
+      :caption="image.caption"
+      class="media-left is-small"
+    />
     <div class="media-content">
       <div
         v-for="(line, position) in lines"
@@ -51,7 +56,7 @@ export default {
   components: { ControlImage },
   props: {
     icon: { default: null, type: String },
-    image: { default: null, type: String },
+    image: { default: null, type: Object },
     index: { default: null, type: [String, Number] },
     isItem: { default: true, type: Boolean },
     lines: { default: null, type: Array },

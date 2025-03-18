@@ -7,8 +7,7 @@
       <template #image>
         <control-image
           :url="album.images?.[0]?.url ?? ''"
-          :artist="album.artists[0].name"
-          :album="album.name"
+          :caption="album.name"
           class="is-clickable is-medium"
           @click="openDetails"
         />

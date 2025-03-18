@@ -3,7 +3,7 @@
     v-for="item in items"
     :key="item.id"
     :is-item="item.isItem"
-    :image="url(item)"
+    :image="image(item)"
     :index="item.index"
     :lines="[
       item.name,
@@ -36,6 +36,12 @@ export default {
     return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
+    image(item) {
+      if (this.settingsStore.show_cover_artwork_in_album_lists) {
+        return { url: item.images?.[0]?.url ?? '', caption: item.name }
+      }
+      return null
+    },
     open(item) {
       this.$router.push({
         name: 'music-spotify-album',
@@ -45,12 +51,6 @@ export default {
     openDetails(item) {
       this.selectedItem = item
       this.showDetailsModal = true
-    },
-    url(item) {
-      if (this.settingsStore.show_cover_artwork_in_album_lists) {
-        return item.images?.[0]?.url ?? ''
-      }
-      return null
     }
   }
 }

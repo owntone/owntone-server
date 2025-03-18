@@ -5,8 +5,7 @@
     <div v-if="track.id" class="mx-auto" style="max-width: 32rem">
       <control-image
         :url="track.artwork_url"
-        :artist="track.artist"
-        :album="track.album"
+        :caption="track.album"
         class="is-clickable is-big"
         :class="{ 'is-masked': lyricsStore.active }"
         @click="openDetails(track)"
