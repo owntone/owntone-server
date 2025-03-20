@@ -147,10 +147,10 @@ static int spotify_base_plid;
 // Flag to avoid triggering playlist change events while the (re)scan is running
 static bool scanning;
 
-
 // Endpoints and credentials for the web api
-static const char *spotify_client_id     = "0e684a5422384114a8ae7ac020f01789";
-static const char *spotify_client_secret = "232af95f39014c9ba218285a5c11a239";
+static const char *spotify_client_id;
+static const char *spotify_client_secret;
+
 static const char *spotify_scope         = "playlist-read-private playlist-read-collaborative user-library-read user-read-private streaming";
 
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
@@ -2066,6 +2066,9 @@ static int
 spotifywebapi_library_init()
 {
   int ret;
+
+  spotify_client_id = cfg_getstr(cfg_getsec(cfg, "spotify"), "webapi_client_id");
+  spotify_client_secret = cfg_getstr(cfg_getsec(cfg, "spotify"), "webapi_client_secret");
 
   ret = spotify_init();
   if (ret < 0)

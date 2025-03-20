@@ -219,6 +219,9 @@ static cfg_opt_t sec_spotify[] =
     CFG_BOOL("artist_override", cfg_false, CFGF_NONE),
     CFG_BOOL("album_override", cfg_false, CFGF_NONE),
     CFG_BOOL("disable_legacy_mode", cfg_false, CFGF_NONE),
+    // Issued by Spotify on developer.spotify.com for forked-daapd/OwnTone
+    CFG_STR("webapi_client_id", "0e684a5422384114a8ae7ac020f01789", CFGF_NONE),
+    CFG_STR("webapi_client_secret", "232af95f39014c9ba218285a5c11a239", CFGF_NONE),
     CFG_END()
   };
 
