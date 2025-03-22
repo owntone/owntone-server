@@ -7,7 +7,6 @@
             <div class="field">
               <div class="control has-icons-left">
                 <input
-                  ref="search_field"
                   v-model="searchStore.query"
                   class="input is-rounded"
                   type="text"
@@ -152,22 +151,20 @@ export default {
       })
     },
     search(event) {
-      if (event) {
-        this.types = SEARCH_TYPES
-        this.parameters.limit = PAGE_SIZE
-      }
-      this.searchStore.query = this.searchStore.query.trim()
-      if (!this.searchStore.query) {
-        this.$refs.search_field.focus()
-        return
-      }
-      this.reset()
-      this.searchItems().then((data) => {
-        this.types.forEach((type) => {
-          this.results.set(type, data[`${type}s`])
+      if (this.searchStore.query) {
+        if (event) {
+          this.types = SEARCH_TYPES
+          this.parameters.limit = PAGE_SIZE
+        }
+        this.searchStore.query = this.searchStore.query.trim()
+        this.reset()
+        this.searchItems().then((data) => {
+          this.types.forEach((type) => {
+            this.results.set(type, data[`${type}s`])
+          })
         })
-      })
-      this.searchStore.add(this.searchStore.query)
+        this.searchStore.add(this.searchStore.query)
+      }
     },
     searchItems() {
       return webapi.spotify().then(({ data }) => {

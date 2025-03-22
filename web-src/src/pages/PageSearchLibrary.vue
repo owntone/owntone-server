@@ -7,7 +7,6 @@
             <div class="field">
               <div class="control has-icons-left">
                 <input
-                  ref="search_field"
                   v-model="searchStore.query"
                   class="input is-rounded"
                   type="text"
@@ -163,23 +162,18 @@ export default {
       })
     },
     search(event) {
-      if (event) {
-        this.types = SEARCH_TYPES
-        this.limit = PAGE_SIZE
+      if (this.searchStore.query) {
+        if (event) {
+          this.types = SEARCH_TYPES
+          this.limit = PAGE_SIZE
+        }
+        this.searchStore.query = this.searchStore.query.trim()
+        this.reset()
+        this.types.forEach((type) => {
+          this.searchItems(type)
+        })
+        this.searchStore.add(this.searchStore.query)
       }
-      this.searchStore.query = this.searchStore.query.trim()
-      if (
-        !this.searchStore.query ||
-        !this.searchStore.query.replace(/^query:/u, '')
-      ) {
-        this.$refs.search_field.focus()
-        return
-      }
-      this.reset()
-      this.types.forEach((type) => {
-        this.searchItems(type)
-      })
-      this.searchStore.add(this.searchStore.query)
     },
     searchItems(type) {
       const music = type !== 'audiobook' && type !== 'podcast'
