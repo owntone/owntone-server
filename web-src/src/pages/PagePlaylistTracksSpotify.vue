@@ -17,7 +17,7 @@
       />
     </template>
     <template #content>
-      <list-tracks-spotify :items="tracks" :context_uri="playlist.uri" />
+      <list-tracks-spotify :items="tracks" :context-uri="playlist.uri" />
       <vue-eternal-loading v-if="offset < total" :load="load">
         <template #loading>
           <div class="columns is-centered">

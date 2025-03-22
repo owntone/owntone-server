@@ -15,7 +15,7 @@
   />
   <modal-dialog-album
     :item="selectedItem"
-    :media_kind="media_kind"
+    :media-kind="mediaKind"
     :show="showDetailsModal"
     @close="showDetailsModal = false"
     @remove-podcast="openRemovePodcastDialog()"
@@ -53,7 +53,7 @@ export default {
   components: { ListItem, ModalDialog, ModalDialogAlbum },
   props: {
     items: { required: true, type: Object },
-    media_kind: { default: '', type: String }
+    mediaKind: { default: '', type: String }
   },
   emits: ['play-count-changed', 'podcast-deleted'],
   setup() {
@@ -75,7 +75,7 @@ export default {
       ]
     },
     media_kind_resolved() {
-      return this.media_kind || this.selectedItem.media_kind
+      return this.mediaKind || this.selectedItem.media_kind
     }
   },
   methods: {

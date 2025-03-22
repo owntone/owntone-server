@@ -12,7 +12,7 @@
       />
     </template>
     <template #content>
-      <list-tracks-spotify :items="tracks" :context_uri="album.uri" />
+      <list-tracks-spotify :items="tracks" :context-uri="album.uri" />
     </template>
   </content-with-hero>
   <modal-dialog-album-spotify

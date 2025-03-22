@@ -18,7 +18,7 @@
   <modal-dialog-album
     :item="album"
     :show="showDetailsModal"
-    :media_kind="'audiobook'"
+    media-kind="audiobook"
     @close="showDetailsModal = false"
   />
 </template>

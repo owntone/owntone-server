@@ -8,7 +8,7 @@
       <heading-title :content="heading" />
     </template>
     <template #content>
-      <list-genres :items="genres" :media_kind="'music'" />
+      <list-genres :items="genres" media-kind="music" />
     </template>
   </content-with-heading>
 </template>

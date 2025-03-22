@@ -148,7 +148,7 @@ export default {
       this.$router.push({
         name: 'genre-albums',
         params: { name: this.item.genre },
-        query: { media_kind: this.item.media_kind }
+        query: { mediaKind: this.item.media_kind }
       })
     }
   }

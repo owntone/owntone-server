@@ -10,7 +10,7 @@
   />
   <modal-dialog-genre
     :item="selectedItem"
-    :media_kind="media_kind"
+    :media-kind="mediaKind"
     :show="showDetailsModal"
     @close="showDetailsModal = false"
   />
@@ -25,7 +25,7 @@ export default {
   components: { ListItem, ModalDialogGenre },
   props: {
     items: { required: true, type: Object },
-    media_kind: { required: true, type: String }
+    mediaKind: { required: true, type: String }
   },
   data() {
     return { selectedItem: {}, showDetailsModal: false }
@@ -35,7 +35,7 @@ export default {
       this.$router.push({
         name: 'genre-albums',
         params: { name: item.name },
-        query: { media_kind: this.media_kind }
+        query: { mediaKind: this.mediaKind }
       })
     },
     openDetails(item) {

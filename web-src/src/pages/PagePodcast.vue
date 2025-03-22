@@ -20,7 +20,7 @@
       <modal-dialog-album
         :item="album"
         :show="showDetailsModal"
-        :media_kind="'podcast'"
+        media-kind="podcast"
         @close="showDetailsModal = false"
         @play-count-changed="reloadTracks"
         @remove-podcast="openRemovePodcastDialog"

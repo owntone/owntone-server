@@ -20,7 +20,7 @@
   </content-with-heading>
   <modal-dialog-genre
     :item="genre"
-    :media_kind="media_kind"
+    :media-kind="mediaKind"
     :show="showDetailsModal"
     @close="showDetailsModal = false"
   />
@@ -39,8 +39,8 @@ import webapi from '@/webapi'
 const dataObject = {
   load(to) {
     return Promise.all([
-      webapi.library_genre(to.params.name, to.query.media_kind),
-      webapi.library_genre_albums(to.params.name, to.query.media_kind)
+      webapi.library_genre(to.params.name, to.query.mediaKind),
+      webapi.library_genre_albums(to.params.name, to.query.mediaKind)
     ])
   },
   set(vm, response) {
@@ -70,7 +70,7 @@ export default {
     return {
       albums: new GroupedList(),
       genre: {},
-      media_kind: this.$route.query.media_kind,
+      mediaKind: this.$route.query.mediaKind,
       showDetailsModal: false
     }
   },
@@ -101,12 +101,12 @@ export default {
       this.$router.push({
         name: 'genre-tracks',
         params: { name: this.genre.name },
-        query: { media_kind: this.media_kind }
+        query: { mediaKind: this.mediaKind }
       })
     },
     play() {
       webapi.player_play_expression(
-        `genre is "${this.genre.name}" and media_kind is ${this.media_kind}`,
+        `genre is "${this.genre.name}" and media_kind is ${this.mediaKind}`,
         true
       )
     }

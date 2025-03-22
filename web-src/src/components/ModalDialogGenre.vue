@@ -14,14 +14,14 @@ export default {
   components: { ModalDialogPlayable },
   props: {
     item: { required: true, type: Object },
-    media_kind: { required: true, type: String },
+    mediaKind: { required: true, type: String },
     show: Boolean
   },
   emits: ['close'],
   computed: {
     playable() {
       return {
-        expression: `genre is "${this.item.name}" and media_kind is ${this.media_kind}`,
+        expression: `genre is "${this.item.name}" and media_kind is ${this.mediaKind}`,
         name: this.item.name,
         properties: [
           { key: 'property.albums', value: this.item.album_count },
