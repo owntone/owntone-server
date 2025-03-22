@@ -7,7 +7,7 @@
       <template v-if="isNowPlayingPage">
         <control-player-previous class="navbar-item ml-auto" />
         <control-player-back class="navbar-item" :offset="10000" />
-        <control-player-play class="navbar-item" show_disabled_message />
+        <control-player-play class="navbar-item" />
         <control-player-forward class="navbar-item" :offset="30000" />
         <control-player-next class="navbar-item mr-auto" />
       </template>
@@ -31,7 +31,7 @@
             />
           </div>
         </control-link>
-        <control-player-play class="navbar-item" show_disabled_message />
+        <control-player-play class="navbar-item" />
       </template>
       <a class="navbar-item" @click="uiStore.togglePlayerMenu">
         <mdicon

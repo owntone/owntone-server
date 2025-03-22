@@ -6,11 +6,7 @@ import pluginVue from 'eslint-plugin-vue'
 export default [
   {
     files: ['src/**/*.js', 'src/**/.vue'],
-    languageOptions: {
-      globals: {
-        ...globals.node
-      }
-    }
+    languageOptions: { globals: { ...globals.node } }
   },
   eslintConfigPrettier,
   js.configs.all,

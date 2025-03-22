@@ -12,9 +12,6 @@ import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerPlay',
-  props: {
-    show_disabled_message: Boolean
-  },
   setup() {
     return {
       notificationsStore: useNotificationsStore(),
@@ -38,14 +35,12 @@ export default {
   methods: {
     toggle() {
       if (this.disabled) {
-        if (this.show_disabled_message) {
-          this.notificationsStore.add({
-            text: this.$t('server.empty-queue'),
-            timeout: 2000,
-            topic: 'connection',
-            type: 'info'
-          })
-        }
+        this.notificationsStore.add({
+          text: this.$t('server.empty-queue'),
+          timeout: 2000,
+          topic: 'connection',
+          type: 'info'
+        })
         return
       }
       if (this.playerStore.isPlaying && this.queueStore.isPauseAllowed) {
