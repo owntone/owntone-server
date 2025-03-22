@@ -4,6 +4,7 @@
     :key="item.itemId"
     :icon="icon"
     :is-item="item.isItem"
+    :is-read="isRead(item.item)"
     :index="item.index"
     :lines="[item.item.title, item.item.artist, item.item.album]"
     :progress="progress(item.item)"
@@ -38,6 +39,9 @@ export default {
     return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
+    isRead(item) {
+      return item.media_kind === 'podcast' && item.play_count > 0
+    },
     open(item) {
       if (this.uris) {
         webapi.player_play_uri(this.uris, false, this.items.items.indexOf(item))
@@ -55,12 +59,9 @@ export default {
       this.selectedItem = item
       this.showDetailsModal = true
     },
-    //             'has-text-grey': item.item.media_kind === 'podcast' && item.item.play_count > 0
     progress(item) {
-      if (item.item) {
-        if (this.showProgress && item.item.seek_ms > 0) {
-          return item.item.seek_ms / item.item.length_ms
-        }
+      if (this.showProgress && item.seek_ms > 0) {
+        return item.seek_ms / item.length_ms
       }
       return null
     }
