@@ -11,7 +11,6 @@
   <div
     v-else
     class="media is-align-items-center is-clickable mb-0"
-    :class="{ 'with-progress': progress }"
     @click="open"
   >
     <mdicon v-if="icon" class="media-left icon" :name="icon" />
@@ -29,16 +28,13 @@
           'is-size-6': position === 0,
           'is-size-7': position !== 0,
           'has-text-weight-bold': position !== 2,
-          'has-text-grey': position !== 0
+          'has-text-grey': position !== 0 || isRead
         }"
         v-text="line"
       />
-      <progress
-        v-if="progress"
-        class="progress is-dark"
-        max="1"
-        :value="progress"
-      />
+    </div>
+    <div v-if="progress" class="media-right">
+      <control-progress :value="progress" />
     </div>
     <div class="media-right">
       <a @click.prevent.stop="openDetails">
@@ -50,15 +46,17 @@
 
 <script>
 import ControlImage from '@/components/ControlImage.vue'
+import ControlProgress from '@/components/ControlProgress.vue'
 
 export default {
   name: 'ListItem',
-  components: { ControlImage },
+  components: { ControlImage, ControlProgress },
   props: {
     icon: { default: null, type: String },
     image: { default: null, type: Object },
     index: { default: null, type: [String, Number] },
     isItem: { default: true, type: Boolean },
+    isRead: { default: false, type: Boolean },
     lines: { default: null, type: Array },
     progress: { default: null, type: Number }
   },
@@ -73,13 +71,3 @@ export default {
   }
 }
 </script>
-
-<style scoped>
-.progress {
-  height: 0.25rem;
-}
-
-.media.with-progress {
-  margin-top: 0.375rem;
-}
-</style>
