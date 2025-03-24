@@ -178,6 +178,7 @@ int rsp_lex_parse(struct rsp_result *result, const char *input);
 #include <assert.h>
 
 #define INVERT_MASK 0x80000000
+#define RECURSION_MAX 64
 }
 
 /* Dependencies, mocked or real */
@@ -197,6 +198,8 @@ struct rsp_result {
   int offset;
   int err;
   char errmsg[128];
+
+  int recursion_level;
 };
 }
 
@@ -272,6 +275,15 @@ static void sql_append_recursive(struct rsp_result *result, struct ast *a, const
 {
   char escape_char;
 
+  if (result->recursion_level > RECURSION_MAX)
+  {
+    snprintf(result->errmsg, sizeof(result->errmsg), "Recursion maximum exceeded");
+    result->err = -2;
+    return;
+  }
+
+  result->recursion_level++;
+
   switch (append_type)
   {
     case SQL_APPEND_OPERATOR:
@@ -317,6 +329,8 @@ static void sql_append_recursive(struct rsp_result *result, struct ast *a, const
       sql_append(result, ")");
       break;
   }
+
+  result->recursion_level--;
 }
 
 static void sql_from_ast(struct rsp_result *result, struct ast *a)

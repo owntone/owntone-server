@@ -22,7 +22,9 @@ PKG_CHECK_MODULES([JSON_C], [json-c])
 PKG_CHECK_MODULES([LIBGCRYPT], [libgcrypt], [], [
 	AM_PATH_LIBGCRYPT([], [], [AC_MSG_ERROR([[libgcrypt is required]])])
 ])
-PKG_CHECK_MODULES([LIBCURL], [libcurl])
+
+dnl Need 7.83.0 for curl_easy_nextheader()
+PKG_CHECK_MODULES([LIBCURL], [libcurl >= 7.83.0])
 PKG_CHECK_MODULES([LIBPROTOBUF_C], [libprotobuf-c])
 
 AC_CONFIG_FILES([Makefile tests/Makefile])

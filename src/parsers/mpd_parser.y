@@ -182,6 +182,7 @@ int mpd_lex_parse(struct mpd_result *result, const char *input);
 #include <assert.h>
 
 #define INVERT_MASK 0x80000000
+#define RECURSION_MAX 64
 }
 
 /* Dependencies, mocked or real */
@@ -225,6 +226,8 @@ struct mpd_result {
 
   int err;
   char errmsg[128];
+
+  int recursion_level;
 };
 
 enum mpd_type {
@@ -416,6 +419,15 @@ static void sql_append_recursive(struct mpd_result *result, struct mpd_result_pa
 {
   char escape_char;
 
+  if (result->recursion_level > RECURSION_MAX)
+  {
+    snprintf(result->errmsg, sizeof(result->errmsg), "Recursion maximum exceeded");
+    result->err = -2;
+    return;
+  }
+
+  result->recursion_level++;
+
   switch (append_type)
   {
     case SQL_APPEND_OPERATOR:
@@ -477,6 +489,8 @@ static void sql_append_recursive(struct mpd_result *result, struct mpd_result_pa
       sql_append(result, part, ")");
       break;
   }
+
+  result->recursion_level--;
 }
 
 /* Creates the parsing result from the AST. Errors are set via result->err. */

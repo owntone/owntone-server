@@ -10,7 +10,8 @@
   </div>
   <div
     v-else
-    class="media is-align-items-center is-clickable mb-0"
+    class="media is-align-items-center mb-0"
+    :class="{ 'is-clickable': isPlayable, 'is-not-allowed': !isPlayable }"
     @click="open"
   >
     <mdicon v-if="icon" class="media-left icon" :name="icon" />
@@ -28,10 +29,14 @@
           'is-size-6': position === 0,
           'is-size-7': position !== 0,
           'has-text-weight-bold': position !== 2,
-          'has-text-grey': position !== 0 || isRead
+          'has-text-grey': (position !== 0 || isRead) && isPlayable,
+          'has-text-grey-light': !isPlayable
         }"
         v-text="line"
       />
+      <div v-if="!isPlayable" class="is-size-7 has-text-grey">
+        <slot name="reason" />
+      </div>
     </div>
     <div v-if="progress" class="media-right">
       <control-progress :value="progress" />
@@ -56,6 +61,7 @@ export default {
     image: { default: null, type: Object },
     index: { default: null, type: [String, Number] },
     isItem: { default: true, type: Boolean },
+    isPlayable: { default: true, type: Boolean },
     isRead: { default: false, type: Boolean },
     lines: { default: null, type: Array },
     progress: { default: null, type: Number }
@@ -71,3 +77,9 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.is-not-allowed {
+  cursor: not-allowed;
+}
+</style>
