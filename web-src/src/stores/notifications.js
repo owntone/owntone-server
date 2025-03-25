@@ -4,7 +4,6 @@ export const useNotificationsStore = defineStore('NotificationsStore', {
   actions: {
     add(notification) {
       const newNotification = {
-        id: this.nextId++,
         text: notification.text,
         timeout: notification.timeout,
         topic: notification.topic,
@@ -36,5 +35,5 @@ export const useNotificationsStore = defineStore('NotificationsStore', {
   getters: {
     isEmpty: (state) => state.list.length <= 0
   },
-  state: () => ({ list: [], nextId: 1 })
+  state: () => ({ list: [] })
 })

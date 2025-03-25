@@ -3,8 +3,8 @@
     <div class="columns is-centered">
       <div class="column is-half">
         <div
-          v-for="notification in notificationsStore.list"
-          :key="notification.id"
+          v-for="(notification, index) in notificationsStore.list"
+          :key="index"
           class="notification"
           :class="notification.type ? `is-${notification.type}` : ''"
         >
