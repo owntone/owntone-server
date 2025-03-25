@@ -8,10 +8,10 @@
             v-model="uiStore.hideSpotify"
           >
             <template #label>
-              <span v-text="$t('page.artist.filter.hide-spotify')" />
+              <span v-text="$t('options.filter.hide-spotify')" />
             </template>
             <template #help>
-              <span v-text="$t('page.artist.filter.hide-spotify-help')" />
+              <span v-text="$t('options.filter.hide-spotify-help')" />
             </template>
           </control-switch>
         </template>
@@ -113,12 +113,12 @@ export default {
       return [
         {
           id: 1,
-          name: this.$t('page.artist.sort.name'),
+          name: this.$t('options.sort.name'),
           options: { criteria: [{ field: 'name_sort', type: String }] }
         },
         {
           id: 2,
-          name: this.$t('page.artist.sort.release-date'),
+          name: this.$t('options.sort.release-date'),
           options: { criteria: [{ field: 'date_released', type: Date }] }
         }
       ]
@@ -139,7 +139,7 @@ export default {
     trackCount() {
       // The count of tracks is incorrect when albums have Spotify tracks.
       return [...this.albums].reduce(
-        (total, album) => total + (album.isItem ? album.item.track_count : 0),
+        (total, album) => total + (album?.item.track_count || 0),
         0
       )
     }
