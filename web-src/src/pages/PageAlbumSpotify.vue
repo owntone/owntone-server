@@ -86,7 +86,7 @@ export default {
       if (album.tracks.total) {
         return album.tracks.items.map((track) => ({ ...track, album }))
       }
-      return {}
+      return []
     }
   },
   methods: {
