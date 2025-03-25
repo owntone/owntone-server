@@ -58,7 +58,7 @@ export default {
           },
           {
             key: 'property.type',
-            value: `${this.$t(`media.kind.${this.item.mediaKind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
+            value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
           },
           {
             key: 'property.added-on',
