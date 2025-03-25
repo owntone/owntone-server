@@ -125,7 +125,8 @@ export default {
         const { track } = item
         if (track) {
           if (track.is_playable) {
-            track.position = ++position
+            position += 1
+            track.position = position
           }
           this.tracks.push(track)
         }

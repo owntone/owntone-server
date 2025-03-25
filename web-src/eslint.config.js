@@ -22,7 +22,6 @@ export default [
       'no-bitwise': 'off',
       'no-magic-numbers': 'off',
       'no-nested-ternary': 'off',
-      'no-plusplus': 'off',
       'no-ternary': 'off',
       'no-undef': 'off',
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
