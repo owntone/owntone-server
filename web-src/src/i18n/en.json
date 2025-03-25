@@ -208,11 +208,11 @@
     },
     "now-playing": {
       "info": "Add some tracks by browsing your library",
-      "live": "Live",
+      "time": "Live|{time}|{time}",
       "title": "Your play queue is empty"
     },
     "playlists": {
-      "title": "Playlists"
+      "title": "{name}|Playlists"
     },
     "podcast": {
       "remove-info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})"

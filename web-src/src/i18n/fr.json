@@ -208,11 +208,11 @@
     },
     "now-playing": {
       "info": "Ajoutez des pistes en parcourant votre bibliothèque",
-      "live": "En direct",
+      "time": "En direct|{time}|{time}",
       "title": "La file d’attente est vide"
     },
     "playlists": {
-      "title": "Listes de lecture"
+      "title": "{name}|Listes de lecture"
     },
     "podcast": {
       "remove-info": "Supprimer ce podcast de manière permanente de la bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})"

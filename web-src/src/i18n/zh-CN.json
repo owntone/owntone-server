@@ -208,11 +208,11 @@
     },
     "now-playing": {
       "info": "浏览资料库添加曲目",
-      "live": "直播",
+      "time": "直播|{time}|{time}",
       "title": "播放清单是空的"
     },
     "playlists": {
-      "title": "播放列表"
+      "title": "{name}|播放列表"
     },
     "podcast": {
       "remove-info": "从资料库中永久移除该播客？{separator}(这也将移除该播客RSS列表 {name})"

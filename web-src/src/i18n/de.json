@@ -208,11 +208,11 @@
     },
     "now-playing": {
       "info": "Tracks durch Auswählen aus der Bibliothek anfügen",
-      "live": "Live",
+      "time": "Live|{time}|{time}",
       "title": "Deine Playliste ist leer."
     },
     "playlists": {
-      "title": "Playlisten"
+      "title": "{name}|Playlisten"
     },
     "podcast": {
       "remove-info": "Diesen Podcast dauerhaft aus der Bibliothek löschen?{separator}(Damit wird auch die RSS-Playliste {name} gelöscht)"

@@ -59,10 +59,9 @@ export default {
     heading() {
       return {
         subtitle: [{ count: this.playlists.count, key: 'count.playlists' }],
-        title:
-          this.playlists.count === 0
-            ? this.$t('page.playlists.title')
-            : this.playlist.name
+        title: this.$t('page.playlists.title', this.playlists.count, {
+          name: this.playlist.name
+        })
       }
     },
     playlists() {

@@ -208,11 +208,11 @@
     },
     "now-playing": {
       "info": "瀏覽資料庫新增曲目",
-      "live": "直播",
+      "time": "直播|{time}|{time}",
       "title": "播放清單是空的"
     },
     "playlists": {
-      "title": "播放列表"
+      "title": "{name}|播放列表"
     },
     "podcast": {
       "remove-info": "從資料庫中永久移除該Podcast？{separator}(這也將移除該PodcastRSS列表 {name})"

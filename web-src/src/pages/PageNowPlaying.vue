@@ -129,9 +129,11 @@ export default {
       return this.isLive ? 1 : Math.floor(this.track.length_ms / INTERVAL)
     },
     trackTotalTime() {
-      return this.isLive
-        ? this.$t('page.now-playing.live')
-        : this.$filters.toTimecode(this.track.length_ms)
+      return this.$t('page.now-playing.time', this.track.length_ms, {
+        named: {
+          time: this.$filters.toTimecode(this.track.length_ms)
+        }
+      })
     }
   },
   watch: {
