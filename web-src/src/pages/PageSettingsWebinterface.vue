@@ -20,10 +20,7 @@
       />
     </template>
     <template #content>
-      <div
-        class=" "
-        v-text="$t('page.settings.general.navigation-item-selection')"
-      />
+      <div v-text="$t('page.settings.general.navigation-item-selection')" />
       <div
         class="notification is-size-7"
         v-text="$t('page.settings.general.navigation-item-selection-info')"
