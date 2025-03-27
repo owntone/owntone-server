@@ -9,13 +9,13 @@
     @close="pairingActive = false"
   />
   <modal-dialog-update
-    :show="showUpdateDialog"
-    @close="showUpdateDialog = false"
+    :show="uiStore.showUpdateDialog"
+    @close="uiStore.showUpdateDialog = false"
   />
-  <list-notifications v-show="!showBurgerMenu" />
+  <list-notifications v-show="!uiStore.showBurgerMenu" />
   <navbar-bottom />
   <div
-    v-show="showBurgerMenu || showPlayerMenu"
+    v-show="uiStore.showBurgerMenu || uiStore.showPlayerMenu"
     class="overlay-fullscreen"
     @click="uiStore.hideMenus"
   />
@@ -71,37 +71,11 @@ export default {
       timerId: 0
     }
   },
-  computed: {
-    showBurgerMenu: {
-      get() {
-        return this.uiStore.showBurgerMenu
-      },
-      set(value) {
-        this.uiStore.showBurgerMenu = value
-      }
-    },
-    showPlayerMenu: {
-      get() {
-        return this.uiStore.showPlayerMenu
-      },
-      set(value) {
-        this.uiStore.showPlayerMenu = value
-      }
-    },
-    showUpdateDialog: {
-      get() {
-        return this.uiStore.showUpdateDialog
-      },
-      set(value) {
-        this.uiStore.showUpdateDialog = value
-      }
-    }
-  },
   watch: {
-    showBurgerMenu() {
+    'uiStore.showBurgerMenu'() {
       this.updateClipping()
     },
-    showPlayerMenu() {
+    'uiStore.showPlayerMenu'() {
       this.updateClipping()
     }
   },
@@ -109,6 +83,7 @@ export default {
     this.connect()
     // Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
+      this.updateClipping()
       if (!(to.path === from.path && to.hash)) {
         if (to.meta.progress) {
           this.$Progress.parseMeta(to.meta.progress)
@@ -255,7 +230,7 @@ export default {
       })
     },
     updateClipping() {
-      if (this.showBurgerMenu || this.showPlayerMenu) {
+      if (this.uiStore.showBurgerMenu || this.uiStore.showPlayerMenu) {
         document.querySelector('html').classList.add('is-clipped')
       } else {
         document.querySelector('html').classList.remove('is-clipped')

@@ -39,7 +39,6 @@ import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
 import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
 import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
-import { useUIStore } from '@/stores/ui'
 
 const TOP_WITH_TABS = 100
 
@@ -266,19 +265,4 @@ export const router = createRouter({
     }
     return { left: 0, top: 0 }
   }
-})
-
-router.beforeEach((to, from, next) => {
-  const uiStore = useUIStore()
-  if (uiStore.showBurgerMenu) {
-    uiStore.showBurgerMenu = false
-    next(false)
-    return
-  }
-  if (uiStore.showPlayerMenu) {
-    uiStore.showPlayerMenu = false
-    next(false)
-    return
-  }
-  next(true)
 })
