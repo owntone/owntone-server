@@ -107,8 +107,6 @@ export default {
   },
   created() {
     this.connect()
-    // Start the progress bar on app start
-    this.$Progress.start()
     // Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
       if (!(to.path === from.path && to.hash)) {
