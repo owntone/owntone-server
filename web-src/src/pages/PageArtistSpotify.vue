@@ -13,7 +13,7 @@
     </template>
     <template #content>
       <list-albums-spotify :items="albums" />
-      <vue-eternal-loading v-if="offset < total" :load="loadNext">
+      <vue-eternal-loading v-if="offset < total" :load="load">
         <template #loading>
           <div class="columns is-centered">
             <div class="column has-text-centered">
@@ -114,7 +114,7 @@ export default {
       this.total = data.total
       this.offset += data.limit
     },
-    loadNext({ loaded }) {
+    load({ loaded }) {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
       spotifyApi
