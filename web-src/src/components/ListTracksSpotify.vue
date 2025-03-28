@@ -19,6 +19,7 @@
       />)
     </template>
   </list-item>
+  <loader-list-item :load="load" :loaded="loaded" />
   <modal-dialog-track-spotify
     :item="selectedItem"
     :show="showDetailsModal"
@@ -28,15 +29,18 @@
 
 <script>
 import ListItem from '@/components/ListItem.vue'
+import LoaderListItem from '@/components/LoaderListItem.vue'
 import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ListTracksSpotify',
-  components: { ListItem, ModalDialogTrackSpotify },
+  components: { ListItem, LoaderListItem, ModalDialogTrackSpotify },
   props: {
     contextUri: { default: '', type: String },
-    items: { required: true, type: Object }
+    items: { required: true, type: Object },
+    load: { default: null, type: Function },
+    loaded: { default: true, type: Boolean }
   },
   data() {
     return { selectedItem: {}, showDetailsModal: false }

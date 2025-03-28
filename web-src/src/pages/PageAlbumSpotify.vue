@@ -34,10 +34,12 @@ import webapi from '@/webapi'
 
 const dataObject = {
   load(to) {
-    const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(useServicesStore().spotify.webapi_token)
-    return spotifyApi.getAlbum(to.params.id, {
-      market: useServicesStore().spotify.webapi_country
+    return webapi.spotify().then(({ data }) => {
+      const spotifyApi = new SpotifyWebApi()
+      spotifyApi.setAccessToken(data.webapi_token)
+      return spotifyApi.getAlbum(to.params.id, {
+        market: useServicesStore().spotify.webapi_country
+      })
     })
   },
   set(vm, response) {

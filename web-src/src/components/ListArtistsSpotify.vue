@@ -8,6 +8,7 @@
     @open="open(item)"
     @open-details="openDetails(item)"
   />
+  <loader-list-item :load="load" :loaded="loaded" />
   <modal-dialog-artist-spotify
     :item="selectedItem"
     :show="showDetailsModal"
@@ -17,13 +18,17 @@
 
 <script>
 import ListItem from '@/components/ListItem.vue'
+import LoaderListItem from '@/components/LoaderListItem.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 
 export default {
   name: 'ListArtistsSpotify',
-  components: { ListItem, ModalDialogArtistSpotify },
-  props: { items: { required: true, type: Object } },
-
+  components: { ListItem, LoaderListItem, ModalDialogArtistSpotify },
+  props: {
+    items: { required: true, type: Object },
+    load: { default: null, type: Function },
+    loaded: { default: true, type: Boolean }
+  },
   data() {
     return { selectedItem: {}, showDetailsModal: false }
   },

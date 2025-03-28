@@ -17,19 +17,12 @@
       />
     </template>
     <template #content>
-      <list-tracks-spotify :items="tracks" :context-uri="playlist.uri" />
-      <vue-eternal-loading v-if="offset < total" :load="load">
-        <template #loading>
-          <div class="columns is-centered">
-            <div class="column has-text-centered">
-              <mdicon class="icon mdi-spin" name="loading" />
-            </div>
-          </div>
-        </template>
-        <template #no-more>
-          <br />
-        </template>
-      </vue-eternal-loading>
+      <list-tracks-spotify
+        :context-uri="playlist.uri"
+        :items="tracks"
+        :load="load"
+        :loaded="loaded"
+      />
     </template>
   </content-with-heading>
   <modal-dialog-playlist-spotify
@@ -46,7 +39,6 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
-import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
@@ -81,8 +73,7 @@ export default {
     ControlButton,
     HeadingTitle,
     ListTracksSpotify,
-    ModalDialogPlaylistSpotify,
-    VueEternalLoading
+    ModalDialogPlaylistSpotify
   },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
@@ -112,6 +103,9 @@ export default {
         }
       }
       return {}
+    },
+    loaded() {
+      return !(this.offset < this.total)
     }
   },
   methods: {

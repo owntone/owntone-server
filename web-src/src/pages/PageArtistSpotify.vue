@@ -12,22 +12,7 @@
       />
     </template>
     <template #content>
-      <list-albums-spotify :items="albums" />
-      <vue-eternal-loading v-if="offset < total" :load="load">
-        <template #loading>
-          <div class="columns is-centered">
-            <div class="column has-text-centered">
-              <mdicon class="icon mdi-spin" name="loading" />
-            </div>
-          </div>
-        </template>
-        <template #no-more>
-          <br />
-        </template>
-        <template #no-results>
-          <br />
-        </template>
-      </vue-eternal-loading>
+      <list-albums-spotify :items="albums" :load="load" :loaded="loaded" />
     </template>
   </content-with-heading>
   <modal-dialog-artist-spotify
@@ -44,7 +29,6 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
-import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
@@ -52,17 +36,19 @@ const PAGE_SIZE = 50
 
 const dataObject = {
   load(to) {
-    const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(useServicesStore().spotify.webapi_token)
-    return Promise.all([
-      spotifyApi.getArtist(to.params.id),
-      spotifyApi.getArtistAlbums(to.params.id, {
-        include_groups: 'album,single',
-        limit: PAGE_SIZE,
-        market: useServicesStore().spotify.webapi_country,
-        offset: 0
-      })
-    ])
+    return webapi.spotify().then(({ data }) => {
+      const spotifyApi = new SpotifyWebApi()
+      spotifyApi.setAccessToken(data.webapi_token)
+      return Promise.all([
+        spotifyApi.getArtist(to.params.id),
+        spotifyApi.getArtistAlbums(to.params.id, {
+          include_groups: 'album,single',
+          limit: PAGE_SIZE,
+          market: useServicesStore().spotify.webapi_country,
+          offset: 0
+        })
+      ])
+    })
   },
   set(vm, response) {
     vm.artist = response.shift()
@@ -80,8 +66,7 @@ export default {
     ControlButton,
     HeadingTitle,
     ListAlbumsSpotify,
-    ModalDialogArtistSpotify,
-    VueEternalLoading
+    ModalDialogArtistSpotify
   },
   beforeRouteEnter(to, from, next) {
     dataObject.load(to).then((response) => {
@@ -106,6 +91,9 @@ export default {
         subtitle: [{ count: this.total, key: 'count.albums' }],
         title: this.artist.name
       }
+    },
+    loaded() {
+      return !(this.offset < this.total)
     }
   },
   methods: {
@@ -115,18 +103,20 @@ export default {
       this.offset += data.limit
     },
     load({ loaded }) {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
-      spotifyApi
-        .getArtistAlbums(this.artist.id, {
-          include_groups: 'album,single',
-          limit: PAGE_SIZE,
-          offset: this.offset
-        })
-        .then((data) => {
-          this.appendAlbums(data)
-          loaded(data.items.length, PAGE_SIZE)
-        })
+      webapi.spotify().then(({ data }) => {
+        const spotifyApi = new SpotifyWebApi()
+        spotifyApi.setAccessToken(data.webapi_token)
+        spotifyApi
+          .getArtistAlbums(this.artist.id, {
+            include_groups: 'album,single',
+            limit: PAGE_SIZE,
+            offset: this.offset
+          })
+          .then((albums) => {
+            this.appendAlbums(albums)
+            loaded(albums.items.length, PAGE_SIZE)
+          })
+      })
     },
     openDetails() {
       this.showDetailsModal = true

@@ -35,19 +35,12 @@
       <heading-title :content="{ title: $t(`page.search.${type}s`) }" />
     </template>
     <template #content>
-      <component :is="components[type]" :items="items.items" />
-      <vue-eternal-loading v-if="expanded" :load="searchNext">
-        <template #loading>
-          <div class="columns is-centered">
-            <div class="column has-text-centered">
-              <mdicon class="icon mdi-spin" name="loading" />
-            </div>
-          </div>
-        </template>
-        <template #no-more>
-          <br />
-        </template>
-      </vue-eternal-loading>
+      <component
+        :is="components[type]"
+        :items="items.items"
+        :load="searchNext"
+        :loaded="!expanded"
+      />
     </template>
     <template v-if="!expanded" #footer>
       <control-button
@@ -78,7 +71,6 @@ import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsSearch from '@/components/TabsSearch.vue'
-import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
 import { useSearchStore } from '@/stores/search'
 import webapi from '@/webapi'
 
@@ -96,8 +88,7 @@ export default {
     ListArtistsSpotify,
     ListPlaylistsSpotify,
     ListTracksSpotify,
-    TabsSearch,
-    VueEternalLoading
+    TabsSearch
   },
   setup() {
     return { searchStore: useSearchStore() }

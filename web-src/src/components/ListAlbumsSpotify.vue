@@ -13,6 +13,7 @@
     @open="open(item)"
     @open-details="openDetails(item)"
   />
+  <loader-list-item :load="load" :loaded="loaded" />
   <modal-dialog-album-spotify
     :item="selectedItem"
     :show="showDetailsModal"
@@ -22,13 +23,18 @@
 
 <script>
 import ListItem from '@/components/ListItem.vue'
+import LoaderListItem from '@/components/LoaderListItem.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import { useSettingsStore } from '@/stores/settings'
 
 export default {
   name: 'ListAlbumsSpotify',
-  components: { ListItem, ModalDialogAlbumSpotify },
-  props: { items: { required: true, type: Object } },
+  components: { ListItem, LoaderListItem, ModalDialogAlbumSpotify },
+  props: {
+    items: { required: true, type: Object },
+    load: { default: null, type: Function },
+    loaded: { default: true, type: Boolean }
+  },
   setup() {
     return { settingsStore: useSettingsStore() }
   },
