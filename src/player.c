@@ -2683,6 +2683,10 @@ speaker_set(void *arg, int *retval)
   // why we want to provide a max_volume.
   max_volume = (player_state != PLAY_STOPPED) ? outputs_volume_get() : -1;
 
+  // Log a warning via outputs_device_get() if a speaker doesn't exist
+  for (i = 1; i <= nspk; i++)
+    outputs_device_get(ids[i]);
+
   for (device = outputs_list(); device; device = device->next)
     {
       for (i = 1; i <= nspk; i++)
