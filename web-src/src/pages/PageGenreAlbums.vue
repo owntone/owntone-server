@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #options>
-      <index-button-list :indices="albums.indices" />
+      <list-index-buttons :indices="albums.indices" />
     </template>
     <template #heading>
       <heading-title :content="heading" />
@@ -31,8 +31,8 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
-import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
+import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
 
@@ -57,7 +57,7 @@ export default {
     ContentWithHeading,
     ControlButton,
     HeadingTitle,
-    IndexButtonList,
+    ListIndexButtons,
     ListAlbums,
     ModalDialogGenre
   },

@@ -4,7 +4,7 @@
       <router-link
         v-for="index in indices"
         :key="index"
-        class="button px-2 is-small is-square"
+        class="button is-small p-2 is-index"
         :to="{ hash: `#index_${index}`, query: $route.query }"
       >
         {{ index }}
@@ -15,13 +15,13 @@
 
 <script>
 export default {
-  name: 'IndexButtonList',
+  name: 'ListIndexButtons',
   props: { indices: { required: true, type: Array } }
 }
 </script>
 
 <style scoped>
-.is-square {
+.is-index {
   height: 1.75rem;
   min-width: 1.75rem;
 }

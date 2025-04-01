@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #options>
-      <index-button-list :indices="tracks.indices" />
+      <list-index-buttons :indices="tracks.indices" />
       <list-options>
         <template #sort>
           <control-dropdown
@@ -40,7 +40,7 @@ import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
-import IndexButtonList from '@/components/IndexButtonList.vue'
+import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
@@ -67,7 +67,7 @@ export default {
     ControlButton,
     ControlDropdown,
     HeadingTitle,
-    IndexButtonList,
+    ListIndexButtons,
     ListOptions,
     ListTracks,
     ModalDialogGenre

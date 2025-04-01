@@ -2,7 +2,7 @@
   <tabs-music />
   <content-with-heading>
     <template #options>
-      <index-button-list :indices="albums.indices" />
+      <list-index-buttons :indices="albums.indices" />
       <list-options>
         <template #filter>
           <control-switch v-model="uiStore.hideSingles">
@@ -48,8 +48,8 @@ import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
-import IndexButtonList from '@/components/IndexButtonList.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
+import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import { useServicesStore } from '@/stores/services'
@@ -72,7 +72,7 @@ export default {
     ControlDropdown,
     ControlSwitch,
     HeadingTitle,
-    IndexButtonList,
+    ListIndexButtons,
     ListAlbums,
     ListOptions,
     TabsMusic
