@@ -610,7 +610,7 @@ outputs_device_get(uint64_t device_id)
 	return device;
     }
 
-  DPRINTF(E_WARN, L_PLAYER, "Output device with id %" PRIu64 " has disappeared from our list\n", device_id);
+  DPRINTF(E_WARN, L_PLAYER, "Output device with id %" PRIu64 " is not in our list\n", device_id);
   return NULL;
 }
 
