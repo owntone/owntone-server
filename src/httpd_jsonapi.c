@@ -1697,7 +1697,7 @@ static int
 jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
 {
   uint64_t output_id;
-  json_object* request;
+  json_object *request = NULL;
   bool selected;
   int volume;
   const char *pin;
@@ -1708,55 +1708,55 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "No valid output id given to outputs endpoint '%s'\n", hreq->path);
-
-      return HTTP_BADREQUEST;
+      goto error;
     }
 
   request = jparse_obj_from_evbuffer(hreq->in_body);
   if (!request)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
-
-      return HTTP_BADREQUEST;
+      goto error;
     }
-
-  ret = 0;
 
   if (jparse_contains_key(request, "selected", json_type_boolean))
     {
       selected = jparse_bool_from_obj(request, "selected");
-      if (selected)
-	ret = player_speaker_enable(output_id);
-      else
-	ret = player_speaker_disable(output_id);
+      ret = selected ? player_speaker_enable(output_id) : player_speaker_disable(output_id);
+      if (ret < 0)
+	goto error;
     }
 
-  if (ret == 0 && jparse_contains_key(request, "volume", json_type_int))
+  if (jparse_contains_key(request, "volume", json_type_int))
     {
       volume = jparse_int_from_obj(request, "volume");
       ret = player_volume_setabs_speaker(output_id, volume);
+      if (ret < 0)
+	goto error;
     }
 
-  if (ret == 0 && jparse_contains_key(request, "pin", json_type_string))
+  if (jparse_contains_key(request, "pin", json_type_string))
     {
       pin = jparse_str_from_obj(request, "pin");
-      if (pin)
-	ret = player_speaker_authorize(output_id, pin);
+      ret = pin ? player_speaker_authorize(output_id, pin) : 0;
+      if (ret < 0)
+	goto error;
+
     }
 
-  if (ret == 0 && jparse_contains_key(request, "format", json_type_string))
+  if (jparse_contains_key(request, "format", json_type_string))
     {
       format = jparse_str_from_obj(request, "format");
-      if (format)
-	ret = player_speaker_format_set(output_id, media_format_from_string(format));
+      ret = format ? player_speaker_format_set(output_id, media_format_from_string(format)) : 0;
+      if (ret < 0)
+	goto error;
     }
 
   jparse_free(request);
-
-  if (ret < 0)
-    return HTTP_BADREQUEST;
-
   return HTTP_NOCONTENT;
+
+ error:
+  jparse_free(request);
+  return HTTP_BADREQUEST;
 }
 
 /*
