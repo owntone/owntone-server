@@ -14,7 +14,7 @@ export const useQueueStore = defineStore('QueueStore', {
     isPauseAllowed(state) {
       return state.current && state.current.data_kind !== 'pipe'
     },
-    isSavingAllowed(state) {
+    isSavingAllowed() {
       const configuration = useConfigurationStore()
       return (
         configuration.allow_modifying_stored_playlists &&

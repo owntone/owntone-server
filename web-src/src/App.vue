@@ -81,7 +81,6 @@ export default {
   },
   created() {
     this.connect()
-    // Hook the progress bar to start before we move router-view
     this.$router.beforeEach((to, from, next) => {
       this.updateClipping()
       if (!(to.path === from.path && to.hash)) {
@@ -92,8 +91,7 @@ export default {
       }
       next()
     })
-    // Hook the progress bar to finish after we've finished moving router-view
-    this.$router.afterEach((to, from) => {
+    this.$router.afterEach(() => {
       this.$Progress.finish()
     })
   },
@@ -118,7 +116,6 @@ export default {
     },
     openWebsocket() {
       const socket = this.createWebsocket()
-      const vm = this
       socket.onopen = () => {
         socket.send(
           JSON.stringify({
@@ -136,46 +133,36 @@ export default {
             ]
           })
         )
-        vm.updateOutputs()
-        vm.updatePlayerStatus()
-        vm.updateLibraryStats()
-        vm.updateSettings()
-        vm.updateQueue()
-        vm.updateSpotify()
-        vm.updateLastfm()
-        vm.updatePairing()
+        this.updateOutputs()
+        this.updatePlayerStatus()
+        this.updateLibraryStats()
+        this.updateSettings()
+        this.updateQueue()
+        this.updateSpotify()
+        this.updateLastfm()
+        this.updatePairing()
       }
 
-      /*
-       * When the app becomes active, force an update of all information,
-       * because we may have missed notifications while the app was inactive.
-       * There are two relevant events - focus and visibilitychange, so we
-       * throttle the updates to avoid multiple redundant updates.
-       */
       let updateThrottled = false
 
       const updateInfo = () => {
         if (updateThrottled) {
           return
         }
-        vm.updateOutputs()
-        vm.updatePlayerStatus()
-        vm.updateLibraryStats()
-        vm.updateSettings()
-        vm.updateQueue()
-        vm.updateSpotify()
-        vm.updateLastfm()
-        vm.updatePairing()
+        this.updateOutputs()
+        this.updatePlayerStatus()
+        this.updateLibraryStats()
+        this.updateSettings()
+        this.updateQueue()
+        this.updateSpotify()
+        this.updateLastfm()
+        this.updatePairing()
         updateThrottled = true
         setTimeout(() => {
           updateThrottled = false
         }, 500)
       }
 
-      /*
-       * These events are fired when the window becomes active in different
-       * ways. When this happens, we should update 'now playing' info, etc.
-       */
       window.addEventListener('focus', updateInfo)
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
@@ -189,29 +176,29 @@ export default {
           data.notify.includes('update') ||
           data.notify.includes('database')
         ) {
-          vm.updateLibraryStats()
+          this.updateLibraryStats()
         }
         if (
           data.notify.includes('player') ||
           data.notify.includes('options') ||
           data.notify.includes('volume')
         ) {
-          vm.updatePlayerStatus()
+          this.updatePlayerStatus()
         }
         if (data.notify.includes('outputs') || data.notify.includes('volume')) {
-          vm.updateOutputs()
+          this.updateOutputs()
         }
         if (data.notify.includes('queue')) {
-          vm.updateQueue()
+          this.updateQueue()
         }
         if (data.notify.includes('spotify')) {
-          vm.updateSpotify()
+          this.updateSpotify()
         }
         if (data.notify.includes('lastfm')) {
-          vm.updateLastfm()
+          this.updateLastfm()
         }
         if (data.notify.includes('pairing')) {
-          vm.updatePairing()
+          this.updatePairing()
         }
       }
     },
@@ -302,7 +289,6 @@ export default {
         }
       })
     }
-  },
-  template: '<App/>'
+  }
 }
 </script>

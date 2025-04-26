@@ -26,7 +26,7 @@ export const filters = {
       minutes: Math.floor(seconds / 60)
     }).shiftTo(...unit)
     const filtered = Object.fromEntries(
-      Object.entries(shifted.toObject()).filter(([_, value]) => value > 0)
+      Object.entries(shifted.toObject()).filter(([, value]) => value > 0)
     )
     return Duration.fromObject(filtered, { locale: locale.value }).toHuman()
   },

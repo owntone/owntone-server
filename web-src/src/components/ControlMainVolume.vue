@@ -47,7 +47,7 @@ export default {
     }
   },
   methods: {
-    changeVolume(value) {
+    changeVolume() {
       webapi.player_volume(this.player.volume)
     },
     toggle() {

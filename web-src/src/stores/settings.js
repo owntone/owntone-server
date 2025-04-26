@@ -28,7 +28,7 @@ export const useSettingsStore = defineStore('SettingsStore', {
     }
   },
   getters: {
-    locales(state) {
+    locales() {
       return availableLocales.map((item) => ({
         id: item,
         name: t(`language.${item}`)

@@ -242,7 +242,7 @@ export const router = createRouter({
     const delay = 0
     if (savedPosition) {
       // Use the saved scroll position (browser back/forward navigation)
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         setTimeout(() => {
           resolve(savedPosition)
         }, delay)
@@ -257,7 +257,7 @@ export const router = createRouter({
     }
     if (to.hash) {
       // We are navigating to an anchor of a new page, add a timeout to let the transition effect finish before scrolling
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         setTimeout(() => {
           resolve({ el: to.hash, top: TOP_WITH_TABS })
         }, delay)

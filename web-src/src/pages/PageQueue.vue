@@ -150,7 +150,7 @@ export default {
       get() {
         return this.queueStore.items
       },
-      set(value) {
+      set() {
         /* Do nothing? Send move request in @end event */
       }
     }
