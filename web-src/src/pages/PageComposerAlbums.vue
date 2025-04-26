@@ -46,8 +46,8 @@ export default {
       webapi.library_composer_albums(to.params.name)
     ]).then(([composer, albums]) => {
       next((vm) => {
-        vm.composer = composer.data
-        vm.albums = new GroupedList(albums.data.albums)
+        vm.composer = composer
+        vm.albums = new GroupedList(albums)
       })
     })
   },
@@ -66,11 +66,11 @@ export default {
       if (this.composer.name) {
         return {
           subtitle: [
-            { count: this.composer.album_count, key: 'count.albums' },
+            { count: this.composer.album_count, key: 'data.albums' },
             {
               count: this.composer.track_count,
               handler: this.openTracks,
-              key: 'count.tracks'
+              key: 'data.tracks'
             }
           ],
           title: this.composer.name

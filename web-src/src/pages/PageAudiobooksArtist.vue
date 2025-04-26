@@ -46,8 +46,8 @@ export default {
       webapi.library_artist_albums(to.params.id)
     ]).then(([artist, albums]) => {
       next((vm) => {
-        vm.artist = artist.data
-        vm.albums = new GroupedList(albums.data)
+        vm.artist = artist
+        vm.albums = new GroupedList(albums)
       })
     })
   },
@@ -63,7 +63,7 @@ export default {
       if (this.artist.name) {
         return {
           subtitle: [
-            { count: this.artist.album_count, key: 'count.audiobooks' }
+            { count: this.artist.album_count, key: 'data.audiobooks' }
           ],
           title: this.artist.name
         }

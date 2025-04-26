@@ -34,7 +34,7 @@ export default {
   beforeRouteEnter(to, from, next) {
     webapi.library_artists('audiobook').then((artists) => {
       next((vm) => {
-        vm.artists = new GroupedList(artists.data, {
+        vm.artists = new GroupedList(artists, {
           index: { field: 'name_sort', type: String }
         })
       })
@@ -48,7 +48,7 @@ export default {
   computed: {
     heading() {
       return {
-        subtitle: [{ count: this.artists.count, key: 'count.authors' }],
+        subtitle: [{ count: this.artists.count, key: 'data.authors' }],
         title: this.$t('page.audiobooks.artists.title')
       }
     }

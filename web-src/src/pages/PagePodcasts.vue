@@ -26,7 +26,7 @@
     </template>
     <template #actions>
       <control-button
-        v-if="rss.tracks > 0"
+        v-if="libraryStore.rss"
         :button="{
           handler: updateRss,
           icon: 'refresh',
@@ -44,15 +44,15 @@
     <template #content>
       <list-albums
         :items="albums"
-        @play-count-changed="reloadNewEpisodes()"
-        @podcast-deleted="reloadPodcasts()"
+        @play-count-changed="reloadNewEpisodes"
+        @podcast-deleted="reloadPodcasts"
       />
     </template>
   </content-with-heading>
   <modal-dialog-add-rss
     :show="showAddPodcastModal"
     @close="showAddPodcastModal = false"
-    @podcast-added="reloadPodcasts()"
+    @podcast-added="reloadPodcasts"
   />
 </template>
 
@@ -82,10 +82,10 @@ export default {
     Promise.all([
       webapi.library_albums('podcast'),
       webapi.library_podcasts_new_episodes()
-    ]).then(([albums, episodes]) => {
+    ]).then(([albums, tracks]) => {
       next((vm) => {
-        vm.albums = new GroupedList(albums.data)
-        vm.tracks = new GroupedList(episodes.data.tracks)
+        vm.albums = new GroupedList(albums)
+        vm.tracks = new GroupedList(tracks)
       })
     })
   },
@@ -103,14 +103,11 @@ export default {
     heading() {
       if (this.albums.total) {
         return {
-          subtitle: [{ count: this.albums.count, key: 'count.podcasts' }],
+          subtitle: [{ count: this.albums.count, key: 'data.podcasts' }],
           title: this.$t('page.podcasts.title')
         }
       }
       return {}
-    },
-    rss() {
-      return this.libraryStore.rss
     }
   },
   methods: {
@@ -124,13 +121,13 @@ export default {
       this.showAddPodcastModal = true
     },
     reloadNewEpisodes() {
-      webapi.library_podcasts_new_episodes().then(({ data }) => {
-        this.tracks = new GroupedList(data.tracks)
+      webapi.library_podcasts_new_episodes().then((tracks) => {
+        this.tracks = new GroupedList(tracks)
       })
     },
     reloadPodcasts() {
-      webapi.library_albums('podcast').then(({ data }) => {
-        this.albums = new GroupedList(data)
+      webapi.library_albums('podcast').then((albums) => {
+        this.albums = new GroupedList(albums)
         this.reloadNewEpisodes()
       })
     },

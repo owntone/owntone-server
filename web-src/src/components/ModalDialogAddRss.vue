@@ -6,13 +6,15 @@
     @close="$emit('close')"
   >
     <template #content>
-      <control-url-field
-        icon="rss"
-        :help="$t('dialog.add.rss.help')"
-        :loading="loading"
-        :placeholder="$t('dialog.add.rss.placeholder')"
-        @input="onUrlChange"
-      />
+      <form @submit.prevent="add">
+        <control-url-field
+          icon="rss"
+          :help="$t('dialog.add.rss.help')"
+          :loading="loading"
+          :placeholder="$t('dialog.add.rss.placeholder')"
+          @input="onUrlChange"
+        />
+      </form>
     </template>
   </modal-dialog>
 </template>
@@ -56,9 +58,10 @@ export default {
       webapi
         .library_add(this.url)
         .then(() => {
-          this.$emit('close')
           this.$emit('podcast-added')
+          this.$emit('close')
           this.url = ''
+          this.loading = false
         })
         .catch(() => {
           this.loading = false

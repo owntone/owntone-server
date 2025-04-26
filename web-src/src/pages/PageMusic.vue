@@ -70,10 +70,10 @@ export default {
         limit: 3,
         type: 'track'
       })
-    ]).then(([albums, tracks]) => {
+    ]).then(([{ albums }, { tracks }]) => {
       next((vm) => {
-        vm.albums = new GroupedList(albums.data.albums)
-        vm.tracks = new GroupedList(tracks.data.tracks)
+        vm.albums = new GroupedList(albums)
+        vm.tracks = new GroupedList(tracks)
       })
     })
   },

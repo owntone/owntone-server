@@ -142,7 +142,7 @@ export default {
     },
     heading() {
       return {
-        subtitle: [{ count: this.queueStore.count, key: 'count.tracks' }],
+        subtitle: [{ count: this.queueStore.count, key: 'data.tracks' }],
         title: this.$t('page.queue.title')
       }
     },

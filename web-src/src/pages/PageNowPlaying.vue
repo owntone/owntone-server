@@ -148,7 +148,7 @@ export default {
     }
   },
   created() {
-    webapi.player_status().then(({ data }) => {
+    webapi.player_status().then((data) => {
       this.playerStore.$state = data
       if (this.playerStore.state === 'play') {
         this.intervalId = window.setInterval(this.tick, INTERVAL)

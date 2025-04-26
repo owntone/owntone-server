@@ -52,8 +52,8 @@ export default {
       webapi.library_playlist_tracks(to.params.id)
     ]).then(([playlist, tracks]) => {
       next((vm) => {
-        vm.playlist = playlist.data
-        vm.tracks = new GroupedList(tracks.data)
+        vm.playlist = playlist
+        vm.tracks = new GroupedList(tracks)
       })
     })
   },
@@ -67,7 +67,7 @@ export default {
   computed: {
     heading() {
       return {
-        subtitle: [{ count: this.tracks.count, key: 'count.tracks' }],
+        subtitle: [{ count: this.tracks.count, key: 'data.tracks' }],
         title: this.playlist.name
       }
     },

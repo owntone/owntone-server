@@ -33,9 +33,9 @@ export default {
         limit,
         type: 'album'
       })
-      .then((response) => {
+      .then((data) => {
         next((vm) => {
-          vm.albums = new GroupedList(response.data.albums, {
+          vm.albums = new GroupedList(data.albums, {
             criteria: [{ field: 'time_added', order: -1, type: Date }],
             index: { field: 'time_added', type: Date }
           })

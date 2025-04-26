@@ -15,7 +15,6 @@
     "pair": "Pair Remote",
     "play": "Play",
     "remove": "Remove",
-    "remove-podcast": "Remove podcast",
     "rescan": "Rescan",
     "save": "Save",
     "send": "Send",
@@ -24,7 +23,7 @@
     "update": "Update",
     "verify": "Verify"
   },
-  "count": {
+  "data": {
     "albums": "{count} album|{count} album|{count} albums",
     "artists": "{count} artist|{count} artist|{count} artists",
     "audiobooks": "{count} audiobook|{count} audiobook|{count} audiobooks",
@@ -35,9 +34,7 @@
     "playlists": "{count} playlist|{count} playlist|{count} playlists",
     "podcasts": "{count} podcast|{count} podcast|{count} podcasts",
     "stations": "{count} station|{count} station|{count} stations",
-    "tracks": "{count} track|{count} track|{count} tracks"
-  },
-  "data": {
+    "tracks": "{count} track|{count} track|{count} tracks",
     "kind": {
       "file": "File",
       "url": "URL",
@@ -60,6 +57,12 @@
         "title": "Add stream"
       }
     },
+    "podcast": {
+      "remove": {
+        "title": "Delete the podcast",
+        "info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})"
+      }
+    },
     "playlist": {
       "save": {
         "playlist-name": "Playlist name",
@@ -68,14 +71,14 @@
       }
     },
     "queue-item": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:count.channels {'|'} {bitrate} kbit/s"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
       "pairing-code": "Pairing code",
       "title": "Remote pairing request"
     },
     "track": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:count.channels {'|'} {bitrate} kbit/s",
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
       "rating-value": "{rating} / 10"
     },
     "update": {
@@ -213,9 +216,6 @@
     },
     "playlists": {
       "title": "{name}|Playlists"
-    },
-    "podcast": {
-      "remove-info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})"
     },
     "podcasts": {
       "new-episodes": "New Episodes",

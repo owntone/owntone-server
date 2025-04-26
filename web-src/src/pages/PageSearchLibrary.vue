@@ -190,7 +190,7 @@ export default {
       } else {
         parameters.expression = `(album includes "${this.searchStore.query}" or artist includes "${this.searchStore.query}") and media_kind is ${kind}`
       }
-      webapi.search(parameters).then(({ data }) => {
+      webapi.search(parameters).then((data) => {
         this.results.set(type, new GroupedList(data[`${parameters.type}s`]))
       })
     },

@@ -71,7 +71,7 @@ export default {
   beforeRouteEnter(to, from, next) {
     webapi.library_artists('music').then((artists) => {
       next((vm) => {
-        vm.artistList = new GroupedList(artists.data)
+        vm.artistList = new GroupedList(artists)
       })
     })
   },
@@ -115,7 +115,7 @@ export default {
     },
     heading() {
       return {
-        subtitle: [{ count: this.artists.count, key: 'count.artists' }],
+        subtitle: [{ count: this.artists.count, key: 'data.artists' }],
         title: this.$t('page.artists.title')
       }
     }

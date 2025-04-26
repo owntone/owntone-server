@@ -15,7 +15,6 @@
     "pair": "Remote paaren",
     "play": "Spielen",
     "remove": "Entfernen",
-    "remove-podcast": "Entferne podcast",
     "rescan": "Neu einlesen",
     "save": "Speichern",
     "send": "Senden",
@@ -24,7 +23,7 @@
     "update": "Neu einlesen",
     "verify": "Verifizieren"
   },
-  "count": {
+  "data": {
     "albums": "{count} Album|{count} Album|{count} Alben",
     "artists": "{count} Künstler",
     "audiobooks": "{count} Hörbuch|{count} Hörbuch|{count} Hörbücher",
@@ -35,9 +34,7 @@
     "playlists": "{count} Playlist|{count} Playlisten",
     "podcasts": "{count} Podcast|{count} Podcasts",
     "stations": "{count} Station|{count} Station|{count} Stationen",
-    "tracks": "{count} Track|{count} Track|{count} Tracks"
-  },
-  "data": {
+    "tracks": "{count} Track|{count} Track|{count} Tracks",
     "kind": {
       "file": "Datei",
       "url": "URL",
@@ -60,6 +57,12 @@
         "title": "Stream hinzufügen"
       }
     },
+    "podcast": {
+      "remove": {
+        "title": "Podcast enfernen",
+        "info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})"
+      }
+    },
     "playlist": {
       "save": {
         "playlist-name": "Playlistname",
@@ -68,14 +71,14 @@
       }
     },
     "queue-item": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
       "pairing-code": "Pairing-Code",
       "title": "Remote-Paarungs-Anfrage"
     },
     "track": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
       "rating-value": "{rating} / 10"
     },
     "update": {
@@ -213,9 +216,6 @@
     },
     "playlists": {
       "title": "{name}|Playlisten"
-    },
-    "podcast": {
-      "remove-info": "Diesen Podcast dauerhaft aus der Bibliothek löschen?{separator}(Damit wird auch die RSS-Playliste {name} gelöscht)"
     },
     "podcasts": {
       "new-episodes": "Neue Episoden",

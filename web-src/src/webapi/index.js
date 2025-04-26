@@ -6,7 +6,7 @@ import { useQueueStore } from '@/stores/queue'
 const { t } = i18n.global
 
 axios.interceptors.response.use(
-  (response) => response,
+  (response) => response.data,
   (error) => {
     if (error.request.status && error.request.responseURL) {
       useNotificationsStore().add({
@@ -71,12 +71,13 @@ export default {
     return axios.get(`./api/library/artists/${artistId}/albums`)
   },
 
-  library_artist_tracks(artist) {
+  async library_artist_tracks(artist) {
     const params = {
       expression: `songartistid is "${artist}"`,
       type: 'tracks'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.tracks
   },
 
   library_artists(media_kind) {
@@ -87,20 +88,22 @@ export default {
     return axios.get(`./api/library/composers/${encodeURIComponent(composer)}`)
   },
 
-  library_composer_albums(composer) {
+  async library_composer_albums(composer) {
     const params = {
       expression: `composer is "${composer}" and media_kind is music`,
       type: 'albums'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.albums
   },
 
-  library_composer_tracks(composer) {
+  async library_composer_tracks(composer) {
     const params = {
       expression: `composer is "${composer}" and media_kind is music`,
       type: 'tracks'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.tracks
   },
 
   library_composers(media_kind) {
@@ -115,36 +118,40 @@ export default {
     return axios.get('./api/library/files', { params: { directory } })
   },
 
-  library_genre(genre, media_kind) {
+  async library_genre(genre, media_kind) {
     const params = {
       expression: `genre is "${genre}" and media_kind is ${media_kind}`,
       type: 'genres'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.genres
   },
 
-  library_genre_albums(genre, media_kind) {
+  async library_genre_albums(genre, media_kind) {
     const params = {
       expression: `genre is "${genre}" and media_kind is ${media_kind}`,
       type: 'albums'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.albums
   },
 
-  library_genre_tracks(genre, media_kind) {
+  async library_genre_tracks(genre, media_kind) {
     const params = {
       expression: `genre is "${genre}" and media_kind is ${media_kind}`,
       type: 'tracks'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.tracks
   },
 
-  library_genres(media_kind) {
+  async library_genres(media_kind) {
     const params = {
       expression: `media_kind is ${media_kind}`,
       type: 'genres'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.genres
   },
 
   library_playlist(playlistId) {
@@ -152,7 +159,7 @@ export default {
   },
 
   library_playlist_delete(playlistId) {
-    return axios.delete(`./api/library/playlists/${playlistId}`, null)
+    return axios.delete(`./api/library/playlists/${playlistId}`)
   },
 
   library_playlist_folder(playlistId = 0) {
@@ -163,30 +170,33 @@ export default {
     return axios.get(`./api/library/playlists/${playlistId}/tracks`)
   },
 
-  library_podcast_episodes(albumId) {
+  async library_podcast_episodes(albumId) {
     const params = {
       expression: `media_kind is podcast and songalbumid is "${albumId}" ORDER BY date_released DESC`,
       type: 'tracks'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.tracks
   },
 
-  library_podcasts_new_episodes() {
+  async library_podcasts_new_episodes() {
     const params = {
       expression:
         'media_kind is podcast and play_count = 0 ORDER BY time_added DESC',
       type: 'tracks'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.tracks
   },
 
-  library_radio_streams() {
+  async library_radio_streams() {
     const params = {
       expression: 'data_kind is url and song_length = 0',
       media_kind: 'music',
       type: 'tracks'
     }
-    return axios.get('./api/search', { params })
+    const data = await axios.get('./api/search', { params })
+    return data.tracks
   },
 
   library_rescan(scan_kind) {
@@ -316,13 +326,13 @@ export default {
   },
 
   async queue_add(uri) {
-    const response = await axios.post(`./api/queue/items/add?uris=${uri}`)
+    const data = await axios.post(`./api/queue/items/add?uris=${uri}`)
     useNotificationsStore().add({
-      text: t('server.appended-tracks', { count: response.data.count }),
+      text: t('server.appended-tracks', { count: data.count }),
       timeout: 2000,
       type: 'info'
     })
-    return await Promise.resolve(response)
+    return await Promise.resolve(data)
   },
 
   async queue_add_next(uri) {
@@ -331,15 +341,15 @@ export default {
     if (current?.id) {
       position = current.position + 1
     }
-    const response = await axios.post(
+    const data = await axios.post(
       `./api/queue/items/add?uris=${uri}&position=${position}`
     )
     useNotificationsStore().add({
-      text: t('server.appended-tracks', { count: response.data.count }),
+      text: t('server.appended-tracks', { count: data.count }),
       timeout: 2000,
       type: 'info'
     })
-    return await Promise.resolve(response)
+    return await Promise.resolve(data)
   },
 
   queue_clear() {
@@ -347,15 +357,15 @@ export default {
   },
 
   async queue_expression_add(expression) {
-    const response = await axios.post('./api/queue/items/add', null, {
+    const data = await axios.post('./api/queue/items/add', null, {
       params: { expression }
     })
     useNotificationsStore().add({
-      text: t('server.appended-tracks', { count: response.data.count }),
+      text: t('server.appended-tracks', { count: data.count }),
       timeout: 2000,
       type: 'info'
     })
-    return await Promise.resolve(response)
+    return await Promise.resolve(data)
   },
 
   async queue_expression_add_next(expression) {
@@ -366,13 +376,13 @@ export default {
     if (current?.id) {
       params.position = current.position + 1
     }
-    const response = await axios.post('./api/queue/items/add', null, { params })
+    const data = await axios.post('./api/queue/items/add', null, { params })
     useNotificationsStore().add({
-      text: t('server.appended-tracks', { count: response.data.count }),
+      text: t('server.appended-tracks', { count: data.count }),
       timeout: 2000,
       type: 'info'
     })
-    return await Promise.resolve(response)
+    return await Promise.resolve(data)
   },
 
   queue_move(itemId, position) {

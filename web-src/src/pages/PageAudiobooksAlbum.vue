@@ -47,8 +47,8 @@ export default {
       webapi.library_album_tracks(to.params.id)
     ]).then(([album, tracks]) => {
       next((vm) => {
-        vm.album = album.data
-        vm.tracks = new GroupedList(tracks.data)
+        vm.album = album
+        vm.tracks = new GroupedList(tracks)
       })
     })
   },
@@ -62,7 +62,7 @@ export default {
   computed: {
     heading() {
       return {
-        count: this.$t('count.tracks', { count: this.album.track_count }),
+        count: this.$t('data.tracks', { count: this.album.track_count }),
         handler: this.openArtist,
         subtitle: this.album.artist,
         title: this.album.name,

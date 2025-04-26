@@ -71,7 +71,7 @@ export default {
   beforeRouteEnter(to, from, next) {
     webapi.library_albums('music').then((albums) => {
       next((vm) => {
-        vm.albumList = new GroupedList(albums.data)
+        vm.albumList = new GroupedList(albums)
       })
     })
   },
@@ -143,7 +143,7 @@ export default {
     },
     heading() {
       return {
-        subtitle: [{ count: this.albums.count, key: 'count.albums' }],
+        subtitle: [{ count: this.albums.count, key: 'data.albums' }],
         title: this.$t('page.albums.title')
       }
     }

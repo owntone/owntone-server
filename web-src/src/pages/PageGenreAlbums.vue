@@ -52,8 +52,8 @@ export default {
       webapi.library_genre_albums(to.params.name, to.query.mediaKind)
     ]).then(([genre, albums]) => {
       next((vm) => {
-        vm.genre = genre.data.genres.items.shift()
-        vm.albums = new GroupedList(albums.data.albums, {
+        vm.genre = genre.items.shift()
+        vm.albums = new GroupedList(albums, {
           index: { field: 'name_sort', type: String }
         })
       })
@@ -72,11 +72,11 @@ export default {
       if (this.genre.name) {
         return {
           subtitle: [
-            { count: this.genre.album_count, key: 'count.albums' },
+            { count: this.genre.album_count, key: 'data.albums' },
             {
               count: this.genre.track_count,
               handler: this.openTracks,
-              key: 'count.tracks'
+              key: 'data.tracks'
             }
           ],
           title: this.genre.name

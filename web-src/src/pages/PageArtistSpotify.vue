@@ -44,7 +44,7 @@ export default {
     ModalDialogArtistSpotify
   },
   beforeRouteEnter(to, from, next) {
-    webapi.spotify().then(({ data }) => {
+    webapi.spotify().then((data) => {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(data.webapi_token)
       Promise.all([
@@ -80,7 +80,7 @@ export default {
   computed: {
     heading() {
       return {
-        subtitle: [{ count: this.total, key: 'count.albums' }],
+        subtitle: [{ count: this.total, key: 'data.albums' }],
         title: this.artist.name
       }
     },
@@ -95,7 +95,7 @@ export default {
       this.offset += data.limit
     },
     load({ loaded }) {
-      webapi.spotify().then(({ data }) => {
+      webapi.spotify().then((data) => {
         const spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(data.webapi_token)
         spotifyApi

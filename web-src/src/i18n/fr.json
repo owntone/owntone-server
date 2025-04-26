@@ -15,7 +15,6 @@
     "pair": "Jumeler la télécommande",
     "play": "Lire",
     "remove": "Supprimer",
-    "remove-podcast": "Supprimer le podcast",
     "rescan": "Analyser",
     "save": "Enregistrer",
     "send": "Envoyer",
@@ -24,7 +23,7 @@
     "update": "Actualiser",
     "verify": "Vérifier"
   },
-  "count": {
+  "data": {
     "albums": "{count} album|{count} album|{count} albums",
     "artists": "{count} artiste|{count} artiste|{count} artistes",
     "audiobooks": "{count} livre audio|{count} livre audio|{count} livres audio",
@@ -35,9 +34,7 @@
     "playlists": "{count} liste de lecture|{count} liste de lecture|{count} listes de lecture",
     "podcasts": "{count} podcast|{count} podcast|{count} podcasts",
     "stations": "{count} station|{count} station|{count} stations",
-    "tracks": "{count} piste|{count} piste|{count} pistes"
-  },
-  "data": {
+    "tracks": "{count} piste|{count} piste|{count} pistes",
     "kind": {
       "file": "Fichier",
       "url": "URL",
@@ -60,6 +57,12 @@
         "title": "Ajouter un flux"
       }
     },
+    "podcast": {
+      "remove": {
+        "title": "Supprimer le podcast",
+        "info": "Supprimer ce podcast de manière permanente de la bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})"
+      }
+    },
     "playlist": {
       "save": {
         "playlist-name": "Nom de la liste de lecture",
@@ -68,14 +71,14 @@
       }
     },
     "queue-item": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
       "pairing-code": "Code de jumelage",
       "title": "Demande de jumelage de télécommande"
     },
     "track": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
       "rating-value": "{rating} / 10"
     },
     "update": {
@@ -213,9 +216,6 @@
     },
     "playlists": {
       "title": "{name}|Listes de lecture"
-    },
-    "podcast": {
-      "remove-info": "Supprimer ce podcast de manière permanente de la bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})"
     },
     "podcasts": {
       "new-episodes": "Nouveaux épisodes",

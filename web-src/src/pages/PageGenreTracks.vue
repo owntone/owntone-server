@@ -65,8 +65,8 @@ export default {
       webapi.library_genre_tracks(to.params.name, to.query.mediaKind)
     ]).then(([genre, tracks]) => {
       next((vm) => {
-        vm.genre = genre.data.genres.items.shift()
-        vm.trackList = new GroupedList(tracks.data.tracks)
+        vm.genre = genre.items.shift()
+        vm.trackList = new GroupedList(tracks)
       })
     })
   },
@@ -109,9 +109,9 @@ export default {
             {
               count: this.genre.album_count,
               handler: this.openGenre,
-              key: 'count.albums'
+              key: 'data.albums'
             },
-            { count: this.genre.track_count, key: 'count.tracks' }
+            { count: this.genre.track_count, key: 'data.tracks' }
           ],
           title: this.genre.name
         }

@@ -68,7 +68,7 @@ export default {
               this.item.data_kind !== 'spotify' &&
               this.$t('dialog.track.quality-value', {
                 bitrate: this.item.bitrate,
-                channels: this.$t('count.channels', this.item.channels),
+                channels: this.$t('data.channels', this.item.channels),
                 format: this.item.type,
                 samplerate: this.item.samplerate
               })

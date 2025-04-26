@@ -63,8 +63,7 @@ export default {
         market: useServicesStore().$state.spotify.webapi_country,
         offset: 0
       })
-    ]).then((response) => {
-      const [playlist, tracks] = response
+    ]).then(([playlist, tracks]) => {
       next((vm) => {
         vm.playlist = playlist
         vm.tracks = []
@@ -91,7 +90,7 @@ export default {
       if (this.playlist.name) {
         return {
           subtitle: [
-            { count: this.playlist.tracks.total, key: 'count.playlists' }
+            { count: this.playlist.tracks.total, key: 'data.playlists' }
           ],
           title: this.playlist.name
         }

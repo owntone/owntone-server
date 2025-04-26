@@ -20,9 +20,9 @@ export default {
   name: 'PageRadioStreams',
   components: { ContentWithHeading, HeadingTitle, ListTracks },
   beforeRouteEnter(to, from, next) {
-    webapi.library_radio_streams().then((radios) => {
+    webapi.library_radio_streams().then((tracks) => {
       next((vm) => {
-        vm.tracks = new GroupedList(radios.data.tracks)
+        vm.tracks = new GroupedList(tracks)
       })
     })
   },
@@ -34,7 +34,7 @@ export default {
   computed: {
     heading() {
       return {
-        subtitle: [{ count: this.tracks.total, key: 'count.stations' }],
+        subtitle: [{ count: this.tracks.total, key: 'data.stations' }],
         title: this.$t('page.radio.title')
       }
     }

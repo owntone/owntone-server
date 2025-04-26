@@ -34,7 +34,7 @@ export default {
   beforeRouteEnter(to, from, next) {
     webapi.library_genres('music').then((genres) => {
       next((vm) => {
-        vm.genres = new GroupedList(genres.data.genres, {
+        vm.genres = new GroupedList(genres, {
           index: { field: 'name_sort', type: String }
         })
       })
@@ -48,7 +48,7 @@ export default {
   computed: {
     heading() {
       return {
-        subtitle: [{ count: this.genres.total, key: 'count.genres' }],
+        subtitle: [{ count: this.genres.total, key: 'data.genres' }],
         title: this.$t('page.genres.title')
       }
     }

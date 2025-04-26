@@ -93,17 +93,17 @@ export default {
   methods: {
     async fetchData(to) {
       if (to.query.directory) {
-        const response = await webapi.library_files(to.query.directory)
-        if (response) {
-          this.directories = response.data.directories.map((directory) =>
+        const data = await webapi.library_files(to.query.directory)
+        if (data) {
+          this.directories = data.directories.map((directory) =>
             this.transform(directory.path)
           )
-          this.playlists = new GroupedList(response.data.playlists)
-          this.tracks = new GroupedList(response.data.tracks)
+          this.playlists = new GroupedList(data.playlists)
+          this.tracks = new GroupedList(data.tracks)
         }
       } else {
         const config = await webapi.config()
-        this.directories = config.data.directories.map((path) =>
+        this.directories = config.directories.map((path) =>
           this.transform(path)
         )
         this.playlists = new GroupedList()

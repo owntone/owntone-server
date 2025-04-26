@@ -31,9 +31,9 @@ export default {
         limit: 50,
         type: 'track'
       })
-      .then((response) => {
+      .then((data) => {
         next((vm) => {
-          vm.tracks = new GroupedList(response.data.tracks)
+          vm.tracks = new GroupedList(data.tracks)
         })
       })
   },

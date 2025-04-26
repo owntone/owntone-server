@@ -140,16 +140,16 @@ export default {
   },
   methods: {
     loginLastfm() {
-      webapi.lastfm_login(this.lastfm_login).then((response) => {
+      webapi.lastfm_login(this.lastfm_login).then((data) => {
         this.lastfm_login.user = ''
         this.lastfm_login.password = ''
         this.lastfm_login.errors.user = ''
         this.lastfm_login.errors.password = ''
         this.lastfm_login.errors.error = ''
-        if (!response.data.success) {
-          this.lastfm_login.errors.user = response.data.errors.user
-          this.lastfm_login.errors.password = response.data.errors.password
-          this.lastfm_login.errors.error = response.data.errors.error
+        if (!data.success) {
+          this.lastfm_login.errors.user = data.errors.user
+          this.lastfm_login.errors.password = data.errors.password
+          this.lastfm_login.errors.error = data.errors.error
         }
       })
     },

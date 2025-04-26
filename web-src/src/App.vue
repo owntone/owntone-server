@@ -99,7 +99,7 @@ export default {
     connect() {
       webapi
         .config()
-        .then(({ data }) => {
+        .then((data) => {
           this.configurationStore.$state = data
           this.uiStore.hideSingles = data.hide_singles
           document.title = data.library_name
@@ -224,22 +224,22 @@ export default {
       }
     },
     updateLastfm() {
-      webapi.lastfm().then(({ data }) => {
+      webapi.lastfm().then((data) => {
         this.servicesStore.lastfm = data
       })
     },
     updateLibraryStats() {
-      webapi.library_stats().then(({ data }) => {
+      webapi.library_stats().then((data) => {
         this.libraryStore.$state = data
       })
-      webapi.library_count('scan_kind is rss').then(({ data }) => {
+      webapi.library_count('scan_kind is rss').then((data) => {
         this.libraryStore.rss = data
       })
     },
     updateLyrics() {
       const track = this.queueStore.current
       if (track?.track_id) {
-        webapi.library_track(track.track_id).then(({ data }) => {
+        webapi.library_track(track.track_id).then((data) => {
           this.lyricsStore.lyrics = data.lyrics
         })
       } else {
@@ -247,35 +247,35 @@ export default {
       }
     },
     updateOutputs() {
-      webapi.outputs().then(({ data }) => {
+      webapi.outputs().then((data) => {
         this.outputsStore.outputs = data.outputs
       })
     },
     updatePairing() {
-      webapi.pairing().then(({ data }) => {
+      webapi.pairing().then((data) => {
         this.remotesStore.$state = data
         this.pairingActive = data.active
       })
     },
     updatePlayerStatus() {
-      webapi.player_status().then(({ data }) => {
+      webapi.player_status().then((data) => {
         this.playerStore.$state = data
         this.updateLyrics()
       })
     },
     updateQueue() {
-      webapi.queue().then(({ data }) => {
+      webapi.queue().then((data) => {
         this.queueStore.$state = data
         this.updateLyrics()
       })
     },
     updateSettings() {
-      webapi.settings().then(({ data }) => {
+      webapi.settings().then((data) => {
         this.settingsStore.$state = data
       })
     },
     updateSpotify() {
-      webapi.spotify().then(({ data }) => {
+      webapi.spotify().then((data) => {
         this.servicesStore.spotify = data
         if (this.timerId > 0) {
           window.clearTimeout(this.timerId)

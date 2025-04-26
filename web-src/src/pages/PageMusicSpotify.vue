@@ -57,7 +57,7 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    webapi.spotify().then(({ data }) => {
+    webapi.spotify().then((data) => {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(data.webapi_token)
       Promise.all([

@@ -5,28 +5,69 @@
     :show="show"
     @close="$emit('close')"
   />
+  <modal-dialog
+    :actions="actions"
+    :show="showRemovePodcastModal"
+    :title="$t('dialog.podcast.remove.title')"
+    @close="showRemovePodcastModal = false"
+    @remove="removePodcast"
+  >
+    <template #content>
+      <i18n-t keypath="dialog.podcast.remove.info" tag="p" scope="global">
+        <template #separator>
+          <br />
+        </template>
+        <template #name>
+          <b v-text="item.name" />
+        </template>
+      </i18n-t>
+    </template>
+  </modal-dialog>
 </template>
 
 <script>
+import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogAlbum',
-  components: { ModalDialogPlayable },
+  components: { ModalDialog, ModalDialogPlayable },
   props: {
     item: { required: true, type: Object },
     mediaKind: { default: '', type: String },
     show: Boolean
   },
-  emits: ['close', 'remove-podcast', 'play-count-changed'],
+  emits: ['close', 'play-count-changed', 'podcast-deleted'],
+  data() {
+    return {
+      showRemovePodcastModal: false
+    }
+  },
   computed: {
+    actions() {
+      return [
+        {
+          handler: this.cancel,
+          icon: 'cancel',
+          key: this.$t('actions.cancel')
+        },
+        {
+          handler: this.removePodcast,
+          icon: 'delete',
+          key: this.$t('actions.remove')
+        }
+      ]
+    },
     buttons() {
       if (this.media_kind_resolved === 'podcast') {
         if (this.item.data_kind === 'url') {
           return [
             { handler: this.markAsPlayed, key: 'actions.mark-as-played' },
-            { handler: this.removePodcast, key: 'actions.remove-podcast' }
+            {
+              handler: this.openRemovePodcastDialog,
+              key: 'actions.remove'
+            }
           ]
         }
         return [{ handler: this.markAsPlayed, key: 'actions.mark-as-played' }]
@@ -70,6 +111,9 @@ export default {
     }
   },
   methods: {
+    cancel() {
+      this.showRemovePodcastModal = false
+    },
     markAsPlayed() {
       webapi
         .library_album_track_update(this.item.id, { play_count: 'played' })
@@ -92,8 +136,21 @@ export default {
         })
       }
     },
+    openRemovePodcastDialog() {
+      this.showRemovePodcastModal = true
+      this.showDetailsModal = false
+    },
     removePodcast() {
-      this.$emit('remove-podcast')
+      this.showRemovePodcastModal = false
+      webapi.library_album_tracks(this.item.id, { limit: 1 }).then((album) => {
+        webapi.library_track_playlists(album.items[0].id).then((data) => {
+          const { id } = data.items.find((item) => item.type === 'rss')
+          webapi.library_playlist_delete(id).then(() => {
+            this.$emit('podcast-deleted')
+            this.$emit('close')
+          })
+        })
+      })
     }
   }
 }

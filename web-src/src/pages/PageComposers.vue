@@ -34,7 +34,7 @@ export default {
   beforeRouteEnter(to, from, next) {
     webapi.library_composers('music').then((composers) => {
       next((vm) => {
-        vm.composers = new GroupedList(composers.data, {
+        vm.composers = new GroupedList(composers, {
           index: { field: 'name_sort', type: String }
         })
       })
@@ -48,7 +48,7 @@ export default {
   computed: {
     heading() {
       return {
-        subtitle: [{ count: this.composers.total, key: 'count.composers' }],
+        subtitle: [{ count: this.composers.total, key: 'data.composers' }],
         title: this.$t('page.composers.title')
       }
     }

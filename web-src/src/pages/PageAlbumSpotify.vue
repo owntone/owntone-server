@@ -43,7 +43,7 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     const spotifyApi = new SpotifyWebApi()
-    webapi.spotify().then(({ data }) => {
+    webapi.spotify().then((data) => {
       spotifyApi.setAccessToken(data.webapi_token)
       spotifyApi
         .getAlbum(to.params.id, {
@@ -68,7 +68,7 @@ export default {
   computed: {
     heading() {
       return {
-        count: this.$t('count.tracks', { count: this.album.tracks.total }),
+        count: this.$t('data.tracks', { count: this.album.tracks.total }),
         handler: this.openArtist,
         subtitle: this.album.artists[0].name,
         title: this.album.name,

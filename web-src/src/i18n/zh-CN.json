@@ -15,7 +15,6 @@
     "pair": "遥控配对",
     "play": "播放",
     "remove": "移除",
-    "remove-podcast": "移除播客",
     "rescan": "重新扫描",
     "save": "保存",
     "send": "发送",
@@ -24,7 +23,7 @@
     "update": "更新",
     "verify": "验证"
   },
-  "count": {
+  "data": {
     "albums": "{count} 张专辑|{count} 张专辑",
     "artists": "{count} 位艺人|{count} 位艺人",
     "audiobooks": "{count} 个有声读物|{count} 个有声读物",
@@ -35,9 +34,7 @@
     "playlists": "{count} 个播放列表|{count} 个播放列表",
     "podcasts": "{count} 个播客|{count} 个播客",
     "stations": "{count} 个电台|{count} 个电台",
-    "tracks": "{count} 只曲目|{count} 只曲目"
-  },
-  "data": {
+    "tracks": "{count} 只曲目|{count} 只曲目",
     "kind": {
       "file": "文件",
       "url": "链接",
@@ -60,6 +57,12 @@
         "title": "添加流"
       }
     },
+    "podcast": {
+      "remove": {
+        "title": "移除播客",
+        "info": "从资料库中永久移除该播客？{separator}(这也将移除该播客RSS列表 {name})"
+      }
+    },
     "playlist": {
       "save": {
         "playlist-name": "播放列表名称",
@@ -68,14 +71,14 @@
       }
     },
     "queue-item": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s"
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
       "pairing-code": "配对码",
       "title": "请求遥控配对"
     },
     "track": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} {channels} {'|'} {bitrate} kbit/s",
+      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
       "rating-value": "{rating} / 10"
     },
     "update": {
@@ -213,9 +216,6 @@
     },
     "playlists": {
       "title": "{name}|播放列表"
-    },
-    "podcast": {
-      "remove-info": "从资料库中永久移除该播客？{separator}(这也将移除该播客RSS列表 {name})"
     },
     "podcasts": {
       "new-episodes": "最新单集",

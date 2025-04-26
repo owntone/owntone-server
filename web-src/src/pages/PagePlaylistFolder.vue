@@ -42,7 +42,7 @@ export default {
   computed: {
     heading() {
       return {
-        subtitle: [{ count: this.playlists.count, key: 'count.playlists' }],
+        subtitle: [{ count: this.playlists.count, key: 'data.playlists' }],
         title: this.$t('page.playlists.title', this.playlists.count, {
           name: this.playlist.name
         })
@@ -66,8 +66,8 @@ export default {
         webapi.library_playlist(id),
         webapi.library_playlist_folder(id)
       ])
-      this.playlist = playlist.data
-      this.playlistList = new GroupedList(playlistFolder.data)
+      this.playlist = playlist
+      this.playlistList = new GroupedList(playlistFolder)
     }
   }
 }
