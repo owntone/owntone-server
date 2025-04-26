@@ -47,19 +47,6 @@ import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_genre(to.params.name, to.query.mediaKind),
-      webapi.library_genre_tracks(to.params.name, to.query.mediaKind)
-    ])
-  },
-  set(vm, response) {
-    vm.genre = response[0].data.genres.items.shift()
-    vm.trackList = new GroupedList(response[1].data.tracks)
-  }
-}
-
 export default {
   name: 'PageGenreTracks',
   components: {
@@ -73,8 +60,14 @@ export default {
     ModalDialogGenre
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_genre(to.params.name, to.query.mediaKind),
+      webapi.library_genre_tracks(to.params.name, to.query.mediaKind)
+    ]).then(([genre, tracks]) => {
+      next((vm) => {
+        vm.genre = genre.data.genres.items.shift()
+        vm.trackList = new GroupedList(tracks.data.tracks)
+      })
     })
   },
   setup() {
@@ -138,7 +131,7 @@ export default {
       this.$router.push({
         name: 'genre-albums',
         params: { name: this.genre.name },
-        query: { mediaKind: this.media_kind }
+        query: { mediaKind: this.mediaKind }
       })
     },
     play() {

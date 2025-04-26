@@ -56,15 +56,6 @@ import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return webapi.library_artists('music')
-  },
-  set(vm, response) {
-    vm.artistList = new GroupedList(response.data)
-  }
-}
-
 export default {
   name: 'PageArtists',
   components: {
@@ -78,8 +69,10 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    webapi.library_artists('music').then((artists) => {
+      next((vm) => {
+        vm.artistList = new GroupedList(artists.data)
+      })
     })
   },
   setup() {

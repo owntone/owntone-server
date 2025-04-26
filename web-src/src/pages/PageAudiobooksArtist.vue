@@ -31,19 +31,6 @@ import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_artist(to.params.id),
-      webapi.library_artist_albums(to.params.id)
-    ])
-  },
-  set(vm, response) {
-    vm.artist = response[0].data
-    vm.albums = new GroupedList(response[1].data)
-  }
-}
-
 export default {
   name: 'PageAudiobooksArtist',
   components: {
@@ -54,8 +41,14 @@ export default {
     ModalDialogArtist
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_artist(to.params.id),
+      webapi.library_artist_albums(to.params.id)
+    ]).then(([artist, albums]) => {
+      next((vm) => {
+        vm.artist = artist.data
+        vm.albums = new GroupedList(albums.data)
+      })
     })
   },
   data() {

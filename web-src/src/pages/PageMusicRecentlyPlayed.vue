@@ -20,31 +20,26 @@ import ListTracks from '@/components/ListTracks.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load() {
-    return webapi.search({
-      expression:
-        'time_played after 8 weeks ago and media_kind is music order by time_played desc',
-      limit: 50,
-      type: 'track'
-    })
-  },
-  set(vm, response) {
-    vm.tracks = new GroupedList(response.data.tracks)
-  }
-}
-
 export default {
   name: 'PageMusicRecentlyPlayed',
   components: { ContentWithHeading, HeadingTitle, ListTracks, TabsMusic },
   beforeRouteEnter(to, from, next) {
-    dataObject.load().then((response) => {
-      next((vm) => dataObject.set(vm, response))
-    })
+    webapi
+      .search({
+        expression:
+          'time_played after 8 weeks ago and media_kind is music order by time_played desc',
+        limit: 50,
+        type: 'track'
+      })
+      .then((response) => {
+        next((vm) => {
+          vm.tracks = new GroupedList(response.data.tracks)
+        })
+      })
   },
   data() {
     return {
-      tracks: {}
+      tracks: new GroupedList()
     }
   }
 }

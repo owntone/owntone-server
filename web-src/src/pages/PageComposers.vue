@@ -22,17 +22,6 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load() {
-    return webapi.library_composers('music')
-  },
-  set(vm, response) {
-    vm.composers = new GroupedList(response.data, {
-      index: { field: 'name_sort', type: String }
-    })
-  }
-}
-
 export default {
   name: 'PageComposers',
   components: {
@@ -43,8 +32,12 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load().then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    webapi.library_composers('music').then((composers) => {
+      next((vm) => {
+        vm.composers = new GroupedList(composers.data, {
+          index: { field: 'name_sort', type: String }
+        })
+      })
     })
   },
   data() {

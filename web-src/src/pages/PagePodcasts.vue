@@ -68,19 +68,6 @@ import { useLibraryStore } from '@/stores/library'
 import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_albums('podcast'),
-      webapi.library_podcasts_new_episodes()
-    ])
-  },
-  set(vm, response) {
-    vm.albums = new GroupedList(response[0].data)
-    vm.tracks = new GroupedList(response[1].data.tracks)
-  }
-}
-
 export default {
   name: 'PagePodcasts',
   components: {
@@ -92,8 +79,14 @@ export default {
     ModalDialogAddRss
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_albums('podcast'),
+      webapi.library_podcasts_new_episodes()
+    ]).then(([albums, episodes]) => {
+      next((vm) => {
+        vm.albums = new GroupedList(albums.data)
+        vm.tracks = new GroupedList(episodes.data.tracks)
+      })
     })
   },
   setup() {

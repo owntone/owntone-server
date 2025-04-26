@@ -22,17 +22,6 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load() {
-    return webapi.library_genres('music')
-  },
-  set(vm, response) {
-    vm.genres = new GroupedList(response.data.genres, {
-      index: { field: 'name_sort', type: String }
-    })
-  }
-}
-
 export default {
   name: 'PageGenres',
   components: {
@@ -43,8 +32,12 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load().then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    webapi.library_genres('music').then((genres) => {
+      next((vm) => {
+        vm.genres = new GroupedList(genres.data.genres, {
+          index: { field: 'name_sort', type: String }
+        })
+      })
     })
   },
   data() {

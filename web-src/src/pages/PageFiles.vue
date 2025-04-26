@@ -36,34 +36,6 @@ import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 import { useConfigurationStore } from '@/stores/configuration'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    if (to.query.directory) {
-      return webapi.library_files(to.query.directory)
-    }
-    return Promise.resolve()
-  },
-  set(vm, response) {
-    if (response) {
-      vm.directories = response.data.directories.map((directory) =>
-        vm.transform(directory.path)
-      )
-    } else if (useConfigurationStore().directories) {
-      vm.directories = useConfigurationStore().directories.map((path) =>
-        vm.transform(path)
-      )
-    } else {
-      webapi.config().then((config) => {
-        vm.directories = config.data.directories.map((path) =>
-          vm.transform(path)
-        )
-      })
-    }
-    vm.playlists = new GroupedList(response?.data.playlists)
-    vm.tracks = new GroupedList(response?.data.tracks)
-  }
-}
-
 export default {
   name: 'PageFiles',
   components: {
@@ -76,15 +48,12 @@ export default {
     ModalDialogPlayable
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    next(async (vm) => {
+      await vm.fetchData(to)
     })
   },
   beforeRouteUpdate(to, from, next) {
-    dataObject.load(to).then((response) => {
-      dataObject.set(this, response)
-      next()
-    })
+    this.fetchData(to).then(() => next())
   },
   setup() {
     return {
@@ -122,6 +91,25 @@ export default {
     }
   },
   methods: {
+    async fetchData(to) {
+      if (to.query.directory) {
+        const response = await webapi.library_files(to.query.directory)
+        if (response) {
+          this.directories = response.data.directories.map((directory) =>
+            this.transform(directory.path)
+          )
+          this.playlists = new GroupedList(response.data.playlists)
+          this.tracks = new GroupedList(response.data.tracks)
+        }
+      } else {
+        const config = await webapi.config()
+        this.directories = config.data.directories.map((path) =>
+          this.transform(path)
+        )
+        this.playlists = new GroupedList()
+        this.tracks = new GroupedList()
+      }
+    },
     openDetails() {
       this.showDetailsModal = true
     },

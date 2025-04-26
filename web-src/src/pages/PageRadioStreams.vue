@@ -16,21 +16,14 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return webapi.library_radio_streams()
-  },
-  set(vm, response) {
-    vm.tracks = new GroupedList(response.data.tracks)
-  }
-}
-
 export default {
   name: 'PageRadioStreams',
   components: { ContentWithHeading, HeadingTitle, ListTracks },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    webapi.library_radio_streams().then((radios) => {
+      next((vm) => {
+        vm.tracks = new GroupedList(radios.data.tracks)
+      })
     })
   },
   data() {

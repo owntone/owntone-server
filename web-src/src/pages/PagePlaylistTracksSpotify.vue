@@ -44,28 +44,6 @@ import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
 
-const dataObject = {
-  load(to) {
-    const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(useServicesStore().spotify.webapi_token)
-    return Promise.all([
-      spotifyApi.getPlaylist(to.params.id),
-      spotifyApi.getPlaylistTracks(to.params.id, {
-        limit: PAGE_SIZE,
-        market: useServicesStore().$state.spotify.webapi_country,
-        offset: 0
-      })
-    ])
-  },
-  set(vm, response) {
-    vm.playlist = response.shift()
-    vm.tracks = []
-    vm.total = 0
-    vm.offset = 0
-    vm.appendTracks(response.shift())
-  }
-}
-
 export default {
   name: 'PagePlaylistTracksSpotify',
   components: {
@@ -76,8 +54,24 @@ export default {
     ModalDialogPlaylistSpotify
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    const spotifyApi = new SpotifyWebApi()
+    spotifyApi.setAccessToken(useServicesStore().spotify.webapi_token)
+    Promise.all([
+      spotifyApi.getPlaylist(to.params.id),
+      spotifyApi.getPlaylistTracks(to.params.id, {
+        limit: PAGE_SIZE,
+        market: useServicesStore().$state.spotify.webapi_country,
+        offset: 0
+      })
+    ]).then((response) => {
+      const [playlist, tracks] = response
+      next((vm) => {
+        vm.playlist = playlist
+        vm.tracks = []
+        vm.total = 0
+        vm.offset = 0
+        vm.appendTracks(tracks)
+      })
     })
   },
   setup() {

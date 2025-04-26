@@ -21,31 +21,26 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import { useSettingsStore } from '@/stores/settings'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load() {
-    const limit = useSettingsStore().recently_added_limit
-    return webapi.search({
-      expression:
-        'media_kind is music having track_count > 3 order by time_added desc',
-      limit,
-      type: 'album'
-    })
-  },
-  set(vm, response) {
-    vm.albums = new GroupedList(response.data.albums, {
-      criteria: [{ field: 'time_added', order: -1, type: Date }],
-      index: { field: 'time_added', type: Date }
-    })
-  }
-}
-
 export default {
   name: 'PageMusicRecentlyAdded',
   components: { ContentWithHeading, HeadingTitle, ListAlbums, TabsMusic },
   beforeRouteEnter(to, from, next) {
-    dataObject.load().then((response) => {
-      next((vm) => dataObject.set(vm, response))
-    })
+    const limit = useSettingsStore().recently_added_limit
+    webapi
+      .search({
+        expression:
+          'media_kind is music having track_count > 3 order by time_added desc',
+        limit,
+        type: 'album'
+      })
+      .then((response) => {
+        next((vm) => {
+          vm.albums = new GroupedList(response.data.albums, {
+            criteria: [{ field: 'time_added', order: -1, type: Date }],
+            index: { field: 'time_added', type: Date }
+          })
+        })
+      })
   },
   setup() {
     return {

@@ -37,19 +37,6 @@ import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_playlist(to.params.id),
-      webapi.library_playlist_tracks(to.params.id)
-    ])
-  },
-  set(vm, response) {
-    vm.playlist = response[0].data
-    vm.tracks = new GroupedList(response[1].data)
-  }
-}
-
 export default {
   name: 'PagePlaylistTracks',
   components: {
@@ -60,8 +47,14 @@ export default {
     ModalDialogPlaylist
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_playlist(to.params.id),
+      webapi.library_playlist_tracks(to.params.id)
+    ]).then(([playlist, tracks]) => {
+      next((vm) => {
+        vm.playlist = playlist.data
+        vm.tracks = new GroupedList(tracks.data)
+      })
     })
   },
   data() {

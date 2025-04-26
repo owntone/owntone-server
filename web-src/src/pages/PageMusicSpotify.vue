@@ -47,29 +47,6 @@ import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load() {
-    return webapi.spotify().then(({ data }) => {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(data.webapi_token)
-      return Promise.all([
-        spotifyApi.getNewReleases({
-          country: data.webapi_country,
-          limit: 3
-        }),
-        spotifyApi.getFeaturedPlaylists({
-          country: data.webapi_country,
-          limit: 3
-        })
-      ])
-    })
-  },
-  set(vm, response) {
-    vm.albums = response[0].albums.items
-    vm.playlists = response[1].playlists.items
-  }
-}
-
 export default {
   name: 'PageMusicSpotify',
   components: {
@@ -80,8 +57,24 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load().then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    webapi.spotify().then(({ data }) => {
+      const spotifyApi = new SpotifyWebApi()
+      spotifyApi.setAccessToken(data.webapi_token)
+      Promise.all([
+        spotifyApi.getNewReleases({
+          country: data.webapi_country,
+          limit: 3
+        }),
+        spotifyApi.getFeaturedPlaylists({
+          country: data.webapi_country,
+          limit: 3
+        })
+      ]).then((response) => {
+        next((vm) => {
+          vm.albums = response[0].albums.items
+          vm.playlists = response[1].playlists.items
+        })
+      })
     })
   },
   data() {

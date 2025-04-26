@@ -22,17 +22,6 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return webapi.library_artists('audiobook')
-  },
-  set(vm, response) {
-    vm.artists = new GroupedList(response.data, {
-      index: { field: 'name_sort', type: String }
-    })
-  }
-}
-
 export default {
   name: 'PageAudiobooksArtists',
   components: {
@@ -43,8 +32,12 @@ export default {
     TabsAudiobooks
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    webapi.library_artists('audiobook').then((artists) => {
+      next((vm) => {
+        vm.artists = new GroupedList(artists.data, {
+          index: { field: 'name_sort', type: String }
+        })
+      })
     })
   },
   data() {

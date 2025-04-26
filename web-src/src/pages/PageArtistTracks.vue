@@ -61,19 +61,6 @@ import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_artist(to.params.id),
-      webapi.library_artist_tracks(to.params.id)
-    ])
-  },
-  set(vm, response) {
-    vm.artist = response[0].data
-    vm.trackList = new GroupedList(response[1].data.tracks)
-  }
-}
-
 export default {
   name: 'PageArtistTracks',
   components: {
@@ -88,8 +75,14 @@ export default {
     ModalDialogArtist
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_artist(to.params.id),
+      webapi.library_artist_tracks(to.params.id)
+    ]).then(([artist, tracks]) => {
+      next((vm) => {
+        vm.artist = artist.data
+        vm.trackList = new GroupedList(tracks.data.tracks)
+      })
     })
   },
   setup() {

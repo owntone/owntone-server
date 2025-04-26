@@ -17,32 +17,16 @@ import ListPlaylists from '@/components/ListPlaylists.vue'
 import { useConfigurationStore } from '@/stores/configuration'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_playlist(to.params.id),
-      webapi.library_playlist_folder(to.params.id)
-    ])
-  },
-  set(vm, response) {
-    vm.playlist = response[0].data
-    vm.playlistList = new GroupedList(response[1].data)
-  }
-}
-
 export default {
   name: 'PagePlaylistFolder',
   components: { ContentWithHeading, HeadingTitle, ListPlaylists },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    next(async (vm) => {
+      await vm.fetchData(to.params.id)
     })
   },
   beforeRouteUpdate(to, from, next) {
-    dataObject.load(to).then((response) => {
-      dataObject.set(this, response)
-      next()
-    })
+    this.fetchData(to.params.id).then(() => next())
   },
   setup() {
     return {
@@ -74,6 +58,16 @@ export default {
             playlist.item_count > playlist.stream_count
         ]
       })
+    }
+  },
+  methods: {
+    async fetchData(id) {
+      const [playlist, playlistFolder] = await Promise.all([
+        webapi.library_playlist(id),
+        webapi.library_playlist_folder(id)
+      ])
+      this.playlist = playlist.data
+      this.playlistList = new GroupedList(playlistFolder.data)
     }
   }
 }

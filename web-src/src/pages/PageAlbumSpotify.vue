@@ -32,21 +32,6 @@ import SpotifyWebApi from 'spotify-web-api-js'
 import { useServicesStore } from '@/stores/services'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return webapi.spotify().then(({ data }) => {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(data.webapi_token)
-      return spotifyApi.getAlbum(to.params.id, {
-        market: useServicesStore().spotify.webapi_country
-      })
-    })
-  },
-  set(vm, response) {
-    vm.album = response
-  }
-}
-
 export default {
   name: 'PageAlbumSpotify',
   components: {
@@ -57,8 +42,18 @@ export default {
     ModalDialogAlbumSpotify
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    const spotifyApi = new SpotifyWebApi()
+    webapi.spotify().then(({ data }) => {
+      spotifyApi.setAccessToken(data.webapi_token)
+      spotifyApi
+        .getAlbum(to.params.id, {
+          market: useServicesStore().spotify.webapi_country
+        })
+        .then((album) => {
+          next((vm) => {
+            vm.album = album
+          })
+        })
     })
   },
   setup() {

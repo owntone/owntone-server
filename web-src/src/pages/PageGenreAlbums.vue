@@ -36,21 +36,6 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_genre(to.params.name, to.query.mediaKind),
-      webapi.library_genre_albums(to.params.name, to.query.mediaKind)
-    ])
-  },
-  set(vm, response) {
-    vm.genre = response[0].data.genres.items.shift()
-    vm.albums = new GroupedList(response[1].data.albums, {
-      index: { field: 'name_sort', type: String }
-    })
-  }
-}
-
 export default {
   name: 'PageGenreAlbums',
   components: {
@@ -62,8 +47,16 @@ export default {
     ModalDialogGenre
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_genre(to.params.name, to.query.mediaKind),
+      webapi.library_genre_albums(to.params.name, to.query.mediaKind)
+    ]).then(([genre, albums]) => {
+      next((vm) => {
+        vm.genre = genre.data.genres.items.shift()
+        vm.albums = new GroupedList(albums.data.albums, {
+          index: { field: 'name_sort', type: String }
+        })
+      })
     })
   },
   data() {

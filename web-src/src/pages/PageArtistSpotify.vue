@@ -34,31 +34,6 @@ import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
 
-const dataObject = {
-  load(to) {
-    return webapi.spotify().then(({ data }) => {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(data.webapi_token)
-      return Promise.all([
-        spotifyApi.getArtist(to.params.id),
-        spotifyApi.getArtistAlbums(to.params.id, {
-          include_groups: 'album,single',
-          limit: PAGE_SIZE,
-          market: useServicesStore().spotify.webapi_country,
-          offset: 0
-        })
-      ])
-    })
-  },
-  set(vm, response) {
-    vm.artist = response.shift()
-    vm.albums = []
-    vm.total = 0
-    vm.offset = 0
-    vm.appendAlbums(response.shift())
-  }
-}
-
 export default {
   name: 'PageArtistSpotify',
   components: {
@@ -69,8 +44,25 @@ export default {
     ModalDialogArtistSpotify
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    webapi.spotify().then(({ data }) => {
+      const spotifyApi = new SpotifyWebApi()
+      spotifyApi.setAccessToken(data.webapi_token)
+      Promise.all([
+        spotifyApi.getArtist(to.params.id),
+        spotifyApi.getArtistAlbums(to.params.id, {
+          include_groups: 'album,single',
+          limit: PAGE_SIZE,
+          market: useServicesStore().spotify.webapi_country,
+          offset: 0
+        })
+      ]).then(([artist, albums]) => {
+        next((vm) => {
+          vm.artist = artist
+          vm.albums = albums.items
+          vm.total = albums.total
+          vm.offset = albums.limit
+        })
+      })
     })
   },
   setup() {

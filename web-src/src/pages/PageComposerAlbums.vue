@@ -31,19 +31,6 @@ import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_composer(to.params.name),
-      webapi.library_composer_albums(to.params.name)
-    ])
-  },
-  set(vm, response) {
-    vm.composer = response[0].data
-    vm.albums = new GroupedList(response[1].data.albums)
-  }
-}
-
 export default {
   name: 'PageComposerAlbums',
   components: {
@@ -54,8 +41,14 @@ export default {
     ModalDialogComposer
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_composer(to.params.name),
+      webapi.library_composer_albums(to.params.name)
+    ]).then(([composer, albums]) => {
+      next((vm) => {
+        vm.composer = composer.data
+        vm.albums = new GroupedList(albums.data.albums)
+      })
     })
   },
   data() {

@@ -47,9 +47,17 @@ import ListTracks from '@/components/ListTracks.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load() {
-    return Promise.all([
+export default {
+  name: 'PageMusic',
+  components: {
+    ContentWithHeading,
+    HeadingTitle,
+    ListAlbums,
+    ListTracks,
+    TabsMusic
+  },
+  beforeRouteEnter(to, from, next) {
+    Promise.all([
       webapi.search({
         expression:
           'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc',
@@ -62,26 +70,11 @@ const dataObject = {
         limit: 3,
         type: 'track'
       })
-    ])
-  },
-  set(vm, response) {
-    vm.albums = new GroupedList(response[0].data.albums)
-    vm.tracks = new GroupedList(response[1].data.tracks)
-  }
-}
-
-export default {
-  name: 'PageMusic',
-  components: {
-    ContentWithHeading,
-    HeadingTitle,
-    ListAlbums,
-    ListTracks,
-    TabsMusic
-  },
-  beforeRouteEnter(to, from, next) {
-    dataObject.load().then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    ]).then(([albums, tracks]) => {
+      next((vm) => {
+        vm.albums = new GroupedList(albums.data.albums)
+        vm.tracks = new GroupedList(tracks.data.tracks)
+      })
     })
   },
   data() {

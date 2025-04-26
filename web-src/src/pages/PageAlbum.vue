@@ -31,25 +31,6 @@ import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_album(to.params.id),
-      webapi.library_album_tracks(to.params.id)
-    ])
-  },
-  set(vm, response) {
-    vm.album = response[0].data
-    vm.tracks = new GroupedList(response[1].data, {
-      criteria: [{ field: 'disc_number', type: Number }],
-      index: { field: 'disc_number', type: Number }
-    })
-    if (vm.tracks.indices.length < 2) {
-      vm.tracks.group()
-    }
-  }
-}
-
 export default {
   name: 'PageAlbum',
   components: {
@@ -60,8 +41,20 @@ export default {
     ModalDialogAlbum
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_album(to.params.id),
+      webapi.library_album_tracks(to.params.id)
+    ]).then(([album, tracks]) => {
+      next((vm) => {
+        vm.album = album.data
+        vm.tracks = new GroupedList(tracks.data, {
+          criteria: [{ field: 'disc_number', type: Number }],
+          index: { field: 'disc_number', type: Number }
+        })
+        if (vm.tracks.indices.length < 2) {
+          vm.tracks.group()
+        }
+      })
     })
   },
   data() {

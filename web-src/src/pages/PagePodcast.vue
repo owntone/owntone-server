@@ -57,19 +57,6 @@ import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import webapi from '@/webapi'
 
-const dataObject = {
-  load(to) {
-    return Promise.all([
-      webapi.library_album(to.params.id),
-      webapi.library_podcast_episodes(to.params.id)
-    ])
-  },
-  set(vm, response) {
-    vm.album = response[0].data
-    vm.tracks = new GroupedList(response[1].data.tracks)
-  }
-}
-
 export default {
   name: 'PagePodcast',
   components: {
@@ -81,8 +68,14 @@ export default {
     ModalDialogAlbum
   },
   beforeRouteEnter(to, from, next) {
-    dataObject.load(to).then((response) => {
-      next((vm) => dataObject.set(vm, response))
+    Promise.all([
+      webapi.library_album(to.params.id),
+      webapi.library_podcast_episodes(to.params.id)
+    ]).then(([album, episodes]) => {
+      next((vm) => {
+        vm.album = album.data
+        vm.tracks = new GroupedList(episodes.data.tracks)
+      })
     })
   },
   data() {
