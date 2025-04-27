@@ -60,10 +60,9 @@ export default {
         .then(() => {
           this.$emit('podcast-added')
           this.$emit('close')
-          this.url = ''
-          this.loading = false
         })
-        .catch(() => {
+        .finally(() => {
+          this.url = ''
           this.loading = false
         })
     },

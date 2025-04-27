@@ -64,9 +64,9 @@ export default {
         .queue_add(this.url)
         .then(() => {
           this.$emit('close')
-          this.url = ''
         })
-        .catch(() => {
+        .finally(() => {
+          this.url = ''
           this.loading = false
         })
     },
