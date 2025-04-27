@@ -16,8 +16,8 @@ export default {
           to: { name: 'settings-webinterface' }
         },
         {
-          key: 'page.settings.tabs.remotes-and-outputs',
-          to: { name: 'settings-remotes-outputs' }
+          key: 'page.settings.tabs.devices',
+          to: { name: 'settings-devices' }
         },
         {
           key: 'page.settings.tabs.artwork',

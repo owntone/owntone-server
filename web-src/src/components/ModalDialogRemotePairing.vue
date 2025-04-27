@@ -7,32 +7,25 @@
   >
     <template #content>
       <form @submit.prevent="pair">
-        <label class="label" v-text="pairing.remote" />
-        <div class="field">
-          <div class="control">
-            <input
-              ref="pin_field"
-              v-model="pairing_req.pin"
-              class="input"
-              inputmode="numeric"
-              pattern="[\d]{4}"
-              :placeholder="$t('dialog.remote-pairing.pairing-code')"
-            />
-          </div>
-        </div>
+        <label class="label" v-text="remoteStore.remote" />
+        <control-pin-field
+          :placeholder="$t('dialog.remote-pairing.pairing-code')"
+          @input="onPinChange"
+        />
       </form>
     </template>
   </modal-dialog>
 </template>
 
 <script>
+import ControlPinField from '@/components/ControlPinField.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import { useRemotesStore } from '@/stores/remotes'
 import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogRemotePairing',
-  components: { ModalDialog },
+  components: { ControlPinField, ModalDialog },
   props: { show: Boolean },
   emits: ['close'],
   setup() {
@@ -40,38 +33,34 @@ export default {
   },
   data() {
     return {
-      pairing_req: { pin: '' }
+      disabled: true,
+      pin: ''
     }
   },
   computed: {
     actions() {
       return [
         { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' },
-        { handler: this.pair, icon: 'cellphone', key: 'actions.pair' }
+        {
+          disabled: this.disabled,
+          handler: this.pair,
+          icon: 'vector-link',
+          key: 'actions.pair'
+        }
       ]
-    },
-    pairing() {
-      return this.remoteStore.pairing
-    }
-  },
-  watch: {
-    show() {
-      if (this.show) {
-        this.loading = false
-        // Delay setting the focus on the input field until it is part of the DOM and visible
-        setTimeout(() => {
-          this.$refs.pin_field.focus()
-        }, 10)
-      }
     }
   },
   methods: {
     cancel() {
       this.$emit('close')
     },
+    onPinChange(pin, disabled) {
+      this.pin = pin
+      this.disabled = disabled
+    },
     pair() {
-      webapi.pairing_kickoff(this.pairing_req).then(() => {
-        this.pairing_req.pin = ''
+      webapi.pairing_kickoff({ pin: this.pin }).then(() => {
+        this.pin = ''
       })
     }
   }

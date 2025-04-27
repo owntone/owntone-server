@@ -17,7 +17,6 @@
     "remove": "移除",
     "rescan": "重新掃描",
     "save": "儲存",
-    "send": "發送",
     "show-more": "顯示更多",
     "shuffle": "隨機播放",
     "update": "更新",
@@ -314,9 +313,9 @@
       },
       "tabs": {
         "artwork": "封面",
+        "devices": "遙控和輸出",
         "general": "概覽",
-        "online-services": "在線服務",
-        "remotes-and-outputs": "遙控和輸出"
+        "online-services": "在線服務"
       }
     },
     "spotify": {

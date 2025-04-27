@@ -241,8 +241,8 @@ export default {
     return axios.get('./api/pairing')
   },
 
-  pairing_kickoff(pairingReq) {
-    return axios.post('./api/pairing', pairingReq)
+  pairing_kickoff(request) {
+    return axios.post('./api/pairing', request)
   },
 
   player_consume(state) {

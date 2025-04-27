@@ -5,8 +5,8 @@
     <component :is="Component" />
   </router-view>
   <modal-dialog-remote-pairing
-    :show="pairingActive"
-    @close="pairingActive = false"
+    :show="remotesStore.active"
+    @close="remotesStore.active = false"
   />
   <modal-dialog-update
     :show="uiStore.showUpdateDialog"
@@ -67,7 +67,6 @@ export default {
   },
   data() {
     return {
-      pairingActive: false,
       timerId: 0
     }
   },
@@ -254,7 +253,6 @@ export default {
     updatePairing() {
       webapi.pairing().then((data) => {
         this.remotesStore.$state = data
-        this.pairingActive = data.active
       })
     },
     updatePlayerStatus() {

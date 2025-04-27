@@ -7,32 +7,25 @@
       />
     </template>
     <template #content>
-      <div v-if="pairing.active">
-        <form @submit.prevent="kickoffPairing">
-          <label class="label has-text-weight-normal content">
-            <span v-text="$t('page.settings.devices.pairing-request')" />
-            <b v-text="pairing.remote" />
-          </label>
-          <div class="field is-grouped">
-            <div class="control">
-              <input
-                v-model="pairingRequest.pin"
-                class="input"
-                inputmode="numeric"
-                pattern="[\d]{4}"
-                :placeholder="$t('page.settings.devices.pairing-code')"
-              />
-            </div>
-            <div class="control">
-              <button
-                class="button"
-                type="submit"
-                v-text="$t('actions.send')"
-              />
-            </div>
+      <form v-if="remotesStore.active" @submit.prevent="pairRemote">
+        <label class="label has-text-weight-normal content">
+          <span v-text="$t('page.settings.devices.pairing-request')" />
+          <b v-text="remotesStore.remote" />
+        </label>
+        <control-pin-field
+          :placeholder="$t('dialog.remote-pairing.pairing-code')"
+          @input="onRemotePinChange"
+        >
+          <div class="control">
+            <button
+              class="button"
+              type="submit"
+              :disabled="remotePairingDisabled"
+              v-text="$t('actions.verify')"
+            />
           </div>
-        </form>
-      </div>
+        </control-pin-field>
+      </form>
       <div v-else v-text="$t('page.settings.devices.no-active-pairing')" />
     </template>
   </content-with-heading>
@@ -47,7 +40,7 @@
         class="content"
         v-text="$t('page.settings.devices.speaker-pairing-info')"
       />
-      <div v-for="output in outputs" :key="output.id">
+      <div v-for="output in outputs" :key="output.id" class="field is-grouped">
         <control-switch
           v-model="output.selected"
           @update:model-value="toggleOutput(output.id)"
@@ -58,19 +51,12 @@
         </control-switch>
         <form
           v-if="output.needs_auth_key"
-          class="mb-5"
-          @submit.prevent="kickoffVerification(output.id)"
+          @submit.prevent="pairOutput(output.id)"
         >
-          <div class="field is-grouped">
-            <div class="control">
-              <input
-                v-model="verificationRequest.pin"
-                class="input"
-                inputmode="numeric"
-                pattern="[\d]{4}"
-                :placeholder="$t('page.settings.devices.verification-code')"
-              />
-            </div>
+          <control-pin-field
+            :placeholder="$t('page.settings.devices.verification-code')"
+            @input="onOutputPinChange"
+          >
             <div class="control">
               <button
                 class="button"
@@ -78,7 +64,7 @@
                 v-text="$t('actions.verify')"
               />
             </div>
-          </div>
+          </control-pin-field>
         </form>
       </div>
     </template>
@@ -87,6 +73,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlPinField from '@/components/ControlPinField.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
@@ -95,31 +82,42 @@ import { useRemotesStore } from '@/stores/remotes'
 import webapi from '@/webapi'
 
 export default {
-  name: 'PageSettingsRemotesOutputs',
-  components: { ContentWithHeading, ControlSwitch, HeadingTitle, TabsSettings },
+  name: 'PageSettingsDevices',
+  components: {
+    ContentWithHeading,
+    ControlPinField,
+    ControlSwitch,
+    HeadingTitle,
+    TabsSettings
+  },
   setup() {
     return { outputsStore: useOutputsStore(), remotesStore: useRemotesStore() }
   },
   data() {
     return {
-      pairingRequest: { pin: '' },
-      verificationRequest: { pin: '' }
+      outputPin: '',
+      remotePairingDisabled: true,
+      remotePin: ''
     }
   },
   computed: {
     outputs() {
       return this.outputsStore.outputs
-    },
-    pairing() {
-      return this.remotesStore.pairing
     }
   },
   methods: {
-    kickoffPairing() {
-      webapi.pairing_kickoff(this.pairingRequest)
+    pairRemote() {
+      webapi.pairing_kickoff({ pin: this.remotePin })
     },
-    kickoffVerification(identifier) {
-      webapi.output_update(identifier, this.verificationRequest)
+    pairOutput(identifier) {
+      webapi.output_update(identifier, { pin: this.outputPin })
+    },
+    onRemotePinChange(pin, disabled) {
+      this.remotePin = pin
+      this.remotePairingDisabled = disabled
+    },
+    onOutputPinChange(pin) {
+      this.outputPin = pin
     },
     toggleOutput(identifier) {
       webapi.output_toggle(identifier)

@@ -17,7 +17,6 @@
     "remove": "Supprimer",
     "rescan": "Analyser",
     "save": "Enregistrer",
-    "send": "Envoyer",
     "show-more": "Afficher plus",
     "shuffle": "Lecture aléatoire",
     "update": "Actualiser",
@@ -314,9 +313,9 @@
       },
       "tabs": {
         "artwork": "Illustrations",
+        "devices": "Télécommandes et sorties",
         "general": "Général",
-        "online-services": "Services en ligne",
-        "remotes-and-outputs": "Télécommandes et sorties"
+        "online-services": "Services en ligne"
       }
     },
     "spotify": {

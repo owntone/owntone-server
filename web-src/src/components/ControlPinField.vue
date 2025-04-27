@@ -1,30 +1,24 @@
 <template>
-  <div class="field">
-    <div class="control has-icons-left">
+  <div class="field is-grouped">
+    <div class="control">
       <input
         ref="input"
         v-model="value"
         class="input"
-        type="url"
-        pattern="http[s]?://.+"
-        required
+        inputmode="numeric"
+        pattern="[\d]{4}"
         :placeholder="placeholder"
-        :disabled="loading"
         @input="validate"
       />
-      <mdicon class="icon is-left" :name="icon" size="16" />
     </div>
-    <div v-if="help" class="help" v-text="help" />
+    <slot />
   </div>
 </template>
 
 <script>
 export default {
-  name: 'ControlUrlField',
+  name: 'ControlPinField',
   props: {
-    help: { default: '', type: String },
-    icon: { required: true, type: String },
-    loading: { default: false, type: Boolean },
     placeholder: { required: true, type: String }
   },
   emits: ['input'],

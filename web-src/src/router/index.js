@@ -36,8 +36,8 @@ import PageRadioStreams from '@/pages/PageRadioStreams.vue'
 import PageSearchLibrary from '@/pages/PageSearchLibrary.vue'
 import PageSearchSpotify from '@/pages/PageSearchSpotify.vue'
 import PageSettingsArtwork from '@/pages/PageSettingsArtwork.vue'
+import PageSettingsDevices from '@/pages/PageSettingsDevices.vue'
 import PageSettingsOnlineServices from '@/pages/PageSettingsOnlineServices.vue'
-import PageSettingsRemotesOutputs from '@/pages/PageSettingsRemotesOutputs.vue'
 import PageSettingsWebinterface from '@/pages/PageSettingsWebinterface.vue'
 
 const TOP_WITH_TABS = 100
@@ -233,9 +233,9 @@ export const router = createRouter({
       path: '/settings/online-services'
     },
     {
-      component: PageSettingsRemotesOutputs,
-      name: 'settings-remotes-outputs',
-      path: '/settings/remotes-outputs'
+      component: PageSettingsDevices,
+      name: 'settings-devices',
+      path: '/settings/devices'
     }
   ],
   scrollBehavior(to, from, savedPosition) {

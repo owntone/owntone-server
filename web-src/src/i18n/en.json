@@ -17,7 +17,6 @@
     "remove": "Remove",
     "rescan": "Rescan",
     "save": "Save",
-    "send": "Send",
     "show-more": "Show more",
     "shuffle": "Shuffle",
     "update": "Update",
@@ -314,9 +313,9 @@
       },
       "tabs": {
         "artwork": "Artwork",
+        "devices": "Remotes and Outputs",
         "general": "General",
-        "online-services": "Online Services",
-        "remotes-and-outputs": "Remotes and Outputs"
+        "online-services": "Online Services"
       }
     },
     "spotify": {

@@ -17,7 +17,6 @@
     "remove": "Entfernen",
     "rescan": "Neu einlesen",
     "save": "Speichern",
-    "send": "Senden",
     "show-more": "Zeige mehr",
     "shuffle": "Zufallswiedergabe",
     "update": "Neu einlesen",
@@ -314,9 +313,9 @@
       },
       "tabs": {
         "artwork": "Artwork",
+        "devices": "Fernbedienungen und Ausgänge",
         "general": "Allgemein",
-        "online-services": "Online-Services",
-        "remotes-and-outputs": "Fernbedienungen und Ausgänge"
+        "online-services": "Online-Services"
       }
     },
     "spotify": {

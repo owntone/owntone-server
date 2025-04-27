@@ -8,7 +8,6 @@ import {
   mdiCancel,
   mdiCast,
   mdiCastVariant,
-  mdiCellphone,
   mdiCheck,
   mdiChevronDown,
   mdiChevronLeft,
@@ -59,6 +58,7 @@ import {
   mdiSpeaker,
   mdiSpotify,
   mdiStop,
+  mdiVectorLink,
   mdiVolumeHigh,
   mdiVolumeOff,
   mdiWeb
@@ -74,7 +74,6 @@ export const icons = {
   mdiCancel,
   mdiCast,
   mdiCastVariant,
-  mdiCellphone,
   mdiCheck,
   mdiChevronDown,
   mdiChevronLeft,
@@ -125,6 +124,7 @@ export const icons = {
   mdiSpeaker,
   mdiSpotify,
   mdiStop,
+  mdiVectorLink,
   mdiVolumeHigh,
   mdiVolumeOff,
   mdiWeb
