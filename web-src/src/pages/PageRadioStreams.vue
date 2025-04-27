@@ -1,5 +1,8 @@
 <template>
   <content-with-heading>
+    <template #options>
+      <list-index-buttons :indices="tracks.indices" />
+    </template>
     <template #heading>
       <heading-title :content="heading" />
     </template>
@@ -13,16 +16,24 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
+import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import webapi from '@/webapi'
 
 export default {
   name: 'PageRadioStreams',
-  components: { ContentWithHeading, HeadingTitle, ListTracks },
+  components: {
+    ContentWithHeading,
+    HeadingTitle,
+    ListIndexButtons,
+    ListTracks
+  },
   beforeRouteEnter(to, from, next) {
     webapi.library_radio_streams().then((tracks) => {
       next((vm) => {
-        vm.tracks = new GroupedList(tracks)
+        vm.tracks = new GroupedList(tracks, {
+          index: { field: 'title_sort', type: String }
+        })
       })
     })
   },
