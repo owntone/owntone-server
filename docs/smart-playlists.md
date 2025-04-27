@@ -81,6 +81,8 @@ Valid operands for the enumeration `media_kind` are:
 
 Multiple expressions can be anded or ored together, using the keywords `OR` and `AND`. The unary not operator is also supported using the keyword `NOT`.
 
+Use parentheses to group e.g. `play_count = 0 and (media_kind is podcast or media_kind is audiobook)`.
+
 It is possible to define the sort order and limit the number of items by adding an order clause and/or a limit clause after the last expression:
 
 ```
