@@ -1,6 +1,6 @@
 <template>
   <figure class="figure has-shadow">
-    <img v-lazy="{ src: url, lifecycle }" @click="$emit('click')" />
+    <img v-lazy="source" @click="$emit('click')" />
   </figure>
 </template>
 
@@ -17,16 +17,21 @@ export default {
   data() {
     return {
       font: { family: 'sans-serif', weight: 'bold' },
-      lifecycle: {
-        error: (el) => {
-          el.src = this.dataURI()
-        }
-      },
       size: 600
     }
   },
-  methods: {
-    dataURI() {
+  computed: {
+    source() {
+      return {
+        src: this.url || this.uri,
+        lifecycle: {
+          error: (el) => {
+            el.src = this.uri
+          }
+        }
+      }
+    },
+    uri() {
       return renderSVG({
         alternate: this.caption,
         caption: this.caption.substring(0, 2),
