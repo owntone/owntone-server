@@ -1,21 +1,19 @@
 <template>
-  <fieldset :disabled="disabled">
-    <div class="field">
-      <label v-if="$slots.label" class="label has-text-weight-normal">
-        <slot name="label" />
-      </label>
-      <div class="control" :class="{ 'has-icons-right': isSuccess || isError }">
-        <slot name="input" :setting="setting" :update="update" />
-        <mdicon
-          v-if="$slots.label && (isSuccess || isError)"
-          class="icon is-right"
-          :name="isSuccess ? 'check' : 'close'"
-          size="16"
-        />
-      </div>
-      <div v-if="$slots.help" class="help mb-4">
-        <slot name="help" />
-      </div>
+  <fieldset :disabled="disabled" class="field">
+    <label v-if="$slots.label" class="label has-text-weight-normal">
+      <slot name="label" />
+    </label>
+    <div class="control" :class="{ 'has-icons-right': isSuccess || isError }">
+      <slot name="input" :setting="setting" :update="update" />
+      <mdicon
+        v-if="$slots.label && (isSuccess || isError)"
+        class="icon is-right"
+        :name="isSuccess ? 'check' : 'close'"
+        size="16"
+      />
+    </div>
+    <div v-if="$slots.help" class="help mb-4">
+      <slot name="help" />
     </div>
   </fieldset>
 </template>
