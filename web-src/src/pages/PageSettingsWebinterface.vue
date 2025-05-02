@@ -112,7 +112,7 @@
       <control-setting-text-field
         category="webinterface"
         name="show_composer_for_genre"
-        :disabled="!settingsStore.show_composer_now_playing"
+        :disabled="!settingsStore.showComposerNowPlaying"
         :placeholder="$t('page.settings.general.genres')"
       >
         <template #label>

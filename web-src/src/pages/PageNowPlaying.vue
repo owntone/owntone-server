@@ -33,7 +33,7 @@
       />
       <p v-if="track.album" class="subtitle is-6" v-text="track.album" />
       <p
-        v-if="settingsStore.show_filepath_now_playing"
+        v-if="settingsStore.showFilepathNowPlaying"
         class="subtitle is-6 has-text-grey"
         v-text="track.path"
       />
@@ -90,8 +90,8 @@ export default {
   },
   computed: {
     composer() {
-      if (this.settingsStore.show_composer_now_playing) {
-        const genres = this.settingsStore.show_composer_for_genre
+      if (this.settingsStore.showComposerNowPlaying) {
+        const genres = this.settingsStore.showComposerForGenre
         if (
           !genres ||
           (this.track.genre &&

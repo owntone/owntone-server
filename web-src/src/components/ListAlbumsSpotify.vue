@@ -43,7 +43,7 @@ export default {
   },
   methods: {
     image(item) {
-      if (this.settingsStore.show_cover_artwork_in_album_lists) {
+      if (this.settingsStore.showCoverArtworkInAlbumLists) {
         return { url: item.images?.[0]?.url ?? '', caption: item.name }
       }
       return null

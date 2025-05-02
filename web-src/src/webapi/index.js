@@ -59,8 +59,8 @@ export default {
     })
   },
 
-  library_albums(media_kind) {
-    return axios.get('./api/library/albums', { params: { media_kind } })
+  library_albums(mediaKind) {
+    return axios.get('./api/library/albums', { params: { mediaKind } })
   },
 
   library_artist(artistId) {
@@ -80,8 +80,8 @@ export default {
     return data.tracks
   },
 
-  library_artists(media_kind) {
-    return axios.get('./api/library/artists', { params: { media_kind } })
+  library_artists(mediaKind) {
+    return axios.get('./api/library/artists', { params: { mediaKind } })
   },
 
   library_composer(composer) {
@@ -106,8 +106,8 @@ export default {
     return data.tracks
   },
 
-  library_composers(media_kind) {
-    return axios.get('./api/library/composers', { params: { media_kind } })
+  library_composers(mediaKind) {
+    return axios.get('./api/library/composers', { params: { mediaKind } })
   },
 
   library_count(expression) {
@@ -118,36 +118,36 @@ export default {
     return axios.get('./api/library/files', { params: { directory } })
   },
 
-  async library_genre(genre, media_kind) {
+  async library_genre(genre, mediaKind) {
     const params = {
-      expression: `genre is "${genre}" and media_kind is ${media_kind}`,
+      expression: `genre is "${genre}" and media_kind is ${mediaKind}`,
       type: 'genres'
     }
     const data = await axios.get('./api/search', { params })
     return data.genres
   },
 
-  async library_genre_albums(genre, media_kind) {
+  async library_genre_albums(genre, mediaKind) {
     const params = {
-      expression: `genre is "${genre}" and media_kind is ${media_kind}`,
+      expression: `genre is "${genre}" and media_kind is ${mediaKind}`,
       type: 'albums'
     }
     const data = await axios.get('./api/search', { params })
     return data.albums
   },
 
-  async library_genre_tracks(genre, media_kind) {
+  async library_genre_tracks(genre, mediaKind) {
     const params = {
-      expression: `genre is "${genre}" and media_kind is ${media_kind}`,
+      expression: `genre is "${genre}" and media_kind is ${mediaKind}`,
       type: 'tracks'
     }
     const data = await axios.get('./api/search', { params })
     return data.tracks
   },
 
-  async library_genres(media_kind) {
+  async library_genres(mediaKind) {
     const params = {
-      expression: `media_kind is ${media_kind}`,
+      expression: `media_kind is ${mediaKind}`,
       type: 'genres'
     }
     const data = await axios.get('./api/search', { params })
@@ -199,8 +199,8 @@ export default {
     return data.tracks
   },
 
-  library_rescan(scan_kind) {
-    return axios.put('./api/rescan', null, { params: { scan_kind } })
+  library_rescan(scanKind) {
+    return axios.put('./api/rescan', null, { params: { scanKind } })
   },
 
   library_stats() {
@@ -221,8 +221,8 @@ export default {
     })
   },
 
-  library_update(scan_kind) {
-    return axios.put('./api/update', null, { params: { scan_kind } })
+  library_update(scanKind) {
+    return axios.put('./api/update', null, { params: { scanKind } })
   },
 
   output_toggle(outputId) {

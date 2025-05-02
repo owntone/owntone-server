@@ -81,13 +81,13 @@ export default {
           icon: 'music-box-multiple',
           key: 'navigation.playlists',
           name: 'playlists',
-          show: this.settingsStore.show_menu_item_playlists
+          show: this.settingsStore.showMenuItemPlaylists
         },
         {
           icon: 'music',
           key: 'navigation.music',
           name: 'music',
-          show: this.settingsStore.show_menu_item_music
+          show: this.settingsStore.showMenuItemMusic
         },
         {
           key: 'navigation.artists',
@@ -123,31 +123,31 @@ export default {
           icon: 'microphone',
           key: 'navigation.podcasts',
           name: 'podcasts',
-          show: this.settingsStore.show_menu_item_podcasts
+          show: this.settingsStore.showMenuItemPodcasts
         },
         {
           icon: 'book-open-variant',
           key: 'navigation.audiobooks',
           name: 'audiobooks',
-          show: this.settingsStore.show_menu_item_audiobooks
+          show: this.settingsStore.showMenuItemAudiobooks
         },
         {
           icon: 'radio',
           key: 'navigation.radio',
           name: 'radio',
-          show: this.settingsStore.show_menu_item_radio
+          show: this.settingsStore.showMenuItemRadio
         },
         {
           icon: 'folder-open',
           key: 'navigation.files',
           name: 'files',
-          show: this.settingsStore.show_menu_item_files
+          show: this.settingsStore.showMenuItemFiles
         },
         {
           icon: 'magnify',
           key: 'navigation.search',
           name: this.searchStore.source,
-          show: this.settingsStore.show_menu_item_search
+          show: this.settingsStore.showMenuItemSearch
         },
         { separator: true, show: true },
         {

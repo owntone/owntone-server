@@ -31,7 +31,7 @@ export default {
   },
   data() {
     return {
-      old_volume: 0
+      volume: 0
     }
   },
   computed: {
@@ -42,7 +42,7 @@ export default {
   watch: {
     'player.volume'() {
       if (this.player.volume > 0) {
-        this.old_volume = this.player.volume
+        this.volume = this.player.volume
       }
     }
   },
@@ -51,7 +51,7 @@ export default {
       webapi.player_volume(this.player.volume)
     },
     toggle() {
-      this.player.volume = this.player.volume > 0 ? 0 : this.old_volume
+      this.player.volume = this.player.volume > 0 ? 0 : this.volume
       this.changeVolume()
     }
   }

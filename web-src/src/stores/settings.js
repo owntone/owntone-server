@@ -5,7 +5,7 @@ const { t, availableLocales } = i18n.global
 
 export const useSettingsStore = defineStore('SettingsStore', {
   actions: {
-    setting(categoryName, optionName) {
+    get(categoryName, optionName) {
       return (
         this.categories
           .find((category) => category.name === categoryName)
@@ -34,34 +34,30 @@ export const useSettingsStore = defineStore('SettingsStore', {
         name: t(`language.${item}`)
       }))
     },
-    recently_added_limit: (state) =>
-      state.setting('webinterface', 'recently_added_limit')?.value ?? 100,
-    show_composer_for_genre: (state) =>
-      state.setting('webinterface', 'show_composer_for_genre')?.value ?? null,
-    show_composer_now_playing: (state) =>
-      state.setting('webinterface', 'show_composer_now_playing')?.value ??
-      false,
-    show_cover_artwork_in_album_lists: (state) =>
-      state.setting('artwork', 'show_cover_artwork_in_album_lists')?.value ??
-      false,
-    show_filepath_now_playing: (state) =>
-      state.setting('webinterface', 'show_filepath_now_playing')?.value ??
-      false,
-    show_menu_item_audiobooks: (state) =>
-      state.setting('webinterface', 'show_menu_item_audiobooks')?.value ??
-      false,
-    show_menu_item_files: (state) =>
-      state.setting('webinterface', 'show_menu_item_files')?.value ?? false,
-    show_menu_item_music: (state) =>
-      state.setting('webinterface', 'show_menu_item_music')?.value ?? false,
-    show_menu_item_playlists: (state) =>
-      state.setting('webinterface', 'show_menu_item_playlists')?.value ?? false,
-    show_menu_item_podcasts: (state) =>
-      state.setting('webinterface', 'show_menu_item_podcasts')?.value ?? false,
-    show_menu_item_radio: (state) =>
-      state.setting('webinterface', 'show_menu_item_radio')?.value ?? false,
-    show_menu_item_search: (state) =>
-      state.setting('webinterface', 'show_menu_item_search')?.value ?? false
+    recentlyAddedLimit: (state) =>
+      state.get('webinterface', 'recently_added_limit')?.value ?? 100,
+    showComposerForGenre: (state) =>
+      state.get('webinterface', 'show_composer_for_genre')?.value ?? null,
+    showComposerNowPlaying: (state) =>
+      state.get('webinterface', 'show_composer_now_playing')?.value ?? false,
+    showCoverArtworkInAlbumLists: (state) =>
+      state.get('artwork', 'show_cover_artwork_in_album_lists')?.value ?? false,
+    showFilepathNowPlaying: (state) =>
+      state.get('webinterface', 'show_filepath_now_playing')?.value ?? false,
+    showMenuItemAudiobooks: (state) =>
+      state.get('webinterface', 'show_menu_item_audiobooks')?.value ?? false,
+    showMenuItemFiles: (state) =>
+      state.get('webinterface', 'show_menu_item_files')?.value ?? false,
+    showMenuItemMusic: (state) =>
+      state.get('webinterface', 'show_menu_item_music')?.value ?? false,
+    showMenuItemPlaylists: (state) =>
+      state.get('webinterface', 'show_menu_item_playlists')?.value ?? false,
+    showMenuItemPodcasts: (state) =>
+      state.get('webinterface', 'show_menu_item_podcasts')?.value ?? false,
+    showMenuItemRadio: (state) =>
+      state.get('webinterface', 'show_menu_item_radio')?.value ?? false,
+    showMenuItemSearch: (state) =>
+      state.get('webinterface', 'show_menu_item_search')?.value ?? false
   },
   state: () => ({
     categories: []

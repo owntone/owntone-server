@@ -46,7 +46,7 @@ export default {
       return this.timerId >= 0
     },
     setting() {
-      return this.settingsStore.setting(this.category, this.name)
+      return this.settingsStore.get(this.category, this.name)
     }
   },
   methods: {
