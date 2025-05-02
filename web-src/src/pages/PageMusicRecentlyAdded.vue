@@ -25,7 +25,7 @@ export default {
   name: 'PageMusicRecentlyAdded',
   components: { ContentWithHeading, HeadingTitle, ListAlbums, TabsMusic },
   beforeRouteEnter(to, from, next) {
-    const limit = useSettingsStore().recently_added_limit
+    const limit = useSettingsStore().recentlyAddedLimit
     webapi
       .search({
         expression:
