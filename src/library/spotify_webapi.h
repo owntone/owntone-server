@@ -43,9 +43,9 @@ struct spotifywebapi_access_token
 
 
 char *
-spotifywebapi_oauth_uri_get(const char *redirect_uri);
+spotifywebapi_oauth_uri_get(void);
 int
-spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, const char **errmsg);
+spotifywebapi_oauth_callback(struct evkeyvalq *param, const char **errmsg);
 
 void
 spotifywebapi_fullrescan(void);

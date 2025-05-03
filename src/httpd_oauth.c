@@ -43,15 +43,10 @@
 static int
 oauth_reply_spotify(struct httpd_request *hreq)
 {
-  char redirect_uri[256];
   const char *errmsg;
-  int httpd_port;
   int ret;
 
-  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-
-  snprintf(redirect_uri, sizeof(redirect_uri), "http://owntone.local:%d/oauth/spotify", httpd_port);
-  ret = spotifywebapi_oauth_callback(hreq->query, redirect_uri, &errmsg);
+  ret = spotifywebapi_oauth_callback(hreq->query, &errmsg);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Could not parse Spotify OAuth callback '%s': %s\n", hreq->uri, errmsg);
