@@ -109,13 +109,10 @@ some common reasons:
 
 ## Remotes for iTunes/Apple Music (Android)
 
-The below Android remote apps work with OwnTone.
-
-|          Client          | Developer   |  Type  | Working (vers.) |
-| ------------------------ | ----------- | ------ | --------------- |
-| Retune                   | SquallyDoc  | Remote | Yes (3.5.23)    |
-| TunesRemote+             | Melloware   | Remote | Yes (2.5.3)     |
-| Remote for iTunes        | Hyperfine   | Remote | Yes             |
+Google Play doesn't seem to have iTunes/Apple Music remotes any more, so you
+either need to use the web interface or find an apk for one of the old remotes,
+like Retune (by SquallyDoc), TunesRemote+ (by Melloware) or Remote for iTunes
+(by Hyperfine).
 
 For usage and troubleshooting details, see the instructions for [Apple Remote](#apple-remote-app-ios).
 
