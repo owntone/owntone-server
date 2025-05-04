@@ -15,9 +15,9 @@
           </div>
           <div>
             <nav class="level is-clipped">
-              <div class="level-left is-flex-shrink-1">
+              <div class="level-left">
                 <div
-                  class="level-item is-flex-shrink-1 has-text-centered-mobile"
+                  class="level-item has-text-centered-mobile"
                 >
                   <div>
                     <slot name="heading" />
@@ -26,7 +26,7 @@
               </div>
               <div
                 v-if="$slots.actions"
-                class="level-right has-text-centered-mobile"
+                class="level-right is-flex-shrink-1 has-text-centered-mobile"
               >
                 <div class="buttons">
                   <slot name="actions" />

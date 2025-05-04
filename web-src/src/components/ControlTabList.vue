@@ -16,7 +16,7 @@
                   <a @click="navigate" @keypress.enter="navigate">
                     <mdicon
                       v-if="link.icon"
-                      class="icon is-small"
+                      class="icon is-small mx-1"
                       :name="link.icon"
                     />
                     <span
