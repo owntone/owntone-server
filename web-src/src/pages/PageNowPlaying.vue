@@ -3,14 +3,16 @@
     class="is-flex is-align-items-center has-text-centered px-5 is-full-height"
   >
     <div v-if="track.id" class="mx-auto" style="max-width: 32rem">
-      <control-image
-        :url="track.artwork_url"
-        :caption="track.album"
-        class="is-clickable is-big"
-        :class="{ 'is-masked': playerStore.lyrics }"
-        @click="openDetails(track)"
-      />
-      <lyrics-pane v-if="playerStore.lyrics" />
+      <div class="is-relative">
+        <control-image
+          :url="track.artwork_url"
+          :caption="track.album"
+          class="is-clickable is-big"
+          :class="{ 'is-masked': playerStore.lyrics }"
+          @click="openDetails(track)"
+        />
+        <lyrics-pane v-if="playerStore.lyrics" />
+      </div>
       <control-slider
         v-model:value="trackProgress"
         class="mt-5"

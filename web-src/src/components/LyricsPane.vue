@@ -1,7 +1,7 @@
 <template>
   <div
     ref="lyrics"
-    class="lyrics"
+    class="lyrics is-overlay"
     @touchstart="autoScrolling = false"
     @touchend="autoScrolling = true"
     @scroll.passive="startScrolling"
@@ -11,17 +11,14 @@
       <div
         v-if="index === verseIndex"
         :class="{ 'is-highlighted': playerStore.isPlaying }"
+        class="has-line-height-2 my-5 title is-5"
       >
         <span
           v-for="word in verse.words"
           :key="word"
-          class="has-text-weight-bold is-size-5"
-        >
-          <span
-            :style="{ 'animation-duration': `${word.delay}s` }"
-            v-text="word.text"
-          />
-        </span>
+          :style="{ 'animation-duration': `${word.delay}s` }"
+          v-text="word.text"
+        />
       </div>
       <div v-else>
         {{ verse.text }}
@@ -89,38 +86,39 @@ export default {
     verseIndex() {
       if (this.lyrics.length && this.lyrics[0].time) {
         const currentTime = this.playerStore.item_progress_ms / 1000,
-          la = this.lyrics,
+          { lyrics } = this,
+          { length } = lyrics,
           trackChanged = this.playerStore.item_id !== this.lastItemId,
           trackSeeked =
             this.lastIndex >= 0 &&
-            this.lastIndex < la.length &&
-            la[this.lastIndex].time > currentTime
+            this.lastIndex < length &&
+            lyrics[this.lastIndex].time > currentTime
         // Reset the cache when the track has changed or has been seeked
         if (trackChanged || trackSeeked) {
           this.resetScrolling()
         }
         // Check the next two items and the last one before searching
         if (
-          (this.lastIndex < la.length - 1 &&
-            la[this.lastIndex + 1].time > currentTime) ||
-          this.lastIndex === la.length - 1
+          (this.lastIndex < length - 1 &&
+            lyrics[this.lastIndex + 1].time > currentTime) ||
+          this.lastIndex === length - 1
         ) {
           return this.lastIndex
         }
         if (
-          this.lastIndex < la.length - 2 &&
-          la[this.lastIndex + 2].time > currentTime
+          this.lastIndex < length - 2 &&
+          lyrics[this.lastIndex + 2].time > currentTime
         ) {
           return this.lastIndex + 1
         }
         // Not found, then start a binary search
-        let end = la.length - 1,
+        let end = length - 1,
           index = -1,
           start = 0
         while (start <= end) {
           index = (start + end) >> 1
-          const currentVerseTime = la[index].time
-          const nextVerseTime = la[index + 1]?.time
+          const currentVerseTime = lyrics[index].time
+          const nextVerseTime = lyrics[index + 1]?.time
           if (
             currentVerseTime <= currentTime &&
             (nextVerseTime > currentTime || !nextVerseTime)
@@ -165,11 +163,10 @@ export default {
       const currentVerse = pane.children[this.verseIndex]
       pane.scrollBy({
         behavior: 'smooth',
-        left: 0,
         top:
           currentVerse.offsetTop -
-          (pane.offsetHeight >> 1) +
-          (currentVerse.offsetHeight >> 1) -
+          pane.offsetHeight / 2 +
+          currentVerse.offsetHeight / 2 -
           pane.scrollTop
       })
     },
@@ -188,11 +185,6 @@ export default {
 
 <style scoped>
 .lyrics {
-  top: 0;
-  left: calc(50% - 50vw);
-  width: 100vw;
-  height: calc(100vh - 26rem);
-  max-height: min(100% - 8rem, 100vh - 26rem + 3.5rem);
   position: absolute;
   overflow: auto;
   --mask: linear-gradient(
@@ -208,18 +200,18 @@ export default {
 .lyrics div.is-highlighted span {
   animation: pop-color 0s linear forwards;
 }
+.lyrics div.has-line-height-2 {
+  line-height: 2rem;
+}
 .lyrics div {
   line-height: 3rem;
 }
 .lyrics div:first-child {
   padding-top: calc(25vh - 2rem);
 }
-
 .lyrics div:last-child {
   padding-bottom: calc(25vh - 3rem);
 }
-
-/* Lyrics animation */
 @keyframes pop-color {
   0% {
     color: var(--bulma-black);
