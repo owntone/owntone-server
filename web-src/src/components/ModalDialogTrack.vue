@@ -42,7 +42,7 @@ export default {
           { key: 'property.composer', value: this.item.composer },
           {
             key: 'property.release-date',
-            value: this.$filters.toDate(this.item.date_released)
+            value: this.$formatters.toDate(this.item.date_released)
           },
           { key: 'property.year', value: this.item.year },
           { key: 'property.genre', value: this.item.genre },
@@ -56,7 +56,7 @@ export default {
             key: 'property.duration',
             value:
               this.item.length_ms > 0 &&
-              this.$filters.toTimecode(this.item.length_ms)
+              this.$formatters.toTimecode(this.item.length_ms)
           },
           {
             key: 'property.type',
@@ -75,7 +75,7 @@ export default {
           },
           {
             key: 'property.added-on',
-            value: this.$filters.toDateTime(this.item.time_added)
+            value: this.$formatters.toDateTime(this.item.time_added)
           },
           {
             key: 'property.rating',

@@ -27,7 +27,7 @@ export default {
           },
           {
             key: 'property.added-on',
-            value: this.$filters.toDateTime(this.item.time_added)
+            value: this.$formatters.toDateTime(this.item.time_added)
           }
         ],
         uri: this.item.uri

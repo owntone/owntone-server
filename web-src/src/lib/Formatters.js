@@ -4,7 +4,7 @@ import i18n from '@/i18n'
 const { locale } = i18n.global
 const unit = ['years', 'months', 'days', 'hours', 'minutes']
 
-export const filters = {
+export default {
   toDate(value) {
     if (value) {
       return DateTime.fromISO(value, { locale: locale.value }).toLocaleString(

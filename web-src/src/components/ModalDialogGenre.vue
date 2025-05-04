@@ -28,7 +28,7 @@ export default {
           { key: 'property.tracks', value: this.item.track_count },
           {
             key: 'property.duration',
-            value: this.$filters.toTimecode(this.item.length_ms)
+            value: this.$formatters.toTimecode(this.item.length_ms)
           }
         ]
       }

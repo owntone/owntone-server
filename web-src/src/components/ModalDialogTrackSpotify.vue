@@ -34,7 +34,7 @@ export default {
           },
           {
             key: 'property.release-date',
-            value: this.$filters.toDate(this.item.album.release_date)
+            value: this.$formatters.toDate(this.item.album.release_date)
           },
           {
             key: 'property.position',
@@ -42,7 +42,7 @@ export default {
           },
           {
             key: 'property.duration',
-            value: this.$filters.toTimecode(this.item.duration_ms)
+            value: this.$formatters.toTimecode(this.item.duration_ms)
           },
           { key: 'property.path', value: this.item.uri }
         ],

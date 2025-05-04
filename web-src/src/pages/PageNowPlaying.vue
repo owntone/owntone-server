@@ -115,7 +115,7 @@ export default {
       return this.queueStore.current
     },
     trackElapsedTime() {
-      return this.$filters.toTimecode(this.trackProgress * INTERVAL)
+      return this.$formatters.toTimecode(this.trackProgress * INTERVAL)
     },
     trackProgress: {
       get() {
@@ -131,7 +131,7 @@ export default {
     trackTotalTime() {
       return this.$t('page.now-playing.time', this.track.length_ms, {
         named: {
-          time: this.$filters.toTimecode(this.track.length_ms)
+          time: this.$formatters.toTimecode(this.track.length_ms)
         }
       })
     }

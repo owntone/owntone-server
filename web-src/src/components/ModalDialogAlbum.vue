@@ -89,13 +89,13 @@ export default {
           },
           {
             key: 'property.release-date',
-            value: this.$filters.toDate(this.item.date_released)
+            value: this.$formatters.toDate(this.item.date_released)
           },
           { key: 'property.year', value: this.item.year },
           { key: 'property.tracks', value: this.item.track_count },
           {
             key: 'property.duration',
-            value: this.$filters.toTimecode(this.item.length_ms)
+            value: this.$formatters.toTimecode(this.item.length_ms)
           },
           {
             key: 'property.type',
@@ -103,7 +103,7 @@ export default {
           },
           {
             key: 'property.added-on',
-            value: this.$filters.toDateTime(this.item.time_added)
+            value: this.$formatters.toDateTime(this.item.time_added)
           }
         ],
         uri: this.item.uri

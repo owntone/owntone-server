@@ -5,7 +5,7 @@ import VueLazyLoad from 'vue3-lazyload'
 import VueProgressBar from '@aacassandra/vue3-progressbar'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { filters } from './filter'
+import formatters from './lib/Formatters.js'
 import i18n from './i18n'
 import { icons } from './icons'
 import mdiVue from 'mdi-vue/v3'
@@ -20,5 +20,5 @@ const app = createApp(App)
   .use(mdiVue, { icons })
   .use(i18n)
 
-app.config.globalProperties.$filters = filters
+app.config.globalProperties.$formatters = formatters
 app.mount('#app')

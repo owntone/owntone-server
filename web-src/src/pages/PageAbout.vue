@@ -119,17 +119,19 @@ export default {
         },
         {
           key: 'property.playtime',
-          value: this.$filters.toDuration(this.libraryStore.db_playtime)
+          value: this.$formatters.toDuration(this.libraryStore.db_playtime)
         },
         {
-          alternate: this.$filters.toDateTime(this.libraryStore.updated_at),
+          alternate: this.$formatters.toDateTime(this.libraryStore.updated_at),
           key: 'property.updated',
-          value: this.$filters.toRelativeDuration(this.libraryStore.updated_at)
+          value: this.$formatters.toRelativeDuration(
+            this.libraryStore.updated_at
+          )
         },
         {
-          alternate: this.$filters.toDateTime(this.libraryStore.started_at),
+          alternate: this.$formatters.toDateTime(this.libraryStore.started_at),
           key: 'property.uptime',
-          value: this.$filters.toDurationToNow(this.libraryStore.started_at)
+          value: this.$formatters.toDurationToNow(this.libraryStore.started_at)
         }
       ]
     }

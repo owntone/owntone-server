@@ -8,7 +8,7 @@
     :lines="[
       item.item.name,
       item.item.artist,
-      $filters.toDate(item.item.date_released)
+      $formatters.toDate(item.item.date_released)
     ]"
     @open="open(item.item)"
     @open-details="openDetails(item.item)"

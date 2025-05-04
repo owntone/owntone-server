@@ -16,9 +16,7 @@
           <div>
             <nav class="level is-clipped">
               <div class="level-left">
-                <div
-                  class="level-item has-text-centered-mobile"
-                >
+                <div class="level-item has-text-centered-mobile">
                   <div>
                     <slot name="heading" />
                   </div>

@@ -27,7 +27,7 @@ export default {
           },
           {
             key: 'property.release-date',
-            value: this.$filters.toDate(this.item.release_date)
+            value: this.$formatters.toDate(this.item.release_date)
           },
           { key: 'property.type', value: this.item.album_type }
         ],

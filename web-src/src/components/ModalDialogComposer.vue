@@ -32,7 +32,7 @@ export default {
           },
           {
             key: 'property.duration',
-            value: this.$filters.toTimecode(this.item.length_ms)
+            value: this.$formatters.toTimecode(this.item.length_ms)
           }
         ]
       }
