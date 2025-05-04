@@ -21,8 +21,8 @@ export default {
   previous() {
     return api.put('./api/player/previous')
   },
-  repeat(mode) {
-    return api.put(`./api/player/repeat?state=${mode}`)
+  repeat(state) {
+    return api.put(`./api/player/repeat?state=${state}`)
   },
   seek(seekMs) {
     return api.put(`./api/player/seek?seek_ms=${seekMs}`)

@@ -29,11 +29,9 @@ import NavbarBottom from '@/components/NavbarBottom.vue'
 import NavbarTop from '@/components/NavbarTop.vue'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
 import configuration from '@/api/configuration'
-import library from '@/api/library'
 import services from '@/api/services'
 import { useConfigurationStore } from '@/stores/configuration'
 import { useLibraryStore } from '@/stores/library'
-import { useLyricsStore } from '@/stores/lyrics'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useOutputsStore } from './stores/outputs'
 import { usePlayerStore } from '@/stores/player'
@@ -56,7 +54,6 @@ export default {
     return {
       configurationStore: useConfigurationStore(),
       libraryStore: useLibraryStore(),
-      lyricsStore: useLyricsStore(),
       notificationsStore: useNotificationsStore(),
       outputsStore: useOutputsStore(),
       playerStore: usePlayerStore(),
@@ -174,20 +171,19 @@ export default {
         const data = JSON.parse(response.data)
         const notify = new Set(data.notify || [])
         const handlers = [
-          { handler: this.updateLibrary, triggers: ['update', 'database'] },
+          { events: ['update', 'database'], handler: this.updateLibrary },
           {
-            handler: this.updatePlayer,
-            triggers: ['player', 'options', 'volume']
+            events: ['player', 'options', 'volume'],
+            handler: this.updatePlayer
           },
-          { handler: this.updateOutputs, triggers: ['outputs', 'volume'] },
-          { handler: this.updateQueue, triggers: ['queue'] },
-          { handler: this.updateSpotify, triggers: ['spotify'] },
-          { handler: this.updateLastfm, triggers: ['lastfm'] },
-          { handler: this.updateRemotes, triggers: ['pairing'] },
-          { handler: this.updateLyrics, triggers: ['player', 'queue'] }
+          { events: ['outputs', 'volume'], handler: this.updateOutputs },
+          { events: ['queue'], handler: this.updateQueue },
+          { events: ['spotify'], handler: this.updateSpotify },
+          { events: ['lastfm'], handler: this.updateLastfm },
+          { events: ['pairing'], handler: this.updateRemotes }
         ]
-        handlers.forEach(({ handler, triggers }) => {
-          if (triggers.some((key) => notify.has(key))) {
+        handlers.forEach(({ handler, events }) => {
+          if (events.some((key) => notify.has(key))) {
             handler.call(this)
           }
         })
@@ -221,16 +217,6 @@ export default {
     },
     updateLibrary() {
       this.libraryStore.initialise()
-    },
-    updateLyrics() {
-      const track = this.queueStore.current
-      if (track?.track_id) {
-        library.track(track.track_id).then((data) => {
-          this.lyricsStore.lyrics = data.lyrics
-        })
-      } else {
-        this.lyricsStore.$reset()
-      }
     },
     updateOutputs() {
       this.outputsStore.initialise()

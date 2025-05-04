@@ -7,10 +7,10 @@
         :url="track.artwork_url"
         :caption="track.album"
         class="is-clickable is-big"
-        :class="{ 'is-masked': lyricsStore.active }"
+        :class="{ 'is-masked': playerStore.lyrics }"
         @click="openDetails(track)"
       />
-      <lyrics-pane v-if="lyricsStore.active" />
+      <lyrics-pane v-if="playerStore.lyrics" />
       <control-slider
         v-model:value="trackProgress"
         class="mt-5"
@@ -56,7 +56,6 @@ import ControlSlider from '@/components/ControlSlider.vue'
 import LyricsPane from '@/components/LyricsPane.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import player from '@/api/player'
-import { useLyricsStore } from '@/stores/lyrics'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 import { useSettingsStore } from '@/stores/settings'
@@ -73,7 +72,6 @@ export default {
   },
   setup() {
     return {
-      lyricsStore: useLyricsStore(),
       playerStore: usePlayerStore(),
       queueStore: useQueueStore(),
       settingsStore: useSettingsStore()

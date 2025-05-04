@@ -1,10 +1,18 @@
 import { defineStore } from 'pinia'
+import library from '@/api/library'
 import player from '@/api/player'
+import { useQueueStore } from '@/stores/queue'
 
 export const usePlayerStore = defineStore('PlayerStore', {
   actions: {
     async initialise() {
       this.$state = await player.state()
+      const queueStore = useQueueStore()
+      if (queueStore.current.track_id) {
+        library.track(queueStore.current.track_id).then((data) => {
+          this.lyricsContent = data.lyrics || ''
+        })
+      }
     }
   },
   getters: {
@@ -19,6 +27,8 @@ export const usePlayerStore = defineStore('PlayerStore', {
     item_id: 0,
     item_length_ms: 0,
     item_progress_ms: 0,
+    lyrics: false,
+    lyricsContent: '',
     repeat: 'off',
     shuffle: false,
     state: 'stop',

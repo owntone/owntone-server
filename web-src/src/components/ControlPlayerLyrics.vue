@@ -1,8 +1,5 @@
 <template>
-  <button
-    :class="{ 'is-dark': lyricsStore.active }"
-    @click="lyricsStore.toggle"
-  >
+  <button :class="{ 'is-dark': playerStore.lyrics }" @click="toggle">
     <mdicon
       class="icon"
       :name="icon"
@@ -13,20 +10,25 @@
 </template>
 
 <script>
-import { useLyricsStore } from '@/stores/lyrics'
+import { usePlayerStore } from '@/stores/player'
 
 export default {
   name: 'ControlPlayerLyrics',
   setup() {
     return {
-      lyricsStore: useLyricsStore()
+      playerStore: usePlayerStore()
     }
   },
   computed: {
     icon() {
-      return this.lyricsStore.active
+      return this.playerStore.lyrics
         ? 'script-text-play'
         : 'script-text-outline'
+    }
+  },
+  methods: {
+    toggle() {
+      this.playerStore.lyrics = !this.playerStore.lyrics
     }
   }
 }

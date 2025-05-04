@@ -31,13 +31,13 @@
 </template>
 
 <script>
-import { useLyricsStore } from '@/stores/lyrics'
 import { usePlayerStore } from '@/stores/player'
+import { useQueueStore } from '@/stores/queue'
 
 export default {
   name: 'LyricsPane',
   setup() {
-    return { lyricsStore: useLyricsStore(), playerStore: usePlayerStore() }
+    return { playerStore: usePlayerStore(), queueStore: useQueueStore() }
   },
   data() {
     /*
@@ -54,7 +54,7 @@ export default {
   },
   computed: {
     lyrics() {
-      const raw = this.lyricsStore.content
+      const raw = this.playerStore.lyricsContent
       const parsed = []
       if (raw.length > 0) {
         // Parse the lyrics
@@ -74,7 +74,8 @@ export default {
         // Split the verses into words
         parsed.forEach((verse, index, lyrics) => {
           const unitDuration =
-            (lyrics[index + 1].time - verse.time || 3) / verse.text.length
+            ((lyrics[index + 1]?.time ?? verse.time + 3) - verse.time) /
+            verse.text.length
           let delay = 0
           verse.words = verse.text.match(/\S+\s*/gu).map((text) => {
             const duration = text.length * unitDuration

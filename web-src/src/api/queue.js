@@ -6,9 +6,6 @@ import { useQueueStore } from '@/stores/queue'
 const { t } = i18n.global
 
 export default {
-  state() {
-    return api.get('./api/queue')
-  },
   addUri(uris, next = false) {
     return this.addToQueue({ uris }, next)
   },
@@ -58,6 +55,9 @@ export default {
   },
   remove(id) {
     return api.delete(`./api/queue/items/${id}`)
+  },
+  state() {
+    return api.get('./api/queue')
   },
   async saveToPlaylist(name) {
     const response = await api.post('./api/queue/save', null, {
