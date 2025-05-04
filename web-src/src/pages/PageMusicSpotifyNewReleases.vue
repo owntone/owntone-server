@@ -16,7 +16,7 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
-import webapi from '@/webapi'
+import services from '@/api/services'
 
 export default {
   name: 'PageMusicSpotifyNewReleases',
@@ -27,7 +27,7 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    webapi.spotify().then((data) => {
+    services.spotify().then((data) => {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(data.webapi_token)
       spotifyApi

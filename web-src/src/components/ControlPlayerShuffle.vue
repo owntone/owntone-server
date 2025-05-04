@@ -1,17 +1,17 @@
 <template>
-  <a :class="{ 'is-dark': playerStore.shuffle }" @click="toggle">
+  <button :class="{ 'is-dark': playerStore.shuffle }" @click="toggle">
     <mdicon
       class="icon"
       :name="icon"
       :size="16"
       :title="$t(`player.button.${icon}`)"
     />
-  </a>
+  </button>
 </template>
 
 <script>
+import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
-import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerShuffle',
@@ -28,7 +28,7 @@ export default {
   },
   methods: {
     toggle() {
-      webapi.player_shuffle(!this.playerStore.shuffle)
+      player.shuffle(!this.playerStore.shuffle)
     }
   }
 }

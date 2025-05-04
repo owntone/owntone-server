@@ -31,7 +31,7 @@
 import ListItem from '@/components/ListItem.vue'
 import LoaderListItem from '@/components/LoaderListItem.vue'
 import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
-import webapi from '@/webapi'
+import queue from '@/api/queue'
 
 export default {
   name: 'ListTracksSpotify',
@@ -48,11 +48,7 @@ export default {
   methods: {
     open(item) {
       if (item.is_playable) {
-        webapi.player_play_uri(
-          this.contextUri || item.uri,
-          false,
-          item.position || 0
-        )
+        queue.playUri(this.contextUri || item.uri, false, item.position || 0)
       }
     },
     openDetails(item) {

@@ -383,8 +383,7 @@
     "connection-failed": "Failed to connect to OwnTone server",
     "request-failed": "Request failed (status: {status} {cause} {url})",
     "queue-saved": "Queue saved to playlist {name}",
-    "appended-tracks": "{count} track appended to the queue|{count} tracks appended to the queue",
-    "empty-queue": "Queue is empty"
+    "appended-tracks": "{count} track appended to the queue|{count} tracks appended to the queue"
   },
   "grouped-list": {
     "today": "Today",

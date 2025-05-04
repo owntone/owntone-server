@@ -73,23 +73,28 @@
             <div class="field is-grouped">
               <div class="control">
                 <input
-                  v-model="lastfm_login.user"
+                  v-model="lastfmCredentials.user"
                   class="input"
                   type="text"
                   :placeholder="$t('page.settings.services.username')"
                 />
-                <div class="help is-danger" v-text="lastfm_login.errors.user" />
+                <div
+                  v-if="lastfmErrors"
+                  class="help is-danger"
+                  v-text="lastfmErrors.user"
+                />
               </div>
               <div class="control">
                 <input
-                  v-model="lastfm_login.password"
+                  v-model="lastfmCredentials.password"
                   class="input"
                   type="password"
                   :placeholder="$t('page.settings.services.password')"
                 />
                 <div
+                  v-if="lastfmErrors"
                   class="help is-danger"
-                  v-text="lastfm_login.errors.password"
+                  v-text="lastfmErrors.password"
                 />
               </div>
               <div class="control">
@@ -100,7 +105,11 @@
                 />
               </div>
             </div>
-            <div class="help is-danger" v-text="lastfm_login.errors.error" />
+            <div
+              v-if="lastfmErrors"
+              class="help is-danger"
+              v-text="lastfmErrors.error"
+            />
           </form>
         </div>
         <div v-else>
@@ -120,8 +129,8 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
+import services from '@/api/services'
 import { useServicesStore } from '@/stores/services'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageSettingsOnlineServices',
@@ -131,33 +140,25 @@ export default {
   },
   data() {
     return {
-      lastfm_login: {
-        errors: { error: '', password: '', user: '' },
-        password: '',
-        user: ''
-      }
+      lastfmCredentials: { password: '', user: '' },
+      lastfmErrors: { error: '', password: '', user: '' }
     }
   },
   methods: {
     loginLastfm() {
-      webapi.lastfm_login(this.lastfm_login).then((data) => {
-        this.lastfm_login.user = ''
-        this.lastfm_login.password = ''
-        this.lastfm_login.errors.user = ''
-        this.lastfm_login.errors.password = ''
-        this.lastfm_login.errors.error = ''
-        if (!data.success) {
-          this.lastfm_login.errors.user = data.errors.user
-          this.lastfm_login.errors.password = data.errors.password
-          this.lastfm_login.errors.error = data.errors.error
+      services.loginLastfm(this.lastfmCredentials).then((data) => {
+        this.lastfmErrors = data.errors
+        this.lastfmCredentials.password = ''
+        if (data.success) {
+          this.lastfmCredentials.user = ''
         }
       })
     },
     logoutLastfm() {
-      webapi.lastfm_logout()
+      services.logoutLastfm()
     },
     logoutSpotify() {
-      webapi.spotify_logout()
+      services.logoutSpotify()
     }
   }
 }

@@ -22,7 +22,7 @@
 <script>
 import ControlUrlField from '@/components/ControlUrlField.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'ModalDialogAddRss',
@@ -55,8 +55,8 @@ export default {
   methods: {
     add() {
       this.loading = true
-      webapi
-        .library_add(this.url)
+      library
+        .add(this.url)
         .then(() => {
           this.$emit('podcast-added')
           this.$emit('close')

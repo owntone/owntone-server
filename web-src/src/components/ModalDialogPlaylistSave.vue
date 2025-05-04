@@ -30,7 +30,7 @@
 
 <script>
 import ModalDialog from '@/components/ModalDialog.vue'
-import webapi from '@/webapi'
+import queue from '@/api/queue'
 
 export default {
   name: 'ModalDialogPlaylistSave',
@@ -81,8 +81,8 @@ export default {
     },
     save() {
       this.loading = true
-      webapi
-        .queue_save_playlist(this.playlistName)
+      queue
+        .saveToPlaylist(this.playlistName)
         .then(() => {
           this.$emit('close')
           this.playlistName = ''

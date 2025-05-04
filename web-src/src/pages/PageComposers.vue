@@ -20,7 +20,7 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'PageComposers',
@@ -32,7 +32,7 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    webapi.library_composers('music').then((composers) => {
+    library.composers('music').then((composers) => {
       next((vm) => {
         vm.composers = new GroupedList(composers, {
           index: { field: 'name_sort', type: String }

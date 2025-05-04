@@ -46,8 +46,8 @@
 </template>
 
 <script>
+import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
-import webapi from '@/webapi'
 
 export default {
   name: 'ListItemQueueItem',
@@ -71,7 +71,7 @@ export default {
   },
   methods: {
     play() {
-      webapi.player_play({ item_id: this.item.id })
+      player.play({ item_id: this.item.id })
     }
   }
 }

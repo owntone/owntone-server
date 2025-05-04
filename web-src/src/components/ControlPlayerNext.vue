@@ -9,8 +9,8 @@
 </template>
 
 <script>
+import player from '@/api/player'
 import { useQueueStore } from '@/stores/queue'
-import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerNext',
@@ -24,10 +24,7 @@ export default {
   },
   methods: {
     next() {
-      if (this.disabled) {
-        return
-      }
-      webapi.player_next()
+      player.next()
     }
   }
 }

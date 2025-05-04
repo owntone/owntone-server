@@ -45,7 +45,7 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'PageMusic',
@@ -58,13 +58,13 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.search({
+      library.search({
         expression:
           'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc',
         limit: 3,
         type: 'album'
       }),
-      webapi.search({
+      library.search({
         expression:
           'time_played after 8 weeks ago and media_kind is music order by time_played desc',
         limit: 3,

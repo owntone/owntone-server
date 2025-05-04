@@ -84,8 +84,8 @@ import ListComposers from '@/components/ListComposers.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import TabsSearch from '@/components/TabsSearch.vue'
+import library from '@/api/library'
 import { useSearchStore } from '@/stores/search'
-import webapi from '@/webapi'
 
 const PAGE_SIZE = 3,
   SEARCH_TYPES = [
@@ -190,7 +190,7 @@ export default {
       } else {
         parameters.expression = `(album includes "${this.searchStore.query}" or artist includes "${this.searchStore.query}") and media_kind is ${kind}`
       }
-      webapi.search(parameters).then((data) => {
+      library.search(parameters).then((data) => {
         this.results.set(type, new GroupedList(data[`${parameters.type}s`]))
       })
     },

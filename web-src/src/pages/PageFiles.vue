@@ -33,8 +33,10 @@ import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
+import configuration from '@/api/configuration'
+import library from '@/api/library'
+import queue from '@/api/queue'
 import { useConfigurationStore } from '@/stores/configuration'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageFiles',
@@ -93,7 +95,7 @@ export default {
   methods: {
     async fetchData(to) {
       if (to.query.directory) {
-        const data = await webapi.library_files(to.query.directory)
+        const data = await library.files(to.query.directory)
         if (data) {
           this.directories = data.directories.map((directory) =>
             this.transform(directory.path)
@@ -102,7 +104,7 @@ export default {
           this.tracks = new GroupedList(data.tracks)
         }
       } else {
-        const config = await webapi.config()
+        const config = await configuration.list()
         this.directories = config.directories.map((path) =>
           this.transform(path)
         )
@@ -114,7 +116,7 @@ export default {
       this.showDetailsModal = true
     },
     play() {
-      webapi.player_play_expression(this.expression, false)
+      queue.playExpression(this.expression, false)
     },
     transform(path) {
       return { name: path.slice(path.lastIndexOf('/') + 1), path }

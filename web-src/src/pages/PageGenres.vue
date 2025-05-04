@@ -20,7 +20,7 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListGenres from '@/components/ListGenres.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'PageGenres',
@@ -32,7 +32,7 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    webapi.library_genres('music').then((genres) => {
+    library.genres('music').then((genres) => {
       next((vm) => {
         vm.genres = new GroupedList(genres, {
           index: { field: 'name_sort', type: String }

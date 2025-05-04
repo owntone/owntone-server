@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import i18n from '@/i18n'
+import settings from '@/api/settings'
 
 const { t, availableLocales } = i18n.global
 
@@ -11,6 +12,9 @@ export const useSettingsStore = defineStore('SettingsStore', {
           .find((category) => category.name === categoryName)
           ?.options.find((option) => option.name === optionName) ?? {}
       )
+    },
+    async initialise() {
+      this.$state = await settings.state()
     },
     update(option) {
       const settingCategory = this.categories.find(

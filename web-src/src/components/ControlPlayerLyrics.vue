@@ -1,12 +1,15 @@
 <template>
-  <a :class="{ 'is-dark': lyricsStore.active }" @click="lyricsStore.toggle">
+  <button
+    :class="{ 'is-dark': lyricsStore.active }"
+    @click="lyricsStore.toggle"
+  >
     <mdicon
       class="icon"
       :name="icon"
       :size="16"
       :title="$t('player.button.toggle-lyrics')"
     />
-  </a>
+  </button>
 </template>
 
 <script>

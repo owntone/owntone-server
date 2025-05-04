@@ -1,17 +1,17 @@
 <template>
-  <a :class="{ 'is-dark': !playerStore.isRepeatOff }" @click="toggle">
+  <button :class="{ 'is-dark': !playerStore.isRepeatOff }" @click="toggle">
     <mdicon
       class="icon"
       :name="icon"
       :size="16"
       :title="$t(`player.button.${icon}`)"
     />
-  </a>
+  </button>
 </template>
 
 <script>
+import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
-import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerRepeat',
@@ -31,11 +31,11 @@ export default {
   methods: {
     toggle() {
       if (this.playerStore.isRepeatAll) {
-        webapi.player_repeat('single')
+        player.repeat('single')
       } else if (this.playerStore.isRepeatSingle) {
-        webapi.player_repeat('off')
+        player.repeat('off')
       } else {
-        webapi.player_repeat('all')
+        player.repeat('all')
       }
     }
   }

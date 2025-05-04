@@ -9,7 +9,7 @@
 
 <script>
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'ModalDialogTrack',
@@ -92,16 +92,14 @@ export default {
   },
   methods: {
     markAsNew() {
-      webapi
-        .library_track_update(this.item.id, { play_count: 'reset' })
-        .then(() => {
-          this.$emit('play-count-changed')
-          this.$emit('close')
-        })
+      library.updateTrack(this.item.id, { play_count: 'reset' }).then(() => {
+        this.$emit('play-count-changed')
+        this.$emit('close')
+      })
     },
     markAsPlayed() {
-      webapi
-        .library_track_update(this.item.id, { play_count: 'increment' })
+      library
+        .updateTrack(this.item.id, { play_count: 'increment' })
         .then(() => {
           this.$emit('play-count-changed')
           this.$emit('close')

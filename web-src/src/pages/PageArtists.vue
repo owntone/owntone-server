@@ -52,9 +52,9 @@ import ListArtists from '@/components/ListArtists.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
+import library from '@/api/library'
 import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageArtists',
@@ -69,7 +69,7 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    webapi.library_artists('music').then((artists) => {
+    library.artists('music').then((artists) => {
       next((vm) => {
         vm.artistList = new GroupedList(artists)
       })

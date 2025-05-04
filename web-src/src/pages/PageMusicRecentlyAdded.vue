@@ -18,15 +18,15 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
+import library from '@/api/library'
 import { useSettingsStore } from '@/stores/settings'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageMusicRecentlyAdded',
   components: { ContentWithHeading, HeadingTitle, ListAlbums, TabsMusic },
   beforeRouteEnter(to, from, next) {
     const limit = useSettingsStore().recentlyAddedLimit
-    webapi
+    library
       .search({
         expression:
           'media_kind is music having track_count > 3 order by time_added desc',

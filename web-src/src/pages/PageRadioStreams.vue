@@ -18,7 +18,7 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListTracks from '@/components/ListTracks.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'PageRadioStreams',
@@ -29,7 +29,7 @@ export default {
     ListTracks
   },
   beforeRouteEnter(to, from, next) {
-    webapi.library_radio_streams().then((tracks) => {
+    library.radioStreams().then((tracks) => {
       next((vm) => {
         vm.tracks = new GroupedList(tracks, {
           index: { field: 'title_sort', type: String }

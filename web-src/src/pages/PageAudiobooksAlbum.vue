@@ -30,7 +30,8 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingHero from '@/components/HeadingHero.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
+import queue from '@/api/queue'
 
 export default {
   name: 'PageAudiobooksAlbum',
@@ -43,8 +44,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_album(to.params.id),
-      webapi.library_album_tracks(to.params.id)
+      library.album(to.params.id),
+      library.albumTracks(to.params.id)
     ]).then(([album, tracks]) => {
       next((vm) => {
         vm.album = album
@@ -85,7 +86,7 @@ export default {
       this.showDetailsModal = true
     },
     play() {
-      webapi.player_play_uri(this.album.uri, false)
+      queue.playUri(this.album.uri, false)
     }
   }
 }

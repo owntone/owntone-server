@@ -19,8 +19,8 @@
 </template>
 
 <script>
+import settings from '@/api/settings'
 import { useSettingsStore } from '@/stores/settings'
-import webapi from '@/webapi'
 
 export default {
   name: 'ControlSetting',
@@ -60,8 +60,8 @@ export default {
         name: this.name,
         value
       }
-      webapi
-        .settings_update(this.category, setting)
+      settings
+        .update(this.category, setting)
         .then(() => {
           window.clearTimeout(this.timerId)
           this.settingsStore.update(setting)

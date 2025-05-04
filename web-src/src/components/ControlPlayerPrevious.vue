@@ -1,5 +1,5 @@
 <template>
-  <a :disabled="disabled" @click="playPrevious">
+  <a :disabled="disabled" @click="previous">
     <mdicon
       class="icon"
       name="skip-backward"
@@ -9,8 +9,8 @@
 </template>
 
 <script>
+import player from '@/api/player'
 import { useQueueStore } from '@/stores/queue'
-import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerPrevious',
@@ -23,11 +23,8 @@ export default {
     }
   },
   methods: {
-    playPrevious() {
-      if (this.disabled) {
-        return
-      }
-      webapi.player_previous()
+    previous() {
+      player.previous()
     }
   }
 }

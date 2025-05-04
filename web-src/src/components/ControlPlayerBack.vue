@@ -9,9 +9,9 @@
 </template>
 
 <script>
+import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
-import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerBack',
@@ -40,9 +40,7 @@ export default {
   },
   methods: {
     seek() {
-      if (!this.disabled) {
-        webapi.player_seek(this.offset * -1)
-      }
+      player.seek(this.offset * -1)
     }
   }
 }

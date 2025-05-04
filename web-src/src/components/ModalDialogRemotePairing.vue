@@ -20,8 +20,8 @@
 <script>
 import ControlPinField from '@/components/ControlPinField.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
+import remotes from '@/api/remotes'
 import { useRemotesStore } from '@/stores/remotes'
-import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogRemotePairing',
@@ -59,7 +59,7 @@ export default {
       this.disabled = disabled
     },
     pair() {
-      webapi.pairing_kickoff({ pin: this.pin }).then(() => {
+      remotes.pair(this.pin).then(() => {
         this.pin = ''
       })
     }

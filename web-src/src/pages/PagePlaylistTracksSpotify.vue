@@ -39,8 +39,8 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import queue from '@/api/queue'
 import { useServicesStore } from '@/stores/services'
-import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
 
@@ -137,7 +137,7 @@ export default {
     },
     play() {
       this.showDetailsModal = false
-      webapi.player_play_uri(this.playlist.uri, true)
+      queue.playUri(this.playlist.uri, true)
     },
     openDetails() {
       this.showDetailsModal = true

@@ -43,8 +43,9 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
+import library from '@/api/library'
+import queue from '@/api/queue'
 import { useUIStore } from '@/stores/ui'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageComposerTracks',
@@ -60,8 +61,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_composer(to.params.name),
-      webapi.library_composer_tracks(to.params.name)
+      library.composer(to.params.name),
+      library.composerTracks(to.params.name)
     ]).then(([composer, tracks]) => {
       next((vm) => {
         vm.composer = composer
@@ -134,7 +135,7 @@ export default {
       this.showDetailsModal = true
     },
     play() {
-      webapi.player_play_expression(this.expression, true)
+      queue.playExpression(this.expression, true)
     }
   }
 }

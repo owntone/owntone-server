@@ -40,7 +40,11 @@
         class="content"
         v-text="$t('page.settings.devices.speaker-pairing-info')"
       />
-      <div v-for="output in outputs" :key="output.id" class="field is-grouped">
+      <div
+        v-for="output in outputsStore.outputs"
+        :key="output.id"
+        class="field is-grouped"
+      >
         <control-switch
           v-model="output.selected"
           @update:model-value="toggleOutput(output.id)"
@@ -77,9 +81,9 @@ import ControlPinField from '@/components/ControlPinField.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
+import outputs from '@/api/outputs'
 import { useOutputsStore } from '@/stores/outputs'
 import { useRemotesStore } from '@/stores/remotes'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageSettingsDevices',
@@ -100,17 +104,12 @@ export default {
       remotePin: ''
     }
   },
-  computed: {
-    outputs() {
-      return this.outputsStore.outputs
-    }
-  },
   methods: {
     pairRemote() {
-      webapi.pairing_kickoff({ pin: this.remotePin })
+      remotes.pair(this.remotePin)
     },
     pairOutput(identifier) {
-      webapi.output_update(identifier, { pin: this.outputPin })
+      outputs.update(identifier, { pin: this.outputPin })
     },
     onRemotePinChange(pin, disabled) {
       this.remotePin = pin
@@ -120,7 +119,7 @@ export default {
       this.outputPin = pin
     },
     toggleOutput(identifier) {
-      webapi.output_toggle(identifier)
+      outputs.toggle(identifier)
     }
   }
 }

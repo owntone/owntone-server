@@ -28,6 +28,9 @@ import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
 import NavbarBottom from '@/components/NavbarBottom.vue'
 import NavbarTop from '@/components/NavbarTop.vue'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
+import configuration from '@/api/configuration'
+import library from '@/api/library'
+import services from '@/api/services'
 import { useConfigurationStore } from '@/stores/configuration'
 import { useLibraryStore } from '@/stores/library'
 import { useLyricsStore } from '@/stores/lyrics'
@@ -39,7 +42,6 @@ import { useRemotesStore } from './stores/remotes'
 import { useServicesStore } from '@/stores/services'
 import { useSettingsStore } from '@/stores/settings'
 import { useUIStore } from './stores/ui'
-import webapi from '@/webapi'
 
 export default {
   name: 'App',
@@ -96,8 +98,8 @@ export default {
   },
   methods: {
     connect() {
-      webapi
-        .config()
+      configuration
+        .list()
         .then((data) => {
           this.configurationStore.$state = data
           this.uiStore.hideSingles = data.hide_singles
@@ -133,29 +135,28 @@ export default {
           })
         )
         this.updateOutputs()
-        this.updatePlayerStatus()
-        this.updateLibraryStats()
+        this.updatePlayer()
+        this.updateLibrary()
         this.updateSettings()
         this.updateQueue()
         this.updateSpotify()
         this.updateLastfm()
-        this.updatePairing()
+        this.updateRemotes()
       }
 
       let updateThrottled = false
-
       const updateInfo = () => {
         if (updateThrottled) {
           return
         }
         this.updateOutputs()
-        this.updatePlayerStatus()
-        this.updateLibraryStats()
+        this.updatePlayer()
+        this.updateLibrary()
         this.updateSettings()
         this.updateQueue()
         this.updateSpotify()
         this.updateLastfm()
-        this.updatePairing()
+        this.updateRemotes()
         updateThrottled = true
         setTimeout(() => {
           updateThrottled = false
@@ -171,34 +172,25 @@ export default {
 
       socket.onmessage = (response) => {
         const data = JSON.parse(response.data)
-        if (
-          data.notify.includes('update') ||
-          data.notify.includes('database')
-        ) {
-          this.updateLibraryStats()
-        }
-        if (
-          data.notify.includes('player') ||
-          data.notify.includes('options') ||
-          data.notify.includes('volume')
-        ) {
-          this.updatePlayerStatus()
-        }
-        if (data.notify.includes('outputs') || data.notify.includes('volume')) {
-          this.updateOutputs()
-        }
-        if (data.notify.includes('queue')) {
-          this.updateQueue()
-        }
-        if (data.notify.includes('spotify')) {
-          this.updateSpotify()
-        }
-        if (data.notify.includes('lastfm')) {
-          this.updateLastfm()
-        }
-        if (data.notify.includes('pairing')) {
-          this.updatePairing()
-        }
+        const notify = new Set(data.notify || [])
+        const handlers = [
+          { handler: this.updateLibrary, triggers: ['update', 'database'] },
+          {
+            handler: this.updatePlayer,
+            triggers: ['player', 'options', 'volume']
+          },
+          { handler: this.updateOutputs, triggers: ['outputs', 'volume'] },
+          { handler: this.updateQueue, triggers: ['queue'] },
+          { handler: this.updateSpotify, triggers: ['spotify'] },
+          { handler: this.updateLastfm, triggers: ['lastfm'] },
+          { handler: this.updateRemotes, triggers: ['pairing'] },
+          { handler: this.updateLyrics, triggers: ['player', 'queue'] }
+        ]
+        handlers.forEach(({ handler, triggers }) => {
+          if (triggers.some((key) => notify.has(key))) {
+            handler.call(this)
+          }
+        })
       }
     },
     createWebsocket() {
@@ -223,22 +215,17 @@ export default {
       }
     },
     updateLastfm() {
-      webapi.lastfm().then((data) => {
+      services.lastfm().then((data) => {
         this.servicesStore.lastfm = data
       })
     },
-    updateLibraryStats() {
-      webapi.library_stats().then((data) => {
-        this.libraryStore.$state = data
-      })
-      webapi.library_count('scan_kind is rss').then((data) => {
-        this.libraryStore.rss = data
-      })
+    updateLibrary() {
+      this.libraryStore.initialise()
     },
     updateLyrics() {
       const track = this.queueStore.current
       if (track?.track_id) {
-        webapi.library_track(track.track_id).then((data) => {
+        library.track(track.track_id).then((data) => {
           this.lyricsStore.lyrics = data.lyrics
         })
       } else {
@@ -246,34 +233,22 @@ export default {
       }
     },
     updateOutputs() {
-      webapi.outputs().then((data) => {
-        this.outputsStore.outputs = data.outputs
-      })
+      this.outputsStore.initialise()
     },
-    updatePairing() {
-      webapi.pairing().then((data) => {
-        this.remotesStore.$state = data
-      })
+    updateRemotes() {
+      this.remotesStore.initialise()
     },
-    updatePlayerStatus() {
-      webapi.player_status().then((data) => {
-        this.playerStore.$state = data
-        this.updateLyrics()
-      })
+    updatePlayer() {
+      this.playerStore.initialise()
     },
     updateQueue() {
-      webapi.queue().then((data) => {
-        this.queueStore.$state = data
-        this.updateLyrics()
-      })
+      this.queueStore.initialise()
     },
     updateSettings() {
-      webapi.settings().then((data) => {
-        this.settingsStore.$state = data
-      })
+      this.settingsStore.initialise()
     },
     updateSpotify() {
-      webapi.spotify().then((data) => {
+      services.spotify().then((data) => {
         this.servicesStore.spotify = data
         if (this.timerId > 0) {
           window.clearTimeout(this.timerId)

@@ -14,8 +14,8 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
+import library from '@/api/library'
 import { useConfigurationStore } from '@/stores/configuration'
-import webapi from '@/webapi'
 
 export default {
   name: 'PagePlaylistFolder',
@@ -63,8 +63,8 @@ export default {
   methods: {
     async fetchData(id) {
       const [playlist, playlistFolder] = await Promise.all([
-        webapi.library_playlist(id),
-        webapi.library_playlist_folder(id)
+        library.playlist(id),
+        library.playlistFolder(id)
       ])
       this.playlist = playlist
       this.playlistList = new GroupedList(playlistFolder)

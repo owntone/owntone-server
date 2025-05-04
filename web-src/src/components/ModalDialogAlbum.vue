@@ -28,7 +28,7 @@
 <script>
 import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'ModalDialogAlbum',
@@ -60,7 +60,7 @@ export default {
       ]
     },
     buttons() {
-      if (this.media_kind_resolved === 'podcast') {
+      if (this.mediaKindResolved === 'podcast') {
         if (this.item.data_kind === 'url') {
           return [
             { handler: this.markAsPlayed, key: 'actions.mark-as-played' },
@@ -74,7 +74,7 @@ export default {
       }
       return []
     },
-    media_kind_resolved() {
+    mediaKindResolved() {
       return this.mediaKind || this.item.media_kind
     },
     playable() {
@@ -115,16 +115,14 @@ export default {
       this.showRemovePodcastModal = false
     },
     markAsPlayed() {
-      webapi
-        .library_album_track_update(this.item.id, { play_count: 'played' })
-        .then(() => {
-          this.$emit('play-count-changed')
-          this.$emit('close')
-        })
+      library.updateAlbum(this.item.id, { play_count: 'played' }).then(() => {
+        this.$emit('play-count-changed')
+        this.$emit('close')
+      })
     },
     openArtist() {
       this.$emit('close')
-      if (this.media_kind_resolved === 'audiobook') {
+      if (this.mediaKindResolved === 'audiobook') {
         this.$router.push({
           name: 'audiobooks-artist',
           params: { id: this.item.artist_id }
@@ -142,10 +140,10 @@ export default {
     },
     removePodcast() {
       this.showRemovePodcastModal = false
-      webapi.library_album_tracks(this.item.id, { limit: 1 }).then((album) => {
-        webapi.library_track_playlists(album.items[0].id).then((data) => {
+      library.albumTracks(this.item.id, { limit: 1 }).then((album) => {
+        library.trackPlaylists(album.items[0].id).then((data) => {
           const { id } = data.items.find((item) => item.type === 'rss')
-          webapi.library_playlist_delete(id).then(() => {
+          library.playlistDelete(id).then(() => {
             this.$emit('podcast-deleted')
             this.$emit('close')
           })

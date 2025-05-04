@@ -5,16 +5,14 @@
 </template>
 
 <script>
-import { useNotificationsStore } from '@/stores/notifications'
+import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
-import webapi from '@/webapi'
 
 export default {
   name: 'ControlPlayerPlay',
   setup() {
     return {
-      notificationsStore: useNotificationsStore(),
       playerStore: usePlayerStore(),
       queueStore: useQueueStore()
     }
@@ -34,24 +32,15 @@ export default {
   },
   methods: {
     toggle() {
-      if (this.disabled) {
-        this.notificationsStore.add({
-          text: this.$t('server.empty-queue'),
-          timeout: 2000,
-          topic: 'connection',
-          type: 'info'
-        })
-        return
-      }
       if (this.playerStore.isPlaying && this.queueStore.isPauseAllowed) {
-        webapi.player_pause()
+        player.pause()
       } else if (
         this.playerStore.isPlaying &&
         !this.queueStore.isPauseAllowed
       ) {
-        webapi.player_stop()
+        player.stop()
       } else {
-        webapi.player_play()
+        player.play()
       }
     }
   }

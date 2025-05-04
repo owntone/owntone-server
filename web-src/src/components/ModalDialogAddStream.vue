@@ -21,7 +21,7 @@
 <script>
 import ControlUrlField from '@/components/ControlUrlField.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
-import webapi from '@/webapi'
+import queue from '@/api/queue'
 
 export default {
   name: 'ModalDialogAddStream',
@@ -60,8 +60,8 @@ export default {
   methods: {
     add() {
       this.loading = true
-      webapi
-        .queue_add(this.url)
+      queue
+        .add(this.url)
         .then(() => {
           this.$emit('close')
         })
@@ -79,8 +79,8 @@ export default {
     },
     play() {
       this.loading = true
-      webapi
-        .player_play_uri(this.url, false)
+      queue
+        .playUri(this.url, false)
         .then(() => {
           this.$emit('close')
           this.url = ''

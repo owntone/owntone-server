@@ -71,8 +71,8 @@ import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsSearch from '@/components/TabsSearch.vue'
+import services from '@/api/services'
 import { useSearchStore } from '@/stores/search'
-import webapi from '@/webapi'
 
 const PAGE_SIZE = 3,
   PAGE_SIZE_EXPANDED = 50,
@@ -158,7 +158,7 @@ export default {
       }
     },
     searchItems() {
-      return webapi.spotify().then((data) => {
+      return services.spotify().then((data) => {
         this.parameters.market = data.webapi_country
         const spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(data.webapi_token)

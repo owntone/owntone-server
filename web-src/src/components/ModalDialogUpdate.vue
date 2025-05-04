@@ -7,10 +7,7 @@
   >
     <template #content>
       <div v-if="!libraryStore.updating">
-        <div
-          v-if="servicesStore.isSpotifyActive || rss.tracks > 0"
-          class="field"
-        >
+        <div v-if="servicesStore.isSpotifyActive" class="field">
           <label class="label" v-text="$t('dialog.update.info')" />
           <div class="control">
             <div class="select is-small">
@@ -22,11 +19,7 @@
                   value="spotify"
                   v-text="$t('dialog.update.spotify')"
                 />
-                <option
-                  v-if="rss.tracks > 0"
-                  value="rss"
-                  v-text="$t('dialog.update.feeds')"
-                />
+                <option value="rss" v-text="$t('dialog.update.feeds')" />
               </select>
             </div>
           </div>
@@ -47,9 +40,9 @@
 <script>
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
+import library from '@/api/library'
 import { useLibraryStore } from '@/stores/library'
 import { useServicesStore } from '@/stores/services'
-import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogUpdate',
@@ -80,17 +73,14 @@ export default {
         })
       }
       return actions
-    },
-    rss() {
-      return this.libraryStore.rss
     }
   },
   methods: {
     analyse() {
       if (this.rescanMetadata) {
-        webapi.library_rescan(this.libraryStore.update_dialog_scan_kind)
+        library.rescan(this.libraryStore.update_dialog_scan_kind)
       } else {
-        webapi.library_update(this.libraryStore.update_dialog_scan_kind)
+        library.update(this.libraryStore.update_dialog_scan_kind)
       }
     },
     cancel() {

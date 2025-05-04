@@ -55,9 +55,10 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
+import library from '@/api/library'
+import queue from '@/api/queue'
 import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageArtist',
@@ -73,8 +74,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_artist(to.params.id),
-      webapi.library_artist_albums(to.params.id)
+      library.artist(to.params.id),
+      library.artistAlbums(to.params.id)
     ]).then(([artist, albums]) => {
       next((vm) => {
         vm.artist = artist
@@ -148,10 +149,7 @@ export default {
       })
     },
     play() {
-      webapi.player_play_uri(
-        this.albums.items.map((item) => item.uri).join(),
-        true
-      )
+      queue.playUri(this.albums.items.map((item) => item.uri).join(), true)
     }
   }
 }

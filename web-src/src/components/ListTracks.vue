@@ -22,7 +22,7 @@
 <script>
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
-import webapi from '@/webapi'
+import queue from '@/api/queue'
 
 export default {
   name: 'ListTracks',
@@ -44,15 +44,15 @@ export default {
     },
     open(item) {
       if (this.uris) {
-        webapi.player_play_uri(this.uris, false, this.items.items.indexOf(item))
+        queue.playUri(this.uris, false, this.items.items.indexOf(item))
       } else if (this.expression) {
-        webapi.player_play_expression(
+        queue.playExpression(
           this.expression,
           false,
           this.items.items.indexOf(item)
         )
       } else {
-        webapi.player_play_uri(item.uri, false)
+        queue.playUri(item.uri, false)
       }
     },
     openDetails(item) {

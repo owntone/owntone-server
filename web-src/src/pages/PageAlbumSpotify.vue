@@ -29,8 +29,9 @@ import HeadingHero from '@/components/HeadingHero.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import queue from '@/api/queue'
+import services from '@/api/services'
 import { useServicesStore } from '@/stores/services'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageAlbumSpotify',
@@ -43,7 +44,7 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     const spotifyApi = new SpotifyWebApi()
-    webapi.spotify().then((data) => {
+    services.spotify().then((data) => {
       spotifyApi.setAccessToken(data.webapi_token)
       spotifyApi
         .getAlbum(to.params.id, {
@@ -98,7 +99,7 @@ export default {
     },
     play() {
       this.showDetailsModal = false
-      webapi.player_play_uri(this.album.uri, true)
+      queue.playUri(this.album.uri, true)
     }
   }
 }

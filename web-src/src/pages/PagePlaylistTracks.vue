@@ -35,7 +35,8 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
+import queue from '@/api/queue'
 
 export default {
   name: 'PagePlaylistTracks',
@@ -48,8 +49,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_playlist(to.params.id),
-      webapi.library_playlist_tracks(to.params.id)
+      library.playlist(to.params.id),
+      library.playlistTracks(to.params.id)
     ]).then(([playlist, tracks]) => {
       next((vm) => {
         vm.playlist = playlist
@@ -80,7 +81,7 @@ export default {
   },
   methods: {
     play() {
-      webapi.player_play_uri(this.uris, true)
+      queue.playUri(this.uris, true)
     },
     openDetails() {
       this.showDetailsModal = true

@@ -15,8 +15,9 @@
 import ListProperties from '@/components/ListProperties.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import player from '@/api/player'
+import queue from '@/api/queue'
 import { useServicesStore } from '@/stores/services'
-import webapi from '@/webapi'
 
 export default {
   name: 'ModalDialogQueueItem',
@@ -158,11 +159,11 @@ export default {
     },
     play() {
       this.$emit('close')
-      webapi.player_play({ item_id: this.item.id })
+      player.play({ item_id: this.item.id })
     },
     remove() {
       this.$emit('close')
-      webapi.queue_remove(this.item.id)
+      queue.remove(this.item.id)
     }
   }
 }

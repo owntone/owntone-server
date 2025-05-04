@@ -36,7 +36,8 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingHero from '@/components/HeadingHero.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
+import queue from '@/api/queue'
 
 export default {
   name: 'PagePodcast',
@@ -49,8 +50,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_album(to.params.id),
-      webapi.library_podcast_episodes(to.params.id)
+      library.album(to.params.id),
+      library.podcastEpisodes(to.params.id)
     ]).then(([album, tracks]) => {
       next((vm) => {
         vm.album = album
@@ -80,10 +81,10 @@ export default {
   },
   methods: {
     play() {
-      webapi.player_play_uri(this.album.uri, false)
+      queue.playUri(this.album.uri, false)
     },
     reloadTracks() {
-      webapi.library_podcast_episodes(this.album.id).then((tracks) => {
+      library.podcastEpisodes(this.album.id).then((tracks) => {
         this.tracks = new GroupedList(tracks)
       })
     },

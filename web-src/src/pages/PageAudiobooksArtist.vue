@@ -29,7 +29,8 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
+import queue from '@/api/queue'
 
 export default {
   name: 'PageAudiobooksArtist',
@@ -42,8 +43,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_artist(to.params.id),
-      webapi.library_artist_albums(to.params.id)
+      library.artist(to.params.id),
+      library.artistAlbums(to.params.id)
     ]).then(([artist, albums]) => {
       next((vm) => {
         vm.artist = artist
@@ -76,10 +77,7 @@ export default {
       this.showDetailsModal = true
     },
     play() {
-      webapi.player_play_uri(
-        this.albums.items.map((item) => item.uri).join(),
-        false
-      )
+      queue.playUri(this.albums.items.map((item) => item.uri).join(), false)
     }
   }
 }

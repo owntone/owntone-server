@@ -18,13 +18,13 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'PageMusicRecentlyPlayed',
   components: { ContentWithHeading, HeadingTitle, ListTracks, TabsMusic },
   beforeRouteEnter(to, from, next) {
-    webapi
+    library
       .search({
         expression:
           'time_played after 8 weeks ago and media_kind is music order by time_played desc',

@@ -44,8 +44,9 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
+import library from '@/api/library'
+import queue from '@/api/queue'
 import { useUIStore } from '@/stores/ui'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageGenreTracks',
@@ -61,8 +62,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_genre(to.params.name, to.query.mediaKind),
-      webapi.library_genre_tracks(to.params.name, to.query.mediaKind)
+      library.genre(to.params.name, to.query.mediaKind),
+      library.genreTracks(to.params.name, to.query.mediaKind)
     ]).then(([genre, tracks]) => {
       next((vm) => {
         vm.genre = genre.items.shift()
@@ -135,7 +136,7 @@ export default {
       })
     },
     play() {
-      webapi.player_play_expression(this.expression, true)
+      queue.playExpression(this.expression, true)
     },
     openDetails() {
       this.showDetailsModal = true

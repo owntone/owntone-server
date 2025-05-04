@@ -1,8 +1,14 @@
 import { defineStore } from 'pinia'
+import queue from '@/api/queue'
 import { useConfigurationStore } from '@/stores/configuration'
 import { usePlayerStore } from '@/stores/player'
 
 export const useQueueStore = defineStore('QueueStore', {
+  actions: {
+    async initialise() {
+      this.$state = await queue.state()
+    }
+  },
   getters: {
     current(state) {
       const player = usePlayerStore()

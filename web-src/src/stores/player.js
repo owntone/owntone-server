@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
+import player from '@/api/player'
 
 export const usePlayerStore = defineStore('PlayerStore', {
+  actions: {
+    async initialise() {
+      this.$state = await player.state()
+    }
+  },
   getters: {
     isPlaying: (state) => state.state === 'play',
     isRepeatAll: (state) => state.repeat === 'all',

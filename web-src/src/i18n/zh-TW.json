@@ -383,8 +383,7 @@
     "connection-failed": "無法連接到 OwnTone 伺服器",
     "request-failed": "請求失敗 (狀態：{status} {cause} {url})",
     "queue-saved": "清單以新增到播放列表 {name}",
-    "appended-tracks": "已附加到隊列的 {count} 首曲目|已附加到隊列的 {count} 首曲目",
-    "empty-queue": "清單是空的"
+    "appended-tracks": "已附加到隊列的 {count} 首曲目|已附加到隊列的 {count} 首曲目"
   },
   "grouped-list": {
     "today": "今日",

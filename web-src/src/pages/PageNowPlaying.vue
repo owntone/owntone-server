@@ -55,11 +55,11 @@ import ControlImage from '@/components/ControlImage.vue'
 import ControlSlider from '@/components/ControlSlider.vue'
 import LyricsPane from '@/components/LyricsPane.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+import player from '@/api/player'
 import { useLyricsStore } from '@/stores/lyrics'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 import { useSettingsStore } from '@/stores/settings'
-import webapi from '@/webapi'
 
 const INTERVAL = 1000
 
@@ -148,7 +148,7 @@ export default {
     }
   },
   created() {
-    webapi.player_status().then((data) => {
+    player.state().then((data) => {
       this.playerStore.$state = data
       if (this.playerStore.state === 'play') {
         this.intervalId = window.setInterval(this.tick, INTERVAL)
@@ -171,7 +171,7 @@ export default {
     },
     seek() {
       if (!this.isLive) {
-        webapi.player_seek_to_pos(this.trackProgress * INTERVAL)
+        player.seekToPosition(this.trackProgress * INTERVAL)
       }
     },
     startDragging() {

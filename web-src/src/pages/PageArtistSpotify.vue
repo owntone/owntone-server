@@ -29,8 +29,9 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
+import queue from '@/api/queue'
+import services from '@/api/services'
 import { useServicesStore } from '@/stores/services'
-import webapi from '@/webapi'
 
 const PAGE_SIZE = 50
 
@@ -44,7 +45,7 @@ export default {
     ModalDialogArtistSpotify
   },
   beforeRouteEnter(to, from, next) {
-    webapi.spotify().then((data) => {
+    services.spotify().then((data) => {
       const spotifyApi = new SpotifyWebApi()
       spotifyApi.setAccessToken(data.webapi_token)
       Promise.all([
@@ -95,7 +96,7 @@ export default {
       this.offset += data.limit
     },
     load({ loaded }) {
-      webapi.spotify().then((data) => {
+      api.spotify().then((data) => {
         const spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(data.webapi_token)
         spotifyApi
@@ -115,7 +116,7 @@ export default {
     },
     play() {
       this.showDetailsModal = false
-      webapi.player_play_uri(this.artist.uri, true)
+      queue.playUri(this.artist.uri, true)
     }
   }
 }

@@ -18,8 +18,8 @@
 
 <script>
 import ControlSlider from '@/components/ControlSlider.vue'
+import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
-import webapi from '@/webapi'
 
 export default {
   name: 'ControlVolume',
@@ -48,7 +48,7 @@ export default {
   },
   methods: {
     changeVolume() {
-      webapi.player_volume(this.player.volume)
+      player.volume(this.player.volume)
     },
     toggle() {
       this.player.volume = this.player.volume > 0 ? 0 : this.volume

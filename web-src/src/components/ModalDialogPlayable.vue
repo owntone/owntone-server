@@ -25,7 +25,7 @@
 import ControlButton from '@/components/ControlButton.vue'
 import ListProperties from '@/components/ListProperties.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
-import webapi from '@/webapi'
+import queue from '@/api/queue'
 
 export default {
   name: 'ModalDialogPlayable',
@@ -53,25 +53,25 @@ export default {
     play() {
       this.$emit('close')
       if (this.item.expression) {
-        webapi.player_play_expression(this.item.expression, false)
+        queue.playExpression(this.item.expression, false)
       } else {
-        webapi.player_play_uri(this.item.uris || this.item.uri, false)
+        queue.playUri(this.item.uris || this.item.uri, false)
       }
     },
     addToQueue() {
       this.$emit('close')
       if (this.item.expression) {
-        webapi.queue_expression_add(this.item.expression)
+        queue.addExpression(this.item.expression)
       } else {
-        webapi.queue_add(this.item.uris || this.item.uri)
+        queue.addUri(this.item.uris || this.item.uri)
       }
     },
     addNextToQueue() {
       this.$emit('close')
       if (this.item.expression) {
-        webapi.queue_expression_add_next(this.item.expression)
+        queue.addExpression(this.item.expression, true)
       } else {
-        webapi.queue_add_next(this.item.uris || this.item.uri)
+        queue.addUri(this.item.uris || this.item.uri, true)
       }
     }
   }

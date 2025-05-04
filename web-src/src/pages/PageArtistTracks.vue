@@ -57,9 +57,10 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
+import library from '@/api/library'
+import queue from '@/api/queue'
 import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageArtistTracks',
@@ -76,8 +77,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_artist(to.params.id),
-      webapi.library_artist_tracks(to.params.id)
+      library.artist(to.params.id),
+      library.artistTracks(to.params.id)
     ]).then(([artist, tracks]) => {
       next((vm) => {
         vm.artist = artist
@@ -158,10 +159,7 @@ export default {
       this.showDetailsModal = true
     },
     play() {
-      webapi.player_play_uri(
-        this.trackList.items.map((item) => item.uri).join(),
-        true
-      )
+      queue.playUri(this.trackList.items.map((item) => item.uri).join(), true)
     }
   }
 }

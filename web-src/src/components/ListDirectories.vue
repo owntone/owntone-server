@@ -9,9 +9,7 @@
       <nav class="breadcrumb">
         <ul>
           <li v-for="directory in directories" :key="directory.index">
-            <a @click="open(directory)">
-              <span v-text="directory.name" />
-            </a>
+            <a @click="open(directory)" v-text="directory.name" />
           </li>
         </ul>
       </nav>

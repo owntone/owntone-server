@@ -34,7 +34,8 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
+import queue from '@/api/queue'
 
 export default {
   name: 'PageGenreAlbums',
@@ -48,8 +49,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_genre(to.params.name, to.query.mediaKind),
-      webapi.library_genre_albums(to.params.name, to.query.mediaKind)
+      library.genre(to.params.name, to.query.mediaKind),
+      library.genreAlbums(to.params.name, to.query.mediaKind)
     ]).then(([genre, albums]) => {
       next((vm) => {
         vm.genre = genre.items.shift()
@@ -98,7 +99,7 @@ export default {
       })
     },
     play() {
-      webapi.player_play_expression(
+      queue.playExpression(
         `genre is "${this.genre.name}" and media_kind is ${this.mediaKind}`,
         true
       )

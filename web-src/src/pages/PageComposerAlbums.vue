@@ -29,7 +29,8 @@ import { GroupedList } from '@/lib/GroupedList'
 import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
+import queue from '@/api/queue'
 
 export default {
   name: 'PageComposerAlbums',
@@ -42,8 +43,8 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
-      webapi.library_composer(to.params.name),
-      webapi.library_composer_albums(to.params.name)
+      library.composer(to.params.name),
+      library.composerAlbums(to.params.name)
     ]).then(([composer, albums]) => {
       next((vm) => {
         vm.composer = composer
@@ -90,7 +91,7 @@ export default {
       })
     },
     play() {
-      webapi.player_play_expression(this.expression, true)
+      queue.playExpression(this.expression, true)
     }
   }
 }

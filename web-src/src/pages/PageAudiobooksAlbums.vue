@@ -20,7 +20,7 @@ import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
-import webapi from '@/webapi'
+import library from '@/api/library'
 
 export default {
   name: 'PageAudiobooksAlbums',
@@ -32,7 +32,7 @@ export default {
     TabsAudiobooks
   },
   beforeRouteEnter(to, from, next) {
-    webapi.library_albums('audiobook').then((albums) => {
+    library.albums('audiobook').then((albums) => {
       next((vm) => {
         vm.albums = new GroupedList(albums, {
           index: { field: 'name_sort', type: String }

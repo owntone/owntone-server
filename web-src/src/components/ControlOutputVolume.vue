@@ -27,7 +27,8 @@
 
 <script>
 import ControlSlider from '@/components/ControlSlider.vue'
-import webapi from '@/webapi'
+import outputs from '@/api/outputs'
+import player from '@/api/player'
 
 export default {
   name: 'ControlOutputVolume',
@@ -63,13 +64,10 @@ export default {
 
   methods: {
     changeVolume() {
-      webapi.player_output_volume(this.output.id, this.volume)
+      player.outputVolume(this.output.id, this.volume)
     },
     toggle() {
-      const values = {
-        selected: !this.output.selected
-      }
-      webapi.output_update(this.output.id, values)
+      outputs.update(this.output.id, { selected: !this.output.selected })
     }
   }
 }

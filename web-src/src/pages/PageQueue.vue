@@ -101,11 +101,11 @@ import ModalDialogAddStream from '@/components/ModalDialogAddStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import draggable from 'vuedraggable'
+import queue from '@/api/queue'
 import { useConfigurationStore } from '@/stores/configuration'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 import { useUIStore } from '@/stores/ui'
-import webapi from '@/webapi'
 
 export default {
   name: 'PageQueue',
@@ -157,7 +157,7 @@ export default {
   },
   methods: {
     clearQueue() {
-      webapi.queue_clear()
+      queue.clear()
     },
     isRemovable(item) {
       return item.id !== this.playerStore.item_id && this.editing
@@ -168,7 +168,7 @@ export default {
       const item = this.items[oldPosition]
       const newPosition = item.position + (event.newIndex - event.oldIndex)
       if (newPosition !== oldPosition) {
-        webapi.queue_move(item.id, newPosition)
+        queue.move(item.id, newPosition)
       }
     },
     openAddStreamDialog() {
@@ -184,7 +184,7 @@ export default {
       }
     },
     remove(item) {
-      webapi.queue_remove(item.id)
+      queue.remove(item.id)
     },
     toggleEdit() {
       this.editing = !this.editing

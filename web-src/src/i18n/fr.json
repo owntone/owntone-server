@@ -383,8 +383,7 @@
     "connection-failed": "Échec de connexion au serveur",
     "request-failed": "La requête a échoué (status: {status} {cause} {url})",
     "queue-saved": "La file d’attente enregistrée dans la liste de lecture {name}",
-    "appended-tracks": "{count} piste ajoutée à la file d’attente|{count} pistes ajoutées à la file d’attente",
-    "empty-queue": "La file d’attente est vide"
+    "appended-tracks": "{count} piste ajoutée à la file d’attente|{count} pistes ajoutées à la file d’attente"
   },
   "grouped-list": {
     "today": "Aujourd’hui",
