@@ -45,11 +45,6 @@ export default {
       showDetailsModal: false
     }
   },
-  computed: {
-    media_kind_resolved() {
-      return this.mediaKind || this.selectedItem.media_kind
-    }
-  },
   methods: {
     image(item) {
       if (this.settingsStore.showCoverArtworkInAlbumLists) {
@@ -59,9 +54,10 @@ export default {
     },
     open(item) {
       this.selectedItem = item
-      if (this.media_kind_resolved === 'podcast') {
+      const mediaKind = this.mediaKind || this.selectedItem.media_kind
+      if (mediaKind === 'podcast') {
         this.$router.push({ name: 'podcast', params: { id: item.id } })
-      } else if (this.media_kind_resolved === 'audiobook') {
+      } else if (mediaKind === 'audiobook') {
         this.$router.push({
           name: 'audiobooks-album',
           params: { id: item.id }
