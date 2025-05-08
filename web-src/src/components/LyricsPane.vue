@@ -1,28 +1,23 @@
 <template>
-  <div
-    ref="lyrics"
-    class="lyrics is-overlay"
-    @touchstart="autoScrolling = false"
-    @touchend="autoScrolling = true"
-    @scroll.passive="startScrolling"
-    @wheel.passive="startScrolling"
-  >
-    <template v-for="(verse, index) in lyrics" :key="index">
-      <div
-        v-if="index === verseIndex"
-        :class="{ 'is-highlighted': playerStore.isPlaying }"
-        class="has-line-height-2 my-5 title is-5"
-      >
-        <span
-          v-for="word in verse.words"
-          :key="word"
-          :style="{ 'animation-duration': `${word.delay}s` }"
-          v-text="word.text"
-        />
-      </div>
-      <div v-else>
-        {{ verse.text }}
-      </div>
+  <div ref="lyrics" class="lyrics is-overlay">
+    <template v-for="(verse, index) in visibleLyrics" :key="index">
+      <template v-if="verse">
+        <div
+          v-if="index === 3"
+          class="my-5 has-line-height-2 title is-5"
+          :class="{ 'is-highlighted': playerStore.isPlaying }"
+        >
+          <span
+            v-for="(word, wordIndex) in verse.words"
+            :key="wordIndex"
+            class="word"
+            :class="{ 'is-word-highlighted': isWordHighlighted(word) }"
+            v-text="word.text"
+          />
+        </div>
+        <div v-else class="has-line-height-2" v-text="verse.text" />
+      </template>
+      <div v-else v-text="'&nbsp;'" />
     </template>
   </div>
 </template>
@@ -37,16 +32,13 @@ export default {
     return { playerStore: usePlayerStore(), queueStore: useQueueStore() }
   },
   data() {
-    /*
-     * Non reactive. Used as a cache to speed up the finding of lyrics
-     * index in the array for the current time.
-     */
-    this.lastIndex = -1
-    // Fired upon scrolling, thus disabling the auto scrolling for 5 seconds
-    this.scrollingTimer = null
-    this.lastItemId = -1
     return {
-      autoScrolling: true
+      lastIndex: -1,
+      lastItemId: -1,
+      time: 0,
+      timerId: null,
+      lastProgressMs: 0,
+      lastUpdateTime: 0
     }
   },
   computed: {
@@ -54,130 +46,98 @@ export default {
       const raw = this.playerStore.lyricsContent
       const parsed = []
       if (raw.length > 0) {
-        // Parse the lyrics
         const regex =
           /\[(?<minutes>\d+):(?<seconds>\d+)(?:\.(?<hundredths>\d+))?\] ?(?<text>.*)/u
         raw.split('\n').forEach((line) => {
-          const { text, minutes, seconds, hundredths } = regex.exec(line).groups
-          if (text) {
+          const match = regex.exec(line)
+          if (match?.groups?.text) {
+            const { text, minutes, seconds, hundredths } = match.groups
             const verse = {
               text,
-              time:
-                minutes * 60 + Number(seconds) + Number(`.${hundredths || 0}`)
+              time: minutes * 60 + Number(`${seconds}.${hundredths ?? 0}`)
             }
             parsed.push(verse)
           }
         })
-        // Split the verses into words
         parsed.forEach((verse, index, lyrics) => {
-          const unitDuration =
-            ((lyrics[index + 1]?.time ?? verse.time + 3) - verse.time) /
-            verse.text.length
-          let delay = 0
-          verse.words = verse.text.match(/\S+\s*/gu).map((text) => {
-            const duration = text.length * unitDuration
-            delay += duration
-            return { delay, duration, text }
+          const nextTime = lyrics[index + 1]?.time ?? verse.time + 3
+          const totalDuration = nextTime - verse.time
+          const words = verse.text.match(/\S+\s*/gu) || []
+          const totalLength = words.reduce((sum, word) => sum + word.length, 0)
+          let currentTime = verse.time
+          verse.words = words.map((text) => {
+            const duration = totalDuration * (text.length / totalLength)
+            const start = currentTime
+            const end = start + duration
+            currentTime = end
+            return { text, start, end }
           })
         })
       }
       return parsed
     },
     verseIndex() {
-      if (this.lyrics.length && this.lyrics[0].time) {
-        const currentTime = this.playerStore.item_progress_ms / 1000,
-          { lyrics } = this,
-          { length } = lyrics,
-          trackChanged = this.playerStore.item_id !== this.lastItemId,
-          trackSeeked =
-            this.lastIndex >= 0 &&
-            this.lastIndex < length &&
-            lyrics[this.lastIndex].time > currentTime
-        // Reset the cache when the track has changed or has been seeked
-        if (trackChanged || trackSeeked) {
-          this.resetScrolling()
+      const currentTime = this.time
+      const { lyrics } = this
+      let start = 0
+      let end = lyrics.length - 1
+      let index = 0
+      while (start <= end) {
+        const mid = Math.floor((start + end) / 2)
+        const current = lyrics[mid].time
+        const next = lyrics[mid + 1]?.time
+        if (current <= currentTime && (!next || next > currentTime)) {
+          index = mid
+          break
+        } else if (current < currentTime) {
+          start = mid + 1
+        } else {
+          end = mid - 1
         }
-        // Check the next two items and the last one before searching
-        if (
-          (this.lastIndex < length - 1 &&
-            lyrics[this.lastIndex + 1].time > currentTime) ||
-          this.lastIndex === length - 1
-        ) {
-          return this.lastIndex
-        }
-        if (
-          this.lastIndex < length - 2 &&
-          lyrics[this.lastIndex + 2].time > currentTime
-        ) {
-          return this.lastIndex + 1
-        }
-        // Not found, then start a binary search
-        let end = length - 1,
-          index = -1,
-          start = 0
-        while (start <= end) {
-          index = (start + end) >> 1
-          const currentVerseTime = lyrics[index].time
-          const nextVerseTime = lyrics[index + 1]?.time
-          if (
-            currentVerseTime <= currentTime &&
-            (nextVerseTime > currentTime || !nextVerseTime)
-          ) {
-            break
-          }
-          if (currentVerseTime < currentTime) {
-            start = index + 1
-          } else {
-            end = index - 1
-          }
-        }
-        return index
       }
-      this.resetScrolling()
-      return -1
+      return index
+    },
+    visibleLyrics() {
+      const VISIBLE_COUNT = 7
+      const HALF = Math.floor(VISIBLE_COUNT / 2)
+      const current = this.verseIndex
+      const total = this.lyrics.length
+      return Array.from({ length: VISIBLE_COUNT }, (_, i) => {
+        const index = current - HALF + i
+        return index >= 0 && index < total ? this.lyrics[index] : null
+      })
     }
   },
   watch: {
-    verseIndex() {
-      if (this.autoScrolling) {
-        this.scrollToVerse()
-      }
-      this.lastIndex = this.verseIndex
+    verseIndex(newIndex) {
+      this.lastIndex = newIndex
+    },
+    'playerStore.item_progress_ms'(newVal) {
+      this.lastProgressMs = newVal
+      this.lastUpdateTime = Date.now()
     }
   },
+  mounted() {
+    this.lastProgressMs = this.playerStore.item_progress_ms
+    this.lastUpdateTime = Date.now()
+    this.updateTime()
+  },
+  beforeUnmount() {
+    clearTimeout(this.timerId)
+  },
   methods: {
-    resetScrolling() {
-      // Scroll to the start of the lyrics in all cases
-      if (this.playerStore.item_id !== this.lastItemId && this.$refs.lyrics) {
-        this.$refs.lyrics.scrollTo(0, 0)
+    updateTime() {
+      const now = Date.now()
+      const elapsed = now - this.lastUpdateTime
+      if (this.playerStore.isPlaying) {
+        this.time = (this.lastProgressMs + elapsed) / 1000
+      } else {
+        this.time = this.lastProgressMs / 1000
       }
-      this.lastItemId = this.playerStore.item_id
-      this.lastIndex = -1
+      this.timerId = setTimeout(this.updateTime, 50)
     },
-    scrollToVerse() {
-      const pane = this.$refs.lyrics
-      if (this.verseIndex === -1) {
-        pane.scrollTo(0, 0)
-        return
-      }
-      const currentVerse = pane.children[this.verseIndex]
-      pane.scrollBy({
-        behavior: 'smooth',
-        top:
-          currentVerse.offsetTop -
-          pane.offsetHeight / 2 +
-          currentVerse.offsetHeight / 2 -
-          pane.scrollTop
-      })
-    },
-    startScrolling(event) {
-      // Consider only user events
-      if (event.screenX ?? event.screenY) {
-        this.autoScrolling = false
-        clearTimeout(this.scrollingTimer)
-        // Reenable automatic scrolling after 2 seconds
-        this.scrollingTimer = setTimeout((this.autoScrolling = true), 2000)
-      }
+    isWordHighlighted(word) {
+      return this.time >= word.start && this.time < word.end
     }
   }
 }
@@ -186,7 +146,15 @@ export default {
 <style scoped>
 .lyrics {
   position: absolute;
-  overflow: auto;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   --mask: linear-gradient(
     180deg,
     transparent 0%,
@@ -197,27 +165,17 @@ export default {
   -webkit-mask: var(--mask);
   mask: var(--mask);
 }
-.lyrics div.is-highlighted span {
-  animation: pop-color 0s linear forwards;
-}
 .lyrics div.has-line-height-2 {
   line-height: 2rem;
 }
 .lyrics div {
   line-height: 3rem;
+  text-align: center;
 }
-.lyrics div:first-child {
-  padding-top: calc(25vh - 2rem);
+.word {
+  transition: color 0.2s;
 }
-.lyrics div:last-child {
-  padding-bottom: calc(25vh - 3rem);
-}
-@keyframes pop-color {
-  0% {
-    color: var(--bulma-black);
-  }
-  100% {
-    color: var(--bulma-success);
-  }
+.is-word-highlighted {
+  color: var(--bulma-success);
 }
 </style>

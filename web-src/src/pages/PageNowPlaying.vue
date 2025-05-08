@@ -148,12 +148,9 @@ export default {
     }
   },
   created() {
-    player.state().then((data) => {
-      this.playerStore.$state = data
-      if (this.playerStore.state === 'play') {
-        this.intervalId = window.setInterval(this.tick, INTERVAL)
-      }
-    })
+    if (this.playerStore.state === 'play') {
+      this.intervalId = window.setInterval(this.tick, INTERVAL)
+    }
   },
   unmounted() {
     if (this.intervalId > 0) {
