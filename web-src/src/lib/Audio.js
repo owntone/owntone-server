@@ -1,59 +1,31 @@
-/**
- * Audio handler object
- * Inspired by https://github.com/rainner/soma-fm-player
- * (released under MIT licence)
- */
 export default {
-  audio: new Audio(),
+  audio: null,
   context: null,
-
-  // Play audio source url
-  play(source) {
+  source: null,
+  play(url) {
     this.stop()
-    this.context.resume().then(() => {
-      this.audio.src = `${String(source || '')}?x=${Date.now()}`
-      this.audio.crossOrigin = 'anonymous'
-      this.audio.load()
+    this.audio = new Audio(`${String(url || '')}?x=${Date.now()}`)
+    this.audio.crossOrigin = 'anonymous'
+    this.context = new (window.AudioContext || window.webkitAudioContext)()
+    this.source = this.context.createMediaElementSource(this.audio)
+    this.source.connect(this.context.destination)
+    this.audio.addEventListener('canplay', () => {
+      this.context.resume().then(() => {
+        this.audio.play()
+      })
     })
+    this.audio.load()
   },
-
-  // Set audio volume
   setVolume(volume) {
     if (this.audio) {
-      this.audio.volume = Math.min(1, Math.max(0, parseFloat(volume) || 0.0))
+      this.audio.volume = Math.max(0, Math.min(1, Number(volume) || 0))
     }
   },
-
-  // Setup audio routing
-  setup() {
-    this.context = new (window.AudioContext || window.webkitAudioContext)()
-    const source = this.context.createMediaElementSource(this.audio)
-    source.connect(this.context.destination)
-    this.audio.addEventListener('canplaythrough', () => {
-      this.audio.play()
-    })
-    this.audio.addEventListener('canplay', () => {
-      this.audio.play()
-    })
-    return this.audio
-  },
-
-  // Stop playing audio
   stop() {
     try {
-      this.audio.pause()
+      this.audio?.pause()
     } catch (error) {
-      // Continue regardless of error
-    }
-    try {
-      this.audio.stop()
-    } catch (error) {
-      // Continue regardless of error
-    }
-    try {
-      this.audio.close()
-    } catch (error) {
-      // Continue regardless of error
+      // Do nothing
     }
   }
 }

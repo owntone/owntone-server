@@ -44,9 +44,6 @@ export default {
       volume: 10
     }
   },
-  mounted() {
-    this.setupAudio()
-  },
   unmounted() {
     this.closeAudio()
   },
@@ -57,47 +54,37 @@ export default {
     closeAudio() {
       audio.stop()
       this.playing = false
+      this.loading = false
     },
     playChannel() {
-      if (this.playing) {
-        return
-      }
       this.loading = true
       audio.play('/stream.mp3')
-      audio.setVolume(this.volume / 100)
-    },
-    setupAudio() {
-      const a = audio.setup()
-      a.addEventListener('waiting', () => {
-        this.playing = false
-        this.loading = true
-      })
-      a.addEventListener('playing', () => {
-        this.playing = true
-        this.loading = false
-      })
-      a.addEventListener('ended', () => {
-        this.playing = false
-        this.loading = false
-      })
-      a.addEventListener('error', () => {
-        this.closeAudio()
-        this.notificationsStore.add({
-          text: this.$t('navigation.stream-error'),
-          type: 'danger'
+      this.changeVolume()
+      const a = audio.audio
+      if (a) {
+        a.addEventListener('waiting', () => {
+          this.playing = false
+          this.loading = true
         })
-        this.playing = false
-        this.loading = false
-      })
+        a.addEventListener('playing', () => {
+          this.playing = true
+          this.loading = false
+        })
+        a.addEventListener('ended', () => {
+          this.playing = false
+          this.loading = false
+        })
+        a.addEventListener('error', () => {
+          this.closeAudio()
+        })
+      }
     },
     togglePlay() {
-      if (this.loading) {
-        return
-      }
-      if (this.playing) {
+      if (this.playing || this.loading) {
         this.closeAudio()
+      } else {
+        this.playChannel()
       }
-      this.playChannel()
     }
   }
 }
