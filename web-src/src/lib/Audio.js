@@ -1,16 +1,13 @@
 export default {
   audio: null,
-  context: null,
-  source: null,
   play(url) {
-    this.stop()
     this.audio = new Audio(`${String(url || '')}?x=${Date.now()}`)
     this.audio.crossOrigin = 'anonymous'
-    this.context = new (window.AudioContext || window.webkitAudioContext)()
-    this.source = this.context.createMediaElementSource(this.audio)
-    this.source.connect(this.context.destination)
+    const context = new (window.AudioContext || window.webkitAudioContext)()
+    const source = context.createMediaElementSource(this.audio)
+    source.connect(context.destination)
     this.audio.addEventListener('canplay', () => {
-      this.context.resume().then(() => {
+      context.resume().then(() => {
         this.audio.play()
       })
     })
