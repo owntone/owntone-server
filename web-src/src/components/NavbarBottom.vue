@@ -84,7 +84,7 @@
                     :disabled="!playing"
                     :max="100"
                     :cursor="cursor"
-                    @change="change_stream_volume"
+                    @change="changeStreamVolume"
                   />
                 </div>
               </div>
@@ -243,7 +243,7 @@
                   :disabled="!playing"
                   :max="100"
                   :cursor="cursor"
-                  @change="change_stream_volume"
+                  @change="changeStreamVolume"
                 />
               </div>
             </div>
@@ -346,18 +346,12 @@ export default {
     }
   },
 
-  // On app mounted
-  mounted() {
-    this.setupAudio()
-  },
-
-  // On app destroyed
   unmounted() {
     this.closeAudio()
   },
 
   methods: {
-    change_stream_volume() {
+    changeStreamVolume() {
       audio.setVolume(this.stream_volume / 100)
     },
     change_volume() {
@@ -366,41 +360,33 @@ export default {
     closeAudio() {
       audio.stop()
       this.playing = false
+      this.loading = false
     },
     on_click_outside_outputs() {
       this.show_outputs_menu = false
     },
     playChannel() {
-      if (this.playing) {
-        return
-      }
       this.loading = true
       audio.play('/stream.mp3')
-      audio.setVolume(this.stream_volume / 100)
-    },
-    setupAudio() {
-      const a = audio.setup()
-      a.addEventListener('waiting', () => {
-        this.playing = false
-        this.loading = true
-      })
-      a.addEventListener('playing', () => {
-        this.playing = true
-        this.loading = false
-      })
-      a.addEventListener('ended', () => {
-        this.playing = false
-        this.loading = false
-      })
-      a.addEventListener('error', () => {
-        this.closeAudio()
-        this.notificationsStore.add({
-          text: this.$t('navigation.stream-error'),
-          type: 'danger'
+      this.changeStreamVolume()
+      const a = audio.audio
+      if (a) {
+        a.addEventListener('waiting', () => {
+          this.playing = false
+          this.loading = true
         })
-        this.playing = false
-        this.loading = false
-      })
+        a.addEventListener('playing', () => {
+          this.playing = true
+          this.loading = false
+        })
+        a.addEventListener('ended', () => {
+          this.playing = false
+          this.loading = false
+        })
+        a.addEventListener('error', () => {
+          this.closeAudio()
+        })
+      }
     },
     togglePlay() {
       if (this.loading) {
@@ -408,8 +394,9 @@ export default {
       }
       if (this.playing) {
         this.closeAudio()
+      } else {
+        this.playChannel()
       }
-      this.playChannel()
     },
     toggle_mute_volume() {
       this.player.volume = this.player.volume > 0 ? 0 : this.old_volume
