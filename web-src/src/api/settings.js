@@ -1,10 +1,12 @@
 import api from '@/api'
 
+const BASE_URL = './api/settings'
+
 export default {
   state() {
-    return api.get('./api/settings')
+    return api.get(BASE_URL)
   },
-  update(categoryName, option) {
-    return api.put(`./api/settings/${categoryName}/${option.name}`, option)
+  update(option) {
+    return api.put(`${BASE_URL}/${option.category}/${option.name}`, option)
   }
 }

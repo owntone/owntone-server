@@ -61,7 +61,7 @@ export default {
         value
       }
       settings
-        .update(this.category, setting)
+        .update(setting)
         .then(() => {
           window.clearTimeout(this.timerId)
           this.settingsStore.update(setting)
