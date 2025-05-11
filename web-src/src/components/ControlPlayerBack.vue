@@ -1,11 +1,11 @@
 <template>
-  <a v-if="visible" :disabled="disabled" @click="seek">
+  <button v-if="visible" :disabled="disabled" @click="seek">
     <mdicon
       class="icon"
       name="rewind-10"
       :title="$t('player.button.seek-backward')"
     />
-  </a>
+  </button>
 </template>
 
 <script>

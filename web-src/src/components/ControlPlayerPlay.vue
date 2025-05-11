@@ -1,7 +1,7 @@
 <template>
-  <a :disabled="disabled" @click="toggle">
+  <button :disabled="disabled" @click="toggle">
     <mdicon class="icon" :name="icon" :title="$t(`player.button.${icon}`)" />
-  </a>
+  </button>
 </template>
 
 <script>

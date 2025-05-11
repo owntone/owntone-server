@@ -1,11 +1,11 @@
 <template>
-  <a :disabled="disabled" @click="previous">
+  <button :disabled="disabled" @click="previous">
     <mdicon
       class="icon"
       name="skip-backward"
       :title="$t('player.button.skip-backward')"
     />
-  </a>
+  </button>
 </template>
 
 <script>
