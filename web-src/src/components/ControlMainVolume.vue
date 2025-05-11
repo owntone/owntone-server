@@ -48,7 +48,7 @@ export default {
   },
   methods: {
     changeVolume() {
-      player.volume(this.player.volume)
+      player.setVolume(this.player.volume)
     },
     toggle() {
       this.player.volume = this.player.volume > 0 ? 0 : this.volume

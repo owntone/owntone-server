@@ -64,7 +64,7 @@ export default {
 
   methods: {
     changeVolume() {
-      player.outputVolume(this.output.id, this.volume)
+      player.setVolume(this.volume, this.output.id)
     },
     toggle() {
       outputs.update(this.output.id, { selected: !this.output.selected })

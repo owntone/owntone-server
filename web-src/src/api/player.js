@@ -1,45 +1,43 @@
 import api from '@/api'
 
+const BASE_URL = './api/player'
+
 export default {
   consume(state) {
-    return api.put(`./api/player/consume?state=${state}`)
+    return api.put(`${BASE_URL}/consume`, null, { params: { state } })
   },
   next() {
-    return api.put('./api/player/next')
-  },
-  outputVolume(outputId, outputVolume) {
-    return api.put(
-      `./api/player/volume?volume=${outputVolume}&output_id=${outputId}`
-    )
+    return api.put(`${BASE_URL}/next`)
   },
   pause() {
-    return api.put('./api/player/pause')
+    return api.put(`${BASE_URL}/pause`)
   },
   play(params = {}) {
-    return api.put('./api/player/play', null, { params })
+    return api.put(`${BASE_URL}/play`, null, { params })
   },
   previous() {
-    return api.put('./api/player/previous')
+    return api.put(`${BASE_URL}/previous`)
   },
   repeat(state) {
-    return api.put(`./api/player/repeat?state=${state}`)
+    return api.put(`${BASE_URL}/repeat`, null, { params: { state } })
   },
-  seek(seekMs) {
-    return api.put(`./api/player/seek?seek_ms=${seekMs}`)
+  seek(seek_ms) {
+    return api.put(`${BASE_URL}/seek`, null, { params: { seek_ms } })
   },
-  seekToPosition(position) {
-    return api.put(`./api/player/seek?position_ms=${position}`)
+  seekToPosition(position_ms) {
+    return api.put(`${BASE_URL}/seek`, null, { params: { position_ms } })
+  },
+  setVolume(volume, output_id = null) {
+    const params = { volume, ...(output_id !== null && { output_id }) }
+    return api.put(`${BASE_URL}/volume`, null, { params })
   },
   shuffle(state) {
-    return api.put(`./api/player/shuffle?state=${state}`)
+    return api.put(`${BASE_URL}/shuffle`, null, { params: { state } })
   },
   state() {
-    return api.get('./api/player')
+    return api.get(BASE_URL)
   },
   stop() {
-    return api.put('./api/player/stop')
-  },
-  volume(volume) {
-    return api.put(`./api/player/volume?volume=${volume}`)
+    return api.put(`${BASE_URL}/stop`)
   }
 }
