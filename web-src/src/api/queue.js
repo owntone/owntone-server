@@ -4,6 +4,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useQueueStore } from '@/stores/queue'
 
 const { t } = i18n.global
+const BASE_URL = './api/queue'
 
 export default {
   addUri(uris, next = false) {
@@ -19,7 +20,7 @@ export default {
         params.position = current.position + 1
       }
     }
-    const data = await api.post('./api/queue/items/add', null, { params })
+    const data = await api.post(`${BASE_URL}/items/add`, null, { params })
     useNotificationsStore().add({
       text: t('server.appended-tracks', { count: data.count }),
       timeout: 2000,
@@ -28,10 +29,12 @@ export default {
     return data
   },
   clear() {
-    return api.put('./api/queue/clear')
+    return api.put(`${BASE_URL}/clear`)
   },
   move(id, position) {
-    return api.put(`./api/queue/items/${id}?new_position=${position}`)
+    return api.put(`${BASE_URL}/items/${id}`, null, {
+      params: { new_position: position }
+    })
   },
   playExpression(expression, shuffle, position) {
     const params = {
@@ -41,7 +44,7 @@ export default {
       playback_from_position: position,
       shuffle
     }
-    return api.post('./api/queue/items/add', null, { params })
+    return api.post(`${BASE_URL}/items/add`, null, { params })
   },
   playUri(uris, shuffle, position) {
     const params = {
@@ -51,16 +54,13 @@ export default {
       shuffle,
       uris
     }
-    return api.post('./api/queue/items/add', null, { params })
+    return api.post(`${BASE_URL}/items/add`, null, { params })
   },
   remove(id) {
-    return api.delete(`./api/queue/items/${id}`)
-  },
-  state() {
-    return api.get('./api/queue')
+    return api.delete(`${BASE_URL}/items/${id}`)
   },
   async saveToPlaylist(name) {
-    const response = await api.post('./api/queue/save', null, {
+    const { data } = await api.post(`${BASE_URL}/save`, null, {
       params: { name }
     })
     useNotificationsStore().add({
@@ -68,6 +68,9 @@ export default {
       timeout: 2000,
       type: 'info'
     })
-    return await Promise.resolve(response)
+    return data
+  },
+  state() {
+    return api.get(BASE_URL)
   }
 }
