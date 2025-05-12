@@ -28,7 +28,9 @@ button.navbar-item {
     var(--bulma-navbar-item-background-a)
   );
   &:hover {
-    --bulma-navbar-item-background-l-delta: var(--bulma-navbar-item-hover-background-l-delta);
+    --bulma-navbar-item-background-l-delta: var(
+      --bulma-navbar-item-hover-background-l-delta
+    );
     --bulma-navbar-item-background-a: 1;
   }
 }
@@ -48,20 +50,6 @@ button.navbar-item {
 
 .media:first-of-type {
   padding-top: 1rem;
-}
-
-.buttons {
-  @include mixins.mobile {
-    &.is-centered-mobile {
-      justify-content: center;
-      &:not(.has-addons) {
-        .button {
-          margin-left: 0.25rem;
-          margin-right: 0.25rem;
-        }
-      }
-    }
-  }
 }
 
 .modal-background {
