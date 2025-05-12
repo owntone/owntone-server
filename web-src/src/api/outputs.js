@@ -1,13 +1,15 @@
 import api from '@/api'
 
+const BASE_URL = './api/outputs'
+
 export default {
   toggle(id) {
-    return api.put(`./api/outputs/${id}/toggle`)
+    return api.put(`${BASE_URL}/${id}/toggle`)
   },
   state() {
-    return api.get('./api/outputs')
+    return api.get(BASE_URL)
   },
   update(id, output) {
-    return api.put(`./api/outputs/${id}`, output)
+    return api.put(`${BASE_URL}/${id}`, output)
   }
 }
