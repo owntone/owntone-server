@@ -1284,8 +1284,6 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
 
 #ifdef SPOTIFY
-  int httpd_port;
-  char redirect_uri[256];
   char *oauth_uri;
   struct spotify_status sp_status;
   struct spotifywebapi_status_info webapi_info;
@@ -1293,10 +1291,7 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
 
   json_object_object_add(jreply, "enabled", json_object_new_boolean(true));
 
-  httpd_port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-  snprintf(redirect_uri, sizeof(redirect_uri), "http://owntone.local:%d/oauth/spotify", httpd_port);
-
-  oauth_uri = spotifywebapi_oauth_uri_get(redirect_uri);
+  oauth_uri = spotifywebapi_oauth_uri_get();
   if (!oauth_uri)
     {
       DPRINTF(E_LOG, L_WEB, "Cannot display Spotify oauth interface (http_form_uriencode() failed)\n");

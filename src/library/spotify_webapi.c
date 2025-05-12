@@ -150,6 +150,7 @@ static bool scanning;
 // Endpoints and credentials for the web api
 static const char *spotify_client_id;
 static const char *spotify_client_secret;
+static const char *spotify_redirect_uri;
 
 static const char *spotify_scope         = "playlist-read-private playlist-read-collaborative user-library-read user-read-private streaming";
 
@@ -574,7 +575,7 @@ request_user_info()
  * @return 0 on success, -1 on failure
  */
 static int
-token_get(const char *code, const char *redirect_uri, const char **err)
+token_get(const char *code, const char **err)
 {
   struct keyval kv = { 0 };
   int ret;
@@ -584,7 +585,7 @@ token_get(const char *code, const char *redirect_uri, const char **err)
           (keyval_add(&kv, "code", code) == 0) &&
           (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
           (keyval_add(&kv, "client_secret", spotify_client_secret) == 0) &&
-          (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) );
+          (keyval_add(&kv, "redirect_uri", spotify_redirect_uri) == 0) );
 
   if (!ret)
     {
@@ -2069,6 +2070,7 @@ spotifywebapi_library_init()
 
   spotify_client_id = cfg_getstr(cfg_getsec(cfg, "spotify"), "webapi_client_id");
   spotify_client_secret = cfg_getstr(cfg_getsec(cfg, "spotify"), "webapi_client_secret");
+  spotify_redirect_uri = cfg_getstr(cfg_getsec(cfg, "spotify"), "redirect_uri");
 
   ret = spotify_init();
   if (ret < 0)
@@ -2139,7 +2141,7 @@ webapi_purge(void *arg, int *ret)
 /* ------------------------------ Public API -------------------------------- */
 
 char *
-spotifywebapi_oauth_uri_get(const char *redirect_uri)
+spotifywebapi_oauth_uri_get(void)
 {
   struct keyval kv = { 0 };
   char *param;
@@ -2150,7 +2152,7 @@ spotifywebapi_oauth_uri_get(const char *redirect_uri)
   uri = NULL;
   ret = ( (keyval_add(&kv, "client_id", spotify_client_id) == 0) &&
 	  (keyval_add(&kv, "response_type", "code") == 0) &&
-	  (keyval_add(&kv, "redirect_uri", redirect_uri) == 0) &&
+	  (keyval_add(&kv, "redirect_uri", spotify_redirect_uri) == 0) &&
 	  (keyval_add(&kv, "scope", spotify_scope) == 0) &&
 	  (keyval_add(&kv, "show_dialog", "false") == 0) );
   if (!ret)
@@ -2178,7 +2180,7 @@ spotifywebapi_oauth_uri_get(const char *redirect_uri)
 }
 
 int
-spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, const char **errmsg)
+spotifywebapi_oauth_callback(struct evkeyvalq *param, const char **errmsg)
 {
   const char *code;
   char *user = NULL;
@@ -2196,7 +2198,7 @@ spotifywebapi_oauth_callback(struct evkeyvalq *param, const char *redirect_uri, 
 
   DPRINTF(E_DBG, L_SPOTIFY, "Received OAuth code: %s\n", code);
 
-  ret = token_get(code, redirect_uri, errmsg);
+  ret = token_get(code, errmsg);
   if (ret < 0)
     goto error;
 

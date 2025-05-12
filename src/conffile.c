@@ -222,6 +222,8 @@ static cfg_opt_t sec_spotify[] =
     // Issued by Spotify on developer.spotify.com for forked-daapd/OwnTone
     CFG_STR("webapi_client_id", "0e684a5422384114a8ae7ac020f01789", CFGF_NONE),
     CFG_STR("webapi_client_secret", "232af95f39014c9ba218285a5c11a239", CFGF_NONE),
+    // Must be in allow-list on developer.spotify.com for forked-daapd/OwnTone
+    CFG_STR("redirect_uri", "https://owntone.github.io/owntone-oauth/spotify/", CFGF_NONE),
     CFG_END()
   };
 
