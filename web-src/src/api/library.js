@@ -27,8 +27,7 @@ export default {
       expression: `songartistid is "${artist}"`,
       type: 'tracks'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.tracks
+    return (await api.get(SEARCH_URL, { params })).tracks
   },
   artists(media_kind) {
     return api.get(`${BASE_URL}/artists`, { params: { media_kind } })
@@ -41,16 +40,14 @@ export default {
       expression: `composer is "${composer}" and media_kind is music`,
       type: 'albums'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.albums
+    return (await api.get(SEARCH_URL, { params })).albums
   },
   async composerTracks(composer) {
     const params = {
       expression: `composer is "${composer}" and media_kind is music`,
       type: 'tracks'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.tracks
+    return (await api.get(SEARCH_URL, { params })).tracks
   },
   composers(media_kind) {
     return api.get(`${BASE_URL}/composers`, { params: { media_kind } })
@@ -63,40 +60,36 @@ export default {
       expression: `genre is "${genre}" and media_kind is ${mediaKind}`,
       type: 'genres'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.genres
+    return (await api.get(SEARCH_URL, { params })).genres
   },
   async genreAlbums(genre, mediaKind) {
     const params = {
       expression: `genre is "${genre}" and media_kind is ${mediaKind}`,
       type: 'albums'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.albums
+    return (await api.get(SEARCH_URL, { params })).albums
   },
   async genreTracks(genre, mediaKind) {
     const params = {
       expression: `genre is "${genre}" and media_kind is ${mediaKind}`,
       type: 'tracks'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.tracks
+    return (await api.get(SEARCH_URL, { params })).tracks
   },
   async genres(mediaKind) {
     const params = {
       expression: `media_kind is ${mediaKind}`,
       type: 'genres'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.genres
+    return (await api.get(SEARCH_URL, { params })).genres
   },
   async newPodcastEpisodes() {
     const params = {
-      expression: 'media_kind is podcast and play_count = 0 ORDER BY time_added DESC',
+      expression:
+        'media_kind is podcast and play_count = 0 ORDER BY time_added DESC',
       type: 'tracks'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.tracks
+    return (await api.get(SEARCH_URL, { params })).tracks
   },
   playlist(id) {
     return api.get(`${BASE_URL}/playlists/${id}`)
@@ -115,8 +108,7 @@ export default {
       expression: `media_kind is podcast and songalbumid is "${id}" ORDER BY date_released DESC`,
       type: 'tracks'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.tracks
+    return (await api.get(SEARCH_URL, { params })).tracks
   },
   async radioStreams() {
     const params = {
@@ -124,8 +116,7 @@ export default {
       media_kind: 'music',
       type: 'tracks'
     }
-    const { data } = await api.get(SEARCH_URL, { params })
-    return data.tracks
+    return (await api.get(SEARCH_URL, { params })).tracks
   },
   rescan(scan_kind) {
     return api.put('./api/rescan', null, { params: { scan_kind } })
@@ -151,7 +142,9 @@ export default {
     return api.put('./api/update', null, { params: { scan_kind } })
   },
   updateAlbum(id, attributes) {
-    return api.put(`${BASE_URL}/albums/${id}/tracks`, null, { params: attributes })
+    return api.put(`${BASE_URL}/albums/${id}/tracks`, null, {
+      params: attributes
+    })
   },
   updateTrack(id, attributes = {}) {
     return api.put(`${BASE_URL}/tracks/${id}`, null, { params: attributes })
