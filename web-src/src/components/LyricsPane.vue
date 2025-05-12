@@ -110,17 +110,15 @@ export default {
         /\[(?<minutes>\d+):(?<seconds>\d+)(?:\.(?<hundredths>\d+))?\] ?(?<text>.*)/u
       this.playerStore.lyricsContent.split('\n').forEach((line) => {
         const match = regex.exec(line)
-        if (match?.groups?.text) {
+        if (match) {
           const { text, minutes, seconds, hundredths } = match.groups
-          const verse = {
-            text,
-            time:
+          const verse = text.trim()
+          if (verse) {
+            const time =
               (Number(minutes) * 60 + Number(`${seconds}.${hundredths ?? 0}`)) *
               1000
+            verses.push({ text: verse, time })
           }
-          verses.push(verse)
-        } else {
-          verses.push({ text: line.trim() })
         }
       })
       verses.forEach((verse, index, lyrics) => {
