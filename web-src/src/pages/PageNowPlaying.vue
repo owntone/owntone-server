@@ -11,7 +11,7 @@
           :class="{ 'is-masked': playerStore.lyrics }"
           @click="openDetails(track)"
         />
-        <lyrics-pane v-if="playerStore.lyrics" />
+        <pane-lyrics v-if="playerStore.lyrics" />
       </div>
       <control-slider
         v-model:value="trackProgress"
@@ -55,8 +55,8 @@
 <script>
 import ControlImage from '@/components/ControlImage.vue'
 import ControlSlider from '@/components/ControlSlider.vue'
-import LyricsPane from '@/components/LyricsPane.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+import PaneLyrics from '@/components/PaneLyrics.vue'
 import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
@@ -69,7 +69,7 @@ export default {
   components: {
     ControlImage,
     ControlSlider,
-    LyricsPane,
+    PaneLyrics,
     ModalDialogQueueItem
   },
   setup() {

@@ -25,7 +25,7 @@ const VISIBLE_VERSES = 7
 const MIDDLE_POSITION = Math.floor(VISIBLE_VERSES / 2)
 
 export default {
-  name: 'LyricsPane',
+  name: 'PaneLyrics',
   setup() {
     return { playerStore: usePlayerStore(), queueStore: useQueueStore() }
   },
