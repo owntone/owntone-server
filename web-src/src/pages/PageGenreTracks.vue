@@ -12,7 +12,7 @@
       </list-options>
     </template>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #actions>
       <control-button
@@ -39,7 +39,7 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import ListTracks from '@/components/ListTracks.vue'
@@ -54,7 +54,7 @@ export default {
     ContentWithHeading,
     ControlButton,
     ControlDropdown,
-    HeadingTitle,
+    PaneTitle,
     ListIndexButtons,
     ListOptions,
     ListTracks,

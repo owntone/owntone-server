@@ -5,7 +5,7 @@
       <list-index-buttons :indices="composers.indices" />
     </template>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #content>
       <list-composers :items="composers" />
@@ -16,7 +16,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -26,7 +26,7 @@ export default {
   name: 'PageComposers',
   components: {
     ContentWithHeading,
-    HeadingTitle,
+    PaneTitle,
     ListIndexButtons,
     ListComposers,
     TabsMusic

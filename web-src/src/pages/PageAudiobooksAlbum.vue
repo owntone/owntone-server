@@ -1,7 +1,7 @@
 <template>
   <content-with-hero>
     <template #heading>
-      <heading-hero :content="heading" />
+      <pane-hero :content="heading" />
     </template>
     <template #image>
       <control-image
@@ -27,7 +27,7 @@
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingHero from '@/components/HeadingHero.vue'
+import PaneHero from '@/components/PaneHero.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import library from '@/api/library'
@@ -38,7 +38,7 @@ export default {
   components: {
     ContentWithHero,
     ControlImage,
-    HeadingHero,
+    PaneHero,
     ListTracks,
     ModalDialogAlbum
   },

@@ -1,7 +1,7 @@
 <template>
   <content-with-heading v-if="episodes.items.length > 0">
     <template #heading>
-      <heading-title :content="{ title: $t('page.podcasts.new-episodes') }" />
+      <pane-title :content="{ title: $t('page.podcasts.new-episodes') }" />
     </template>
     <template #actions>
       <control-button
@@ -22,7 +22,7 @@
   </content-with-heading>
   <content-with-heading>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #actions>
       <control-button
@@ -60,7 +60,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
@@ -73,7 +73,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    HeadingTitle,
+    PaneTitle,
     ListAlbums,
     ListTracks,
     ModalDialogAddRss

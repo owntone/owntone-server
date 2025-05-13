@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #actions>
       <control-button
@@ -95,7 +95,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
 import ModalDialogAddStream from '@/components/ModalDialogAddStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
@@ -112,7 +112,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    HeadingTitle,
+    PaneTitle,
     ListItemQueueItem,
     ModalDialogAddStream,
     ModalDialogPlaylistSave,

@@ -49,7 +49,7 @@
   <tabs-search @search-library="search" @search-spotify="searchSpotify" />
   <content-with-heading v-for="[type, items] in results" :key="type">
     <template #heading>
-      <heading-title :content="{ title: $t(`page.search.${type}s`) }" />
+      <pane-title :content="{ title: $t(`page.search.${type}s`) }" />
     </template>
     <template #content>
       <component :is="components[type]" :items="items" />
@@ -77,7 +77,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import ListComposers from '@/components/ListComposers.vue'
@@ -103,7 +103,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    HeadingTitle,
+    PaneTitle,
     ListAlbums,
     ListArtists,
     ListComposers,

@@ -2,7 +2,7 @@
   <tabs-music />
   <content-with-heading>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #content>
       <list-albums-spotify :items="albums" />
@@ -12,7 +12,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
@@ -22,7 +22,7 @@ export default {
   name: 'PageMusicSpotifyNewReleases',
   components: {
     ContentWithHeading,
-    HeadingTitle,
+    PaneTitle,
     ListAlbumsSpotify,
     TabsMusic
   },

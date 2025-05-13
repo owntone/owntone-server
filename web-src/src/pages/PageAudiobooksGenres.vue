@@ -5,7 +5,7 @@
       <list-index-buttons :indices="genres.indices" />
     </template>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #content>
       <list-genres :items="genres" media-kind="audiobook" />
@@ -16,7 +16,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListGenres from '@/components/ListGenres.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
@@ -26,7 +26,7 @@ export default {
   name: 'PageAudiobooksGenres',
   components: {
     ContentWithHeading,
-    HeadingTitle,
+    PaneTitle,
     ListIndexButtons,
     ListGenres,
     TabsAudiobooks

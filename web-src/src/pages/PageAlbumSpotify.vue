@@ -1,7 +1,7 @@
 <template>
   <content-with-hero>
     <template #heading>
-      <heading-hero :content="heading" />
+      <pane-hero :content="heading" />
     </template>
     <template #image>
       <control-image
@@ -25,7 +25,7 @@
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
-import HeadingHero from '@/components/HeadingHero.vue'
+import PaneHero from '@/components/PaneHero.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -38,7 +38,7 @@ export default {
   components: {
     ContentWithHero,
     ControlImage,
-    HeadingHero,
+    PaneHero,
     ListTracksSpotify,
     ModalDialogAlbumSpotify
   },

@@ -2,9 +2,7 @@
   <tabs-settings />
   <content-with-heading>
     <template #heading>
-      <heading-title
-        :content="{ title: $t('page.settings.general.language') }"
-      />
+      <pane-title :content="{ title: $t('page.settings.general.language') }" />
     </template>
     <template #content>
       <control-dropdown
@@ -15,7 +13,7 @@
   </content-with-heading>
   <content-with-heading>
     <template #heading>
-      <heading-title
+      <pane-title
         :content="{ title: $t('page.settings.general.navigation-items') }"
       />
     </template>
@@ -85,7 +83,7 @@
   </content-with-heading>
   <content-with-heading>
     <template #heading>
-      <heading-title
+      <pane-title
         :content="{ title: $t('page.settings.general.now-playing-page') }"
       />
     </template>
@@ -133,7 +131,7 @@
   </content-with-heading>
   <content-with-heading>
     <template #heading>
-      <heading-title
+      <pane-title
         :content="{ title: $t('page.settings.general.recently-added-page') }"
       />
     </template>
@@ -156,7 +154,7 @@ import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSettingIntegerField from '@/components/ControlSettingIntegerField.vue'
 import ControlSettingSwitch from '@/components/ControlSettingSwitch.vue'
 import ControlSettingTextField from '@/components/ControlSettingTextField.vue'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -168,7 +166,7 @@ export default {
     ControlSettingIntegerField,
     ControlSettingSwitch,
     ControlSettingTextField,
-    HeadingTitle,
+    PaneTitle,
     TabsSettings
   },
   setup() {

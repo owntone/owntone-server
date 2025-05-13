@@ -5,7 +5,7 @@
       <list-index-buttons :indices="albums.indices" />
     </template>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #content>
       <list-albums :items="albums" />
@@ -16,9 +16,9 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import library from '@/api/library'
 
@@ -26,9 +26,9 @@ export default {
   name: 'PageAudiobooksAlbums',
   components: {
     ContentWithHeading,
-    HeadingTitle,
     ListIndexButtons,
     ListAlbums,
+    PaneTitle,
     TabsAudiobooks
   },
   beforeRouteEnter(to, from, next) {

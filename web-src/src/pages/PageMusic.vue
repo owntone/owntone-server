@@ -2,9 +2,7 @@
   <tabs-music />
   <content-with-heading>
     <template #heading>
-      <heading-title
-        :content="{ title: $t('page.music.recently-added.title') }"
-      />
+      <pane-title :content="{ title: $t('page.music.recently-added.title') }" />
     </template>
     <template #content>
       <list-albums :items="albums" />
@@ -20,7 +18,7 @@
   </content-with-heading>
   <content-with-heading>
     <template #heading>
-      <heading-title
+      <pane-title
         :content="{ title: $t('page.music.recently-played.title') }"
       />
     </template>
@@ -41,9 +39,9 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
 
@@ -51,9 +49,9 @@ export default {
   name: 'PageMusic',
   components: {
     ContentWithHeading,
-    HeadingTitle,
     ListAlbums,
     ListTracks,
+    PaneTitle,
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {

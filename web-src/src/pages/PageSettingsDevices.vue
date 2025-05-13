@@ -2,9 +2,7 @@
   <tabs-settings />
   <content-with-heading>
     <template #heading>
-      <heading-title
-        :content="{ title: $t('page.settings.devices.pairing') }"
-      />
+      <pane-title :content="{ title: $t('page.settings.devices.pairing') }" />
     </template>
     <template #content>
       <form v-if="remotesStore.active" @submit.prevent="pairRemote">
@@ -31,7 +29,7 @@
   </content-with-heading>
   <content-with-heading>
     <template #heading>
-      <heading-title
+      <pane-title
         :content="{ title: $t('page.settings.devices.speaker-pairing') }"
       />
     </template>
@@ -79,7 +77,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlPinField from '@/components/ControlPinField.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import outputs from '@/api/outputs'
 import { useOutputsStore } from '@/stores/outputs'
@@ -91,7 +89,7 @@ export default {
     ContentWithHeading,
     ControlPinField,
     ControlSwitch,
-    HeadingTitle,
+    PaneTitle,
     TabsSettings
   },
   setup() {

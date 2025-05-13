@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #actions>
       <control-button
@@ -35,7 +35,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
@@ -49,7 +49,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    HeadingTitle,
+    PaneTitle,
     ListTracksSpotify,
     ModalDialogPlaylistSpotify
   },

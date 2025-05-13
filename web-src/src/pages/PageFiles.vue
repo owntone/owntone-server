@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading>
-      <heading-title :content="{ title: name }" />
+      <pane-title :content="{ title: name }" />
     </template>
     <template #actions>
       <control-button
@@ -28,7 +28,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
@@ -43,7 +43,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    HeadingTitle,
+    PaneTitle,
     ListDirectories,
     ListPlaylists,
     ListTracks,

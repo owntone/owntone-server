@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #content>
       <list-playlists :items="playlists" />
@@ -12,14 +12,14 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import library from '@/api/library'
 import { useConfigurationStore } from '@/stores/configuration'
 
 export default {
   name: 'PagePlaylistFolder',
-  components: { ContentWithHeading, HeadingTitle, ListPlaylists },
+  components: { ContentWithHeading, PaneTitle, ListPlaylists },
   beforeRouteEnter(to, from, next) {
     next(async (vm) => {
       await vm.fetchData(to.params.id)

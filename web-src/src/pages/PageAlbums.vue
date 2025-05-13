@@ -34,7 +34,7 @@
       </list-options>
     </template>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #content>
       <list-albums :items="albums" />
@@ -47,10 +47,10 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
 import { useServicesStore } from '@/stores/services'
@@ -62,10 +62,10 @@ export default {
     ContentWithHeading,
     ControlDropdown,
     ControlSwitch,
-    HeadingTitle,
     ListIndexButtons,
     ListAlbums,
     ListOptions,
+    PaneTitle,
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {

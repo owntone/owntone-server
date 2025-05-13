@@ -4,7 +4,7 @@
       <list-index-buttons :indices="tracks.indices" />
     </template>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #content>
       <list-tracks :items="tracks" />
@@ -15,7 +15,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import library from '@/api/library'
@@ -24,7 +24,7 @@ export default {
   name: 'PageRadioStreams',
   components: {
     ContentWithHeading,
-    HeadingTitle,
+    PaneTitle,
     ListIndexButtons,
     ListTracks
   },

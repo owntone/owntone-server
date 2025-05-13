@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading>
-      <heading-title :content="{ title: $t('page.about.library') }" />
+      <pane-title :content="{ title: $t('page.about.library') }" />
     </template>
     <template #actions>
       <control-button
@@ -83,14 +83,14 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import { useConfigurationStore } from '@/stores/configuration'
 import { useLibraryStore } from '@/stores/library'
 import { useUIStore } from '@/stores/ui'
 
 export default {
   name: 'PageAbout',
-  components: { ContentWithHeading, ControlButton, HeadingTitle },
+  components: { ContentWithHeading, ControlButton, PaneTitle },
   setup() {
     return {
       configurationStore: useConfigurationStore(),

@@ -20,7 +20,7 @@
 import ControlButton from '@/components/ControlButton.vue'
 
 export default {
-  name: 'HeadingHero',
+  name: 'PaneHero',
   components: { ControlButton },
   props: { content: { required: true, type: Object } }
 }

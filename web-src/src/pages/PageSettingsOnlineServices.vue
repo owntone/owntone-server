@@ -2,7 +2,7 @@
   <tabs-settings />
   <content-with-heading>
     <template #heading>
-      <heading-title
+      <pane-title
         :content="{ title: $t('page.settings.services.spotify.title') }"
       />
     </template>
@@ -57,7 +57,7 @@
   </content-with-heading>
   <content-with-heading>
     <template #heading>
-      <heading-title
+      <pane-title
         :content="{ title: $t('page.settings.services.lastfm.title') }"
       />
     </template>
@@ -127,14 +127,14 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import services from '@/api/services'
 import { useServicesStore } from '@/stores/services'
 
 export default {
   name: 'PageSettingsOnlineServices',
-  components: { ContentWithHeading, HeadingTitle, TabsSettings },
+  components: { ContentWithHeading, PaneTitle, TabsSettings },
   setup() {
     return { servicesStore: useServicesStore() }
   },

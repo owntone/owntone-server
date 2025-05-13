@@ -18,7 +18,7 @@
 
 <script>
 export default {
-  name: 'HeadingTitle',
+  name: 'PaneTitle',
   props: { content: { required: true, type: Object } }
 }
 </script>

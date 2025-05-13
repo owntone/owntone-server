@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #actions>
       <control-button
@@ -26,7 +26,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 import library from '@/api/library'
@@ -37,7 +37,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    HeadingTitle,
+    PaneTitle,
     ListAlbums,
     ModalDialogComposer
   },

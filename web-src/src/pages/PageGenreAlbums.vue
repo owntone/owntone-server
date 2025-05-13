@@ -4,7 +4,7 @@
       <list-index-buttons :indices="albums.indices" />
     </template>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #actions>
       <control-button
@@ -30,7 +30,7 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
@@ -42,7 +42,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    HeadingTitle,
+    PaneTitle,
     ListIndexButtons,
     ListAlbums,
     ModalDialogGenre

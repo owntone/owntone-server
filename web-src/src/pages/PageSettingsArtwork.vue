@@ -2,7 +2,7 @@
   <tabs-settings />
   <content-with-heading>
     <template #heading>
-      <heading-title :content="{ title: $t('page.settings.artwork.title') }" />
+      <pane-title :content="{ title: $t('page.settings.artwork.title') }" />
     </template>
     <template #content>
       <div class="content" v-text="$t('page.settings.artwork.explanation-1')" />
@@ -71,7 +71,7 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlSettingSwitch from '@/components/ControlSettingSwitch.vue'
-import HeadingTitle from '@/components/HeadingTitle.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useServicesStore } from '@/stores/services'
 
@@ -80,7 +80,7 @@ export default {
   components: {
     ContentWithHeading,
     ControlSettingSwitch,
-    HeadingTitle,
+    PaneTitle,
     TabsSettings
   },
   setup() {

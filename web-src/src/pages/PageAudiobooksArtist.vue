@@ -1,7 +1,7 @@
 <template>
   <content-with-heading>
     <template #heading>
-      <heading-title :content="heading" />
+      <pane-title :content="heading" />
     </template>
     <template #actions>
       <control-button
@@ -26,9 +26,9 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import HeadingTitle from '@/components/HeadingTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
 
@@ -37,9 +37,9 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    HeadingTitle,
     ListAlbums,
-    ModalDialogArtist
+    ModalDialogArtist,
+    PaneTitle
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([
