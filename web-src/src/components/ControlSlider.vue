@@ -6,9 +6,6 @@
     :class="{ 'is-inactive': disabled }"
     :max="max"
     type="range"
-    :style="{
-      '--ratio': ratio
-    }"
     @input="$emit('update:value', $event.target.valueAsNumber)"
   />
 </template>
@@ -33,7 +30,6 @@ export default {
 
 <style lang="scss" scoped>
 @use 'bulma/sass/utilities/mixins';
-
 @mixin thumb {
   -webkit-appearance: none;
   width: var(--th);
@@ -47,7 +43,6 @@ export default {
     border: 1px solid var(--bulma-grey-dark);
   }
 }
-
 @mixin thumb-inactive {
   box-sizing: border-box;
   background-color: var(--bulma-light);
@@ -56,7 +51,6 @@ export default {
     border: 1px solid var(--bulma-grey-darker);
   }
 }
-
 @mixin track {
   height: calc(var(--sh));
   border-radius: calc(var(--sh) / 2);
@@ -73,7 +67,6 @@ export default {
     );
   }
 }
-
 @mixin track-inactive {
   background: linear-gradient(
     90deg,
@@ -88,8 +81,8 @@ export default {
     );
   }
 }
-
 input[type='range'].slider {
+  --ratio: v-bind(ratio);
   --sh: 0.25rem;
   --th: calc(var(--sh) * 4);
   background-color: transparent;

@@ -60,9 +60,3 @@ export default {
   }
 }
 </script>
-
-<style scope>
-section:not(.tabs-section) + section {
-  padding-top: 0;
-}
-</style>

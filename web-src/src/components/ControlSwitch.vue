@@ -32,7 +32,6 @@ export default {
 .toggle {
   cursor: pointer;
   display: inline-block;
-
   &-switch {
     display: inline-block;
     background: var(--bulma-grey-lighter);
@@ -43,7 +42,6 @@ export default {
     vertical-align: middle;
     transition: background 0.25s;
     margin-right: 0.5rem;
-
     &:before {
       content: '';
       display: block;
@@ -57,14 +55,11 @@ export default {
       transition: left 0.25s;
     }
   }
-
   &:hover &-switch:before {
     background: var(--bulma-white);
   }
-
   &-checkbox {
     position: absolute;
-
     &:checked + .toggle-switch {
       background: var(--bulma-dark);
 
