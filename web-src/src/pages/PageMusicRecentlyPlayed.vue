@@ -15,14 +15,14 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListTracks from '@/components/ListTracks.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
 
 export default {
   name: 'PageMusicRecentlyPlayed',
-  components: { ContentWithHeading, PaneTitle, ListTracks, TabsMusic },
+  components: { ContentWithHeading, ListTracks, PaneTitle, TabsMusic },
   beforeRouteEnter(to, from, next) {
     library
       .search({

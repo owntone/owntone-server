@@ -95,11 +95,11 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
 import ModalDialogAddStream from '@/components/ModalDialogAddStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import draggable from 'vuedraggable'
 import queue from '@/api/queue'
 import { useConfigurationStore } from '@/stores/configuration'
@@ -112,11 +112,11 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    PaneTitle,
     ListItemQueueItem,
     ModalDialogAddStream,
     ModalDialogPlaylistSave,
     ModalDialogQueueItem,
+    PaneTitle,
     draggable
   },
   setup() {

@@ -64,11 +64,11 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsSearch from '@/components/TabsSearch.vue'
 import services from '@/api/services'
@@ -83,11 +83,11 @@ export default {
   components: {
     ControlButton,
     ContentWithHeading,
-    PaneTitle,
     ListAlbumsSpotify,
     ListArtistsSpotify,
     ListPlaylistsSpotify,
     ListTracksSpotify,
+    PaneTitle,
     TabsSearch
   },
   setup() {

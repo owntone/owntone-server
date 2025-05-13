@@ -60,10 +60,10 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import { useLibraryStore } from '@/stores/library'
 import { useUIStore } from '@/stores/ui'
@@ -73,10 +73,10 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    PaneTitle,
     ListAlbums,
     ListTracks,
-    ModalDialogAddRss
+    ModalDialogAddRss,
+    PaneTitle
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([

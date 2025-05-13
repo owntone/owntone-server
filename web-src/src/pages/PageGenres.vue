@@ -16,9 +16,9 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListGenres from '@/components/ListGenres.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
 
@@ -26,9 +26,9 @@ export default {
   name: 'PageGenres',
   components: {
     ContentWithHeading,
-    PaneTitle,
     ListIndexButtons,
     ListGenres,
+    PaneTitle,
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {

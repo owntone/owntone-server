@@ -16,9 +16,9 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
 
@@ -26,9 +26,9 @@ export default {
   name: 'PageComposers',
   components: {
     ContentWithHeading,
-    PaneTitle,
     ListIndexButtons,
     ListComposers,
+    PaneTitle,
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {

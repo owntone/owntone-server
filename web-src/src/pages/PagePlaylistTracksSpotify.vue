@@ -35,9 +35,9 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import queue from '@/api/queue'
 import { useServicesStore } from '@/stores/services'
@@ -49,9 +49,9 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    PaneTitle,
     ListTracksSpotify,
-    ModalDialogPlaylistSpotify
+    ModalDialogPlaylistSpotify,
+    PaneTitle
   },
   beforeRouteEnter(to, from, next) {
     const spotifyApi = new SpotifyWebApi()

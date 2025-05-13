@@ -28,11 +28,11 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListDirectories from '@/components/ListDirectories.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import configuration from '@/api/configuration'
 import library from '@/api/library'
 import queue from '@/api/queue'
@@ -43,11 +43,11 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    PaneTitle,
     ListDirectories,
     ListPlaylists,
     ListTracks,
-    ModalDialogPlayable
+    ModalDialogPlayable,
+    PaneTitle
   },
   beforeRouteEnter(to, from, next) {
     next(async (vm) => {

@@ -15,18 +15,18 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListTracks from '@/components/ListTracks.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 
 export default {
   name: 'PageRadioStreams',
   components: {
     ContentWithHeading,
-    PaneTitle,
     ListIndexButtons,
-    ListTracks
+    ListTracks,
+    PaneTitle
   },
   beforeRouteEnter(to, from, next) {
     library.radioStreams().then((tracks) => {

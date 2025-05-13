@@ -25,9 +25,9 @@
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
-import PaneHero from '@/components/PaneHero.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
+import PaneHero from '@/components/PaneHero.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import queue from '@/api/queue'
 import services from '@/api/services'
@@ -38,9 +38,9 @@ export default {
   components: {
     ContentWithHero,
     ControlImage,
-    PaneHero,
     ListTracksSpotify,
-    ModalDialogAlbumSpotify
+    ModalDialogAlbumSpotify,
+    PaneHero
   },
   beforeRouteEnter(to, from, next) {
     const spotifyApi = new SpotifyWebApi()

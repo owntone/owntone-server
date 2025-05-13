@@ -12,14 +12,14 @@
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import { useConfigurationStore } from '@/stores/configuration'
 
 export default {
   name: 'PagePlaylistFolder',
-  components: { ContentWithHeading, PaneTitle, ListPlaylists },
+  components: { ContentWithHeading, ListPlaylists, PaneTitle },
   beforeRouteEnter(to, from, next) {
     next(async (vm) => {
       await vm.fetchData(to.params.id)

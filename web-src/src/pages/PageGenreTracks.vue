@@ -39,11 +39,11 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListOptions from '@/components/ListOptions.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
 import { useUIStore } from '@/stores/ui'
@@ -54,11 +54,11 @@ export default {
     ContentWithHeading,
     ControlButton,
     ControlDropdown,
-    PaneTitle,
     ListIndexButtons,
     ListOptions,
     ListTracks,
-    ModalDialogGenre
+    ModalDialogGenre,
+    PaneTitle
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([

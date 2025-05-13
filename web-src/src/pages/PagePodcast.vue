@@ -33,9 +33,9 @@
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneHero from '@/components/PaneHero.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import PaneHero from '@/components/PaneHero.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
 
@@ -44,9 +44,9 @@ export default {
   components: {
     ContentWithHero,
     ControlImage,
-    PaneHero,
     ListTracks,
-    ModalDialogAlbum
+    ModalDialogAlbum,
+    PaneHero
   },
   beforeRouteEnter(to, from, next) {
     Promise.all([

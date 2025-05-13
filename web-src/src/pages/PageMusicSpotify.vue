@@ -38,9 +38,9 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
@@ -49,9 +49,9 @@ export default {
   name: 'PageMusicSpotify',
   components: {
     ContentWithHeading,
-    PaneTitle,
     ListAlbumsSpotify,
     ListPlaylistsSpotify,
+    PaneTitle,
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {

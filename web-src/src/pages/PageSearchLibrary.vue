@@ -77,12 +77,12 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
-import PaneTitle from '@/components/PaneTitle.vue'
 import ListAlbums from '@/components/ListAlbums.vue'
 import ListArtists from '@/components/ListArtists.vue'
 import ListComposers from '@/components/ListComposers.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
+import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSearch from '@/components/TabsSearch.vue'
 import library from '@/api/library'
 import { useSearchStore } from '@/stores/search'
@@ -103,12 +103,12 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    PaneTitle,
     ListAlbums,
     ListArtists,
     ListComposers,
     ListPlaylists,
     ListTracks,
+    PaneTitle,
     TabsSearch
   },
   setup() {
