@@ -107,12 +107,12 @@ export default {
     parseLyrics() {
       const verses = []
       const regex =
-        /\[(?<minutes>\d+):(?<seconds>\d+)(?:\.(?<hundredths>\d+))?\] ?(?<text>.*)/u
+        /(?:\[(?<minutes>\d+):(?<seconds>\d+)(?:\.(?<hundredths>\d+))?\])?\s*(?<text>\S.*\S)?\s*/u
       this.playerStore.lyricsContent.split('\n').forEach((line) => {
         const match = regex.exec(line)
         if (match) {
           const { text, minutes, seconds, hundredths } = match.groups
-          const verse = text.trim()
+          const verse = text
           if (verse) {
             const time =
               (Number(minutes) * 60 + Number(`${seconds}.${hundredths ?? 0}`)) *
