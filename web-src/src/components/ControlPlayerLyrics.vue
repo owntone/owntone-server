@@ -1,5 +1,5 @@
 <template>
-  <button :class="{ 'is-dark': playerStore.lyrics }" @click="toggle">
+  <button :class="{ 'is-dark': playerStore.showLyrics }" @click="toggle">
     <mdicon
       class="icon"
       :name="icon"
@@ -21,14 +21,14 @@ export default {
   },
   computed: {
     icon() {
-      return this.playerStore.lyrics
+      return this.playerStore.showLyrics
         ? 'script-text-play'
         : 'script-text-outline'
     }
   },
   methods: {
     toggle() {
-      this.playerStore.lyrics = !this.playerStore.lyrics
+      this.playerStore.showLyrics = !this.playerStore.showLyrics
     }
   }
 }

@@ -123,7 +123,7 @@
             class="help"
             scope="global"
           >
-            <br />
+            <slot><br /></slot>
           </i18n-t>
         </template>
       </control-setting-text-field>

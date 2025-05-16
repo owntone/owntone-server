@@ -8,10 +8,10 @@
           :url="track.artwork_url"
           :caption="track.album"
           class="is-clickable is-big"
-          :class="{ 'is-masked': playerStore.lyrics }"
+          :class="{ 'is-masked': playerStore.showLyrics }"
           @click="openDetails(track)"
         />
-        <pane-lyrics v-if="playerStore.lyrics" />
+        <pane-lyrics v-if="playerStore.showLyrics" />
       </div>
       <control-slider
         v-model:value="trackProgress"

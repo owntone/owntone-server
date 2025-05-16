@@ -1,6 +1,27 @@
 import { defineStore } from 'pinia'
+import services from '@/api/services'
 
 export const useServicesStore = defineStore('ServicesStore', {
+  actions: {
+    async initialiseLastfm() {
+      this.lastfm = await services.lastfm()
+    },
+    initialiseSpotify() {
+      services.spotify().then((data) => {
+        this.spotify = data
+        if (this.spotifyTimerId > 0) {
+          clearTimeout(this.spotifyTimerId)
+          this.spotifyTimerId = 0
+        }
+        if (data.webapi_token_expires_in > 0 && data.webapi_token) {
+          this.spotifyTimerId = setTimeout(
+            () => this.updateSpotify(),
+            1000 * data.webapi_token_expires_in
+          )
+        }
+      })
+    }
+  },
   getters: {
     hasMissingSpotifyScopes: (state) => state.missingSpotifyScopes.length > 0,
     isAuthorizationRequired: (state) =>
@@ -22,6 +43,7 @@ export const useServicesStore = defineStore('ServicesStore', {
   },
   state: () => ({
     lastfm: {},
-    spotify: {}
+    spotify: {},
+    spotifyTimerId: 0
   })
 })

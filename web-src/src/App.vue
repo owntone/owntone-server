@@ -29,7 +29,6 @@ import NavbarBottom from '@/components/NavbarBottom.vue'
 import NavbarTop from '@/components/NavbarTop.vue'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
 import configuration from '@/api/configuration'
-import services from '@/api/services'
 import { useConfigurationStore } from '@/stores/configuration'
 import { useLibraryStore } from '@/stores/library'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -66,7 +65,7 @@ export default {
   },
   data() {
     return {
-      timerId: 0
+      updateThrottled: false
     }
   },
   watch: {
@@ -114,79 +113,33 @@ export default {
     },
     openWebsocket() {
       const socket = this.createWebsocket()
+      const events = [
+        'database',
+        'lastfm',
+        'options',
+        'outputs',
+        'pairing',
+        'player',
+        'queue',
+        'settings',
+        'spotify',
+        'update',
+        'volume'
+      ]
       socket.onopen = () => {
-        socket.send(
-          JSON.stringify({
-            notify: [
-              'update',
-              'database',
-              'player',
-              'options',
-              'outputs',
-              'volume',
-              'queue',
-              'spotify',
-              'lastfm',
-              'pairing'
-            ]
-          })
-        )
-        this.updateOutputs()
-        this.updatePlayer()
-        this.updateLibrary()
-        this.updateSettings()
-        this.updateQueue()
-        this.updateSpotify()
-        this.updateLastfm()
-        this.updateRemotes()
+        socket.send(JSON.stringify({ notify: events }))
+        this.handleEvents(events)
       }
-
-      let updateThrottled = false
-      const updateInfo = () => {
-        if (updateThrottled) {
-          return
-        }
-        this.updateOutputs()
-        this.updatePlayer()
-        this.updateLibrary()
-        this.updateSettings()
-        this.updateQueue()
-        this.updateSpotify()
-        this.updateLastfm()
-        this.updateRemotes()
-        updateThrottled = true
-        setTimeout(() => {
-          updateThrottled = false
-        }, 500)
-      }
-
-      window.addEventListener('focus', updateInfo)
+      window.addEventListener('focus', () => {
+        this.handleEvents(events)
+      })
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-          updateInfo()
+          this.handleEvents(events)
         }
       })
-
       socket.onmessage = (response) => {
-        const data = JSON.parse(response.data)
-        const notify = new Set(data.notify || [])
-        const handlers = [
-          { events: ['update', 'database'], handler: this.updateLibrary },
-          {
-            events: ['player', 'options', 'volume'],
-            handler: this.updatePlayer
-          },
-          { events: ['outputs', 'volume'], handler: this.updateOutputs },
-          { events: ['queue'], handler: this.updateQueue },
-          { events: ['spotify'], handler: this.updateSpotify },
-          { events: ['lastfm'], handler: this.updateLastfm },
-          { events: ['pairing'], handler: this.updateRemotes }
-        ]
-        handlers.forEach(({ handler, events }) => {
-          if (events.some((key) => notify.has(key))) {
-            handler.call(this)
-          }
-        })
+        this.handleEvents(JSON.parse(response.data).notify)
       }
     },
     createWebsocket() {
@@ -203,50 +156,46 @@ export default {
         reconnectInterval: 1000
       })
     },
+    handleEvents(notifications = []) {
+      if (this.updateThrottled) {
+        return
+      }
+      const handlers = [
+        {
+          events: ['update', 'database'],
+          handler: this.libraryStore.initialise
+        },
+        {
+          events: ['player', 'options', 'volume'],
+          handler: this.playerStore.initialise
+        },
+        {
+          events: ['outputs', 'volume'],
+          handler: this.outputsStore.initialise
+        },
+        { events: ['queue'], handler: this.queueStore.initialise },
+        { events: ['settings'], handler: this.settingsStore.initialise },
+        { events: ['spotify'], handler: this.servicesStore.initialiseSpotify },
+        { events: ['lastfm'], handler: this.servicesStore.initialiseLastfm },
+        { events: ['pairing'], handler: this.remotesStore.initialise }
+      ]
+      const notificationSet = new Set(notifications)
+      handlers.forEach(({ handler, events }) => {
+        if (events.some((key) => notificationSet.has(key))) {
+          handler.call(this)
+        }
+      })
+      this.updateThrottled = true
+      setTimeout(() => {
+        this.updateThrottled = false
+      }, 500)
+    },
     updateClipping() {
       if (this.uiStore.showBurgerMenu || this.uiStore.showPlayerMenu) {
         document.querySelector('html').classList.add('is-clipped')
       } else {
         document.querySelector('html').classList.remove('is-clipped')
       }
-    },
-    updateLastfm() {
-      services.lastfm().then((data) => {
-        this.servicesStore.lastfm = data
-      })
-    },
-    updateLibrary() {
-      this.libraryStore.initialise()
-    },
-    updateOutputs() {
-      this.outputsStore.initialise()
-    },
-    updateRemotes() {
-      this.remotesStore.initialise()
-    },
-    updatePlayer() {
-      this.playerStore.initialise()
-    },
-    updateQueue() {
-      this.queueStore.initialise()
-    },
-    updateSettings() {
-      this.settingsStore.initialise()
-    },
-    updateSpotify() {
-      services.spotify().then((data) => {
-        this.servicesStore.spotify = data
-        if (this.timerId > 0) {
-          window.clearTimeout(this.timerId)
-          this.timerId = 0
-        }
-        if (data.webapi_token_expires_in > 0 && data.webapi_token) {
-          this.timerId = window.setTimeout(
-            this.updateSpotify,
-            1000 * data.webapi_token_expires_in
-          )
-        }
-      })
     }
   }
 }

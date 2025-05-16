@@ -27,9 +27,9 @@ export const usePlayerStore = defineStore('PlayerStore', {
     item_id: 0,
     item_length_ms: 0,
     item_progress_ms: 0,
-    lyrics: false,
     lyricsContent: '',
     repeat: 'off',
+    showLyrics: false,
     shuffle: false,
     state: 'stop',
     volume: 0
