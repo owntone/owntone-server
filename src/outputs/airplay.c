@@ -861,6 +861,7 @@ request_headers_add(struct evrtsp_request *req, struct airplay_session *rs, enum
 {
   char buf[64];
   const char *user_agent;
+  const char *client_name;
   const char *method;
   const char *url;
   int ret;
@@ -872,6 +873,9 @@ request_headers_add(struct evrtsp_request *req, struct airplay_session *rs, enum
 
   user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
   evrtsp_add_header(req->output_headers, "User-Agent", user_agent);
+
+  client_name = cfg_getstr(cfg_getsec(cfg, "library"), "name");
+  evrtsp_add_header(req->output_headers, "X-Apple-Client-Name", client_name);
 
   // If we have a realm + nonce it means that the device told us in the reply to
   // SETUP that www authentication with password is required
@@ -2640,6 +2644,12 @@ static int
 payload_make_pin_start(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
 {
   DPRINTF(E_LOG, L_AIRPLAY, "Starting device pairing for '%s', go to the web interface and enter PIN\n", rs->devname);
+
+  if (rs->pair_type == PAIR_CLIENT_HOMEKIT_NORMAL)
+    evrtsp_add_header(req->output_headers, "X-Apple-HKP", "3");
+  else if (rs->pair_type == PAIR_CLIENT_HOMEKIT_TRANSIENT)
+    evrtsp_add_header(req->output_headers, "X-Apple-HKP", "4");
+
   return 0;
 }
 
