@@ -73,4 +73,11 @@ export default {
   max-height: calc(100vh - calc(4 * var(--bulma-navbar-height)));
   overflow: auto;
 }
+.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  > * {
+    pointer-events: none;
+  }
+}
 </style>

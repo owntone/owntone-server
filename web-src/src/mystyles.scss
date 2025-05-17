@@ -40,14 +40,6 @@ button.navbar-item {
   justify-content: center;
 }
 
-.is-disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-  > * {
-    pointer-events: none;
-  }
-}
-
 .media:first-of-type {
   padding-top: 1rem;
 }
