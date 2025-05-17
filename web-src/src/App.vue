@@ -65,7 +65,8 @@ export default {
   },
   data() {
     return {
-      updateThrottled: false
+      handlers: {},
+      scheduledHandlers: new Map()
     }
   },
   watch: {
@@ -77,6 +78,19 @@ export default {
     }
   },
   created() {
+    this.handlers = {
+      update: [this.libraryStore.initialise],
+      database: [this.libraryStore.initialise],
+      player: [this.playerStore.initialise],
+      options: [this.playerStore.initialise],
+      volume: [this.playerStore.initialise, this.outputsStore.initialise],
+      outputs: [this.outputsStore.initialise],
+      queue: [this.queueStore.initialise],
+      settings: [this.settingsStore.initialise],
+      spotify: [this.servicesStore.initialiseSpotify],
+      lastfm: [this.servicesStore.initialiseLastfm],
+      pairing: [this.remotesStore.initialise]
+    }
     this.connect()
     this.$router.beforeEach((to, from, next) => {
       this.updateClipping()
@@ -91,6 +105,10 @@ export default {
     this.$router.afterEach(() => {
       this.$Progress.finish()
     })
+  },
+  beforeUnmount() {
+    this.scheduledHandlers.forEach((timeoutId) => clearTimeout(timeoutId))
+    this.scheduledHandlers.clear()
   },
   methods: {
     connect() {
@@ -139,7 +157,8 @@ export default {
         }
       })
       socket.onmessage = (response) => {
-        this.handleEvents(JSON.parse(response.data).notify)
+        const notifiedEvents = JSON.parse(response.data).notify
+        this.handleEvents(notifiedEvents)
       }
     },
     createWebsocket() {
@@ -156,39 +175,19 @@ export default {
         reconnectInterval: 1000
       })
     },
-    handleEvents(notifications = []) {
-      if (this.updateThrottled) {
-        return
-      }
-      const handlers = [
-        {
-          events: ['update', 'database'],
-          handler: this.libraryStore.initialise
-        },
-        {
-          events: ['player', 'options', 'volume'],
-          handler: this.playerStore.initialise
-        },
-        {
-          events: ['outputs', 'volume'],
-          handler: this.outputsStore.initialise
-        },
-        { events: ['queue'], handler: this.queueStore.initialise },
-        { events: ['settings'], handler: this.settingsStore.initialise },
-        { events: ['spotify'], handler: this.servicesStore.initialiseSpotify },
-        { events: ['lastfm'], handler: this.servicesStore.initialiseLastfm },
-        { events: ['pairing'], handler: this.remotesStore.initialise }
-      ]
-      const notificationSet = new Set(notifications)
-      handlers.forEach(({ handler, events }) => {
-        if (events.some((key) => notificationSet.has(key))) {
-          handler.call(this)
-        }
+    handleEvents(events = []) {
+      events.forEach((event) => {
+        const handlers = this.handlers[event] || []
+        handlers.forEach((handler) => {
+          if (!this.scheduledHandlers.has(handler)) {
+            const timeoutId = setTimeout(() => {
+              handler.call(this)
+              this.scheduledHandlers.delete(handler)
+            }, 50)
+            this.scheduledHandlers.set(handler, timeoutId)
+          }
+        })
       })
-      this.updateThrottled = true
-      setTimeout(() => {
-        this.updateThrottled = false
-      }, 500)
     },
     updateClipping() {
       if (this.uiStore.showBurgerMenu || this.uiStore.showPlayerMenu) {
