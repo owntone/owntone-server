@@ -61,7 +61,7 @@ export default {
     add() {
       this.loading = true
       queue
-        .add(this.url)
+        .addUri(this.url)
         .then(() => {
           this.$emit('close')
         })

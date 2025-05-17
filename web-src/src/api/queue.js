@@ -7,13 +7,7 @@ const { t } = i18n.global
 const BASE_URL = './api/queue'
 
 export default {
-  addUri(uris, next = false) {
-    return this.addToQueue({ uris }, next)
-  },
-  addExpression(expression, next = false) {
-    return this.addToQueue({ expression }, next)
-  },
-  async addToQueue(params, next = false) {
+  async add(params, next = false) {
     if (next) {
       const { current } = useQueueStore()
       if (current?.id) {
@@ -27,6 +21,12 @@ export default {
       type: 'info'
     })
     return data
+  },
+  addExpression(expression, next = false) {
+    return this.add({ expression }, next)
+  },
+  addUri(uris, next = false) {
+    return this.add({ uris }, next)
   },
   clear() {
     return api.put(`${BASE_URL}/clear`)
