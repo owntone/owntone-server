@@ -15,7 +15,7 @@ export const useServicesStore = defineStore('ServicesStore', {
         }
         if (data.webapi_token_expires_in > 0 && data.webapi_token) {
           this.spotifyTimerId = setTimeout(
-            () => this.updateSpotify(),
+            () => this.initialiseSpotify(),
             1000 * data.webapi_token_expires_in
           )
         }
