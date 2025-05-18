@@ -32,7 +32,7 @@ jobs:
           pw user add owntone -m -d /usr/local/var/cache/owntone
 
         run: |
-          autoreconf -vi
+          autoreconf -vif
           export CFLAGS="${ARCH} -g -I/usr/local/include -I/usr/include"
           export LDFLAGS="-L/usr/local/lib -L/usr/lib"
           ./configure --disable-install-system

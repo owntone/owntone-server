@@ -6,7 +6,7 @@
         {
             "label": "[server] autoreconf",
             "type": "shell",
-            "command": "autoreconf -i",
+            "command": "autoreconf -if",
             "group": {
                 "kind": "build",
                 "isDefault": false

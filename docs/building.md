@@ -44,7 +44,7 @@ Then run the following (adding configure arguments for optional features):
 ```bash
 git clone https://github.com/owntone/owntone-server.git
 cd owntone-server
-autoreconf -i
+autoreconf -if
 ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-install-user
 make
 sudo make install
@@ -89,7 +89,7 @@ cd owntone-server
 Then run the following:
 
 ```bash
-autoreconf -i
+autoreconf -if
 ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-install-user
 make
 sudo make install
@@ -170,7 +170,7 @@ Finally, configure, build, install, and add configuration arguments for
 optional features:
 
 ```bash
-autoreconf -i
+autoreconf -if
 ./configure
 make
 sudo make install
@@ -205,7 +205,7 @@ dns-sd -B _daap._tcp
 
 Required tools:
 
-- autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run `autoreconf -i`
+- autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run `autoreconf -if`
   at the top of the source tree to generate the build system.
 - gettext: libunistring requires iconv and gettext provides the autotools
   macro definitions for iconv.
@@ -244,7 +244,7 @@ build OwnTone (usually suffixed with -dev or -devel).
 
 ## Long Version - Building and Installing
 
-Start by generating the build system by running `autoreconf -i`. This will
+Start by generating the build system by running `autoreconf -if`. This will
 generate the configure script and `Makefile.in`.
 
 To display the configure options `run ./configure --help`.
@@ -353,7 +353,7 @@ Checkout OwnTone and configure build:
 cd $HOME/projects
 git clone https://github.com/owntone/owntone-server.git
 cd owntone-server
-autoreconf -vi
+autoreconf -vif
 ./configure --prefix=$HOME/owntone_data/usr --sysconfdir=$HOME/owntone_data/etc --localstatedir=$HOME/owntone_data/var
 ```
 

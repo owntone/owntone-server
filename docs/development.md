@@ -41,7 +41,7 @@ Inside the container you can follow the build instructions (see [Building](build
 - Build owntone-server
 
     ```bash
-    autoreconf -i
+    autoreconf -if
     ./configure
     make
     ```

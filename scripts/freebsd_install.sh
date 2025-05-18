@@ -50,7 +50,7 @@ if [ "$yn" = "y" ]; then
 	#Cleanup in case this is a re-run
 	gmake clean
 	git clean -f
-	autoreconf -vi
+	autoreconf -vif
 
 #These should no longer be required, but if you run into trouble you can try enabling them
 #export CC=cc

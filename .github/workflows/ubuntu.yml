@@ -31,7 +31,7 @@ jobs:
 
     - name: Build and check
       run: |
-        autoreconf -vi
+        autoreconf -vif
         ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-install-user --enable-chromecast --with-pulseaudio
         make
         make check
