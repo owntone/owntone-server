@@ -9,6 +9,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign subdir-objects 1.11])
 AM_SILENT_RULES([yes])
+AM_GNU_GETTEXT_VERSION([0.19])
 
 dnl Requires autoconf 2.60
 AC_USE_SYSTEM_EXTENSIONS
