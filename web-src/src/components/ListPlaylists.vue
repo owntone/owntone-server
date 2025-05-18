@@ -23,7 +23,11 @@ import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 export default {
   name: 'ListPlaylists',
   components: { ListItem, ModalDialogPlaylist },
-  props: { items: { required: true, type: Object } },
+  props: {
+    items: { required: true, type: Object },
+    load: { default: null, type: Function },
+    loaded: { default: true, type: Boolean }
+  },
   data() {
     return { selectedItem: {}, showDetailsModal: false }
   },

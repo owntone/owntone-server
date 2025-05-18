@@ -22,7 +22,11 @@ import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 export default {
   name: 'ListArtists',
   components: { ListItem, ModalDialogArtist },
-  props: { items: { required: true, type: Object } },
+  props: {
+    items: { required: true, type: Object },
+    load: { default: null, type: Function },
+    loaded: { default: true, type: Boolean }
+  },
   data() {
     return { selectedItem: {}, showDetailsModal: false }
   },

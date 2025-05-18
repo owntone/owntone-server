@@ -31,6 +31,8 @@ export default {
     expression: { default: '', type: String },
     items: { default: null, type: Object },
     icon: { default: null, type: String },
+    load: { default: null, type: Function },
+    loaded: { default: true, type: Boolean },
     showProgress: { default: false, type: Boolean },
     uris: { default: '', type: String }
   },

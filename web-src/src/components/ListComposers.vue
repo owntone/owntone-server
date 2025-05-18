@@ -22,7 +22,11 @@ import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
 export default {
   name: 'ListComposers',
   components: { ListItem, ModalDialogComposer },
-  props: { items: { required: true, type: Object } },
+  props: {
+    items: { required: true, type: Object },
+    load: { default: null, type: Function },
+    loaded: { default: true, type: Boolean }
+  },
   data() {
     return { selectedItem: {}, showDetailsModal: false }
   },
