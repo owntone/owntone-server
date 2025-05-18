@@ -2,8 +2,6 @@ name: Web UI Lint
 
 on:
   push:
-    branches:
-      - master
     paths:
       - 'web-src/**'
   pull_request:
