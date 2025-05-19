@@ -6,6 +6,8 @@ on:
       - master
     paths:
       - 'web-src/**'
+  schedule:
+    - cron: '0 19 * * 6'
 
 jobs:
   build:
