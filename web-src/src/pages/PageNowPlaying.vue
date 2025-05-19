@@ -7,7 +7,7 @@
         <control-image
           :url="track.artwork_url"
           :caption="track.album"
-          class="is-clickable is-big"
+          class="is-big"
           :class="{ 'is-masked': playerStore.showLyrics }"
           @click="openDetails(track)"
         />

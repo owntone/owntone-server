@@ -118,17 +118,13 @@ export default {
       this.$router.push({ name: 'search-library' })
     },
     searchNext({ loaded }) {
-      const [type] = this.types,
-        items = this.results.get(type)
+      const items = this.results.get(this.types[0])
       this.parameters.limit = PAGE_SIZE_EXPANDED
       this.searchItems().then((data) => {
         const [next] = Object.values(data)
         items.items.push(...next.items)
         items.total = next.total
-        if (!this.parameters.offset) {
-          this.parameters.offset = 0
-        }
-        this.parameters.offset += next.limit
+        this.parameters.offset = (this.parameters.offset || 0) + next.limit
         loaded(next.items.length, PAGE_SIZE_EXPANDED)
       })
     }

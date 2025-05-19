@@ -1,5 +1,5 @@
 <template>
-  <figure class="figure has-shadow">
+  <figure class="figure has-shadow is-clickable">
     <img v-lazy="source" @click="$emit('click')" />
   </figure>
 </template>
