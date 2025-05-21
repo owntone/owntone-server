@@ -767,8 +767,9 @@ request_pagingobject_endpoint(const char *href, paging_item_cb item_cb, paging_r
 	    {
 	      item = json_object_array_get_idx(items, i);
 	      if (!item)
-	        {
-		  DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: no item at index %d in '%s' (API endpoint: '%s')\n",
+		{
+		  // Occasionally Spotify returns a json array with null elements
+		  DPRINTF(E_DBG, L_SPOTIFY, "No item at index %d in '%s' (API endpoint: '%s')\n",
 			  i, json_object_to_json_string(items), href);
 		  continue;
 		}
