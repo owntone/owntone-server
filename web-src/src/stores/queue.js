@@ -15,7 +15,7 @@ export const useQueueStore = defineStore('QueueStore', {
       return state.items.find((item) => item.id === player.item_id) ?? {}
     },
     isEmpty(state) {
-      return state.items.length === 0
+      return state.count === 0
     },
     isPauseAllowed(state) {
       return state.current && state.current.data_kind !== 'pipe'

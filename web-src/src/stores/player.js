@@ -16,6 +16,7 @@ export const usePlayerStore = defineStore('PlayerStore', {
     }
   },
   getters: {
+    isMuted: (state) => state.volume === 0,
     isPlaying: (state) => state.state === 'play',
     isRepeatAll: (state) => state.repeat === 'all',
     isRepeatOff: (state) => state.repeat === 'off',
