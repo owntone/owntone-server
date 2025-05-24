@@ -8,7 +8,7 @@
     <div class="media-content">
       <div class="is-size-7 is-uppercase" v-text="$t('navigation.volume')" />
       <control-slider
-        v-model:value="player.volume"
+        v-model:value="playerStore.volume"
         :max="100"
         @change="changeVolume"
       />
@@ -26,7 +26,7 @@ export default {
   components: { ControlSlider },
   setup() {
     return {
-      player: usePlayerStore()
+      playerStore: usePlayerStore()
     }
   },
   data() {
@@ -36,22 +36,25 @@ export default {
   },
   computed: {
     icon() {
-      return this.player.volume > 0 ? 'volume-high' : 'volume-off'
+      if (this.playerStore.isMuted) {
+        return 'volume-off'
+      }
+      return 'volume-high'
     }
   },
   watch: {
-    'player.volume'() {
-      if (this.player.volume > 0) {
-        this.volume = this.player.volume
+    'playerStore.volume'() {
+      if (!this.playerStore.isMuted) {
+        this.volume = this.playerStore.volume
       }
     }
   },
   methods: {
     changeVolume() {
-      player.setVolume(this.player.volume)
+      player.setVolume(this.playerStore.volume)
     },
     toggle() {
-      this.player.volume = this.player.volume > 0 ? 0 : this.volume
+      this.playerStore.volume = this.playerStore.isMuted ? this.volume : 0
       this.changeVolume()
     }
   }

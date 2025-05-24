@@ -26,11 +26,7 @@ export default {
   },
   computed: {
     disabled() {
-      return (
-        this.queueStore?.count <= 0 ||
-        this.playerStore.isStopped ||
-        this.queueStore.current.data_kind === 'pipe'
-      )
+      return this.queueStore.isEmpty || this.playerStore.isStopped
     },
     visible() {
       return ['podcast', 'audiobook'].includes(

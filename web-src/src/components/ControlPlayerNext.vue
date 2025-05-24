@@ -19,7 +19,7 @@ export default {
   },
   computed: {
     disabled() {
-      return this.queueStore.count <= 0
+      return this.queueStore.isEmpty
     }
   },
   methods: {
