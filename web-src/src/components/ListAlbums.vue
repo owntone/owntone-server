@@ -59,13 +59,11 @@ export default {
       const mediaKind = this.mediaKind || this.selectedItem.media_kind
       if (mediaKind === 'podcast') {
         this.$router.push({ name: 'podcast', params: { id: item.id } })
-      } else if (mediaKind === 'audiobook') {
+      } else {
         this.$router.push({
-          name: 'audiobooks-album',
+          name: `${mediaKind}-album`,
           params: { id: item.id }
         })
-      } else {
-        this.$router.push({ name: 'music-album', params: { id: item.id } })
       }
     },
     openDetails(item) {

@@ -33,9 +33,10 @@ export default {
   methods: {
     open(item) {
       this.selectedItem = item
-      const route =
-        item.media_kind === 'audiobook' ? 'audiobooks-artist' : 'music-artist'
-      this.$router.push({ name: route, params: { id: item.id } })
+      this.$router.push({
+        name: `${item.media_kind}-artist`,
+        params: { id: item.id }
+      })
     },
     openDetails(item) {
       this.selectedItem = item

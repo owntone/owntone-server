@@ -60,7 +60,7 @@ export default {
       ]
     },
     buttons() {
-      if (this.mediaKindResolved === 'podcast') {
+      if (this.computedMediaKind === 'podcast') {
         if (this.item.data_kind === 'url') {
           return [
             { handler: this.markAsPlayed, key: 'actions.mark-as-played' },
@@ -74,7 +74,7 @@ export default {
       }
       return []
     },
-    mediaKindResolved() {
+    computedMediaKind() {
       return this.mediaKind || this.item.media_kind
     },
     playable() {
@@ -122,17 +122,10 @@ export default {
     },
     openArtist() {
       this.$emit('close')
-      if (this.mediaKindResolved === 'audiobook') {
-        this.$router.push({
-          name: 'audiobooks-artist',
-          params: { id: this.item.artist_id }
-        })
-      } else {
-        this.$router.push({
-          name: 'music-artist',
-          params: { id: this.item.artist_id }
-        })
-      }
+      this.$router.push({
+        name: `${this.computedMediaKind}-artist`,
+        params: { id: this.item.artist_id }
+      })
     },
     openRemovePodcastDialog() {
       this.showRemovePodcastModal = true

@@ -33,7 +33,7 @@ import library from '@/api/library'
 import queue from '@/api/queue'
 
 export default {
-  name: 'PageAudiobooksArtist',
+  name: 'PageAudiobookArtist',
   components: {
     ContentWithHeading,
     ControlButton,

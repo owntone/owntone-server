@@ -7,11 +7,11 @@ import PageArtist from '@/pages/PageArtist.vue'
 import PageArtistSpotify from '@/pages/PageArtistSpotify.vue'
 import PageArtistTracks from '@/pages/PageArtistTracks.vue'
 import PageArtists from '@/pages/PageArtists.vue'
-import PageAudiobooksAlbum from '@/pages/PageAudiobooksAlbum.vue'
-import PageAudiobooksAlbums from '@/pages/PageAudiobooksAlbums.vue'
-import PageAudiobooksArtist from '@/pages/PageAudiobooksArtist.vue'
-import PageAudiobooksArtists from '@/pages/PageAudiobooksArtists.vue'
-import PageAudiobooksGenres from '@/pages/PageAudiobooksGenres.vue'
+import PageAudiobookAlbum from '@/pages/PageAudiobookAlbum.vue'
+import PageAudiobookAlbums from '@/pages/PageAudiobookAlbums.vue'
+import PageAudiobookArtist from '@/pages/PageAudiobookArtist.vue'
+import PageAudiobookArtists from '@/pages/PageAudiobookArtists.vue'
+import PageAudiobookGenres from '@/pages/PageAudiobookGenres.vue'
 import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
@@ -79,34 +79,34 @@ export const router = createRouter({
       path: '/music/artists/:id/tracks'
     },
     {
-      component: PageAudiobooksAlbum,
-      name: 'audiobooks-album',
-      path: '/audiobooks/albums/:id'
+      component: PageAudiobookAlbum,
+      name: 'audiobook-album',
+      path: '/audiobook/albums/:id'
     },
     {
-      component: PageAudiobooksAlbums,
-      name: 'audiobooks-albums',
-      path: '/audiobooks/albums'
+      component: PageAudiobookAlbums,
+      name: 'audiobook-albums',
+      path: '/audiobook/albums'
     },
     {
-      component: PageAudiobooksArtist,
-      name: 'audiobooks-artist',
-      path: '/audiobooks/artists/:id'
+      component: PageAudiobookArtist,
+      name: 'audiobook-artist',
+      path: '/audiobook/artists/:id'
     },
     {
-      component: PageAudiobooksArtists,
-      name: 'audiobooks-artists',
-      path: '/audiobooks/artists'
+      component: PageAudiobookArtists,
+      name: 'audiobook-artists',
+      path: '/audiobook/artists'
     },
     {
-      component: PageAudiobooksGenres,
-      name: 'audiobooks-genres',
-      path: '/audiobooks/genres'
+      component: PageAudiobookGenres,
+      name: 'audiobook-genres',
+      path: '/audiobook/genres'
     },
     {
       name: 'audiobooks',
       path: '/audiobooks',
-      redirect: { name: 'audiobooks-artists' }
+      redirect: { name: 'audiobook-artists' }
     },
     {
       name: 'music',

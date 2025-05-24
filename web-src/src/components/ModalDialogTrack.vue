@@ -20,10 +20,10 @@ export default {
     buttons() {
       if (this.item.media_kind !== 'podcast') {
         return []
+      } else if (this.item.play_count > 0) {
+        return [{ handler: this.markAsNew, key: 'actions.mark-as-new' }]
       }
-      return this.item.play_count > 0
-        ? [{ handler: this.markAsNew, key: 'actions.mark-as-new' }]
-        : [{ handler: this.markAsPlayed, key: 'actions.mark-as-played' }]
+      return [{ handler: this.markAsPlayed, key: 'actions.mark-as-played' }]
     },
     playable() {
       return {
@@ -114,7 +114,7 @@ export default {
         })
       } else if (this.item.media_kind === 'audiobook') {
         this.$router.push({
-          name: 'audiobooks-album',
+          name: 'audiobook-album',
           params: { id: this.item.album_id }
         })
       } else if (this.item.media_kind === 'music') {
@@ -136,7 +136,7 @@ export default {
         })
       } else if (this.item.media_kind === 'audiobook') {
         this.$router.push({
-          name: 'audiobooks-artist',
+          name: 'audiobook-artist',
           params: { id: this.item.album_artist_id }
         })
       }

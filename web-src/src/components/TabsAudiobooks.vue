@@ -14,17 +14,17 @@ export default {
         {
           icon: 'account-music',
           key: 'page.audiobooks.tabs.authors',
-          to: { name: 'audiobooks-artists' }
+          to: { name: 'audiobook-artists' }
         },
         {
           icon: 'album',
           key: 'page.audiobooks.tabs.audiobooks',
-          to: { name: 'audiobooks-albums' }
+          to: { name: 'audiobook-albums' }
         },
         {
           icon: 'speaker',
           key: 'page.audiobooks.tabs.genres',
-          to: { name: 'audiobooks-genres' }
+          to: { name: 'audiobook-genres' }
         }
       ]
     }

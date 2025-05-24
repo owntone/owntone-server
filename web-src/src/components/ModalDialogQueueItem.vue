@@ -115,14 +115,9 @@ export default {
           name: 'podcast',
           params: { id: this.item.album_id }
         })
-      } else if (this.item.media_kind === 'audiobook') {
+      } else {
         this.$router.push({
-          name: 'audiobooks-album',
-          params: { id: this.item.album_id }
-        })
-      } else if (this.item.media_kind === 'music') {
-        this.$router.push({
-          name: 'music-album',
+          name: `${this.item.media_kind}-album`,
           params: { id: this.item.album_id }
         })
       }
@@ -144,7 +139,7 @@ export default {
         })
       } else if (this.item.media_kind === 'audiobook') {
         this.$router.push({
-          name: 'audiobooks-artist',
+          name: 'audiobook-artist',
           params: { id: this.item.album_artist_id }
         })
       }

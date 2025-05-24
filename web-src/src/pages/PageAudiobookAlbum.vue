@@ -34,7 +34,7 @@ import library from '@/api/library'
 import queue from '@/api/queue'
 
 export default {
-  name: 'PageAudiobooksAlbum',
+  name: 'PageAudiobookAlbum',
   components: {
     ContentWithHero,
     ControlImage,
@@ -78,7 +78,7 @@ export default {
     openArtist() {
       this.showDetailsModal = false
       this.$router.push({
-        name: 'audiobooks-artist',
+        name: 'audiobook-artist',
         params: { id: this.album.artist_id }
       })
     },

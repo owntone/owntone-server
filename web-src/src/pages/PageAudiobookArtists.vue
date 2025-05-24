@@ -23,7 +23,7 @@ import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import library from '@/api/library'
 
 export default {
-  name: 'PageAudiobooksArtists',
+  name: 'PageAudiobookArtists',
   components: {
     ContentWithHeading,
     ListIndexButtons,
