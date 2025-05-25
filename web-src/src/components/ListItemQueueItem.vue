@@ -54,9 +54,9 @@ export default {
   props: {
     currentPosition: { required: true, type: Number },
     editing: Boolean,
+    hideReadItems: Boolean,
     item: { required: true, type: Object },
-    position: { required: true, type: Number },
-    hideReadItems: Boolean
+    position: { required: true, type: Number }
   },
   setup() {
     return { playerStore: usePlayerStore() }

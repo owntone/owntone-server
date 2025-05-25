@@ -15,7 +15,6 @@ export default [
     rules: {
       camelcase: 'off',
       'id-length': 'off',
-      'max-lines': 'off',
       'max-lines-per-function': 'off',
       'max-statements': 'off',
       'no-bitwise': 'off',

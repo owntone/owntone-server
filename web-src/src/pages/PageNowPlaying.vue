@@ -69,8 +69,8 @@ export default {
   components: {
     ControlImage,
     ControlSlider,
-    PaneLyrics,
-    ModalDialogQueueItem
+    ModalDialogQueueItem,
+    PaneLyrics
   },
   setup() {
     return {

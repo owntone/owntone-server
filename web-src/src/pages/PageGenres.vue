@@ -26,8 +26,8 @@ export default {
   name: 'PageGenres',
   components: {
     ContentWithHeading,
-    ListIndexButtons,
     ListGenres,
+    ListIndexButtons,
     PaneTitle,
     TabsMusic
   },

@@ -80,19 +80,19 @@ export default {
     }
   },
   methods: {
+    openDetails() {
+      this.showDetailsModal = true
+    },
     play() {
       queue.playUri(this.album.uri, false)
+    },
+    podcastDeleted() {
+      this.$router.push({ name: 'podcasts' })
     },
     reloadTracks() {
       library.podcastEpisodes(this.album.id).then((tracks) => {
         this.tracks = new GroupedList(tracks)
       })
-    },
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    podcastDeleted() {
-      this.$router.push({ name: 'podcasts' })
     }
   }
 }

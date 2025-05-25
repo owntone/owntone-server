@@ -23,6 +23,8 @@ export const useServicesStore = defineStore('ServicesStore', {
     }
   },
   getters: {
+    grantedSpotifyScopes: (state) =>
+      state.spotify.webapi_granted_scope?.split(' ') ?? [],
     hasMissingSpotifyScopes: (state) => state.missingSpotifyScopes.length > 0,
     isAuthorizationRequired: (state) =>
       !state.isSpotifyActive || state.hasMissingSpotifyScopes,
@@ -30,8 +32,6 @@ export const useServicesStore = defineStore('ServicesStore', {
     isLastfmEnabled: (state) => state.lastfm.enabled,
     isSpotifyActive: (state) => state.spotify.webapi_token_valid,
     isSpotifyEnabled: (state) => state.spotify.spotify_installed,
-    grantedSpotifyScopes: (state) =>
-      state.spotify.webapi_granted_scope?.split(' ') ?? [],
     missingSpotifyScopes(state) {
       const scopes = new Set(state.grantedSpotifyScopes)
       return (

@@ -26,8 +26,8 @@ export default {
   name: 'PageAudiobooksGenres',
   components: {
     ContentWithHeading,
-    ListIndexButtons,
     ListGenres,
+    ListIndexButtons,
     PaneTitle,
     TabsAudiobooks
   },

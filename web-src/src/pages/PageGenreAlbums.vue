@@ -42,8 +42,8 @@ export default {
   components: {
     ContentWithHeading,
     ControlButton,
-    ListIndexButtons,
     ListAlbums,
+    ListIndexButtons,
     ModalDialogGenre,
     PaneTitle
   },

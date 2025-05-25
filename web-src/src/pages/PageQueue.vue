@@ -131,9 +131,9 @@ export default {
     return {
       editing: false,
       selectedItem: {},
+      showAddStreamDialog: false,
       showDetailsModal: false,
-      showSaveModal: false,
-      showAddStreamDialog: false
+      showSaveModal: false
     }
   },
   computed: {

@@ -10,12 +10,12 @@ export const useUIStore = defineStore('UIStore', {
       this.showPlayerMenu = false
       this.showBurgerMenu = !this.showBurgerMenu
     },
+    toggleHideReadItems() {
+      this.hideReadItems = !this.hideReadItems
+    },
     togglePlayerMenu() {
       this.showBurgerMenu = false
       this.showPlayerMenu = !this.showPlayerMenu
-    },
-    toggleHideReadItems() {
-      this.hideReadItems = !this.hideReadItems
     }
   },
   state: () => ({

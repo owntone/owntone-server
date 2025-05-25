@@ -72,8 +72,8 @@ export default {
   },
   data() {
     return {
-      results: new Map(),
       limit: {},
+      results: new Map(),
       types: SEARCH_TYPES
     }
   },

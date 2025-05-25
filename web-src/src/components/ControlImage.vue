@@ -23,12 +23,12 @@ export default {
   computed: {
     source() {
       return {
-        src: this.url || this.uri,
         lifecycle: {
           error: (el) => {
             el.src = this.uri
           }
-        }
+        },
+        src: this.url || this.uri
       }
     },
     uri() {

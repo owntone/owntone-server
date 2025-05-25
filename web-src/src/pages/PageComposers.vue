@@ -26,8 +26,8 @@ export default {
   name: 'PageComposers',
   components: {
     ContentWithHeading,
-    ListIndexButtons,
     ListComposers,
+    ListIndexButtons,
     PaneTitle,
     TabsMusic
   },

@@ -62,8 +62,8 @@ export default {
     ContentWithHeading,
     ControlDropdown,
     ControlSwitch,
-    ListIndexButtons,
     ListArtists,
+    ListIndexButtons,
     ListOptions,
     PaneTitle,
     TabsMusic

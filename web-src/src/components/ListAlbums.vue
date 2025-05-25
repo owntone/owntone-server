@@ -50,7 +50,7 @@ export default {
   methods: {
     image(item) {
       if (this.settingsStore.showCoverArtworkInAlbumLists) {
-        return { url: item.item.artwork_url, caption: item.item.name }
+        return { caption: item.item.name, url: item.item.artwork_url }
       }
       return null
     },

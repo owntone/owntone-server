@@ -79,17 +79,17 @@ export default {
   },
   created() {
     this.handlers = {
-      update: [this.libraryStore.initialise],
       database: [this.libraryStore.initialise],
-      player: [this.playerStore.initialise],
+      lastfm: [this.servicesStore.initialiseLastfm],
       options: [this.playerStore.initialise],
-      volume: [this.playerStore.initialise, this.outputsStore.initialise],
       outputs: [this.outputsStore.initialise],
+      pairing: [this.remotesStore.initialise],
+      player: [this.playerStore.initialise],
       queue: [this.queueStore.initialise],
       settings: [this.settingsStore.initialise],
       spotify: [this.servicesStore.initialiseSpotify],
-      lastfm: [this.servicesStore.initialiseLastfm],
-      pairing: [this.remotesStore.initialise]
+      update: [this.libraryStore.initialise],
+      volume: [this.playerStore.initialise, this.outputsStore.initialise]
     }
     this.connect()
     this.$router.beforeEach((to, from, next) => {
@@ -129,6 +129,34 @@ export default {
           })
         })
     },
+    createWebsocket() {
+      const protocol = window.location.protocol.replace('http', 'ws')
+      const hostname =
+        (import.meta.env.DEV &&
+          URL.parse(import.meta.env.VITE_OWNTONE_URL)?.hostname) ||
+        window.location.hostname
+      const suffix =
+        this.configurationStore.websocket_port || `${window.location.port}/ws`
+      const url = `${protocol}${hostname}:${suffix}`
+      return new ReconnectingWebSocket(url, 'notify', {
+        maxReconnectInterval: 2000,
+        reconnectInterval: 1000
+      })
+    },
+    handleEvents(events = []) {
+      events.forEach((event) => {
+        const handlers = this.handlers[event] || []
+        handlers.forEach((handler) => {
+          if (!this.scheduledHandlers.has(handler)) {
+            const timeoutId = setTimeout(() => {
+              handler.call(this)
+              this.scheduledHandlers.delete(handler)
+            }, 50)
+            this.scheduledHandlers.set(handler, timeoutId)
+          }
+        })
+      })
+    },
     openWebsocket() {
       const socket = this.createWebsocket()
       const events = [
@@ -160,34 +188,6 @@ export default {
         const notifiedEvents = JSON.parse(response.data).notify
         this.handleEvents(notifiedEvents)
       }
-    },
-    createWebsocket() {
-      const protocol = window.location.protocol.replace('http', 'ws')
-      const hostname =
-        (import.meta.env.DEV &&
-          URL.parse(import.meta.env.VITE_OWNTONE_URL)?.hostname) ||
-        window.location.hostname
-      const suffix =
-        this.configurationStore.websocket_port || `${window.location.port}/ws`
-      const url = `${protocol}${hostname}:${suffix}`
-      return new ReconnectingWebSocket(url, 'notify', {
-        maxReconnectInterval: 2000,
-        reconnectInterval: 1000
-      })
-    },
-    handleEvents(events = []) {
-      events.forEach((event) => {
-        const handlers = this.handlers[event] || []
-        handlers.forEach((handler) => {
-          if (!this.scheduledHandlers.has(handler)) {
-            const timeoutId = setTimeout(() => {
-              handler.call(this)
-              this.scheduledHandlers.delete(handler)
-            }, 50)
-            this.scheduledHandlers.set(handler, timeoutId)
-          }
-        })
-      })
     },
     updateClipping() {
       if (this.uiStore.showBurgerMenu || this.uiStore.showPlayerMenu) {

@@ -30,8 +30,8 @@ export default {
     const MIDDLE_POSITION = Math.floor(VISIBLE_VERSES / 2)
     return {
       MIDDLE_POSITION,
-      playerStore: usePlayerStore(),
-      VISIBLE_VERSES
+      VISIBLE_VERSES,
+      playerStore: usePlayerStore()
     }
   },
   data() {
@@ -139,7 +139,7 @@ export default {
           const start = currentTime
           const end = start + totalDuration * (text.length / totalLength)
           currentTime = end
-          return { text, start, end }
+          return { end, start, text }
         })
       })
       return lyrics

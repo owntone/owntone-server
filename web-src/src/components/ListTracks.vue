@@ -29,8 +29,8 @@ export default {
   components: { ListItem, ModalDialogTrack },
   props: {
     expression: { default: '', type: String },
-    items: { default: null, type: Object },
     icon: { default: null, type: String },
+    items: { default: null, type: Object },
     load: { default: null, type: Function },
     loaded: { default: true, type: Boolean },
     showProgress: { default: false, type: Boolean },

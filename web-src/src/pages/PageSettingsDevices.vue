@@ -103,18 +103,18 @@ export default {
     }
   },
   methods: {
-    pairRemote() {
-      remotes.pair(this.remotePin)
-    },
-    pairOutput(identifier) {
-      outputs.update(identifier, { pin: this.outputPin })
+    onOutputPinChange(pin) {
+      this.outputPin = pin
     },
     onRemotePinChange(pin, disabled) {
       this.remotePin = pin
       this.remotePairingDisabled = disabled
     },
-    onOutputPinChange(pin) {
-      this.outputPin = pin
+    pairOutput(identifier) {
+      outputs.update(identifier, { pin: this.outputPin })
+    },
+    pairRemote() {
+      remotes.pair(this.remotePin)
     },
     toggleOutput(identifier) {
       outputs.toggle(identifier)

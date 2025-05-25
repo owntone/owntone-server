@@ -26,8 +26,8 @@ export default {
   name: 'PageAudiobookArtists',
   components: {
     ContentWithHeading,
-    ListIndexButtons,
     ListArtists,
+    ListIndexButtons,
     PaneTitle,
     TabsAudiobooks
   },

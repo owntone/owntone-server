@@ -127,6 +127,9 @@ export default {
     }
   },
   methods: {
+    openDetails() {
+      this.showDetailsModal = true
+    },
     openGenre() {
       this.showDetailsModal = false
       this.$router.push({
@@ -137,9 +140,6 @@ export default {
     },
     play() {
       queue.playExpression(this.expression, true)
-    },
-    openDetails() {
-      this.showDetailsModal = true
     }
   }
 }

@@ -69,14 +69,14 @@ export default {
   computed: {
     heading() {
       return {
-        count: this.$t('data.tracks', { count: this.album.tracks.total }),
-        handler: this.openArtist,
-        subtitle: this.album.artists[0].name,
-        title: this.album.name,
         actions: [
           { handler: this.play, icon: 'shuffle', key: 'actions.shuffle' },
           { handler: this.openDetails, icon: 'dots-horizontal' }
-        ]
+        ],
+        count: this.$t('data.tracks', { count: this.album.tracks.total }),
+        handler: this.openArtist,
+        subtitle: this.album.artists[0].name,
+        title: this.album.name
       }
     },
     tracks() {

@@ -50,12 +50,12 @@ export default {
     }
   },
   methods: {
-    play() {
+    addNextToQueue() {
       this.$emit('close')
       if (this.item.expression) {
-        queue.playExpression(this.item.expression, false)
+        queue.addExpression(this.item.expression, true)
       } else {
-        queue.playUri(this.item.uris || this.item.uri, false)
+        queue.addUri(this.item.uris || this.item.uri, true)
       }
     },
     addToQueue() {
@@ -66,12 +66,12 @@ export default {
         queue.addUri(this.item.uris || this.item.uri)
       }
     },
-    addNextToQueue() {
+    play() {
       this.$emit('close')
       if (this.item.expression) {
-        queue.addExpression(this.item.expression, true)
+        queue.playExpression(this.item.expression, false)
       } else {
-        queue.addUri(this.item.uris || this.item.uri, true)
+        queue.playUri(this.item.uris || this.item.uri, false)
       }
     }
   }

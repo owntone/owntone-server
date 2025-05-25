@@ -44,7 +44,7 @@ export default {
   methods: {
     image(item) {
       if (this.settingsStore.showCoverArtworkInAlbumLists) {
-        return { url: item.images?.[0]?.url ?? '', caption: item.name }
+        return { caption: item.name, url: item.images?.[0]?.url ?? '' }
       }
       return null
     },
