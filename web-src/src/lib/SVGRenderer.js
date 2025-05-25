@@ -14,14 +14,18 @@ const luminance = (color) =>
   ) / 255
 
 export const renderSVG = (data) => {
-  const color = toColor(data.alternate),
-    svg = `<svg xmlns="http://www.w3.org/2000/svg"
+  const background = toColor(data.alternate)
+  let text = '#FFFFFF'
+  if (luminance(background) > 0.5) {
+    text = '#000000'
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"
     width="${data.size}" height="${data.size}"
     viewBox="0 0 ${data.size} ${data.size}">
-    <rect width="100%" height="100%" fill="#${color}"/>
+    <rect width="100%" height="100%" fill="#${background}"/>
     <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
       font-weight="${data.font.weight}" font-family="${data.font.family}"
-      font-size="${data.size / 3}" fill="${luminance(color) > 0.5 ? '#000000' : '#FFFFFF'}">
+      font-size="${data.size / 3}" fill="${text}">
       ${data.caption}
     </text>
   </svg>`

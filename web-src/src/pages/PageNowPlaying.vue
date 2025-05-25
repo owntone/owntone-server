@@ -126,7 +126,7 @@ export default {
       }
     },
     trackProgressMax() {
-      return this.isLive ? 1 : Math.floor(this.track.length_ms / INTERVAL)
+      return Number(this.isLive) || Math.floor(this.track.length_ms / INTERVAL)
     },
     trackTotalTime() {
       return this.$t('page.now-playing.time', this.track.length_ms, {

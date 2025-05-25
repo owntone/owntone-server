@@ -127,10 +127,10 @@ export default {
     },
     searchItems(type) {
       const music = type !== 'audiobook' && type !== 'podcast'
-      const kind = music ? 'music' : type
+      const kind = (music && 'music') || type
       const parameters = {
         limit: this.limit,
-        type: music ? type : 'album'
+        type: (music && type) || 'album'
       }
       if (this.searchStore.query.startsWith('query:')) {
         parameters.expression = `(${this.searchStore.query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`

@@ -20,8 +20,6 @@ export default [
       'max-statements': 'off',
       'no-bitwise': 'off',
       'no-magic-numbers': 'off',
-      'no-nested-ternary': 'off',
-      'no-ternary': 'off',
       'no-undef': 'off',
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
       'one-var': 'off',

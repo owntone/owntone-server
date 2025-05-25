@@ -21,9 +21,10 @@ export default {
   },
   computed: {
     icon() {
-      return this.playerStore.showLyrics
-        ? 'script-text-play'
-        : 'script-text-outline'
+      if (this.playerStore.showLyrics) {
+        return 'script-text-play'
+      }
+      return 'script-text-outline'
     }
   },
   methods: {

@@ -25,14 +25,10 @@ export default {
   name: 'ControlVolume',
   components: { ControlSlider },
   setup() {
-    return {
-      playerStore: usePlayerStore()
-    }
+    return { playerStore: usePlayerStore() }
   },
   data() {
-    return {
-      volume: 0
-    }
+    return { volume: 0 }
   },
   computed: {
     icon() {
@@ -54,7 +50,11 @@ export default {
       player.setVolume(this.playerStore.volume)
     },
     toggle() {
-      this.playerStore.volume = this.playerStore.isMuted ? this.volume : 0
+      if (this.playerStore.isMuted) {
+        this.playerStore.volume = this.volume
+      } else {
+        this.playerStore.volume = 0
+      }
       this.changeVolume()
     }
   }

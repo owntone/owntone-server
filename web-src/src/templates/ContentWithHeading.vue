@@ -55,7 +55,10 @@ export default {
   },
   computed: {
     icon() {
-      return this.hidden ? 'chevron-down' : 'chevron-up'
+      if (this.hidden) {
+        return 'chevron-down'
+      }
+      return 'chevron-up'
     }
   }
 }

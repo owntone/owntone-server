@@ -36,13 +36,9 @@ export default {
     ControlSlider
   },
   props: { output: { required: true, type: Object } },
-
   data() {
-    return {
-      volume: this.output.selected ? this.output.volume : 0
-    }
+    return { volume: this.output.volume }
   },
-
   computed: {
     icon() {
       if (this.output.type.startsWith('AirPlay')) {
@@ -55,13 +51,11 @@ export default {
       return 'server'
     }
   },
-
   watch: {
     output() {
       this.volume = this.output.volume
     }
   },
-
   methods: {
     changeVolume() {
       player.setVolume(this.volume, this.output.id)
