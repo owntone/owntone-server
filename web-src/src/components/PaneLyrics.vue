@@ -1,23 +1,22 @@
 <template>
   <div
-    class="lyrics is-overlay"
-    @wheel.prevent="onScroll"
-    @touchmove.prevent="onScroll"
+    class="is-overlay"
+    :class="{
+      'is-synchronised': lyrics.synchronised,
+      'is-unsynchronised': !lyrics.synchronised
+    }"
   >
-    <div v-for="(verse, index) in visibleVerses" :key="index">
-      <div v-if="verse">
-        <div v-if="index === MIDDLE_POSITION" class="title is-5 my-5 lh-2">
-          <span
-            v-for="(word, wordIndex) in verse.words"
-            :key="wordIndex"
-            :class="{ 'is-highlighted': isWordHighlighted(word) }"
-            v-text="word.text"
-          />
-        </div>
-        <div v-else class="lh-2" v-text="verse.text" />
+    <template v-for="(verse, index) in visibleVerses" :key="index">
+      <div v-if="isVerseHighlighted(index)" class="title is-5 my-5">
+        <span
+          v-for="(word, wordIndex) in verse.words"
+          :key="wordIndex"
+          :class="{ 'is-highlighted': isWordHighlighted(word) }"
+          v-text="word.text"
+        />
       </div>
-      <div v-else v-text="'\u00A0'" />
-    </div>
+      <div v-else class="verse" v-text="verse.text" />
+    </template>
   </div>
 </template>
 
@@ -29,11 +28,9 @@ export default {
   setup() {
     const VISIBLE_VERSES = 7
     const MIDDLE_POSITION = Math.floor(VISIBLE_VERSES / 2)
-    const SCROLL_THRESHOLD = 10
     return {
       MIDDLE_POSITION,
       playerStore: usePlayerStore(),
-      SCROLL_THRESHOLD,
       VISIBLE_VERSES
     }
   },
@@ -41,8 +38,6 @@ export default {
     return {
       lastUpdateTime: 0,
       lyrics: { synchronised: false, verses: [] },
-      scrollIndex: 0,
-      scrollDelta: 0,
       time: 0,
       timerId: null
     }
@@ -69,10 +64,15 @@ export default {
     },
     visibleVerses() {
       const { verses, synchronised } = this.lyrics
-      const index = synchronised ? this.verseIndex : this.scrollIndex
+      let start = 0
+      let { length } = verses
+      if (synchronised) {
+        start = this.verseIndex - this.MIDDLE_POSITION
+        length = this.VISIBLE_VERSES
+      }
       return Array.from(
-        { length: this.VISIBLE_VERSES },
-        (_, i) => verses[index - this.MIDDLE_POSITION + i] ?? null
+        { length },
+        (_, i) => verses[start + i] ?? { text: '\u00A0' }
       )
     }
   },
@@ -105,18 +105,8 @@ export default {
     this.stopTimer()
   },
   methods: {
-    onScroll(event) {
-      if (this.verseIndex >= 0) {
-        return
-      }
-      this.scrollDelta += event.deltaY
-      if (Math.abs(this.scrollDelta) >= this.SCROLL_THRESHOLD) {
-        const newIndex = this.scrollIndex + Math.sign(this.scrollDelta)
-        if (newIndex >= -1 && newIndex < this.lyrics.verses.length) {
-          this.scrollIndex = newIndex
-        }
-        this.scrollDelta = 0
-      }
+    isVerseHighlighted(index) {
+      return index === this.MIDDLE_POSITION && this.lyrics.synchronised
     },
     isWordHighlighted(word) {
       return this.time >= word.start && this.time < word.end
@@ -182,14 +172,12 @@ export default {
 }
 </script>
 
-<style scoped>
-.lyrics {
-  position: absolute;
-  inset: 0;
+<style lang="scss" scoped>
+.overlay {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  inset: 0;
+  position: absolute;
   --mask: linear-gradient(
     180deg,
     transparent 0%,
@@ -200,8 +188,22 @@ export default {
   -webkit-mask: var(--mask);
   mask: var(--mask);
 }
-.lyrics div.lh-2 {
-  line-height: 2rem;
+.is-synchronised {
+  @extend .overlay;
+  justify-content: center;
+}
+.is-unsynchronised {
+  @extend .overlay;
+  overflow-y: scroll;
+}
+.verse {
+  line-height: 2.5rem;
+  &:first-child {
+    margin-top: calc(50% - 1.25rem);
+  }
+  &:last-child {
+    margin-bottom: calc(50% - 1.25rem);
+  }
 }
 .is-highlighted {
   color: var(--bulma-success);
