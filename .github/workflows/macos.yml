@@ -25,7 +25,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install build tools
-      run: brew install automake autoconf libtool pkg-config
+      run: brew install automake autoconf libtool pkg-config gettext
 
     - name: Install gperf, bison and flex
       # macOS has ancient versions of bison and flex, so we need a newer from
@@ -58,6 +58,7 @@ jobs:
       # We configure a non-privileged setup, since how to add a "owntone" system
       # user in macOS isn't clear to me (useradd etc. isn't available)
       run: |
+        export ACLOCAL_PATH="$(brew --prefix)/share/gettext/m4:$ACLOCAL_PATH"
         export CFLAGS="-I$(brew --prefix)/include -I$(brew --prefix sqlite)/include"
         export LDFLAGS="-L$(brew --prefix)/lib -L$(brew --prefix sqlite)/lib"
         autoreconf -fi

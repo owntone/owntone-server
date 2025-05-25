@@ -1,4 +1,3 @@
-#define _GNU_SOURCE // For asprintf and vasprintf
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

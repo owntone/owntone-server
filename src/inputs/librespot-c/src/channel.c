@@ -123,10 +123,10 @@ channel_new(struct sp_channel **new_channel, struct sp_session *session, const c
   if (ret < 0)
     goto error;
 
-  if (fcntl(channel->audio_fd[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0)
+  if (fcntl(channel->audio_fd[0], F_SETFL, FD_CLOEXEC | O_NONBLOCK) < 0)
     goto error;
 
-  if (fcntl(channel->audio_fd[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0)
+  if (fcntl(channel->audio_fd[1], F_SETFL, FD_CLOEXEC | O_NONBLOCK) < 0)
     goto error;
 
   channel->audio_write_ev = event_new(evbase, channel->audio_fd[1], EV_WRITE, write_cb, session);
