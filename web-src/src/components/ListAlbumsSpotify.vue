@@ -13,7 +13,7 @@
     @open="open(item)"
     @open-details="openDetails(item)"
   />
-  <loader-list-item :load="load" :loaded="loaded" />
+  <loader-list-item :load="load" />
   <modal-dialog-album-spotify
     :item="selectedItem"
     :show="showDetailsModal"
@@ -32,8 +32,7 @@ export default {
   components: { ListItem, LoaderListItem, ModalDialogAlbumSpotify },
   props: {
     items: { required: true, type: Object },
-    load: { default: null, type: Function },
-    loaded: { default: true, type: Boolean }
+    load: { default: null, type: Function }
   },
   setup() {
     return { settingsStore: useSettingsStore() }

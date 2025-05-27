@@ -1,5 +1,5 @@
 <template>
-  <vue-eternal-loading v-if="load && !loaded" :load="load">
+  <vue-eternal-loading v-if="load" :load="load">
     <template #loading>
       <div class="columns is-centered">
         <div class="column has-text-centered">
@@ -23,8 +23,7 @@ export default {
   name: 'LoaderListItem',
   components: { VueEternalLoading },
   props: {
-    load: { default: null, type: Function },
-    loaded: { default: true, type: Boolean }
+    load: { default: null, type: Function }
   }
 }
 </script>

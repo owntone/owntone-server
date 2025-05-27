@@ -34,7 +34,6 @@ export default {
   props: {
     items: { required: true, type: Object },
     load: { default: null, type: Function },
-    loaded: { default: true, type: Boolean },
     mediaKind: { default: '', type: String }
   },
   emits: ['play-count-changed', 'podcast-deleted'],

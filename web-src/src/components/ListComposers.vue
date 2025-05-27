@@ -24,8 +24,7 @@ export default {
   components: { ListItem, ModalDialogComposer },
   props: {
     items: { required: true, type: Object },
-    load: { default: null, type: Function },
-    loaded: { default: true, type: Boolean }
+    load: { default: null, type: Function }
   },
   data() {
     return { selectedItem: {}, showDetailsModal: false }

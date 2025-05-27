@@ -4,6 +4,7 @@
     :expanded="expanded"
     :get-items="getItems"
     :history="history"
+    :load="(expanded && searchNext) || null"
     :results="results"
     @search="search"
     @search-library="searchLibrary"
@@ -23,9 +24,9 @@ import SpotifyWebApi from 'spotify-web-api-js'
 import services from '@/api/services'
 import { useSearchStore } from '@/stores/search'
 
-const PAGE_SIZE = 3,
-  PAGE_SIZE_EXPANDED = 50,
-  SEARCH_TYPES = ['track', 'artist', 'album', 'playlist']
+const PAGE_SIZE = 3
+const PAGE_SIZE_EXPANDED = 50
+const SEARCH_TYPES = ['track', 'artist', 'album', 'playlist']
 
 export default {
   name: 'PageSearchSpotify',
@@ -43,8 +44,8 @@ export default {
   },
   data() {
     return {
-      results: new Map(),
       parameters: {},
+      results: new Map(),
       types: SEARCH_TYPES
     }
   },
@@ -59,25 +60,17 @@ export default {
     }
   },
   mounted() {
-    this.searchStore.source = this.$route.name
-    this.parameters.limit = PAGE_SIZE
     this.search()
   },
   methods: {
     expand(type) {
-      this.types = [type]
-      this.parameters.limit = PAGE_SIZE_EXPANDED
-      this.parameters.offset = 0
-      this.search()
+      this.search([type], PAGE_SIZE_EXPANDED)
     },
     getItems(items) {
       return items.items
     },
     openSearch(query) {
       this.searchStore.query = query
-      this.types = SEARCH_TYPES
-      this.parameters.limit = PAGE_SIZE
-      this.parameters.offset = 0
       this.search()
     },
     reset() {
@@ -86,12 +79,11 @@ export default {
         this.results.set(type, { items: [], total: 0 })
       })
     },
-    search(event) {
+    search(types = SEARCH_TYPES, limit = PAGE_SIZE, offset = 0) {
       if (this.searchStore.query) {
-        if (event) {
-          this.types = SEARCH_TYPES
-          this.parameters.limit = PAGE_SIZE
-        }
+        this.types = types
+        this.parameters.limit = limit
+        this.parameters.offset = offset
         this.searchStore.query = this.searchStore.query.trim()
         this.reset()
         this.searchItems().then((data) => {
@@ -123,9 +115,8 @@ export default {
       this.searchItems().then((data) => {
         const [next] = Object.values(data)
         items.items.push(...next.items)
-        items.total = next.total
-        this.parameters.offset = (this.parameters.offset || 0) + next.limit
-        loaded(next.items.length, PAGE_SIZE_EXPANDED)
+        this.parameters.offset += next.items.length
+        loaded(Number(next.next && next.limit), PAGE_SIZE_EXPANDED)
       })
     }
   }

@@ -19,7 +19,7 @@
       />)
     </template>
   </list-item>
-  <loader-list-item :load="load" :loaded="loaded" />
+  <loader-list-item :load="load" />
   <modal-dialog-track-spotify
     :item="selectedItem"
     :show="showDetailsModal"
@@ -39,8 +39,7 @@ export default {
   props: {
     contextUri: { default: '', type: String },
     items: { required: true, type: Object },
-    load: { default: null, type: Function },
-    loaded: { default: true, type: Boolean }
+    load: { default: null, type: Function }
   },
   data() {
     return { selectedItem: {}, showDetailsModal: false }

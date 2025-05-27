@@ -44,16 +44,16 @@ import ListTracks from '@/components/ListTracks.vue'
 import library from '@/api/library'
 import { useSearchStore } from '@/stores/search'
 
-const PAGE_SIZE = 3,
-  SEARCH_TYPES = [
-    'track',
-    'artist',
-    'album',
-    'composer',
-    'playlist',
-    'audiobook',
-    'podcast'
-  ]
+const PAGE_SIZE = 3
+const SEARCH_TYPES = [
+  'track',
+  'artist',
+  'album',
+  'composer',
+  'playlist',
+  'audiobook',
+  'podcast'
+]
 
 export default {
   name: 'PageSearchLibrary',
@@ -72,7 +72,7 @@ export default {
   },
   data() {
     return {
-      limit: {},
+      limit: PAGE_SIZE,
       results: new Map(),
       types: SEARCH_TYPES
     }
@@ -86,23 +86,17 @@ export default {
     }
   },
   mounted() {
-    this.searchStore.source = this.$route.name
-    this.limit = PAGE_SIZE
     this.search()
   },
   methods: {
     expand(type) {
-      this.types = [type]
-      this.limit = -1
-      this.search()
+      this.search([type], -1)
     },
     getItems(items) {
       return items
     },
     openSearch(query) {
       this.searchStore.query = query
-      this.types = SEARCH_TYPES
-      this.limit = PAGE_SIZE
       this.search()
     },
     reset() {
@@ -111,12 +105,10 @@ export default {
         this.results.set(type, new GroupedList())
       })
     },
-    search(event) {
+    search(types = SEARCH_TYPES, limit = PAGE_SIZE) {
       if (this.searchStore.query) {
-        if (event) {
-          this.types = SEARCH_TYPES
-          this.limit = PAGE_SIZE
-        }
+        this.types = types
+        this.limit = limit
         this.searchStore.query = this.searchStore.query.trim()
         this.reset()
         this.types.forEach((type) => {

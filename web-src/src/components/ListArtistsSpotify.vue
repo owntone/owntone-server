@@ -8,7 +8,7 @@
     @open="open(item)"
     @open-details="openDetails(item)"
   />
-  <loader-list-item :load="load" :loaded="loaded" />
+  <loader-list-item :load="load" />
   <modal-dialog-artist-spotify
     :item="selectedItem"
     :show="showDetailsModal"
@@ -26,8 +26,7 @@ export default {
   components: { ListItem, LoaderListItem, ModalDialogArtistSpotify },
   props: {
     items: { required: true, type: Object },
-    load: { default: null, type: Function },
-    loaded: { default: true, type: Boolean }
+    load: { default: null, type: Function }
   },
   data() {
     return { selectedItem: {}, showDetailsModal: false }

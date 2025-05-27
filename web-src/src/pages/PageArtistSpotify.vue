@@ -12,7 +12,7 @@
       />
     </template>
     <template #content>
-      <list-albums-spotify :items="albums" :load="load" :loaded="loaded" />
+      <list-albums-spotify :items="albums" :load="load" />
     </template>
   </content-with-heading>
   <modal-dialog-artist-spotify
@@ -84,9 +84,6 @@ export default {
         subtitle: [{ count: this.total, key: 'data.albums' }],
         title: this.artist.name
       }
-    },
-    loaded() {
-      return !(this.offset < this.total)
     }
   },
   methods: {

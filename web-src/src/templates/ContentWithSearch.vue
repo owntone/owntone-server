@@ -43,16 +43,11 @@
       <pane-title :content="{ title: $t(`page.search.${type}s`) }" />
     </template>
     <template #content>
-      <component
-        :is="components[type]"
-        :items="getItems(items)"
-        :load="load"
-        :loaded="!expanded"
-      />
+      <component :is="components[type]" :items="getItems(items)" :load="load" />
     </template>
     <template v-if="!expanded" #footer>
       <control-button
-        v-if="showAllButton(items)"
+        v-if="items.total"
         :button="{
           handler: () => $emit('expand', type),
           title: $t(
@@ -62,7 +57,7 @@
           )
         }"
       />
-      <div v-if="!items.total" class="has-text-centered-mobile">
+      <div v-else class="has-text-centered-mobile">
         <i v-text="$t('page.search.no-results')" />
       </div>
     </template>
@@ -97,11 +92,6 @@ export default {
   setup() {
     return {
       searchStore: useSearchStore()
-    }
-  },
-  methods: {
-    showAllButton(items) {
-      return items.total > items.items.length
     }
   }
 }

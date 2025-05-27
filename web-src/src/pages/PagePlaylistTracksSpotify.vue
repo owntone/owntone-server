@@ -21,7 +21,6 @@
         :context-uri="playlist.uri"
         :items="tracks"
         :load="load"
-        :loaded="loaded"
       />
     </template>
   </content-with-heading>
@@ -96,9 +95,6 @@ export default {
         }
       }
       return {}
-    },
-    loaded() {
-      return !(this.offset < this.total)
     }
   },
   methods: {
