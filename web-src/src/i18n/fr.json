@@ -276,7 +276,7 @@
         "genres": "Genres",
         "language": "Langue",
         "music": "Musique",
-        "navigation-item-selection-info": "Si vous sélectionnez plus d’éléments que ce qui peut être affiché sur votre écran, le menu disparaîtra.",
+        "navigation-item-selection-info": "Sur les écrans des appareils mobiles, seul le menu est affiché.",
         "navigation-item-selection": "Sélectionnez les éléments de la barre de navigation supérieure",
         "navigation-items": "Barre de navigation",
         "now-playing-page": "Page « En cours de lecture »",

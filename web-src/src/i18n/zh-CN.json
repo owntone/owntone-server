@@ -276,7 +276,7 @@
         "genres": "流派",
         "language": "语言",
         "music": "音乐",
-        "navigation-item-selection-info": "如果您选择的项目多于屏幕上可以显示的项目，则侧边栏菜单将会消失",
+        "navigation-item-selection-info": "在移动设备屏幕上，只显示汉堡菜单",
         "navigation-item-selection": "选择顶部导航栏菜单项",
         "navigation-items": "导航条",
         "now-playing-page": "“正在播放”页面",

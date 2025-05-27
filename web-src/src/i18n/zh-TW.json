@@ -276,7 +276,7 @@
         "genres": "音樂類型",
         "language": "語言",
         "music": "音樂",
-        "navigation-item-selection-info": "如果您選擇的項目多於屏幕上可以顯示的項目，則側邊欄菜單將會消失",
+        "navigation-item-selection-info": "在行動裝置螢幕上，只會顯示漢堡菜單",
         "navigation-item-selection": "選擇頂部導航欄菜單項",
         "navigation-items": "導航條",
         "now-playing-page": "“正在播放”頁面",

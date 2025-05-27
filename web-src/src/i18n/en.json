@@ -276,7 +276,7 @@
         "genres": "Genres",
         "language": "Language",
         "music": "Music",
-        "navigation-item-selection-info": "If you select more items than can be shown on your screen then the burger menu will disappear.",
+        "navigation-item-selection-info": "On mobile device screens, only the burger menu is displayed.",
         "navigation-item-selection": "Select the top navigation bar menu items",
         "navigation-items": "Navigation Bar",
         "now-playing-page": "Now playing page",
