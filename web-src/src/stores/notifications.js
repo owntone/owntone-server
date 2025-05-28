@@ -33,7 +33,7 @@ export const useNotificationsStore = defineStore('NotificationsStore', {
     }
   },
   getters: {
-    isEmpty: (state) => state.list.length <= 0
+    isEmpty: (state) => state.list.length === 0
   },
   state: () => ({ list: [] })
 })

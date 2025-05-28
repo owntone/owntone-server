@@ -33,7 +33,6 @@ import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
-import configuration from '@/api/configuration'
 import library from '@/api/library'
 import queue from '@/api/queue'
 import { useConfigurationStore } from '@/stores/configuration'
@@ -104,8 +103,8 @@ export default {
           this.tracks = new GroupedList(data.tracks)
         }
       } else {
-        const config = await configuration.list()
-        this.directories = config.directories.map((path) =>
+        await this.configurationStore.initialise()
+        this.directories = this.configurationStore.directories.map((path) =>
           this.transform(path)
         )
         this.playlists = new GroupedList()

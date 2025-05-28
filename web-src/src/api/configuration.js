@@ -1,7 +1,7 @@
 import api from '@/api'
 
 export default {
-  list() {
+  state() {
     return api.get('./api/config')
   }
 }

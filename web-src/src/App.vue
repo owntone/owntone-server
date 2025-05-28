@@ -28,7 +28,6 @@ import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
 import NavbarBottom from '@/components/NavbarBottom.vue'
 import NavbarTop from '@/components/NavbarTop.vue'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
-import configuration from '@/api/configuration'
 import { useConfigurationStore } from '@/stores/configuration'
 import { useLibraryStore } from '@/stores/library'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -92,7 +91,7 @@ export default {
       volume: [this.playerStore.initialise, this.outputsStore.initialise]
     }
     this.connect()
-    this.$router.beforeEach((to, from, next) => {
+    this.$router.beforeEach(async (to, from, next) => {
       this.updateClipping()
       if (!(to.path === from.path && to.hash)) {
         if (to.meta.progress) {
@@ -111,23 +110,20 @@ export default {
     this.scheduledHandlers.clear()
   },
   methods: {
-    connect() {
-      configuration
-        .list()
-        .then((data) => {
-          this.configurationStore.$state = data
-          this.uiStore.hideSingles = data.hide_singles
-          document.title = data.library_name
-          this.openWebsocket()
-          this.$Progress.finish()
+    async connect() {
+      try {
+        await this.configurationStore.initialise()
+        this.uiStore.hideSingles = this.configurationStore.hide_singles
+        document.title = this.configurationStore.library_name
+        this.openWebsocket()
+        this.$Progress.finish()
+      } catch (e) {
+        this.notificationsStore.add({
+          text: this.$t('server.connection-failed'),
+          topic: 'connection',
+          type: 'danger'
         })
-        .catch(() => {
-          this.notificationsStore.add({
-            text: this.$t('server.connection-failed'),
-            topic: 'connection',
-            type: 'danger'
-          })
-        })
+      }
     },
     createWebsocket() {
       const protocol = window.location.protocol.replace('http', 'ws')
