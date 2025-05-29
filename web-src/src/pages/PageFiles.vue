@@ -103,7 +103,6 @@ export default {
           this.tracks = new GroupedList(data.tracks)
         }
       } else {
-        await this.configurationStore.initialise()
         this.directories = this.configurationStore.directories.map((path) =>
           this.transform(path)
         )
