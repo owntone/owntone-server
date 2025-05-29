@@ -121,7 +121,6 @@
     "artists": "艺人",
     "audiobooks": "有声读物",
     "composers": "作曲家",
-    "now-playing": " - {album}",
     "stream-error": "HTTP流错误：流载入失败或者由于网络原因无法载入",
     "stream": "HTTP流",
     "volume": "音量",
@@ -208,7 +207,7 @@
         "spotify": "Spotify"
       }
     },
-    "now-playing": {
+    "player": {
       "info": "浏览资料库添加曲目",
       "time": "直播|{time}|{time}",
       "title": "播放清单是空的"
@@ -279,7 +278,7 @@
         "navigation-item-selection-info": "在移动设备屏幕上，只显示汉堡菜单",
         "navigation-item-selection": "选择顶部导航栏菜单项",
         "navigation-items": "导航条",
-        "now-playing-page": "“正在播放”页面",
+        "player-page": "“正在播放”页面",
         "playlists": "播放列表",
         "podcasts": "播客",
         "radio": "广播电台",

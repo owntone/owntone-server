@@ -121,7 +121,6 @@
     "artists": "Artists",
     "audiobooks": "Audiobooks",
     "composers": "Composers",
-    "now-playing": " - {album}",
     "stream-error": "HTTP stream error: failed to load stream or stopped loading due to network problem",
     "stream": "HTTP stream",
     "volume": "Volume",
@@ -208,7 +207,7 @@
         "spotify": "Spotify"
       }
     },
-    "now-playing": {
+    "player": {
       "info": "Add some tracks by browsing your library",
       "time": "Live|{time}|{time}",
       "title": "Your play queue is empty"
@@ -279,7 +278,7 @@
         "navigation-item-selection-info": "On mobile device screens, only the burger menu is displayed.",
         "navigation-item-selection": "Select the top navigation bar menu items",
         "navigation-items": "Navigation Bar",
-        "now-playing-page": "Now playing page",
+        "player-page": "Player page",
         "playlists": "Playlists",
         "podcasts": "Podcasts",
         "radio": "Radio",

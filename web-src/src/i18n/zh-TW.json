@@ -121,7 +121,6 @@
     "artists": "藝人",
     "audiobooks": "有聲書",
     "composers": "作曲家",
-    "now-playing": " - {album}",
     "stream-error": "HTTP串流錯誤：串流載入失敗或者由於網絡原因無法載入",
     "stream": "HTTP串流",
     "volume": "音量",
@@ -208,7 +207,7 @@
         "spotify": "Spotify"
       }
     },
-    "now-playing": {
+    "player": {
       "info": "瀏覽資料庫新增曲目",
       "time": "直播|{time}|{time}",
       "title": "播放清單是空的"
@@ -279,7 +278,7 @@
         "navigation-item-selection-info": "在行動裝置螢幕上，只會顯示漢堡菜單",
         "navigation-item-selection": "選擇頂部導航欄菜單項",
         "navigation-items": "導航條",
-        "now-playing-page": "“正在播放”頁面",
+        "player-page": "“正在播放”頁面",
         "playlists": "播放列表",
         "podcasts": "Podcast",
         "radio": "電台",

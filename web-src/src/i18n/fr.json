@@ -121,7 +121,6 @@
     "artists": "Artistes",
     "audiobooks": "Livres audio",
     "composers": "Compositeurs",
-    "now-playing": " - {album}",
     "stream-error": "Erreur du flux HTTP : échec du chargement du flux ou arrêt du chargement en raison d’un problème réseau",
     "stream": "Flux HTTP",
     "volume": "Volume",
@@ -208,7 +207,7 @@
         "spotify": "Spotify"
       }
     },
-    "now-playing": {
+    "player": {
       "info": "Ajoutez des pistes en parcourant votre bibliothèque",
       "time": "En direct|{time}|{time}",
       "title": "La file d’attente est vide"
@@ -279,7 +278,7 @@
         "navigation-item-selection-info": "Sur les écrans des appareils mobiles, seul le menu est affiché.",
         "navigation-item-selection": "Sélectionnez les éléments de la barre de navigation supérieure",
         "navigation-items": "Barre de navigation",
-        "now-playing-page": "Page « En cours de lecture »",
+        "player-page": "Page « En cours de lecture »",
         "playlists": "Listes de lecture",
         "podcasts": "Podcasts",
         "radio": "Radio",

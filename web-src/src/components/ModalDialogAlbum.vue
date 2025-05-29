@@ -13,7 +13,7 @@
     @remove="removePodcast"
   >
     <template #content>
-      <i18n-t keypath="dialog.podcast.remove.info" tag="p" scope="global">
+      <i18n-t tag="p" keypath="dialog.podcast.remove.info" scope="global">
         <template #separator>
           <br />
         </template>

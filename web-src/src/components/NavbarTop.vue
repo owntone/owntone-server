@@ -40,7 +40,7 @@
                 <span
                   :class="{
                     'pl-5': menu.sub,
-                    'has-text-weight-semibold': !menu.sub
+                    'has-text-weight-semibold': menu.icon
                   }"
                   v-text="$t(menu.key)"
                 />

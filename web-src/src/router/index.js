@@ -25,7 +25,7 @@ import PageMusicRecentlyPlayed from '@/pages/PageMusicRecentlyPlayed.vue'
 import PageMusicSpotify from '@/pages/PageMusicSpotify.vue'
 import PageMusicSpotifyFeaturedPlaylists from '@/pages/PageMusicSpotifyFeaturedPlaylists.vue'
 import PageMusicSpotifyNewReleases from '@/pages/PageMusicSpotifyNewReleases.vue'
-import PageNowPlaying from '@/pages/PageNowPlaying.vue'
+import PagePlayer from '@/pages/PagePlayer.vue'
 import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
 import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
 import PagePlaylistTracksSpotify from '@/pages/PagePlaylistTracksSpotify.vue'
@@ -174,7 +174,7 @@ export const router = createRouter({
       name: 'music-genres',
       path: '/music/genres'
     },
-    { component: PageNowPlaying, name: 'now-playing', path: '/now-playing' },
+    { component: PagePlayer, name: 'player', path: '/player' },
     {
       name: 'playlists',
       path: '/playlists',

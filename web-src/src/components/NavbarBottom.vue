@@ -1,10 +1,10 @@
 <template>
-  <nav class="navbar is-fixed-bottom" :class="{ 'is-dark': !isNowPlayingPage }">
+  <nav class="navbar is-fixed-bottom" :class="{ 'is-dark': !isPlayerPage }">
     <div class="navbar-brand is-flex-grow-1">
       <control-link class="navbar-item" :to="{ name: 'queue' }">
         <mdicon class="icon" name="playlist-play" />
       </control-link>
-      <template v-if="isNowPlayingPage">
+      <template v-if="isPlayerPage">
         <control-player-previous class="navbar-item ml-auto" />
         <control-player-back class="navbar-item" :offset="10000" />
         <control-player-play class="navbar-item" />
@@ -13,22 +13,14 @@
       </template>
       <template v-else>
         <control-link
-          :to="{ name: 'now-playing' }"
+          :to="{ name: 'player' }"
           exact
           class="navbar-item is-justify-content-flex-start is-expanded is-clipped is-size-7"
         >
           <div class="is-text-clipped">
             <strong v-text="queueStore.current.title" />
             <br />
-            <span v-text="queueStore.current.artist" />
-            <span
-              v-if="queueStore.current.album"
-              v-text="
-                $t('navigation.now-playing', {
-                  album: queueStore.current.album
-                })
-              "
-            />
+            <span v-text="metadata" />
           </div>
         </control-link>
         <control-player-play class="navbar-item" />
@@ -115,8 +107,12 @@ export default {
     }
   },
   computed: {
-    isNowPlayingPage() {
-      return this.$route.name === 'now-playing'
+    isPlayerPage() {
+      return this.$route.name === 'player'
+    },
+    metadata() {
+      const { current } = this.queueStore
+      return [current.artist, current.album].filter(Boolean).join(' - ')
     }
   }
 }

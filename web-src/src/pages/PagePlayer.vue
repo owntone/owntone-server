@@ -41,8 +41,8 @@
       />
     </div>
     <div v-else class="mx-auto">
-      <p class="title is-5" v-text="$t('page.now-playing.title')" />
-      <p class="subtitle" v-text="$t('page.now-playing.info')" />
+      <p class="title is-5" v-text="$t('page.player.title')" />
+      <p class="subtitle" v-text="$t('page.player.info')" />
     </div>
   </div>
   <modal-dialog-queue-item
@@ -65,7 +65,7 @@ import { useSettingsStore } from '@/stores/settings'
 const INTERVAL = 1000
 
 export default {
-  name: 'PageNowPlaying',
+  name: 'PagePlayer',
   components: {
     ControlImage,
     ControlSlider,
@@ -129,7 +129,7 @@ export default {
       return Number(this.isLive) || Math.floor(this.track.length_ms / INTERVAL)
     },
     trackTotalTime() {
-      return this.$t('page.now-playing.time', this.track.length_ms, {
+      return this.$t('page.player.time', this.track.length_ms, {
         named: {
           time: this.$formatters.toTimecode(this.track.length_ms)
         }

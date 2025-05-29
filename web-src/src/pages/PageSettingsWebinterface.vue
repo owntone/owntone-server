@@ -84,7 +84,7 @@
   <content-with-heading>
     <template #heading>
       <pane-title
-        :content="{ title: $t('page.settings.general.now-playing-page') }"
+        :content="{ title: $t('page.settings.general.player-page') }"
       />
     </template>
     <template #content>
@@ -118,9 +118,9 @@
         </template>
         <template #help>
           <i18n-t
-            keypath="page.settings.general.show-composer-genres-help"
             tag="p"
             class="help"
+            keypath="page.settings.general.show-composer-genres-help"
             scope="global"
           >
             <slot><br /></slot>
