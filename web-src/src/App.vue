@@ -90,13 +90,10 @@ export default {
       update: [this.libraryStore.initialise],
       volume: [this.playerStore.initialise, this.outputsStore.initialise]
     }
-    this.connect()
     this.$router.beforeEach(async (to, from, next) => {
+      await this.configurationStore.initialise()
       this.updateClipping()
       if (!(to.path === from.path && to.hash)) {
-        if (to.meta.progress) {
-          this.$Progress.parseMeta(to.meta.progress)
-        }
         this.$Progress.start()
       }
       next()
@@ -104,6 +101,7 @@ export default {
     this.$router.afterEach(() => {
       this.$Progress.finish()
     })
+    this.connect()
   },
   beforeUnmount() {
     this.scheduledHandlers.forEach((timeoutId) => clearTimeout(timeoutId))
@@ -116,7 +114,6 @@ export default {
         this.uiStore.hideSingles = this.configurationStore.hide_singles
         document.title = this.configurationStore.library_name
         this.openWebsocket()
-        this.$Progress.finish()
       } catch (e) {
         this.notificationsStore.add({
           text: this.$t('server.connection-failed'),
