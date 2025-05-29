@@ -116,7 +116,8 @@ export default {
         const [next] = Object.values(data)
         items.items.push(...next.items)
         this.parameters.offset += next.items.length
-        loaded(Number(next.next && next.limit), PAGE_SIZE_EXPANDED)
+        const remaining = Number(next.next && 1000 - this.parameters.offset)
+        loaded(remaining, PAGE_SIZE_EXPANDED)
       })
     }
   }
