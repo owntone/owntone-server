@@ -2,7 +2,7 @@
   <div
     class="is-flex is-align-items-center has-text-centered px-5 is-full-height"
   >
-    <div v-if="track.id" class="mx-auto" style="max-width: 32rem">
+    <div v-if="!queueStore.isEmpty" class="mx-auto" style="max-width: 32rem">
       <div class="is-relative">
         <control-image
           :url="track.artwork_url"

@@ -11,8 +11,9 @@ export const useQueueStore = defineStore('QueueStore', {
   },
   getters: {
     current(state) {
-      const player = usePlayerStore()
-      return state.items.find((item) => item.id === player.item_id) ?? {}
+      const playerStore = usePlayerStore()
+      playerStore.initialise()
+      return state.items.find((item) => item.id === playerStore.item_id) ?? {}
     },
     isEmpty(state) {
       return state.count === 0
