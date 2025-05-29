@@ -2,7 +2,7 @@
   <nav class="navbar is-fixed-top is-light" :style="zindex">
     <div class="navbar-brand is-flex-grow-1">
       <control-link
-        v-for="menu in menus.filter((menu) => menu.show && menu.icon)"
+        v-for="menu in menus.filter((menu) => menu.show && !menu.sub)"
         :key="menu.name"
         :to="{ name: menu.name }"
         class="navbar-item is-hidden-mobile"
@@ -21,10 +21,7 @@
       >
         <div class="dropdown-menu is-mobile">
           <div class="dropdown-content">
-            <template
-              v-for="menu in menus.filter((menu) => menu.show)"
-              :key="menu.name"
-            >
+            <template v-for="menu in menus" :key="menu.name">
               <hr v-if="menu.separator" class="my-3" />
               <a
                 v-else-if="menu.action"
@@ -43,7 +40,7 @@
                 <span
                   :class="{
                     'pl-5': menu.sub,
-                    'has-text-weight-semibold': menu.icon
+                    'has-text-weight-semibold': !menu.sub
                   }"
                   v-text="$t(menu.key)"
                 />
@@ -89,30 +86,10 @@ export default {
           name: 'music',
           show: this.settingsStore.showMenuItemMusic
         },
-        {
-          key: 'navigation.artists',
-          name: 'music-artists',
-          show: true,
-          sub: true
-        },
-        {
-          key: 'navigation.albums',
-          name: 'music-albums',
-          show: true,
-          sub: true
-        },
-        {
-          key: 'navigation.genres',
-          name: 'music-genres',
-          show: true,
-          sub: true
-        },
-        {
-          key: 'navigation.composers',
-          name: 'music-composers',
-          show: true,
-          sub: true
-        },
+        { key: 'navigation.artists', name: 'music-artists', sub: true },
+        { key: 'navigation.albums', name: 'music-albums', sub: true },
+        { key: 'navigation.genres', name: 'music-genres', sub: true },
+        { key: 'navigation.composers', name: 'music-composers', sub: true },
         {
           key: 'navigation.spotify',
           name: 'music-spotify',
@@ -149,18 +126,10 @@ export default {
           name: this.searchStore.source,
           show: this.settingsStore.showMenuItemSearch
         },
-        { separator: true, show: true },
-        {
-          key: 'navigation.settings',
-          name: 'settings-webinterface',
-          show: true
-        },
-        {
-          action: this.openUpdateDialog,
-          key: 'navigation.update-library',
-          show: true
-        },
-        { key: 'navigation.about', name: 'about', show: true }
+        { separator: true },
+        { key: 'navigation.settings', name: 'settings-webinterface' },
+        { action: this.openUpdateDialog, key: 'navigation.update-library' },
+        { key: 'navigation.about', name: 'about' }
       ]
     },
     zindex() {
