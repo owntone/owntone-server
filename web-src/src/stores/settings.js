@@ -6,6 +6,21 @@ const { t, availableLocales } = i18n.global
 
 export const useSettingsStore = defineStore('SettingsStore', {
   actions: {
+    currentLocale() {
+      const languages = availableLocales
+      let locale = languages.find((lang) => lang === i18n.global.locale.value)
+      const [partial] = i18n.global.locale.value.split('-')
+      if (!locale) {
+        locale = languages.find((lang) => lang === partial)
+      }
+      if (!locale) {
+        locale = languages.find((lang) => lang.split('-')[0] === partial)
+      }
+      if (!locale) {
+        locale = i18n.global.fallbackLocale
+      }
+      return locale
+    },
     get(categoryName, optionName) {
       return (
         this.categories
@@ -15,6 +30,9 @@ export const useSettingsStore = defineStore('SettingsStore', {
     },
     async initialise() {
       this.$state = await settings.state()
+    },
+    setLocale(locale) {
+      i18n.global.locale.value = locale
     },
     update(option) {
       const settingCategory = this.categories.find(

@@ -175,22 +175,10 @@ export default {
   computed: {
     locale: {
       get() {
-        const languages = this.$i18n.availableLocales
-        let locale = languages.find((lang) => lang === this.$i18n.locale)
-        const [partial] = this.$i18n.locale.split('-')
-        if (!locale) {
-          locale = languages.find((lang) => lang === partial)
-        }
-        if (!locale) {
-          locale = languages.forEach((lang) => lang.split('-')[0] === partial)
-        }
-        if (!locale) {
-          locale = this.$i18n.fallbackLocale
-        }
-        return locale
+        return this.settingsStore.currentLocale()
       },
       set(locale) {
-        this.$i18n.locale = locale
+        this.settingsStore.setLocale(locale)
       }
     }
   }
