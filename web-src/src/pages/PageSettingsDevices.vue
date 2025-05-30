@@ -2,12 +2,12 @@
   <tabs-settings />
   <content-with-heading>
     <template #heading>
-      <pane-title :content="{ title: $t('page.settings.devices.pairing') }" />
+      <pane-title :content="{ title: $t('settings.devices.pairing') }" />
     </template>
     <template #content>
       <form v-if="remotesStore.active" @submit.prevent="pairRemote">
         <label class="label has-text-weight-normal content">
-          <span v-text="$t('page.settings.devices.pairing-request')" />
+          <span v-text="$t('settings.devices.pairing-request')" />
           <b v-text="remotesStore.remote" />
         </label>
         <control-pin-field
@@ -24,19 +24,19 @@
           </div>
         </control-pin-field>
       </form>
-      <div v-else v-text="$t('page.settings.devices.no-active-pairing')" />
+      <div v-else v-text="$t('settings.devices.no-active-pairing')" />
     </template>
   </content-with-heading>
   <content-with-heading>
     <template #heading>
       <pane-title
-        :content="{ title: $t('page.settings.devices.speaker-pairing') }"
+        :content="{ title: $t('settings.devices.speaker-pairing') }"
       />
     </template>
     <template #content>
       <div
         class="content"
-        v-text="$t('page.settings.devices.speaker-pairing-info')"
+        v-text="$t('settings.devices.speaker-pairing-info')"
       />
       <div
         v-for="output in outputsStore.outputs"
@@ -56,7 +56,7 @@
           @submit.prevent="pairOutput(output.id)"
         >
           <control-pin-field
-            :placeholder="$t('page.settings.devices.verification-code')"
+            :placeholder="$t('settings.devices.verification-code')"
             @input="onOutputPinChange"
           >
             <div class="control">

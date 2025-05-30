@@ -2,17 +2,15 @@
   <tabs-settings />
   <content-with-heading>
     <template #heading>
-      <pane-title
-        :content="{ title: $t('page.settings.services.spotify.title') }"
-      />
+      <pane-title :content="{ title: $t('settings.services.spotify.title') }" />
     </template>
     <template #content>
       <div v-if="servicesStore.isSpotifyEnabled">
-        <div v-text="$t('page.settings.services.spotify.grant-access')" />
+        <div v-text="$t('settings.services.spotify.grant-access')" />
         <div
           class="notification help"
           v-text="
-            $t('page.settings.services.spotify.requirements', {
+            $t('settings.services.spotify.requirements', {
               scopes: servicesStore.requiredSpotifyScopes.join(', ')
             })
           "
@@ -20,7 +18,7 @@
         <div v-if="servicesStore.isSpotifyActive">
           <div
             v-text="
-              $t('page.settings.services.spotify.user', {
+              $t('settings.services.spotify.user', {
                 user: servicesStore.spotify.webapi_user
               })
             "
@@ -29,7 +27,7 @@
             v-if="servicesStore.hasMissingSpotifyScopes"
             class="notification help is-danger is-light"
             v-text="
-              $t('page.settings.services.spotify.reauthorize', {
+              $t('settings.services.spotify.reauthorize', {
                 scopes: servicesStore.missingSpotifyScopes.join(', ')
               })
             "
@@ -40,7 +38,7 @@
             <a
               class="button"
               :href="servicesStore.spotify.oauth_uri"
-              v-text="$t('page.settings.services.spotify.authorize')"
+              v-text="$t('settings.services.spotify.authorize')"
             />
           </div>
           <div v-if="servicesStore.isSpotifyActive" class="control">
@@ -52,21 +50,19 @@
           </div>
         </div>
       </div>
-      <div v-else v-text="$t('page.settings.services.spotify.no-support')" />
+      <div v-else v-text="$t('settings.services.spotify.no-support')" />
     </template>
   </content-with-heading>
   <content-with-heading>
     <template #heading>
-      <pane-title
-        :content="{ title: $t('page.settings.services.lastfm.title') }"
-      />
+      <pane-title :content="{ title: $t('settings.services.lastfm.title') }" />
     </template>
     <template #content>
       <div v-if="servicesStore.isLastfmEnabled">
-        <div v-text="$t('page.settings.services.lastfm.grant-access')" />
+        <div v-text="$t('settings.services.lastfm.grant-access')" />
         <div
           class="notification help"
-          v-text="$t('page.settings.services.lastfm.info')"
+          v-text="$t('settings.services.lastfm.info')"
         />
         <div v-if="!servicesStore.isLastfmActive">
           <form @submit.prevent="loginLastfm">
@@ -76,7 +72,7 @@
                   v-model="lastfmCredentials.user"
                   class="input"
                   type="text"
-                  :placeholder="$t('page.settings.services.username')"
+                  :placeholder="$t('settings.services.username')"
                 />
                 <div
                   v-if="lastfmErrors"
@@ -89,7 +85,7 @@
                   v-model="lastfmCredentials.password"
                   class="input"
                   type="password"
-                  :placeholder="$t('page.settings.services.password')"
+                  :placeholder="$t('settings.services.password')"
                 />
                 <div
                   v-if="lastfmErrors"
@@ -120,7 +116,7 @@
           />
         </div>
       </div>
-      <div v-else v-text="$t('page.settings.services.lastfm.no-support')" />
+      <div v-else v-text="$t('settings.services.lastfm.no-support')" />
     </template>
   </content-with-heading>
 </template>

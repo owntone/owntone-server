@@ -5,10 +5,8 @@
     :name="name"
     :placeholder="placeholder"
   >
-    <template #label>
-      <slot name="label" />
-    </template>
-    <template #input="{ setting, update }">
+    <template #input="{ label, setting, update }">
+      <span v-text="label" />
       <input
         class="input"
         inputmode="text"

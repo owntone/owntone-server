@@ -1,6 +1,6 @@
 <template>
   <control-setting :category="category" :disabled="disabled" :name="name">
-    <template #input="{ setting, update }">
+    <template #input="{ label, setting, update }">
       <control-switch
         :model-value="setting.value"
         @update:model-value="
@@ -8,7 +8,7 @@
         "
       >
         <template #label>
-          <slot name="label" />
+          <span v-text="label" />
         </template>
       </control-switch>
     </template>

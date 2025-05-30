@@ -6,9 +6,9 @@
     "cancel": "Abbrechen",
     "clear": "Alle entfernen",
     "edit": "Bearbeiten",
+    "hide-previous": "Vorherige verbergen",
     "login": "Einloggen",
     "logout": "Ausloggen",
-    "hide-previous": "Vorherige verbergen",
     "mark-all-played": "Alle abgespielten markieren",
     "mark-as-new": "Markiere als neu",
     "mark-as-played": "Markiere als gespielt",
@@ -30,16 +30,16 @@
     "channels": "{count} canal|{count} canaux",
     "composers": "{count} Komponist|{count} Komponist|{count} Komponisten",
     "genres": "{count} Genre|{count} Genre|{count} Genres",
+    "kind": {
+      "file": "Datei",
+      "pipe": "Stream",
+      "spotify": "Spotify",
+      "url": "URL"
+    },
     "playlists": "{count} Playlist|{count} Playlisten",
     "podcasts": "{count} Podcast|{count} Podcasts",
     "stations": "{count} Station|{count} Station|{count} Stationen",
-    "tracks": "{count} Track|{count} Track|{count} Tracks",
-    "kind": {
-      "file": "Datei",
-      "url": "URL",
-      "spotify": "Spotify",
-      "pipe": "Stream"
-    }
+    "tracks": "{count} Track|{count} Track|{count} Tracks"
   },
   "dialog": {
     "add": {
@@ -56,17 +56,17 @@
         "title": "Stream hinzufügen"
       }
     },
-    "podcast": {
-      "remove": {
-        "title": "Podcast enfernen",
-        "info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})"
-      }
-    },
     "playlist": {
       "save": {
         "playlist-name": "Playlistname",
         "saving": "Speichere…",
         "title": "Warteschlange als Playlist speichern"
+      }
+    },
+    "podcast": {
+      "remove": {
+        "info": "Permanently remove this podcast from your library?{separator}(This will also remove the RSS playlist {name})",
+        "title": "Podcast enfernen"
       }
     },
     "queue-item": {
@@ -90,6 +90,12 @@
       "spotify": "Nur Spotify neu einlesen",
       "title": "Bibliothek neu einlesen"
     }
+  },
+  "grouped-list": {
+    "last-month": "Letzer Monat",
+    "last-week": "Letzte Woche",
+    "today": "Heute",
+    "undefined": "Unbestimmt"
   },
   "language": {
     "de": "Deutsch",
@@ -121,9 +127,6 @@
     "artists": "Künstler",
     "audiobooks": "Hörbücher",
     "composers": "Komponisten",
-    "stream-error": "HTTP-stream-Fehler: Stream kann nicht geladen werden oder wurde wg. Netzwerkfehler gestopt",
-    "stream": "HTTP-stream",
-    "volume": "Lautstärke",
     "files": "Dateien",
     "genres": "Genres",
     "music": "Musik",
@@ -133,7 +136,10 @@
     "search": "Suche",
     "settings": "Einstellungen",
     "spotify": "Spotify",
-    "update-library": "Bibliothek neu einlesen"
+    "stream": "HTTP-stream",
+    "stream-error": "HTTP-stream-Fehler: Stream kann nicht geladen werden oder wurde wg. Netzwerkfehler gestopt",
+    "update-library": "Bibliothek neu einlesen",
+    "volume": "Lautstärke"
   },
   "options": {
     "filter": {
@@ -144,8 +150,8 @@
       "title": "Filtern"
     },
     "sort": {
-      "artist-name": "Künstler › Name",
       "artist-date": "Künstler › Erscheinungsdatum",
+      "artist-name": "Künstler › Name",
       "name": "Namen",
       "rating": "Bewertung",
       "recently-added": "Kürzlich hinzugefügt",
@@ -177,8 +183,8 @@
         "title": "Autoren"
       },
       "tabs": {
-        "authors": "Autoren",
         "audiobooks": "Hörbücher",
+        "authors": "Autoren",
         "genres": "Genres"
       }
     },
@@ -243,78 +249,18 @@
       "show-playlists": "Zeige die Playlist|Zeige alle {count} Playlisten",
       "show-podcasts": "Zeige den Podcast| Zeige alle {count} Podcasts",
       "show-tracks": "Zeige den Track|Zeige alle {count} Tracks",
-      "tracks": "Tracks",
       "tabs": {
         "library": "Bibliothek",
         "spotify": "Spotify"
-      }
+      },
+      "tracks": "Tracks"
     },
     "settings": {
-      "artwork": {
-        "title": "Artwork",
-        "coverartarchive": "Cover Art Archive",
-        "discogs": "Discogs",
-        "explanation-1": "OwnTone verarbeitet PNG- und JPEG-Artwork, welches in einer eigenen Datei in der Bibliothek, in die Dateien eingebettet oder online von Radiostationen bereitgestellt werden kann.",
-        "explanation-2": "Zusätzlich kann auf folgende Artwork-Anbieter zugegriffen werden:",
-        "show-coverart": "Zeige Cover-Artwork in der Albumliste",
-        "spotify": "Spotify",
-        "streaming": "Bereitgestellte Artwork von Radiostationen ignorieren"
-      },
-      "devices": {
-        "no-active-pairing": "Keine aktive Pairing-Anfrage",
-        "pairing-code": "Pairing-Code",
-        "pairing-request": "Remote-Pairing-Anfrage von ",
-        "pairing": "Pairing Remote",
-        "speaker-pairing-info": "Wenn der Laufsprecher PIN-basiertes Pairing verlangt, aktiviere ihn hier und gib dann den hier PIN an, der am Lautsprecher angezeigt wird.",
-        "speaker-pairing": "Lautsprecher-Pairing und Geräteverifikation",
-        "verification-code": "Verifikationscode"
-      },
-      "general": {
-        "audiobooks": "Hörbücher",
-        "files": "Dateien",
-        "genres": "Genres",
-        "language": "Sprache",
-        "music": "Musik",
-        "navigation-item-selection-info": "Auf den Bildschirmen mobiler Geräte wird nur das Burger-Menü angezeigt.",
-        "navigation-item-selection": "Wähle hier die Einträge des oberen Navigationsmenüs",
-        "navigation-items": "Navigationsmenüs",
-        "player-page": "Aktuell läuft-Seite",
-        "playlists": "Playlisten",
-        "podcasts": "Podcasts",
-        "radio": "Radio",
-        "recently-added-page-info": "Beschränkte die Zahl der Alben",
-        "recently-added-page": "Kürzlich hinzugefügt-Seite",
-        "search": "Suche",
-        "show-composer-genres-help": "Komma getrennte Liste der Genres, für die der Komponist angezeigt werden soll.{0}Leer lassen, um den Komponisten immer anzuzeigen.{0}Der Genre-Tag des aktuellen Tracks wird abgeglichen als Teil-String des Genre-Tags. Z.B. \"classical, soundtrack\" wird den Komponisten beim Genre-Tag \"Contemporary Classical\" anzeigen",
-        "show-composer-genres": "Zeige den Komponisten für die aufgelisteten Genres an",
-        "show-composer-info": "Wenn aktiviert, wird der Komponist angezeigt.",
-        "show-composer": "Komponisten anzeigen",
-        "show-path": "Dateipfad anzeigen"
-      },
-      "services": {
-        "lastfm": {
-          "grant-access": "Melde Dich mit Deinem Last.fm-Benutzernamen und Passwort an, um Scrobbeln zu aktivieren.",
-          "info": "OwnTone wird den Benutzernamen und das Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
-          "title": "Last.fm",
-          "no-support": "OwnTone wurde ohne Unterstützung für Last.fm erstellt."
-        },
-        "spotify": {
-          "authorize": "Authorisiere API-Zugriff",
-          "grant-access": "Zugriff auf die Spotify API gestatten.",
-          "no-support": "OwnTone wurde entweder ohne Unterstützung für Spotify erstellt oder libspotify ist nicht installiert.",
-          "reauthorize": "Bitte den Zugriff der API durch setzen folgender Zugriffsrechte für OwnTone: {scopes}.",
-          "requirements": "Spotify Premium Abo erforderlich. Zugriff auf die Spotify API ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: {scopes}.",
-          "title": "Spotify",
-          "user": "Zugriff gestattet für {user}."
-        },
-        "password": "Passwort",
-        "username": "Benutzername"
-      },
       "tabs": {
         "artwork": "Artwork",
         "devices": "Fernbedienungen und Ausgänge",
-        "general": "Allgemein",
-        "online-services": "Online-Services"
+        "online-services": "Online-Services",
+        "webinterface": "Allgemein"
       }
     },
     "spotify": {
@@ -322,13 +268,6 @@
         "featured-playlists": "Ausgezeichnete Playlisten",
         "new-releases": "Neuvorstellung"
       }
-    }
-  },
-  "playlist": {
-    "type": {
-      "folder": "Ordner",
-      "plain": "Einfache",
-      "smart": "Intelligente"
     }
   },
   "player": {
@@ -349,11 +288,18 @@
       "toggle-lyrics": "Liedtexte anzeigen/verbergen"
     }
   },
+  "playlist": {
+    "type": {
+      "folder": "Ordner",
+      "plain": "Einfache",
+      "smart": "Intelligente"
+    }
+  },
   "property": {
     "added-on": "Hinzugefügt am",
     "album": "Album",
-    "albums": "Alben",
     "album-artist": "Album-Künstler",
+    "albums": "Alben",
     "artist": "Künstler",
     "artists": "Künstler",
     "comment": "Kommentar",
@@ -379,15 +325,70 @@
     "year": "Jahr"
   },
   "server": {
+    "appended-tracks": "{count} Track an die Abspielliste angehängt|{count} Tracks an die Abspielliste angehängt",
     "connection-failed": "Fehler bei Verbindung zum OwnTone-Server",
-    "request-failed": "Anfrage gescheitert (Status: {status} {cause} {url})",
     "queue-saved": "Warteschlange zu Playlist {name} gesichert",
-    "appended-tracks": "{count} Track an die Abspielliste angehängt|{count} Tracks an die Abspielliste angehängt"
+    "request-failed": "Anfrage gescheitert (Status: {status} {cause} {url})"
   },
-  "grouped-list": {
-    "today": "Heute",
-    "last-week": "Letzte Woche",
-    "last-month": "Letzer Monat",
-    "undefined": "Unbestimmt"
+  "settings": {
+    "artwork": {
+      "explanation-1": "OwnTone verarbeitet PNG- und JPEG-Artwork, welches in einer eigenen Datei in der Bibliothek, in die Dateien eingebettet oder online von Radiostationen bereitgestellt werden kann.",
+      "explanation-2": "Zusätzlich kann auf folgende Artwork-Anbieter zugegriffen werden:",
+      "show-cover-artwork-in-album-lists": "Zeige Cover-Artwork in der Albumliste",
+      "streamurl-ignore": "Bereitgestellte Artwork von Radiostationen ignorieren",
+      "title": "Artwork",
+      "use-artwork-source-coverartarchive": "Cover Art Archive",
+      "use-artwork-source-discogs": "Discogs",
+      "use-artwork-source-spotify": "Spotify"
+    },
+    "devices": {
+      "no-active-pairing": "Keine aktive Pairing-Anfrage",
+      "pairing": "Pairing Remote",
+      "pairing-code": "Pairing-Code",
+      "pairing-request": "Remote-Pairing-Anfrage von ",
+      "speaker-pairing": "Lautsprecher-Pairing und Geräteverifikation",
+      "speaker-pairing-info": "Wenn der Laufsprecher PIN-basiertes Pairing verlangt, aktiviere ihn hier und gib dann den hier PIN an, der am Lautsprecher angezeigt wird.",
+      "verification-code": "Verifikationscode"
+    },
+    "services": {
+      "lastfm": {
+        "grant-access": "Melde Dich mit Deinem Last.fm-Benutzernamen und Passwort an, um Scrobbeln zu aktivieren.",
+        "info": "OwnTone wird den Benutzernamen und das Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
+        "no-support": "OwnTone wurde ohne Unterstützung für Last.fm erstellt.",
+        "title": "Last.fm"
+      },
+      "password": "Passwort",
+      "spotify": {
+        "authorize": "Authorisiere API-Zugriff",
+        "grant-access": "Zugriff auf die Spotify API gestatten.",
+        "no-support": "OwnTone wurde entweder ohne Unterstützung für Spotify erstellt oder libspotify ist nicht installiert.",
+        "reauthorize": "Bitte den Zugriff der API durch setzen folgender Zugriffsrechte für OwnTone: {scopes}.",
+        "requirements": "Spotify Premium Abo erforderlich. Zugriff auf die Spotify API ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: {scopes}.",
+        "title": "Spotify",
+        "user": "Zugriff gestattet für {user}."
+      },
+      "username": "Benutzername"
+    },
+    "webinterface": {
+      "genres": "Genres",
+      "language": "Sprache",
+      "navigation-item-selection": "Wähle hier die Einträge des oberen Navigationsmenüs",
+      "navigation-item-selection-info": "Auf den Bildschirmen mobiler Geräte wird nur das Burger-Menü angezeigt.",
+      "navigation-items": "Navigationsmenüs",
+      "player-page": "Aktuell läuft-Seite",
+      "recently-added-limit": "Beschränkte die Zahl der Alben",
+      "recently-added-page": "Kürzlich hinzugefügt-Seite",
+      "show-composer-for-genre": "Zeige den Komponisten für die aufgelisteten Genres an",
+      "show-composer-genres-help": "Komma getrennte Liste der Genres, für die der Komponist angezeigt werden soll.{0}Leer lassen, um den Komponisten immer anzuzeigen.{0}Der Genre-Tag des aktuellen Tracks wird abgeglichen als Teil-String des Genre-Tags. Z.B. \"classical, soundtrack\" wird den Komponisten beim Genre-Tag \"Contemporary Classical\" anzeigen",
+      "show-composer-now-playing": "Komponisten anzeigen",
+      "show-filepath-now-playing": "Dateipfad anzeigen",
+      "show-menu-item-audiobooks": "Hörbücher",
+      "show-menu-item-files": "Dateien",
+      "show-menu-item-music": "Musik",
+      "show-menu-item-playlists": "Playlisten",
+      "show-menu-item-podcasts": "Podcasts",
+      "show-menu-item-radio": "Radio",
+      "show-menu-item-search": "Suche"
+    }
   }
 }

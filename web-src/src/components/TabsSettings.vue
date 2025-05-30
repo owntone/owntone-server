@@ -12,7 +12,7 @@ export default {
     links() {
       return [
         {
-          key: 'page.settings.tabs.general',
+          key: 'page.settings.tabs.webinterface',
           to: { name: 'settings-webinterface' }
         },
         {

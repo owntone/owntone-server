@@ -6,9 +6,9 @@
     "cancel": "Annuler",
     "clear": "Effacer",
     "edit": "Éditer",
+    "hide-previous": "Masquer l’historique",
     "login": "Se connecter",
     "logout": "Se déconnecter",
-    "hide-previous": "Masquer l’historique",
     "mark-all-played": "Marquer comme lus",
     "mark-as-new": "Marquer comme nouveau",
     "mark-as-played": "Marquer comme lu",
@@ -30,16 +30,16 @@
     "channels": "{count} canal|{count} canaux",
     "composers": "{count} compositeur|{count} compositeur|{count} compositeurs",
     "genres": "{count} genre|{count} genre|{count} genres",
+    "kind": {
+      "file": "Fichier",
+      "pipe": "Flux",
+      "spotify": "Spotify",
+      "url": "URL"
+    },
     "playlists": "{count} liste de lecture|{count} liste de lecture|{count} listes de lecture",
     "podcasts": "{count} podcast|{count} podcast|{count} podcasts",
     "stations": "{count} station|{count} station|{count} stations",
-    "tracks": "{count} piste|{count} piste|{count} pistes",
-    "kind": {
-      "file": "Fichier",
-      "url": "URL",
-      "spotify": "Spotify",
-      "pipe": "Flux"
-    }
+    "tracks": "{count} piste|{count} piste|{count} pistes"
   },
   "dialog": {
     "add": {
@@ -56,17 +56,17 @@
         "title": "Ajouter un flux"
       }
     },
-    "podcast": {
-      "remove": {
-        "title": "Supprimer le podcast",
-        "info": "Supprimer ce podcast de manière permanente de la bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})"
-      }
-    },
     "playlist": {
       "save": {
         "playlist-name": "Nom de la liste de lecture",
         "saving": "Enregistrement en cours…",
         "title": "Enregistrer la file d’attente dans une liste de lecture"
+      }
+    },
+    "podcast": {
+      "remove": {
+        "info": "Supprimer ce podcast de manière permanente de la bibliothèque ?{separator}(Cela supprimera également la liste de lecture RSS {name})",
+        "title": "Supprimer le podcast"
       }
     },
     "queue-item": {
@@ -90,6 +90,12 @@
       "spotify": "Actualiser uniquement Spotify",
       "title": "Actualiser la bibliothèque"
     }
+  },
+  "grouped-list": {
+    "last-month": "Le mois dernier",
+    "last-week": "La semaine dernière",
+    "today": "Aujourd’hui",
+    "undefined": "Indéfini"
   },
   "language": {
     "de": "Allemand (Deutsch)",
@@ -121,9 +127,6 @@
     "artists": "Artistes",
     "audiobooks": "Livres audio",
     "composers": "Compositeurs",
-    "stream-error": "Erreur du flux HTTP : échec du chargement du flux ou arrêt du chargement en raison d’un problème réseau",
-    "stream": "Flux HTTP",
-    "volume": "Volume",
     "files": "Fichiers",
     "genres": "Genres",
     "music": "Musique",
@@ -133,7 +136,10 @@
     "search": "Recherche",
     "settings": "Réglages",
     "spotify": "Spotify",
-    "update-library": "Actualiser la bibliothèque"
+    "stream": "Flux HTTP",
+    "stream-error": "Erreur du flux HTTP : échec du chargement du flux ou arrêt du chargement en raison d’un problème réseau",
+    "update-library": "Actualiser la bibliothèque",
+    "volume": "Volume"
   },
   "options": {
     "filter": {
@@ -144,8 +150,8 @@
       "title": "Filtrer"
     },
     "sort": {
-      "artist-name": "Artiste › Nom",
       "artist-date": "Artiste › Date de sortie",
+      "artist-name": "Artiste › Nom",
       "name": "Nom",
       "rating": "Classement",
       "recently-added": "Ajouts récents",
@@ -177,8 +183,8 @@
         "title": "Auteurs"
       },
       "tabs": {
-        "authors": "Auteurs",
         "audiobooks": "Livres audio",
+        "authors": "Auteurs",
         "genres": "Genres"
       }
     },
@@ -243,78 +249,18 @@
       "show-playlists": "Afficher la liste de lecture|Afficher les {count} listes de lecture",
       "show-podcasts": "Afficher le podcast|Afficher les {count} podcasts",
       "show-tracks": "Afficher la piste|Afficher les {count} pistes",
-      "tracks": "Pistes",
       "tabs": {
         "library": "Bibliothèque",
         "spotify": "Spotify"
-      }
+      },
+      "tracks": "Pistes"
     },
     "settings": {
-      "artwork": {
-        "title": "Illustrations",
-        "coverartarchive": "Cover Art Archive",
-        "discogs": "Discogs",
-        "explanation-1": "OwnTone prend en charge les illustrations au format PNG et JPEG qui sont soit placées dans la bibliothèque en tant que fichiers image séparés, soit intégrées dans les fichiers média, soit mises à disposition en ligne par les stations de radio.",
-        "explanation-2": "En outre, vous pouvez activer la récupération des illustrations à partir des fournisseurs d’illustrations suivants :",
-        "show-coverart": "Afficher les illustrations dans la liste d’albums",
-        "spotify": "Spotify",
-        "streaming": "Ignorer les illustrations fournies par les stations de radio"
-      },
-      "devices": {
-        "no-active-pairing": "Aucune demande de jumelage active.",
-        "pairing-code": "Code de jumelage",
-        "pairing-request": "Demande de jumelage de télécommande ",
-        "pairing": "Jumelage de télécommande",
-        "speaker-pairing-info": "Si votre enceinte nécessite un jumelage, activez-la ci-dessous et entrez le code PIN qu’elle affiche.",
-        "speaker-pairing": "Jumelage d’enceinte et vérification d’appareil",
-        "verification-code": "Code de vérification"
-      },
-      "general": {
-        "audiobooks": "Livres audio",
-        "files": "Fichiers",
-        "genres": "Genres",
-        "language": "Langue",
-        "music": "Musique",
-        "navigation-item-selection-info": "Sur les écrans des appareils mobiles, seul le menu est affiché.",
-        "navigation-item-selection": "Sélectionnez les éléments de la barre de navigation supérieure",
-        "navigation-items": "Barre de navigation",
-        "player-page": "Page « En cours de lecture »",
-        "playlists": "Listes de lecture",
-        "podcasts": "Podcasts",
-        "radio": "Radio",
-        "recently-added-page-info": "Limiter le nombre d’albums affichés",
-        "recently-added-page": "Page « Ajouts récents »",
-        "search": "Recherche",
-        "show-composer-genres-help": "Liste de genres séparés par des virgules pour lesquels le compositeur doit être affiché.{0}Laissez vide pour toujours afficher le compositeur.{0}L’étiquette de genre de la piste actuelle est comparée en vérifiant si l’un des genres définis est inclus. Par exemple, en choisissant \"classique, bande sonore\", le compositeur pour les pistes dont l’étiquette de genre est \"classique contemporain\" sera affiché.",
-        "show-composer-genres": "Afficher le compositeur uniquement pour les genres listés",
-        "show-composer-info": "Si actif, le compositeur de la piste en cours de lecture est affiché",
-        "show-composer": "Afficher le compositeur",
-        "show-path": "Afficher le chemin du fichier"
-      },
-      "services": {
-        "lastfm": {
-          "grant-access": "Connectez-vous avec votre nom d’utilisateur et votre mot de passe Last.fm pour activer le scrobbling.",
-          "info": "Le nom d’utilisateur et le mot de passe Last.fm ne sont pas enregistrés, uniquement la clé de session. La clé de session n’expire pas.",
-          "title": "Last.fm",
-          "no-support": "L’option Last.fm n’est pas présente."
-        },
-        "spotify": {
-          "authorize": "Autoriser l’accès à l’API",
-          "grant-access": "Accordez l’accès à l’API de Spotify.",
-          "no-support": "L’option Spotify n’est pas présente.",
-          "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants : {scopes}.",
-          "requirements": "Vous devez posséder un compte Spotify Premium. L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants : {scopes}.",
-          "title": "Spotify",
-          "user": "Accès autorisé pour {user}."
-        },
-        "password": "Mot de passe",
-        "username": "Nom d’utilisateur"
-      },
       "tabs": {
         "artwork": "Illustrations",
         "devices": "Télécommandes et sorties",
-        "general": "Général",
-        "online-services": "Services en ligne"
+        "online-services": "Services en ligne",
+        "webinterface": "Général"
       }
     },
     "spotify": {
@@ -322,13 +268,6 @@
         "featured-playlists": "Listes de lecture en vedette",
         "new-releases": "Nouvelle sorties"
       }
-    }
-  },
-  "playlist": {
-    "type": {
-      "folder": "Dossier",
-      "plain": "Simple",
-      "smart": "Intelligente"
     }
   },
   "player": {
@@ -349,11 +288,18 @@
       "toggle-lyrics": "Voir/Cacher les paroles"
     }
   },
+  "playlist": {
+    "type": {
+      "folder": "Dossier",
+      "plain": "Simple",
+      "smart": "Intelligente"
+    }
+  },
   "property": {
     "added-on": "Ajouté le",
     "album": "Album",
-    "albums": "Albums",
     "album-artist": "Artiste de l’album",
+    "albums": "Albums",
     "artist": "Artiste",
     "artists": "Artistes",
     "comment": "Commentaire",
@@ -379,15 +325,70 @@
     "year": "Année"
   },
   "server": {
+    "appended-tracks": "{count} piste ajoutée à la file d’attente|{count} pistes ajoutées à la file d’attente",
     "connection-failed": "Échec de connexion au serveur",
-    "request-failed": "La requête a échoué (status: {status} {cause} {url})",
     "queue-saved": "La file d’attente enregistrée dans la liste de lecture {name}",
-    "appended-tracks": "{count} piste ajoutée à la file d’attente|{count} pistes ajoutées à la file d’attente"
+    "request-failed": "La requête a échoué (status: {status} {cause} {url})"
   },
-  "grouped-list": {
-    "today": "Aujourd’hui",
-    "last-week": "La semaine dernière",
-    "last-month": "Le mois dernier",
-    "undefined": "Indéfini"
+  "settings": {
+    "artwork": {
+      "explanation-1": "OwnTone prend en charge les illustrations au format PNG et JPEG qui sont soit placées dans la bibliothèque en tant que fichiers image séparés, soit intégrées dans les fichiers média, soit mises à disposition en ligne par les stations de radio.",
+      "explanation-2": "En outre, vous pouvez activer la récupération des illustrations à partir des fournisseurs d’illustrations suivants :",
+      "show-cover-artwork-in-album-lists": "Afficher les illustrations dans la liste d’albums",
+      "streamurl-ignore": "Ignorer les illustrations fournies par les stations de radio",
+      "title": "Illustrations",
+      "use-artwork-source-coverartarchive": "Cover Art Archive",
+      "use-artwork-source-discogs": "Discogs",
+      "use-artwork-source-spotify": "Spotify"
+    },
+    "devices": {
+      "no-active-pairing": "Aucune demande de jumelage active.",
+      "pairing": "Jumelage de télécommande",
+      "pairing-code": "Code de jumelage",
+      "pairing-request": "Demande de jumelage de télécommande ",
+      "speaker-pairing": "Jumelage d’enceinte et vérification d’appareil",
+      "speaker-pairing-info": "Si votre enceinte nécessite un jumelage, activez-la ci-dessous et entrez le code PIN qu’elle affiche.",
+      "verification-code": "Code de vérification"
+    },
+    "services": {
+      "lastfm": {
+        "grant-access": "Connectez-vous avec votre nom d’utilisateur et votre mot de passe Last.fm pour activer le scrobbling.",
+        "info": "Le nom d’utilisateur et le mot de passe Last.fm ne sont pas enregistrés, uniquement la clé de session. La clé de session n’expire pas.",
+        "no-support": "L’option Last.fm n’est pas présente.",
+        "title": "Last.fm"
+      },
+      "password": "Mot de passe",
+      "spotify": {
+        "authorize": "Autoriser l’accès à l’API",
+        "grant-access": "Accordez l’accès à l’API de Spotify.",
+        "no-support": "L’option Spotify n’est pas présente.",
+        "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants : {scopes}.",
+        "requirements": "Vous devez posséder un compte Spotify Premium. L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants : {scopes}.",
+        "title": "Spotify",
+        "user": "Accès autorisé pour {user}."
+      },
+      "username": "Nom d’utilisateur"
+    },
+    "webinterface": {
+      "genres": "Genres",
+      "language": "Langue",
+      "navigation-item-selection": "Sélectionnez les éléments de la barre de navigation supérieure",
+      "navigation-item-selection-info": "Sur les écrans des appareils mobiles, seul le menu est affiché.",
+      "navigation-items": "Barre de navigation",
+      "player-page": "Page « En cours de lecture »",
+      "recently-added-limit": "Limiter le nombre d’albums affichés",
+      "recently-added-page": "Page « Ajouts récents »",
+      "show-composer-for-genre": "Afficher le compositeur uniquement pour les genres listés",
+      "show-composer-genres-help": "Liste de genres séparés par des virgules pour lesquels le compositeur doit être affiché.{0}Laissez vide pour toujours afficher le compositeur.{0}L’étiquette de genre de la piste actuelle est comparée en vérifiant si l’un des genres définis est inclus. Par exemple, en choisissant \"classique, bande sonore\", le compositeur pour les pistes dont l’étiquette de genre est \"classique contemporain\" sera affiché.",
+      "show-composer-now-playing": "Afficher le compositeur",
+      "show-filepath-now-playing": "Afficher le chemin du fichier",
+      "show-menu-item-audiobooks": "Livres audio",
+      "show-menu-item-files": "Fichiers",
+      "show-menu-item-music": "Musique",
+      "show-menu-item-playlists": "Listes de lecture",
+      "show-menu-item-podcasts": "Podcasts",
+      "show-menu-item-radio": "Radio",
+      "show-menu-item-search": "Recherche"
+    }
   }
 }

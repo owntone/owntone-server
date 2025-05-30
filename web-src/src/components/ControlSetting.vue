@@ -4,7 +4,7 @@
       <slot name="label" />
     </label>
     <div class="control" :class="{ 'has-icons-right': isSuccess || isError }">
-      <slot name="input" :setting="setting" :update="update" />
+      <slot name="input" :label="label" :setting="setting" :update="update" />
       <mdicon
         v-if="$slots.label && (isSuccess || isError)"
         class="icon is-right"
@@ -44,6 +44,11 @@ export default {
     },
     isSuccess() {
       return this.timerId >= 0
+    },
+    label() {
+      return this.$t(
+        `settings.${this.category}.${this.name.replace(/_/gu, '-')}`
+      )
     },
     setting() {
       return this.settingsStore.get(this.category, this.name)

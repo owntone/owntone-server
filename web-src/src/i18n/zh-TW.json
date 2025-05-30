@@ -6,9 +6,9 @@
     "cancel": "取消",
     "clear": "清除",
     "edit": "編輯",
+    "hide-previous": "隱藏歷史",
     "login": "登入",
     "logout": "退出",
-    "hide-previous": "隱藏歷史",
     "mark-all-played": "全部標記為已播放",
     "mark-as-new": "標記為最新",
     "mark-as-played": "標記為已播放",
@@ -30,16 +30,16 @@
     "channels": "{count} 信道|{count} 信道",
     "composers": "{count} 位作曲家|{count} 位作曲家",
     "genres": "{count} 個音樂類型|{count} 個音樂類型",
+    "kind": {
+      "file": "文件",
+      "pipe": "串流",
+      "spotify": "Spotify",
+      "url": "鏈接"
+    },
     "playlists": "{count} 個播放列表|{count} 個播放列表",
     "podcasts": "{count} 個Podcast|{count} 個Podcast",
     "stations": "{count} 個電台|{count} 個電台",
-    "tracks": "{count} 首曲目|{count} 首曲目",
-    "kind": {
-      "file": "文件",
-      "url": "鏈接",
-      "spotify": "Spotify",
-      "pipe": "串流"
-    }
+    "tracks": "{count} 首曲目|{count} 首曲目"
   },
   "dialog": {
     "add": {
@@ -56,17 +56,17 @@
         "title": "新增串流"
       }
     },
-    "podcast": {
-      "remove": {
-        "title": "移除Podcast",
-        "info": "從資料庫中永久移除該Podcast？{separator}(這也將移除該PodcastRSS列表 {name})"
-      }
-    },
     "playlist": {
       "save": {
         "playlist-name": "播放列表名稱",
         "saving": "儲存中…",
         "title": "儲存播放清單到列表"
+      }
+    },
+    "podcast": {
+      "remove": {
+        "info": "從資料庫中永久移除該Podcast？{separator}(這也將移除該PodcastRSS列表 {name})",
+        "title": "移除Podcast"
       }
     },
     "queue-item": {
@@ -90,6 +90,12 @@
       "spotify": "僅更新Spotify",
       "title": "更新資料庫"
     }
+  },
+  "grouped-list": {
+    "last-month": "上月",
+    "last-week": "上周",
+    "today": "今日",
+    "undefined": "未定義"
   },
   "language": {
     "de": "德語 (Deutsch)",
@@ -121,9 +127,6 @@
     "artists": "藝人",
     "audiobooks": "有聲書",
     "composers": "作曲家",
-    "stream-error": "HTTP串流錯誤：串流載入失敗或者由於網絡原因無法載入",
-    "stream": "HTTP串流",
-    "volume": "音量",
     "files": "文件",
     "genres": "音樂類型",
     "music": "音樂",
@@ -133,7 +136,10 @@
     "search": "搜尋",
     "settings": "設定",
     "spotify": "Spotify",
-    "update-library": "更新資料庫"
+    "stream": "HTTP串流",
+    "stream-error": "HTTP串流錯誤：串流載入失敗或者由於網絡原因無法載入",
+    "update-library": "更新資料庫",
+    "volume": "音量"
   },
   "options": {
     "filter": {
@@ -144,8 +150,8 @@
       "title": "篩選"
     },
     "sort": {
-      "artist-name": "藝人 › 名稱",
       "artist-date": "藝人 › 發行日期",
+      "artist-name": "藝人 › 名稱",
       "name": "名稱",
       "rating": "評級",
       "recently-added": "最近新增",
@@ -177,8 +183,8 @@
         "title": "作者"
       },
       "tabs": {
-        "authors": "作者",
         "audiobooks": "有聲書",
+        "authors": "作者",
         "genres": "音樂類型"
       }
     },
@@ -243,78 +249,18 @@
       "show-playlists": "顯示播放列表|顯示所有 {count} 個播放列表",
       "show-podcasts": "顯示Podcast|顯示所有 {count} 個Podcast",
       "show-tracks": "顯示曲目|顯示所有 {count} 首曲目",
-      "tracks": "曲目",
       "tabs": {
         "library": "資料庫",
         "spotify": "Spotify"
-      }
+      },
+      "tracks": "曲目"
     },
     "settings": {
-      "artwork": {
-        "title": "封面",
-        "coverartarchive": "Cover Art Archive",
-        "discogs": "Discogs",
-        "explanation-1": "OwnTone支持PNG和 JPEG封面，這些封面可以作為單獨的圖像文件放置在庫中或嵌入到媒體文件中，也可以通過電台在線提供",
-        "explanation-2": "除此之外，您還可以從以下素材提供者獲取封面:",
-        "show-coverart": "在專輯列表中顯示封面藝術作品",
-        "spotify": "Spotify",
-        "streaming": "忽略電台提供的作品"
-      },
-      "devices": {
-        "no-active-pairing": "沒有活躍的配對請求",
-        "pairing-code": "配對代碼",
-        "pairing-request": "遠程配對請求來自於 ",
-        "pairing": "遙控配對",
-        "speaker-pairing-info": "如果您的揚聲器需要配對，請在下面輸入它顯示的 PIN以啓用",
-        "speaker-pairing": "揚聲器配對和設備驗證",
-        "verification-code": "驗證碼"
-      },
-      "general": {
-        "audiobooks": "有聲書",
-        "files": "文件",
-        "genres": "音樂類型",
-        "language": "語言",
-        "music": "音樂",
-        "navigation-item-selection-info": "在行動裝置螢幕上，只會顯示漢堡菜單",
-        "navigation-item-selection": "選擇頂部導航欄菜單項",
-        "navigation-items": "導航條",
-        "player-page": "“正在播放”頁面",
-        "playlists": "播放列表",
-        "podcasts": "Podcast",
-        "radio": "電台",
-        "recently-added-page-info": "限制顯示的相簿數量",
-        "recently-added-page": "“最近新增”頁面",
-        "search": "搜尋",
-        "show-composer-genres-help": "以逗號分隔的音樂類型清單，將顯示作曲家的音樂類型{0}留空以始終顯示作曲家{0}通過檢查是否包含定義的音樂類型之一來匹配當前曲目的音樂類型標籤。例如，設定為“古典、原聲帶”將顯示音樂類型標籤為“當代古典”的曲目的作曲家",
-        "show-composer-genres": "僅顯示列出的音樂類型的作曲家",
-        "show-composer-info": "如果啟用，則會顯示目前播放曲目的作曲家",
-        "show-composer": "顯示作曲家",
-        "show-path": "顯示檔案路徑"
-      },
-      "services": {
-        "lastfm": {
-          "grant-access": "使用您的 Last.fm 用戶名和密碼登入以啓用記錄功能",
-          "info": "OwnTone不會存儲您的 Last.fm 用戶名/密碼，僅存儲會話密鑰。會話密鑰不會過期",
-          "title": "Last.fm",
-          "no-support": "OwnTone並無Last.fm的官方支持"
-        },
-        "spotify": {
-          "authorize": "授權 API 訪問",
-          "grant-access": "授予對 Spotify API 的訪問權限",
-          "no-support": "OwnTone並無 Spotify 官方的支持，也未安裝 libspotify",
-          "reauthorize": "請重新授權 API 訪問權限，以授予 OwnTone 以下附加訪問權限：{scopes}",
-          "requirements": "您必須擁有 Spotify付費帳戶。訪問 Spotify API 可以掃描您的 Spotify庫。所需範圍是：{scopes}",
-          "title": "Spotify",
-          "user": "授予訪問權限 {user}"
-        },
-        "password": "密碼",
-        "username": "用戶名"
-      },
       "tabs": {
         "artwork": "封面",
         "devices": "遙控和輸出",
-        "general": "概覽",
-        "online-services": "在線服務"
+        "online-services": "在線服務",
+        "webinterface": "概覽"
       }
     },
     "spotify": {
@@ -322,13 +268,6 @@
         "featured-playlists": "特色列表",
         "new-releases": "最新發行"
       }
-    }
-  },
-  "playlist": {
-    "type": {
-      "folder": "檔案夾",
-      "plain": "簡單",
-      "smart": "智能"
     }
   },
   "player": {
@@ -349,11 +288,18 @@
       "toggle-lyrics": "顯示/隱藏歌詞"
     }
   },
+  "playlist": {
+    "type": {
+      "folder": "檔案夾",
+      "plain": "簡單",
+      "smart": "智能"
+    }
+  },
   "property": {
     "added-on": "新增時間",
     "album": "專輯",
-    "albums": "張專輯",
     "album-artist": "專輯藝人",
+    "albums": "張專輯",
     "artist": "專輯藝人",
     "artists": "藝人",
     "comment": "評論",
@@ -379,15 +325,70 @@
     "year": "年份"
   },
   "server": {
+    "appended-tracks": "已附加到隊列的 {count} 首曲目|已附加到隊列的 {count} 首曲目",
     "connection-failed": "無法連接到 OwnTone 伺服器",
-    "request-failed": "請求失敗 (狀態：{status} {cause} {url})",
     "queue-saved": "清單以新增到播放列表 {name}",
-    "appended-tracks": "已附加到隊列的 {count} 首曲目|已附加到隊列的 {count} 首曲目"
+    "request-failed": "請求失敗 (狀態：{status} {cause} {url})"
   },
-  "grouped-list": {
-    "today": "今日",
-    "last-week": "上周",
-    "last-month": "上月",
-    "undefined": "未定義"
+  "settings": {
+    "artwork": {
+      "explanation-1": "OwnTone支持PNG和 JPEG封面，這些封面可以作為單獨的圖像文件放置在庫中或嵌入到媒體文件中，也可以通過電台在線提供",
+      "explanation-2": "除此之外，您還可以從以下素材提供者獲取封面:",
+      "show-cover-artwork-in-album-lists": "在專輯列表中顯示封面藝術作品",
+      "streamurl-ignore": "忽略電台提供的作品",
+      "title": "封面",
+      "use-artwork-source-coverartarchive": "Cover Art Archive",
+      "use-artwork-source-discogs": "Discogs",
+      "use-artwork-source-spotify": "Spotify"
+    },
+    "devices": {
+      "no-active-pairing": "沒有活躍的配對請求",
+      "pairing": "遙控配對",
+      "pairing-code": "配對代碼",
+      "pairing-request": "遠程配對請求來自於 ",
+      "speaker-pairing": "揚聲器配對和設備驗證",
+      "speaker-pairing-info": "如果您的揚聲器需要配對，請在下面輸入它顯示的 PIN以啓用",
+      "verification-code": "驗證碼"
+    },
+    "services": {
+      "lastfm": {
+        "grant-access": "使用您的 Last.fm 用戶名和密碼登入以啓用記錄功能",
+        "info": "OwnTone不會存儲您的 Last.fm 用戶名/密碼，僅存儲會話密鑰。會話密鑰不會過期",
+        "no-support": "OwnTone並無Last.fm的官方支持",
+        "title": "Last.fm"
+      },
+      "password": "密碼",
+      "spotify": {
+        "authorize": "授權 API 訪問",
+        "grant-access": "授予對 Spotify API 的訪問權限",
+        "no-support": "OwnTone並無 Spotify 官方的支持，也未安裝 libspotify",
+        "reauthorize": "請重新授權 API 訪問權限，以授予 OwnTone 以下附加訪問權限：{scopes}",
+        "requirements": "您必須擁有 Spotify付費帳戶。訪問 Spotify API 可以掃描您的 Spotify庫。所需範圍是：{scopes}",
+        "title": "Spotify",
+        "user": "授予訪問權限 {user}"
+      },
+      "username": "用戶名"
+    },
+    "webinterface": {
+      "genres": "音樂類型",
+      "language": "語言",
+      "navigation-item-selection": "選擇頂部導航欄菜單項",
+      "navigation-item-selection-info": "在行動裝置螢幕上，只會顯示漢堡菜單",
+      "navigation-items": "導航條",
+      "player-page": "“正在播放”頁面",
+      "recently-added-limit": "限制顯示的相簿數量",
+      "recently-added-page": "“最近新增”頁面",
+      "show-composer-for-genre": "僅顯示列出的音樂類型的作曲家",
+      "show-composer-genres-help": "以逗號分隔的音樂類型清單，將顯示作曲家的音樂類型{0}留空以始終顯示作曲家{0}通過檢查是否包含定義的音樂類型之一來匹配當前曲目的音樂類型標籤。例如，設定為“古典、原聲帶”將顯示音樂類型標籤為“當代古典”的曲目的作曲家",
+      "show-composer-now-playing": "顯示作曲家",
+      "show-filepath-now-playing": "顯示檔案路徑",
+      "show-menu-item-audiobooks": "有聲書",
+      "show-menu-item-files": "文件",
+      "show-menu-item-music": "音樂",
+      "show-menu-item-playlists": "播放列表",
+      "show-menu-item-podcasts": "Podcast",
+      "show-menu-item-radio": "電台",
+      "show-menu-item-search": "搜尋"
+    }
   }
 }
