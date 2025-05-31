@@ -81,7 +81,5 @@ export const useSettingsStore = defineStore('SettingsStore', {
     showMenuItemSearch: (state) =>
       state.get('webinterface', 'show_menu_item_search')?.value ?? false
   },
-  state: () => ({
-    categories: []
-  })
+  state: () => ({ categories: [] })
 })

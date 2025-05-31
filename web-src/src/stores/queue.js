@@ -29,9 +29,5 @@ export const useQueueStore = defineStore('QueueStore', {
       )
     }
   },
-  state: () => ({
-    count: 0,
-    items: [],
-    version: 0
-  })
+  state: () => ({ count: 0, items: [], version: 0 })
 })

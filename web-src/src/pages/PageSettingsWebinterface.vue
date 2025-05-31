@@ -99,8 +99,7 @@
       <control-setting-integer-field
         category="webinterface"
         name="recently_added_limit"
-      >
-      </control-setting-integer-field>
+      />
     </template>
   </content-with-heading>
 </template>

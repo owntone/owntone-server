@@ -36,14 +36,12 @@ export default {
 <style lang="scss" scoped>
 @use 'bulma/sass/utilities/mixins';
 
-.column {
-  &.has-image {
-    @include mixins.mobile {
-      justify-content: center;
-    }
-    @include mixins.tablet {
-      justify-content: right;
-    }
+.has-image {
+  @include mixins.mobile {
+    justify-content: center;
+  }
+  @include mixins.tablet {
+    justify-content: right;
   }
 }
 </style>

@@ -7,8 +7,5 @@ export const useRemotesStore = defineStore('RemotesStore', {
       this.$state = await remotes.state()
     }
   },
-  state: () => ({
-    active: false,
-    remote: ''
-  })
+  state: () => ({ active: false, remote: '' })
 })

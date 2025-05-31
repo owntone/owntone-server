@@ -41,9 +41,5 @@ export const useServicesStore = defineStore('ServicesStore', {
     requiredSpotifyScopes: (state) =>
       state.spotify.webapi_required_scope?.split(' ') ?? []
   },
-  state: () => ({
-    lastfm: {},
-    spotify: {},
-    spotifyTimerId: 0
-  })
+  state: () => ({ lastfm: {}, spotify: {}, spotifyTimerId: 0 })
 })

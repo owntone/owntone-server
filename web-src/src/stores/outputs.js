@@ -7,7 +7,5 @@ export const useOutputsStore = defineStore('OutputsStore', {
       this.$state = await outputs.state()
     }
   },
-  state: () => ({
-    outputs: []
-  })
+  state: () => ({ outputs: [] })
 })

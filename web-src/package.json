@@ -32,11 +32,11 @@
   "devDependencies": {
     "@intlify/unplugin-vue-i18n": "^6.0.8",
     "@vitejs/plugin-vue": "^5.2.4",
-    "eslint": "^9.27.0",
+    "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-vue": "^10.1.0",
     "prettier": "^3.5.3",
-    "sass": "^1.89.0",
+    "sass": "^1.89.1",
     "vite": "^6.3.5"
   }
 }
