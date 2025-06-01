@@ -43,21 +43,19 @@ export default {
     }
   },
   computed: {
-    verseIndex() {
-      const currentTime = this.time
-      const { verses } = this.lyrics
-      let start = 0
-      let end = verses.length - 1
-      while (start <= end) {
-        const mid = Math.floor((start + end) / 2)
-        const midTime = verses[mid].time
-        const nextTime = verses[mid + 1]?.time
-        if (midTime <= currentTime && (!nextTime || nextTime > currentTime)) {
+    verseIndex(time, verses) {
+      let low = 0
+      let high = verses.length - 1
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2),
+          midTime = verses[mid].time,
+          nextTime = verses[mid + 1]?.time
+        if (midTime <= time && (!nextTime || nextTime > time)) {
           return mid
-        } else if (midTime < currentTime) {
-          start = mid + 1
+        } else if (midTime < time) {
+          low = mid + 1
         } else {
-          end = mid - 1
+          high = mid - 1
         }
       }
       return -1
@@ -67,7 +65,7 @@ export default {
       let start = 0
       let { length } = verses
       if (synchronised) {
-        start = this.verseIndex - this.MIDDLE_POSITION
+        start = this.verseIndex(this.time, verses) - this.MIDDLE_POSITION
         length = this.VISIBLE_VERSES
       }
       return Array.from(
