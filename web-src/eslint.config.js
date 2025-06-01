@@ -5,20 +5,19 @@ import pluginVue from 'eslint-plugin-vue'
 
 export default [
   {
-    files: ['src/**/*.js', 'src/**/.vue'],
-    languageOptions: { globals: { ...globals.node } }
+    files: ['**/*.js', 'src/**/*.vue'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } }
   },
-  eslintConfigPrettier,
-  js.configs.all,
   ...pluginVue.configs['flat/recommended'],
   {
     rules: {
+      ...eslintConfigPrettier.rules,
+      ...js.configs.all.rules,
       camelcase: 'off',
       'id-length': 'off',
       'max-lines-per-function': 'off',
       'no-bitwise': 'off',
       'no-magic-numbers': 'off',
-      'no-undef': 'off',
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
       'one-var': 'off',
       'sort-keys': 'off',
