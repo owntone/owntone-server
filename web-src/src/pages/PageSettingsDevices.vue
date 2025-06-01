@@ -80,6 +80,7 @@ import ControlSwitch from '@/components/ControlSwitch.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import outputs from '@/api/outputs'
+import remotes from '@/api/remotes'
 import { useOutputsStore } from '@/stores/outputs'
 import { useRemotesStore } from '@/stores/remotes'
 

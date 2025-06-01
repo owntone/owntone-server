@@ -93,7 +93,7 @@ export default {
       this.offset += data.limit
     },
     load({ loaded }) {
-      api.spotify().then((data) => {
+      services.spotify().then((data) => {
         const spotifyApi = new SpotifyWebApi()
         spotifyApi.setAccessToken(data.webapi_token)
         spotifyApi
