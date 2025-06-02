@@ -6,7 +6,7 @@ import pluginVue from 'eslint-plugin-vue'
 export default [
   ...pluginVue.configs['flat/recommended'],
   {
-    files: ['**/*.js', 'src/**/*.vue'],
+    files: ['**/*.{js,vue}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: {
       ...eslintConfigPrettier.rules,
@@ -17,9 +17,7 @@ export default [
       'no-bitwise': 'off',
       'no-magic-numbers': 'off',
       'one-var': 'off',
-      'sort-keys': 'off',
-      'vue/html-self-closing': 'off',
-      'vue/max-attributes-per-line': 'off'
+      'sort-keys': 'off'
     }
   }
 ]

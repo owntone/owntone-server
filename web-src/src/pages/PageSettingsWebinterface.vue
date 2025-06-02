@@ -46,13 +46,11 @@
       <control-setting-switch
         category="webinterface"
         name="show_menu_item_files"
-      >
-      </control-setting-switch>
+      />
       <control-setting-switch
         category="webinterface"
         name="show_menu_item_search"
-      >
-      </control-setting-switch>
+      />
     </template>
   </content-with-heading>
   <content-with-heading>
