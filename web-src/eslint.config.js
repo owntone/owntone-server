@@ -4,12 +4,10 @@ import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 
 export default [
-  {
-    files: ['**/*.js', 'src/**/*.vue'],
-    languageOptions: { globals: { ...globals.browser, ...globals.node } }
-  },
   ...pluginVue.configs['flat/recommended'],
   {
+    files: ['**/*.js', 'src/**/*.vue'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: {
       ...eslintConfigPrettier.rules,
       ...js.configs.all.rules,
@@ -18,7 +16,6 @@ export default [
       'max-lines-per-function': 'off',
       'no-bitwise': 'off',
       'no-magic-numbers': 'off',
-      'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
       'one-var': 'off',
       'sort-keys': 'off',
       'vue/html-self-closing': 'off',

@@ -21,7 +21,7 @@ export default {
   stop() {
     try {
       this.audio?.pause()
-    } catch (error) {
+    } catch {
       // Do nothing
     }
   }

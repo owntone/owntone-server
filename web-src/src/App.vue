@@ -114,7 +114,7 @@ export default {
         this.uiStore.hideSingles = this.configurationStore.hide_singles
         document.title = this.configurationStore.library_name
         this.openWebsocket()
-      } catch (e) {
+      } catch {
         this.notificationsStore.add({
           text: this.$t('server.connection-failed'),
           topic: 'connection',
