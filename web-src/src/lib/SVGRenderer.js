@@ -1,9 +1,9 @@
 const toColor = (string) => {
   let hash = 0
   for (const char of string) {
-    hash = char.charCodeAt(0) + ((hash << 5) - hash)
+    hash = char.charCodeAt(0) + hash * 0x1f
   }
-  return (hash & 0x00ffffff).toString(16)
+  return (hash % 0xffffff).toString(16).padStart(6, '0')
 }
 
 const luminance = (color) =>

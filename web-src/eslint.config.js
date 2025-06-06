@@ -14,7 +14,6 @@ export default [
       camelcase: 'off',
       'id-length': 'off',
       'max-lines-per-function': 'off',
-      'no-bitwise': 'off',
       'no-magic-numbers': 'off',
       'one-var': 'off',
       'sort-keys': 'off'
