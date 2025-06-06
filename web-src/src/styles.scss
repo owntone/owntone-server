@@ -1,0 +1,55 @@
+@charset "utf-8";
+
+@use 'bulma/bulma';
+@use 'bulma/sass/utilities/mixins';
+
+@mixin navbar($theme) {
+  $bg: '--bulma-#{$theme}';
+  $bg-l: '--bulma-#{$theme}-l';
+  $color-l: '--bulma-#{$theme}-invert-l';
+  --bulma-navbar-background-color: var(#{$bg});
+  --bulma-navbar-item-background-l: var(#{$bg-l});
+  --bulma-navbar-item-color-l: var(#{$color-l});
+}
+
+@media (prefers-color-scheme: dark) {
+  .is-top {
+    @include navbar(dark);
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  .is-top {
+    @include navbar(light);
+  }
+}
+
+.is-bottom {
+  @include navbar(dark);
+}
+
+.navbar-item {
+  width: var(--bulma-navbar-height);
+  justify-content: center;
+}
+
+.media:first-of-type {
+  padding-top: 1rem;
+}
+
+.overlay-fullscreen {
+  @extend .is-overlay;
+  z-index: 25;
+  background-color: rgba(10, 10, 10, 0.5);
+  position: fixed;
+}
+
+.dropdown-menu.is-mobile {
+  @include mixins.mobile {
+    width: 100vw;
+  }
+  .dropdown-content {
+    max-height: calc(100vh - calc(2 * var(--bulma-navbar-height)));
+    overflow: auto;
+  }
+}

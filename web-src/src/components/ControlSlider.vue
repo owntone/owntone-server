@@ -36,50 +36,27 @@ export default {
   height: var(--th);
   box-sizing: border-box;
   border-radius: 50%;
-  background: var(--bulma-light);
-  border: 1px solid var(--bulma-grey-lighter);
-  @media (prefers-color-scheme: dark) {
-    background: var(--bulma-grey-lighter);
-    border: 1px solid var(--bulma-grey-dark);
-  }
+  background: var(--bulma-text);
 }
 @mixin thumb-inactive {
   box-sizing: border-box;
-  background-color: var(--bulma-light);
-  @media (prefers-color-scheme: dark) {
-    background-color: var(--bulma-grey-dark);
-    border: 1px solid var(--bulma-grey-darker);
-  }
+  background-color: var(--bulma-border);
 }
 @mixin track {
   height: calc(var(--sh));
   border-radius: calc(var(--sh) / 2);
   background: linear-gradient(
     90deg,
-    var(--bulma-dark) var(--sx),
-    var(--bulma-grey-lighter) var(--sx)
+    var(--bulma-text) var(--sx),
+    var(--bulma-border) var(--sx)
   );
-  @media (prefers-color-scheme: dark) {
-    background: linear-gradient(
-      90deg,
-      var(--bulma-grey-lighter) var(--sx),
-      var(--bulma-grey-dark) var(--sx)
-    );
-  }
 }
 @mixin track-inactive {
   background: linear-gradient(
     90deg,
-    var(--bulma-grey-light) var(--sx),
-    var(--bulma-light) var(--sx)
+    var(--bulma-border) var(--sx),
+    var(--bulma-background) var(--sx)
   );
-  @media (prefers-color-scheme: dark) {
-    background: linear-gradient(
-      90deg,
-      var(--bulma-grey-dark) var(--sx),
-      var(--bulma-black-ter) var(--sx)
-    );
-  }
 }
 input[type='range'].slider {
   --ratio: v-bind(ratio);

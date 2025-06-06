@@ -331,6 +331,12 @@
     "request-failed": "Request failed (status: {status} {cause} {url})"
   },
   "settings": {
+    "appearance": {
+      "auto": "Auto",
+      "dark": "Dark",
+      "light": "Light",
+      "title": "Appearance"
+    },
     "artwork": {
       "explanation-1": "OwnTone supports PNG and JPEG artwork which is either placed as separate image files in the library, embedded in the media files or made available online by radio stations.",
       "explanation-2": "In addition to that, you can enable fetching artwork from the following artwork providers:",

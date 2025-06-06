@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar is-fixed-bottom" :class="{ 'is-dark': !isPlayerPage }">
+  <nav class="navbar is-fixed-bottom" :class="{ 'is-bottom': !isPlayerPage }">
     <div class="navbar-brand is-flex-grow-1">
       <control-link class="navbar-item" :to="{ name: 'queue' }">
         <mdicon class="icon" name="playlist-play" />

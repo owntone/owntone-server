@@ -6,6 +6,9 @@ const { t, availableLocales } = i18n.global
 
 export const useSettingsStore = defineStore('SettingsStore', {
   actions: {
+    currentAppearance() {
+      return this.$state.appearance
+    },
     currentLocale() {
       const languages = availableLocales
       let locale = languages.find((lang) => lang === i18n.global.locale.value)
@@ -31,6 +34,16 @@ export const useSettingsStore = defineStore('SettingsStore', {
     async initialise() {
       this.$state = await settings.state()
     },
+    setAppearance(appearance) {
+      this.$state.appearance = appearance
+      if (appearance === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      } else if (appearance === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light')
+      } else {
+        document.documentElement.removeAttribute('data-theme')
+      }
+    },
     setLocale(locale) {
       i18n.global.locale.value = locale
     },
@@ -50,6 +63,13 @@ export const useSettingsStore = defineStore('SettingsStore', {
     }
   },
   getters: {
+    appearances() {
+      return [
+        { id: 'auto', name: t('settings.appearance.auto') },
+        { id: 'light', name: t('settings.appearance.light') },
+        { id: 'dark', name: t('settings.appearance.dark') }
+      ]
+    },
     locales() {
       return availableLocales.map((item) => ({
         id: item,
@@ -81,5 +101,5 @@ export const useSettingsStore = defineStore('SettingsStore', {
     showMenuItemSearch: (state) =>
       state.get('webinterface', 'show_menu_item_search')?.value ?? false
   },
-  state: () => ({ categories: [] })
+  state: () => ({ appearance: 'auto', categories: [] })
 })

@@ -331,6 +331,12 @@
     "request-failed": "Anfrage gescheitert (Status: {status} {cause} {url})"
   },
   "settings": {
+    "appearance": {
+      "auto": "Automatisch",
+      "dark": "Dunkel",
+      "light": "Hell",
+      "title": "Erscheinungsbild"
+    },
     "artwork": {
       "explanation-1": "OwnTone verarbeitet PNG- und JPEG-Artwork, welches in einer eigenen Datei in der Bibliothek, in die Dateien eingebettet oder online von Radiostationen bereitgestellt werden kann.",
       "explanation-2": "Zusätzlich kann auf folgende Artwork-Anbieter zugegriffen werden:",

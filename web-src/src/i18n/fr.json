@@ -331,6 +331,12 @@
     "request-failed": "La requête a échoué (status: {status} {cause} {url})"
   },
   "settings": {
+    "appearance": {
+      "auto": "Automatique",
+      "dark": "Sombre",
+      "light": "Clair",
+      "title": "Mode d’apparence"
+    },
     "artwork": {
       "explanation-1": "OwnTone prend en charge les illustrations au format PNG et JPEG qui sont soit placées dans la bibliothèque en tant que fichiers image séparés, soit intégrées dans les fichiers média, soit mises à disposition en ligne par les stations de radio.",
       "explanation-2": "En outre, vous pouvez activer la récupération des illustrations à partir des fournisseurs d’illustrations suivants :",

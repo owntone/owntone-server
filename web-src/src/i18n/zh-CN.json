@@ -331,6 +331,12 @@
     "request-failed": "请求失败 (状态：{status} {cause} {url})"
   },
   "settings": {
+    "appearance": {
+      "auto": "自动",
+      "dark": "深色",
+      "light": "浅色",
+      "title": "外观"
+    },
     "artwork": {
       "explanation-1": "OwnTone支持PNG和 JPEG封面，这些封面可以作为单独的图像文件放置在库中或嵌入到媒体文件中，也可以通过广播电台在线提供",
       "explanation-2": "除此之外，您还可以从以下素材提供者获取封面:",

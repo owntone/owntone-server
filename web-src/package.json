@@ -19,7 +19,7 @@
     "bulma": "^1.0.4",
     "luxon": "^3.6.1",
     "mdi-vue": "^3.0.13",
-    "pinia": "^3.0.2",
+    "pinia": "^3.0.3",
     "reconnectingwebsocket": "^1.0.0",
     "spotify-web-api-js": "^1.5.2",
     "vue": "^3.5.16",
@@ -34,7 +34,7 @@
     "@vitejs/plugin-vue": "^5.2.4",
     "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",
-    "eslint-plugin-vue": "^10.1.0",
+    "eslint-plugin-vue": "^10.2.0",
     "prettier": "^3.5.3",
     "sass": "^1.89.1",
     "vite": "^6.3.5"

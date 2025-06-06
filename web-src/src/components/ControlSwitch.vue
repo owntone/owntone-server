@@ -34,7 +34,7 @@ export default {
   display: inline-block;
   &-switch {
     display: inline-block;
-    background: var(--bulma-grey-lighter);
+    background: var(--bulma-border);
     border-radius: 1rem;
     width: 2.25rem;
     height: 1.25rem;
@@ -45,7 +45,7 @@ export default {
     &:before {
       content: '';
       display: block;
-      background: var(--bulma-white);
+      background: var(--bulma-background);
       border-radius: 50%;
       width: 1rem;
       height: 1rem;
@@ -56,12 +56,12 @@ export default {
     }
   }
   &:hover &-switch:before {
-    background: var(--bulma-white);
+    background: var(--bulma-background);
   }
   &-checkbox {
     position: absolute;
     &:checked + .toggle-switch {
-      background: var(--bulma-dark);
+      background: var(--bulma-text);
 
       &:before {
         left: 1.125rem;

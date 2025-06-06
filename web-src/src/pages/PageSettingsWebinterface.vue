@@ -13,6 +13,17 @@
   </content-with-heading>
   <content-with-heading>
     <template #heading>
+      <pane-title :content="{ title: $t('settings.appearance.title') }" />
+    </template>
+    <template #content>
+      <control-dropdown
+        v-model:value="appearance"
+        :options="settingsStore.appearances"
+      />
+    </template>
+  </content-with-heading>
+  <content-with-heading>
+    <template #heading>
       <pane-title
         :content="{ title: $t('settings.webinterface.navigation-items') }"
       />
@@ -127,6 +138,14 @@ export default {
     return { settingsStore: useSettingsStore() }
   },
   computed: {
+    appearance: {
+      get() {
+        return this.settingsStore.currentAppearance()
+      },
+      set(appearance) {
+        this.settingsStore.setAppearance(appearance)
+      }
+    },
     locale: {
       get() {
         return this.settingsStore.currentLocale()

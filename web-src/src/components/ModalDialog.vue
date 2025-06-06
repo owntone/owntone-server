@@ -55,6 +55,10 @@ export default {
 </script>
 
 <style scoped>
+.card-content {
+  max-height: calc(100vh - calc(4 * var(--bulma-navbar-height)));
+  overflow: auto;
+}
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
@@ -69,15 +73,14 @@ export default {
 .fade-leave-from {
   opacity: 1;
 }
-.card-content {
-  max-height: calc(100vh - calc(4 * var(--bulma-navbar-height)));
-  overflow: auto;
-}
 .is-disabled {
   cursor: not-allowed;
   opacity: 0.5;
   > * {
     pointer-events: none;
   }
+}
+.modal-background {
+  background-color: rgba(10, 10, 10, 0.5);
 }
 </style>
