@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar is-fixed-top is-top" :style="zindex">
+  <nav class="navbar is-fixed-top is-top">
     <div class="navbar-brand is-flex-grow-1">
       <control-link
         v-for="menu in menus.filter((menu) => menu.show && !menu.sub)"
@@ -131,12 +131,6 @@ export default {
         { action: this.openUpdateDialog, key: 'navigation.update-library' },
         { key: 'navigation.about', name: 'about' }
       ]
-    },
-    zindex() {
-      if (this.uiStore.showPlayerMenu) {
-        return 'z-index: 21'
-      }
-      return ''
     }
   },
   methods: {

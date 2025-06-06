@@ -47,6 +47,6 @@ export default {
   position: sticky;
   top: var(--bulma-navbar-height);
   width: 100%;
-  z-index: 20;
+  z-index: 1;
 }
 </style>
