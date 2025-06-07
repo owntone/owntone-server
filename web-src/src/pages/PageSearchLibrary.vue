@@ -62,9 +62,11 @@ export default {
     return {
       components: {
         album: ListAlbums,
+        audiobook: ListAlbums,
         artist: ListArtists,
         composer: ListComposers,
         playlist: ListPlaylists,
+        podcast: ListAlbums,
         track: ListTracks
       },
       searchStore: useSearchStore()
