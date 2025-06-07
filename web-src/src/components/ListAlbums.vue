@@ -54,8 +54,7 @@ export default {
       return null
     },
     open(item) {
-      this.selectedItem = item
-      const mediaKind = this.mediaKind || this.selectedItem.media_kind
+      const mediaKind = this.mediaKind || item.media_kind
       if (mediaKind === 'podcast') {
         this.$router.push({ name: 'podcast', params: { id: item.id } })
       } else {

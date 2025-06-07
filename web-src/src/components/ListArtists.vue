@@ -31,7 +31,6 @@ export default {
   },
   methods: {
     open(item) {
-      this.selectedItem = item
       this.$router.push({
         name: `${item.media_kind}-artist`,
         params: { id: item.id }

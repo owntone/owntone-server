@@ -31,7 +31,6 @@ export default {
   },
   methods: {
     open(item) {
-      this.selectedItem = item
       this.$router.push({
         name: 'music-composer-albums',
         params: { name: item.name }
