@@ -35,6 +35,7 @@ export default {
   width: var(--th);
   height: var(--th);
   box-sizing: border-box;
+  border: 0px;
   border-radius: 50%;
   background: var(--bulma-text);
 }
