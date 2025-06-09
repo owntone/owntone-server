@@ -12,28 +12,42 @@
   --bulma-navbar-item-color-l: var(#{$color-l});
 }
 
-@media (prefers-color-scheme: dark) {
-  .is-top {
+.is-top {
+  @media (prefers-color-scheme: dark) {
     @include navbar(dark);
   }
-}
 
-@media (prefers-color-scheme: light) {
-  .is-top {
+  @media (prefers-color-scheme: light) {
+    @include navbar(light);
+  }
+
+  [data-theme='dark'] & {
+    @include navbar(dark);
+  }
+
+  [data-theme='light'] & {
     @include navbar(light);
   }
 }
 
-[data-theme='dark'] .is-top {
-  @include navbar(dark);
-}
-
-[data-theme='light'] .is-top {
-  @include navbar(light);
-}
-
 .is-bottom {
   @include navbar(dark);
+}
+
+button.navbar-item:hover {
+  --bulma-navbar-item-background-l-delta: var(
+    --bulma-navbar-item-hover-background-l-delta
+  );
+  --bulma-navbar-item-background-a: 1;
+  background-color: hsla(
+    var(--bulma-navbar-h),
+    var(--bulma-navbar-s),
+    calc(
+      var(--bulma-navbar-item-background-l) +
+        var(--bulma-navbar-item-background-l-delta)
+    ),
+    var(--bulma-navbar-item-background-a)
+  );
 }
 
 .navbar-item {
@@ -49,7 +63,6 @@
   @extend .is-overlay;
   z-index: 1;
   background-color: rgba(10, 10, 10, 0.5);
-  position: fixed;
 }
 
 .dropdown-menu.is-mobile {
