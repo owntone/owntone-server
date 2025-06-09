@@ -49,7 +49,7 @@ export default {
             value: this.item.album
           },
           {
-            handler: this.openAlbumArtist,
+            handler: this.openArtist,
             key: 'property.album-artist',
             value: this.item.album_artist
           },
@@ -122,7 +122,7 @@ export default {
         })
       }
     },
-    openAlbumArtist() {
+    openArtist() {
       this.$emit('close')
       if (this.item.data_kind === 'spotify') {
         this.$router.push({
