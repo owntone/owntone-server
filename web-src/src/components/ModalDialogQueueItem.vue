@@ -77,7 +77,7 @@ export default {
             key: 'property.quality',
             value: this.$t('dialog.track.quality-value', {
               bitrate: this.item.bitrate,
-              channels: this.$t('data.channels', this.item.channels),
+              count: this.item.channels,
               format: this.item.type,
               samplerate: this.item.samplerate
             })
