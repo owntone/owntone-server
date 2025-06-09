@@ -36,12 +36,11 @@ export const useSettingsStore = defineStore('SettingsStore', {
     },
     setAppearance(appearance) {
       this.$state.appearance = appearance
-      if (appearance === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark')
-      } else if (appearance === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light')
+      const element = document.documentElement
+      if (appearance === 'auto') {
+        element.removeAttribute('data-theme')
       } else {
-        document.documentElement.removeAttribute('data-theme')
+        element.setAttribute('data-theme', appearance)
       }
     },
     setLocale(locale) {
