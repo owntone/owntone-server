@@ -88,8 +88,6 @@ static cfg_opt_t sec_directory[] = {
 
 /* directories section structure (in library)*/
 static cfg_opt_t sec_directories[] = {
-    // Support old-style string list
-    CFG_STR_LIST("directories", NULL, CFGF_NONE),
     // Support new-style named blocks
     CFG_SEC("directory", sec_directory, CFGF_MULTI | CFGF_TITLE),
     CFG_END()
@@ -101,8 +99,8 @@ static cfg_opt_t sec_library[] =
     CFG_STR("name", "My Music on %h", CFGF_NONE),
     CFG_INT("port", 3689, CFGF_NONE),
     CFG_STR("password", NULL, CFGF_NONE),
-    // original old config style
-    // CFG_STR_LIST("directories", NULL, CFGF_NONE),
+    // Support old-style string list
+    CFG_STR_LIST("directories", NULL, CFGF_NONE),
     CFG_SEC("dirs", sec_directories, CFGF_NONE),
     CFG_BOOL("follow_symlinks", cfg_true, CFGF_NONE),
     CFG_STR_LIST("podcasts", NULL, CFGF_NONE),
@@ -483,8 +481,10 @@ conffile_expand_libname(cfg_t *lib)
 /* Helper to add a titled section dynamically to directories section.
  * This is to support old style directories configuration.
  * An alternative would be to call libconfuse internal function cfg_addsec
+ * 
+ * dirs: directories section from the library
  */
-int add_named_directory(cfg_t *cfg, const char *title, const char *path, int use_fs_events) {
+int add_named_directory(cfg_t *dirs, const char *title, const char *path, int use_fs_events) {
     // Initialize a new section for the directory
     cfg_t *new_sec = cfg_init(sec_directory, CFGF_NONE);
     if (!new_sec) {
@@ -495,15 +495,13 @@ int add_named_directory(cfg_t *cfg, const char *title, const char *path, int use
     cfg_setstr(new_sec, "path", path);
     cfg_setbool(new_sec, "use_fs_events", use_fs_events);
 
-    // Get the directories section from the library
-    cfg_t *directories_sec = cfg_getsec(cfg, "library|directories");
-    if (!directories_sec) {
+    if (!dirs) {
         cfg_free(new_sec);
         return CFG_PARSE_ERROR;
     }
 
     // Manually add the new section to the directories section
-    cfg_opt_t *directory_opt = cfg_getopt(directories_sec, "directory");
+    cfg_opt_t *directory_opt = cfg_getopt(dirs, "directory");
     if (!directory_opt || !(directory_opt->flags & CFGF_MULTI)) {
         cfg_free(new_sec);
         return CFG_PARSE_ERROR;
