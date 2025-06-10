@@ -82,7 +82,16 @@ library {
 #	password = ""
 
 	# Directories to index
-	directories = { "/srv/music" }
+	# OLD STYLE (still supported)
+	# directories = { "/srv/music" }
+	# NEW STYLE (preferred)
+	directories = {
+	  directory srv_music {
+	    path = "/src/music"
+	    # defaults to true
+	    # use_fs_events = true
+	}
+  }
 
 	# Follow symlinks. Default: true.
 #	follow_symlinks = true

@@ -369,7 +369,15 @@ and set them to these values:
 ```conf
   uid = ${USER}
   loglevel = "debug"
-  directories = { "${HOME}/owntone_data/media" }
+  # OLD STYLE (still supported)
+  # directories = { "${HOME}/owntone_data/media" }
+  # NEW STYLE (preferred)
+  directories = {
+    directory local {
+      path = "${HOME}/owntone_data/media"
+      use_fs_events = true
+    }
+  }
 ```
 
 Run the server:

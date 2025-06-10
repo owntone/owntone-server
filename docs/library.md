@@ -56,7 +56,15 @@ The first step in doing this is to add two entries to the 'directories'
 configuration item in owntone.conf:
 
 ```conf
-  directories = { "/some/local/dir", "/your/network/mount/library" }
+  directories = {
+    directory local {
+      path = "/some/local/dir"
+    }
+    directory network {
+      path = "/your/network/mount/library"
+      use_fs_events = false
+    }
+  }
 ```
 
 Now you can make a cron job that runs this command:
