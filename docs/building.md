@@ -372,7 +372,7 @@ and set them to these values:
   # OLD STYLE (still supported)
   # directories = { "${HOME}/owntone_data/media" }
   # NEW STYLE (preferred)
-  directories = {
+  dirs {
     directory local {
       path = "${HOME}/owntone_data/media"
       use_fs_events = true

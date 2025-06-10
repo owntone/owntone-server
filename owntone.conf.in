@@ -85,7 +85,7 @@ library {
 	# OLD STYLE (still supported)
 	# directories = { "/srv/music" }
 	# NEW STYLE (preferred)
-	directories = {
+	dirs {
 	  directory srv_music {
 	    path = "/src/music"
 	    # defaults to true

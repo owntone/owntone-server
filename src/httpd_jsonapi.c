@@ -840,8 +840,8 @@ jsonapi_reply_config(struct httpd_request *hreq)
 
   // Library directories
   lib = cfg_getsec(cfg, "library");
-  dirs = cfg_getsec(lib, "directories");
-  ndirs = cfg_size(dirs, "directorty");
+  dirs = cfg_getsec(lib, "dirs");
+  ndirs = cfg_size(dirs, "directory");
   directories = json_object_new_array();
   for (i = 0; i < ndirs; i++)
     {

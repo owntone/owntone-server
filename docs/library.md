@@ -56,7 +56,7 @@ The first step in doing this is to add two entries to the 'directories'
 configuration item in owntone.conf:
 
 ```conf
-  directories = {
+  dirs = {
     directory local {
       path = "/some/local/dir"
     }

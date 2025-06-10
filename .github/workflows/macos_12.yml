@@ -62,7 +62,7 @@ jobs:
         mkdir -p $HOME/owntone_data/media
         sed -i '' 's/uid = "owntone"/uid = ${USER}/g' $HOME/owntone_data/etc/owntone.conf
         sed -i '' 's/loglevel = log/loglevel = debug/g' $HOME/owntone_data/etc/owntone.conf
-        sed -i '' 's/directories = { "\/srv\/music" }/directories = { "${HOME}\/owntone_data\/media" }/g' $HOME/owntone_data/etc/owntone.conf
+        sed -i '' 's/path = { "\/srv\/music" }/path = { "${HOME}\/owntone_data\/media" }/g' $HOME/owntone_data/etc/owntone.conf
 
     - name: Test run
       run: |

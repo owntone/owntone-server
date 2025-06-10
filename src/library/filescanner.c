@@ -1027,7 +1027,7 @@ bulk_scan(int flags)
   counter = 0;
 
 
-  dirs = cfg_getsec(lib, "directories");
+  dirs = cfg_getsec(lib, "dirs");
   ndirs = cfg_size(dirs, "directory");
   for (i = 0; i < ndirs; i++)
     {
@@ -1875,7 +1875,7 @@ check_path_in_directories(const char *path)
 
   ret = false;
   lib = cfg_getsec(cfg, "library");
-  dirs = cfg_getsec(lib, "directories");
+  dirs = cfg_getsec(lib, "dirs");
   ndirs = cfg_size(dirs, "directory");
   for (i = 0; i < ndirs; i++)
     {

@@ -89,7 +89,7 @@ static cfg_opt_t sec_directory[] = {
 /* directories section structure (in library)*/
 static cfg_opt_t sec_directories[] = {
     // Support old-style string list
-    CFG_STR_LIST("__old", NULL, CFGF_NONE),
+    CFG_STR_LIST("directories", NULL, CFGF_NONE),
     // Support new-style named blocks
     CFG_SEC("directory", sec_directory, CFGF_MULTI | CFGF_TITLE),
     CFG_END()
@@ -103,7 +103,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR("password", NULL, CFGF_NONE),
     // original old config style
     // CFG_STR_LIST("directories", NULL, CFGF_NONE),
-    CFG_SEC("directories", sec_directories, CFGF_NONE),
+    CFG_SEC("dirs", sec_directories, CFGF_NONE),
     CFG_BOOL("follow_symlinks", cfg_true, CFGF_NONE),
     CFG_STR_LIST("podcasts", NULL, CFGF_NONE),
     CFG_STR_LIST("audiobooks", NULL, CFGF_NONE),
@@ -633,15 +633,15 @@ conffile_load(char *file)
     }
 
   lib = cfg_getsec(cfg, "library");
-  dirs = cfg_getsec(lib, "directories");
+  dirs = cfg_getsec(lib, "dirs");
 
-  legacy_count = cfg_size(dirs, "__old");  // "__old" is your placeholder CFG_STR_LIST
+  legacy_count = cfg_size(lib, "directories");  // "directories" is your placeholder CFG_STR_LIST
   if (legacy_count > 0) {
     DPRINTF(E_LOG, L_CONF, "Converting old-style 'directories' config to new-style block structure\n");
   }
 
   for (i = 0; i < legacy_count; i++) {
-    old_path = cfg_getnstr(dirs, "__old", i);
+    old_path = cfg_getnstr(dirs, "directories", i);
 
     snprintf(auto_name, sizeof(auto_name), "legacy%d", i + 1);
     ret = add_named_directory(dirs, auto_name, old_path, 1);  // creates: directory legacy1 { ... }
@@ -659,7 +659,7 @@ conffile_load(char *file)
   // Remove legacy directories entries
   if (legacy_count > 0)
     {
-      ret = cfg_removeopt(dirs, "__old");
+      ret = cfg_removeopt(dirs, "directories");
       if (ret != CFG_SUCCESS)
 	{
 	  DPRINTF(E_FATAL, L_CONF, "Failed to remove legacy directories option\n");
@@ -667,7 +667,14 @@ conffile_load(char *file)
 	}
     }
 
-  if (cfg_size(lib, "directories") == 0)
+  if (cfg_size(lib, "directories") != 0)
+    {
+      DPRINTF(E_FATAL, L_CONF, "Failed to convert legacy directories to dirs (and then remove them).\n");
+
+      goto out_fail;
+    }
+
+  if (cfg_size(lib, "dirs") == 0)
     {
       DPRINTF(E_FATAL, L_CONF, "No directories specified for library\n");
 
