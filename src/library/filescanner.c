@@ -1858,7 +1858,7 @@ check_path_in_directories(const char *path)
   int ndirs;
   int i;
   char *tmp_path;
-  char *dir;
+  char *dirn;
   const char *lib_dir;
   bool ret;
 
@@ -1866,8 +1866,8 @@ check_path_in_directories(const char *path)
     return false;
 
   tmp_path = strdup(path);
-  dir = dirname(tmp_path);
-  if (!dir)
+  dirn = dirname(tmp_path);
+  if (!dirn)
     {
       free(tmp_path);
       return false;
@@ -1881,7 +1881,7 @@ check_path_in_directories(const char *path)
     {
       dir = cfg_getnsec(dirs, "directory", i);
       lib_dir = cfg_getstr(dir, "path");
-      if (strncmp(dir, lib_dir, strlen(lib_dir)) == 0)
+      if (strncmp(dirn, lib_dir, strlen(lib_dir)) == 0)
 	{
 	  ret = true;
 	  break;

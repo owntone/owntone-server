@@ -644,7 +644,12 @@ conffile_load(char *file)
     old_path = cfg_getnstr(dirs, "__old", i);
 
     snprintf(auto_name, sizeof(auto_name), "legacy%d", i + 1);
-    add_named_directory(dirs, auto_name, old_path, 1);  // creates: directory legacy1 { ... }
+    ret = add_named_directory(dirs, auto_name, old_path, 1);  // creates: directory legacy1 { ... }
+    if (ret != CFG_SUCCESS)
+      {
+	DPRINTF(E_FATAL, L_CONF, "Failed to add legacy directory '%s'\n", old_path);
+	goto out_fail;
+      }
 
     // cfg_t *new_dir = cfg_addsec(dirs_sec, "directory", auto_name);  // creates: directory legacy1 { ... }
     // cfg_setstr(cfg_getopt(new_dir, "path"), old_path);
@@ -654,7 +659,12 @@ conffile_load(char *file)
   // Remove legacy directories entries
   if (legacy_count > 0)
     {
-      cfg_removeopt(dirs, "__old");
+      ret = cfg_removeopt(dirs, "__old");
+      if (ret != CFG_SUCCESS)
+	{
+	  DPRINTF(E_FATAL, L_CONF, "Failed to remove legacy directories option\n");
+	  goto out_fail;
+	}
     }
 
   if (cfg_size(lib, "directories") == 0)
