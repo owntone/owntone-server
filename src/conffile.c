@@ -79,13 +79,31 @@ static cfg_opt_t sec_general[] =
     CFG_END()
   };
 
+/* directory section structure (in library -> directories)*/
+static cfg_opt_t sec_directory[] = {
+    CFG_STR("path", NULL, CFGF_NONE),
+    CFG_BOOL("use_fs_events", 1, CFGF_NONE),
+    CFG_END()
+};
+
+/* directories section structure (in library)*/
+static cfg_opt_t sec_directories[] = {
+    // Support old-style string list
+    CFG_STR_LIST("__old", NULL, CFGF_NONE),
+    // Support new-style named blocks
+    CFG_SEC("directory", sec_directory, CFGF_MULTI | CFGF_TITLE),
+    CFG_END()
+};
+
 /* library section structure */
 static cfg_opt_t sec_library[] =
   {
     CFG_STR("name", "My Music on %h", CFGF_NONE),
     CFG_INT("port", 3689, CFGF_NONE),
     CFG_STR("password", NULL, CFGF_NONE),
-    CFG_STR_LIST("directories", NULL, CFGF_NONE),
+    // original old config style
+    // CFG_STR_LIST("directories", NULL, CFGF_NONE),
+    CFG_SEC("directories", sec_directories, CFGF_NONE),
     CFG_BOOL("follow_symlinks", cfg_true, CFGF_NONE),
     CFG_STR_LIST("podcasts", NULL, CFGF_NONE),
     CFG_STR_LIST("audiobooks", NULL, CFGF_NONE),
@@ -462,13 +480,45 @@ conffile_expand_libname(cfg_t *lib)
   return 0;
 }
 
+/* Helper to add a titled section dynamically to directories section.
+ * This is to support old style directories configuration.
+ * An alternative would be to call libconfuse internal function cfg_addsec
+ */
+cfg_t*
+add_named_directory(cfg_t *directories_sec, const char *title, const char *path, int use_fs_events) {
+  cfg_opt_t *opt = cfg_getopt(directories_sec, "directory");
+  if (!opt || !(opt->flags & CFGF_MULTI)) return NULL;
+
+  // Allocate new cfg_t for the directory section
+  cfg_t *new_sec = calloc(1, sizeof(cfg_t));
+  if (!new_sec) return NULL;
+
+  cfg_init(new_sec, opt->subopts, opt->flags);
+  new_sec->name = opt->name;
+  new_sec->title = strdup(title);  // sets the name used for cfg_title()
+
+  // Insert into option's section array
+  int n = opt->nvalues;
+  opt->values = realloc(opt->values, sizeof(cfg_value_t) * (n + 1));
+  opt->values[n].section = new_sec;
+  opt->nvalues++;
+
+  // Set path and use_fs_events values
+  cfg_setstr(cfg_getopt(new_sec, "path"), path);
+  cfg_setbool(cfg_getopt(new_sec, "use_fs_events"), use_fs_events);
+
+  return new_sec;
+}
+
 int
 conffile_load(char *file)
 {
-  cfg_t *lib;
+  cfg_t *lib, *dirs;
   struct passwd *pw;
   char *runas;
-  int ret;
+  const char *old_path;
+  char auto_name[32];
+  int ret, legacy_count, i;
 
   cfg = cfg_init(toplvl_cfg, CFGF_NONE);
 
@@ -511,6 +561,29 @@ conffile_load(char *file)
     }
 
   lib = cfg_getsec(cfg, "library");
+  dirs = cfg_getsec(lib, "directories");
+
+  legacy_count = cfg_size(dirs, "__old");  // "__old" is your placeholder CFG_STR_LIST
+  if (legacy_count > 0) {
+    DPRINTF(E_LOG, L_GENERAL, "Converting old-style 'directories' config to new-style block structure\n");
+  }
+
+  for (i = 0; i < legacy_count; i++) {
+    *old_path = cfg_getnstr(dirs, "__old", i);
+
+    snprintf(auto_name, sizeof(auto_name), "legacy%d", i + 1);
+    add_named_directory(dirs, auto_name, old_path, 1);  // creates: directory legacy1 { ... }
+
+    // cfg_t *new_dir = cfg_addsec(dirs_sec, "directory", auto_name);  // creates: directory legacy1 { ... }
+    // cfg_setstr(cfg_getopt(new_dir, "path"), old_path);
+    // cfg_setbool(cfg_getopt(new_dir, "use_fs_events"), 1);
+  }
+
+  // Remove legacy directories entries
+  if (legacy_count > 0)
+    {
+      cfg_removeopt(dirs, "__old");
+    }
 
   if (cfg_size(lib, "directories") == 0)
     {
