@@ -481,7 +481,7 @@ conffile_expand_libname(cfg_t *lib)
 /* Helper to add a titled section dynamically to directories section.
  * This is to support old style directories configuration.
  * An alternative would be to call libconfuse internal function cfg_addsec
- * 
+ *
  * dirs: directories section from the library
  */
 int add_named_directory(cfg_t *dirs, const char *title, const char *path, int use_fs_events) {
@@ -508,17 +508,36 @@ int add_named_directory(cfg_t *dirs, const char *title, const char *path, int us
     }
 
     // Reallocate memory for the sections array
-    cfg_value_t **new_values = realloc(directory_opt->values, (directory_opt->nvalues + 1) * sizeof(cfg_value_t *));
+    cfg_value_t **new_values = realloc(directory_opt->values, 
+                                       (directory_opt->nvalues + 1) * sizeof(cfg_value_t *));
     if (!new_values) {
         cfg_free(new_sec);
         return CFG_PARSE_ERROR;
     }
 
-    // Add the new section to the array
+    // Allocate memory for the new cfg_value_t structure
+    new_values[directory_opt->nvalues] = malloc(sizeof(cfg_value_t));
+    if (!new_values[directory_opt->nvalues]) {
+        cfg_free(new_sec);
+        free(new_values);
+        return CFG_PARSE_ERROR;
+    }
+
+    // Initialize the new value structure
+    memset(new_values[directory_opt->nvalues], 0, sizeof(cfg_value_t));
+
+    // Set the section in the new value
     new_values[directory_opt->nvalues]->section = new_sec;
+
+    // Set the title if provided (this depends on how libconfuse handles section titles)
+    if (title) {
+        new_sec->title = strdup(title);
+    }
+
+    // Update the option structure
     directory_opt->values = new_values;
     directory_opt->nvalues++;
-
+    
     return CFG_SUCCESS;
 }
 
@@ -528,16 +547,16 @@ cfg_removeopt(cfg_t *cfg, const char *name) {
     if (!cfg || !name) {
         return CFG_FAIL;
     }
-    
+
     cfg_opt_t *opts = cfg->opts;
     if (!opts) {
         return CFG_FAIL;
     }
-    
+
     // Find the option to remove
     int found_idx = -1;
     int total_opts = 0;
-    
+
     // Count total options and find target
     for (int i = 0; opts[i].name; i++) {
         if (strcmp(opts[i].name, name) == 0) {
@@ -545,11 +564,11 @@ cfg_removeopt(cfg_t *cfg, const char *name) {
         }
         total_opts++;
     }
-    
+
     if (found_idx == -1) {
         return CFG_FAIL; // Option not found
     }
-    
+
     // Free the option's resources
     cfg_opt_t *opt = &opts[found_idx];
     if (opt->name) {
@@ -568,15 +587,15 @@ cfg_removeopt(cfg_t *cfg, const char *name) {
         }
         free(opt->values);
     }
-    
+
     // Shift remaining options down
     for (int i = found_idx; i < total_opts - 1; i++) {
         opts[i] = opts[i + 1];
     }
-    
+
     // Clear the last option
     memset(&opts[total_opts - 1], 0, sizeof(cfg_opt_t));
-    
+
     return CFG_SUCCESS;
 }
 
@@ -639,7 +658,7 @@ conffile_load(char *file)
   }
 
   for (i = 0; i < legacy_count; i++) {
-    old_path = cfg_getnstr(dirs, "directories", i);
+    old_path = cfg_getnstr(lib, "directories", i);
 
     snprintf(auto_name, sizeof(auto_name), "legacy%d", i + 1);
     ret = add_named_directory(dirs, auto_name, old_path, 1);  // creates: directory legacy1 { ... }
