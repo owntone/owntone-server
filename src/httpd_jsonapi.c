@@ -803,7 +803,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
   json_object *buildopts;
   int websocket_port;
   char **buildoptions;
-  cfg_t *lib;
+  cfg_t *lib, *dirs, *dir;
   int ndirs;
   char *path;
   char *deref;
@@ -840,11 +840,13 @@ jsonapi_reply_config(struct httpd_request *hreq)
 
   // Library directories
   lib = cfg_getsec(cfg, "library");
-  ndirs = cfg_size(lib, "directories");
+  dirs = cfg_getsec(lib, "directories");
+  ndirs = cfg_size(dirs, "directorty");
   directories = json_object_new_array();
   for (i = 0; i < ndirs; i++)
     {
-      path = cfg_getnstr(lib, "directories", i);
+      dir = cfg_getnsec(dirs, "directory", i);
+      path = cfg_getstr(dir, "path");
 
       // The path in the conf file may have a trailing slash character. Return the realpath like it is done in the bulk_scan function in filescanner.c
       deref = realpath(path, NULL);

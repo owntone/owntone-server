@@ -1007,7 +1007,7 @@ process_directories(char *root, int parent_id, int flags)
 static void
 bulk_scan(int flags)
 {
-  cfg_t *lib;
+  cfg_t *lib, *dirs, *dir;
   int ndirs;
   char *path;
   char *deref;
@@ -1026,10 +1026,13 @@ bulk_scan(int flags)
   lib = cfg_getsec(cfg, "library");
   counter = 0;
 
-  ndirs = cfg_size(lib, "directories");
+
+  dirs = cfg_getsec(lib, "directories");
+  ndirs = cfg_size(dirs, "directory");
   for (i = 0; i < ndirs; i++)
     {
-      path = cfg_getnstr(lib, "directories", i);
+      dir = cfg_getnsec(dirs, "directory", i);
+      path = cfg_getstr(dir, "path");
 
       parent_id = process_parent_directories(path);
 
@@ -1851,7 +1854,7 @@ virtual_path_to_path(const char *virtual_path)
 static bool
 check_path_in_directories(const char *path)
 {
-  cfg_t *lib;
+  cfg_t *lib, *dirs, *dir;
   int ndirs;
   int i;
   char *tmp_path;
@@ -1872,10 +1875,12 @@ check_path_in_directories(const char *path)
 
   ret = false;
   lib = cfg_getsec(cfg, "library");
-  ndirs = cfg_size(lib, "directories");
+  dirs = cfg_getsec(lib, "directories");
+  ndirs = cfg_size(dirs, "directory");
   for (i = 0; i < ndirs; i++)
     {
-      lib_dir = cfg_getnstr(lib, "directories", i);
+      dir = cfg_getnsec(dirs, "directory", i);
+      lib_dir = cfg_getstr(dir, "path");
       if (strncmp(dir, lib_dir, strlen(lib_dir)) == 0)
 	{
 	  ret = true;

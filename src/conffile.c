@@ -569,7 +569,7 @@ conffile_load(char *file)
   }
 
   for (i = 0; i < legacy_count; i++) {
-    *old_path = cfg_getnstr(dirs, "__old", i);
+    old_path = cfg_getnstr(dirs, "__old", i);
 
     snprintf(auto_name, sizeof(auto_name), "legacy%d", i + 1);
     add_named_directory(dirs, auto_name, old_path, 1);  // creates: directory legacy1 { ... }
