@@ -484,30 +484,102 @@ conffile_expand_libname(cfg_t *lib)
  * This is to support old style directories configuration.
  * An alternative would be to call libconfuse internal function cfg_addsec
  */
-cfg_t*
-add_named_directory(cfg_t *directories_sec, const char *title, const char *path, int use_fs_events) {
-  cfg_opt_t *opt = cfg_getopt(directories_sec, "directory");
-  if (!opt || !(opt->flags & CFGF_MULTI)) return NULL;
+int add_named_directory(cfg_t *cfg, const char *title, const char *path, int use_fs_events) {
+    // Initialize a new section for the directory
+    cfg_t *new_sec = cfg_init(sec_directory, CFGF_NONE);
+    if (!new_sec) {
+        return CFG_PARSE_ERROR;
+    }
 
-  // Allocate new cfg_t for the directory section
-  cfg_t *new_sec = calloc(1, sizeof(cfg_t));
-  if (!new_sec) return NULL;
+    // Set the path and use_fs_events values
+    cfg_setstr(new_sec, "path", path);
+    cfg_setbool(new_sec, "use_fs_events", use_fs_events);
 
-  cfg_init(new_sec, opt->subopts, opt->flags);
-  new_sec->name = opt->name;
-  new_sec->title = strdup(title);  // sets the name used for cfg_title()
+    // Get the directories section from the library
+    cfg_t *directories_sec = cfg_getsec(cfg, "library|directories");
+    if (!directories_sec) {
+        cfg_free(new_sec);
+        return CFG_PARSE_ERROR;
+    }
 
-  // Insert into option's section array
-  int n = opt->nvalues;
-  opt->values = realloc(opt->values, sizeof(cfg_value_t) * (n + 1));
-  opt->values[n].section = new_sec;
-  opt->nvalues++;
+    // Manually add the new section to the directories section
+    cfg_opt_t *directory_opt = cfg_getopt(directories_sec, "directory");
+    if (!directory_opt || !(directory_opt->flags & CFGF_MULTI)) {
+        cfg_free(new_sec);
+        return CFG_PARSE_ERROR;
+    }
 
-  // Set path and use_fs_events values
-  cfg_setstr(cfg_getopt(new_sec, "path"), path);
-  cfg_setbool(cfg_getopt(new_sec, "use_fs_events"), use_fs_events);
+    // Reallocate memory for the sections array
+    cfg_value_t **new_values = realloc(directory_opt->values, (directory_opt->nvalues + 1) * sizeof(cfg_value_t *));
+    if (!new_values) {
+        cfg_free(new_sec);
+        return CFG_PARSE_ERROR;
+    }
 
-  return new_sec;
+    // Add the new section to the array
+    new_values[directory_opt->nvalues]->section = new_sec;
+    directory_opt->values = new_values;
+    directory_opt->nvalues++;
+
+    return CFG_SUCCESS;
+}
+
+// Function to remove an option from a configuration
+int 
+cfg_removeopt(cfg_t *cfg, const char *name) {
+    if (!cfg || !name) {
+        return CFG_FAIL;
+    }
+    
+    cfg_opt_t *opts = cfg->opts;
+    if (!opts) {
+        return CFG_FAIL;
+    }
+    
+    // Find the option to remove
+    int found_idx = -1;
+    int total_opts = 0;
+    
+    // Count total options and find target
+    for (int i = 0; opts[i].name; i++) {
+        if (strcmp(opts[i].name, name) == 0) {
+            found_idx = i;
+        }
+        total_opts++;
+    }
+    
+    if (found_idx == -1) {
+        return CFG_FAIL; // Option not found
+    }
+    
+    // Free the option's resources
+    cfg_opt_t *opt = &opts[found_idx];
+    if (opt->name) {
+        free((void*)opt->name);
+    }
+    if (opt->comment) {
+        free((void*)opt->comment);
+    }
+    // Free values if needed based on option type
+    if (opt->values) {
+        for (int i = 0; i < opt->nvalues; i++) {
+            if (opt->type == CFGT_STR && opt->values[i]->string) {
+                free(opt->values[i]->string);
+            }
+            free(opt->values[i]);
+        }
+        free(opt->values);
+    }
+    
+    // Shift remaining options down
+    for (int i = found_idx; i < total_opts - 1; i++) {
+        opts[i] = opts[i + 1];
+    }
+    
+    // Clear the last option
+    memset(&opts[total_opts - 1], 0, sizeof(cfg_opt_t));
+    
+    return CFG_SUCCESS;
 }
 
 int
@@ -565,7 +637,7 @@ conffile_load(char *file)
 
   legacy_count = cfg_size(dirs, "__old");  // "__old" is your placeholder CFG_STR_LIST
   if (legacy_count > 0) {
-    DPRINTF(E_LOG, L_GENERAL, "Converting old-style 'directories' config to new-style block structure\n");
+    DPRINTF(E_LOG, L_CONF, "Converting old-style 'directories' config to new-style block structure\n");
   }
 
   for (i = 0; i < legacy_count; i++) {
