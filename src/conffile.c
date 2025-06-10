@@ -676,7 +676,7 @@ conffile_load(char *file)
   // Remove legacy directories entries
   if (legacy_count > 0)
     {
-      ret = cfg_removeopt(dirs, "directories");
+      ret = cfg_removeopt(lib, "directories");
       if (ret != CFG_SUCCESS)
 	{
 	  DPRINTF(E_FATAL, L_CONF, "Failed to remove legacy directories option\n");
