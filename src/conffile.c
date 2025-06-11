@@ -484,7 +484,14 @@ conffile_expand_libname(cfg_t *lib)
  *
  * dirs: directories section from the library
  */
-int add_named_directory(cfg_t *dirs, const char *title, const char *path, int use_fs_events) {
+int add_named_directory(cfg_t *dirs, cfg_t *lib, int i) {
+    char auto_name[32];
+    const char *path = cfg_getnstr(lib, "directories", i);
+    const char *str;
+
+    // creates: directory legacy1 { ... }
+    snprintf(auto_name, sizeof(auto_name), "legacy%d", i + 1);
+
     // Initialize a new section for the directory
     cfg_t *new_sec = cfg_init(sec_directory, CFGF_NONE);
     if (!new_sec) {
@@ -493,7 +500,8 @@ int add_named_directory(cfg_t *dirs, const char *title, const char *path, int us
 
     // Set the path and use_fs_events values
     cfg_setstr(new_sec, "path", path);
-    cfg_setbool(new_sec, "use_fs_events", use_fs_events);
+    // Default to true for use_fs_events
+    cfg_setbool(new_sec, "use_fs_events", 1);
 
     if (!dirs) {
         cfg_free(new_sec);
@@ -529,10 +537,20 @@ int add_named_directory(cfg_t *dirs, const char *title, const char *path, int us
     // Set the section in the new value
     new_values[directory_opt->nvalues]->section = new_sec;
 
-    // Set the title if provided (this depends on how libconfuse handles section titles)
-    if (title) {
-        new_sec->title = strdup(title);
+    // Copy values if provided
+    if ((str = cfg_getstr(lib, "name"))) {
+        new_sec->name = strdup(str);
     }
+    if ((str = cfg_getstr(lib, "comment"))) {
+        new_sec->comment = strdup(str);
+    }
+    if ((str = cfg_getstr(lib, "filename"))) {
+        new_sec->filename = strdup(str);
+    }
+    new_sec->line = lib->line;
+    new_sec->title = strdup(auto_name); // Set the title to the auto-generated name
+    // cfg_setstr(new_sec, "title", auto_name);
+    // cfg_setstr(new_sec, "name", auto_name);
 
     // Update the option structure
     directory_opt->values = new_values;
@@ -628,8 +646,6 @@ conffile_load(char *file)
   cfg_t *lib, *dirs;
   struct passwd *pw;
   char *runas;
-  const char *old_path;
-  char auto_name[32];
   int ret, legacy_count, i;
 
   cfg = cfg_init(toplvl_cfg, CFGF_NONE);
@@ -681,13 +697,10 @@ conffile_load(char *file)
   }
 
   for (i = 0; i < legacy_count; i++) {
-    old_path = cfg_getnstr(lib, "directories", i);
-
-    snprintf(auto_name, sizeof(auto_name), "legacy%d", i + 1);
-    ret = add_named_directory(dirs, auto_name, old_path, 1);  // creates: directory legacy1 { ... }
+    ret = add_named_directory(dirs, lib, i);
     if (ret != CFG_SUCCESS)
       {
-	DPRINTF(E_FATAL, L_CONF, "Failed to add legacy directory '%s'\n", old_path);
+	DPRINTF(E_FATAL, L_CONF, "Failed to add legacy directory with index '%i'\n", i);
 	goto out_fail;
       }
 
