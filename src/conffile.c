@@ -599,6 +599,29 @@ cfg_removeopt(cfg_t *cfg, const char *name) {
     return CFG_SUCCESS;
 }
 
+void
+log_lib_dirs(cfg_t *dirs)
+{
+  if (cfg_size(dirs, "directory") == 0)
+    {
+      DPRINTF(E_FATAL, L_CONF, "No directories specified for audio libraries\n");
+      return;
+    }
+
+  const int ndir = cfg_size(dirs, "directory");
+  DPRINTF(E_LOG, L_CONF, "Number of audio library directories (%d):\n", ndir);
+  // Iterate through each directory section and log its details
+  for (int i = 0; i < ndir; i++)
+    {
+      cfg_t *dir = cfg_getnsec(dirs, "directory", i);
+      const char *path = cfg_getstr(dir, "path");
+      int use_fs_events = cfg_getbool(dir, "use_fs_events");
+
+      DPRINTF(E_LOG, L_CONF, "Audio library directory %d on line %d: %s (%s) (use_fs_events=%d)\n",
+	i + 1, dir->line, path, dir->title, use_fs_events);
+    }
+}
+
 int
 conffile_load(char *file)
 {
@@ -706,6 +729,8 @@ conffile_load(char *file)
 
       goto out_fail;
     }
+
+    log_lib_dirs(dirs);
 
   return 0;
 
