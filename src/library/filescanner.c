@@ -808,7 +808,7 @@ read_attributes(char *resolved_path, const char *path, struct stat *sb, int *is_
 }
 
 static void
-process_directory(char *path, int parent_id, int flags)
+process_directory(char *path, int parent_id, int flags, bool use_fs_events)
 {
   DIR *dirp;
   struct dirent *de;
@@ -918,24 +918,26 @@ process_directory(char *path, int parent_id, int flags)
 
   closedir(dirp);
 
-  memset(&wi, 0, sizeof(struct watch_info));
+  if (use_fs_events) {
+    memset(&wi, 0, sizeof(struct watch_info));
 
-  // Add inotify watch (for FreeBSD we limit the flags so only dirs will be
-  // opened, otherwise we will be opening way too many files)
-  wi.wd = inotify_add_watch(inofd, path, INOTIFY_FLAGS);
-  if (wi.wd < 0)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
-      return;
-    }
+    // Add inotify watch (for FreeBSD we limit the flags so only dirs will be
+    // opened, otherwise we will be opening way too many files)
+    wi.wd = inotify_add_watch(inofd, path, INOTIFY_FLAGS);
+    if (wi.wd < 0)
+      {
+        DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
+        return;
+      }
 
-  if (!(flags & F_SCAN_MOVED))
-    {
-      wi.cookie = 0;
-      wi.path = path;
+    if (!(flags & F_SCAN_MOVED))
+      {
+        wi.cookie = 0;
+        wi.path = path;
 
-      db_watch_add(&wi);
-    }
+        db_watch_add(&wi);
+      }
+  }
 }
 
 /* Thread: scan */
@@ -985,14 +987,14 @@ process_directories(char *root, int parent_id, int flags)
 {
   struct stacked_dir *dir;
 
-  process_directory(root, parent_id, flags);
+  process_directory(root, parent_id, flags, use_fs_events);
 
   if (library_is_exiting())
     return;
 
   while ((dir = pop_dir(&dirstack)))
     {
-      process_directory(dir->path, dir->parent_id, flags);
+      process_directory(dir->path, dir->parent_id, flags, use_fs_events);
 
       free(dir->path);
       free(dir);
