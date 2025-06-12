@@ -983,12 +983,12 @@ process_parent_directories(char *path)
 }
 
 static bool
-root_use_fs_events(char *root)
+root_use_fs_events(const char *root)
 {
   cfg_t *lib, *dirs, *dir;
-  int ndirs;
+  int ndirs, i;
   char *path;
-  int i;
+  bool use_fs_events;
 
   lib = cfg_getsec(cfg, "library");
   dirs = cfg_getsec(lib, "dirs");
@@ -999,8 +999,13 @@ root_use_fs_events(char *root)
       path = cfg_getstr(dir, "path");
 
       if (strcmp(path, root) == 0)
-	return cfg_getbool(dir, "use_fs_events");
-}
+	{
+	  use_fs_events = cfg_getbool(dir, "use_fs_events");
+	  DPRINTF(E_INFO, L_SCAN, "Audio library directory %s, use_fs_events = %d\n", root, use_fs_events);
+	  return use_fs_events;
+	}
+    }
+  DPRINTF(E_WARN, L_SCAN, "Audio library directory %s: No configuration found", root);
   return true;
 }
 
