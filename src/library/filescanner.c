@@ -982,10 +982,33 @@ process_parent_directories(char *path)
   return dir_id;
 }
 
+static bool
+root_use_fs_events(char *root)
+{
+  cfg_t *lib, *dirs, *dir;
+  int ndirs;
+  char *path;
+  int i;
+
+  lib = cfg_getsec(cfg, "library");
+  dirs = cfg_getsec(lib, "dirs");
+  ndirs = cfg_size(dirs, "directory");
+  for (i = 0; i < ndirs; i++)
+    {
+      dir = cfg_getnsec(dirs, "directory", i);
+      path = cfg_getstr(dir, "path");
+
+      if (strcmp(path, root) == 0)
+	return cfg_getbool(dir, "use_fs_events");
+}
+  return true;
+}
+
 static void
 process_directories(char *root, int parent_id, int flags)
 {
   struct stacked_dir *dir;
+  bool use_fs_events = root_use_fs_events(root);
 
   process_directory(root, parent_id, flags, use_fs_events);
 
