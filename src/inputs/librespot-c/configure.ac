@@ -1,4 +1,4 @@
-AC_INIT([librespot-c], [0.1])
+AC_INIT([librespot-c], [0.6])
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_SILENT_RULES([yes])
@@ -26,8 +26,7 @@ PKG_CHECK_MODULES([LIBGCRYPT], [libgcrypt], [], [
 	AM_PATH_LIBGCRYPT([], [], [AC_MSG_ERROR([[libgcrypt is required]])])
 ])
 
-dnl Need 7.83.0 for curl_easy_nextheader()
-PKG_CHECK_MODULES([LIBCURL], [libcurl >= 7.83.0])
+PKG_CHECK_MODULES([LIBCURL], [libcurl])
 PKG_CHECK_MODULES([LIBPROTOBUF_C], [libprotobuf-c])
 
 AC_CONFIG_FILES([Makefile tests/Makefile])

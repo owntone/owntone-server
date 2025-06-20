@@ -57,6 +57,7 @@ struct http_response
   ssize_t content_length; // -1 = unknown
 
   char *headers[HTTP_MAX_HEADERS];
+  int headers_count;
   uint8_t *body; // Allocated, must be freed by caller
   size_t body_len;
 };
