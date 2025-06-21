@@ -38,7 +38,7 @@ http_request_free(struct http_request *request, bool only_content)
   free(request->url);
   free(request->body);
 
-  for (i = 0; request->headers[i]; i++)
+  for (i = 0; i < HTTP_MAX_HEADERS && request->headers[i]; i++)
     free(request->headers[i]);
 
   if (only_content)
@@ -57,7 +57,7 @@ http_response_free(struct http_response *response, bool only_content)
 
   free(response->body);
 
-  for (i = 0; response->headers[i]; i++)
+  for (i = 0; i < HTTP_MAX_HEADERS && response->headers[i]; i++)
     free(response->headers[i]);
 
   if (only_content)
@@ -66,22 +66,42 @@ http_response_free(struct http_response *response, bool only_content)
     free(response);
 }
 
-static void
-headers_save(struct http_response *response, CURL *curl)
+static size_t
+header_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
-  struct curl_header *prev = NULL;
-  struct curl_header *header;
-  int i = 0;
-  
-  while ((header = curl_easy_nextheader(curl, CURLH_HEADER, 0, prev)) && i < HTTP_MAX_HEADERS)
-    {
-      if (asprintf(&response->headers[i], "%s:%s", header->name, header->value) < 0)
-	return;
+  struct http_response *response = userdata;
+  size_t realsize = size * nmemb;
+  char *header;
+  char *end;
 
-      prev = header;
-      i++;
+  if (response->headers_count >= HTTP_MAX_HEADERS)
+    goto out;
+
+  if (realsize >= 6 && strncmp(ptr, "HTTP/", 5) == 0)
+    goto out;
+
+  header = malloc(realsize + 1);
+  memcpy(header, ptr, realsize);
+  header[realsize] = '\0';
+
+  for (end = header + strlen(header) - 1; end > header; end--)
+    {
+      if (*end == '\n' || *end == '\r')
+	*end = '\0';
     }
- }
+
+  if (strlen(header) == 0)
+    {
+      free(header);
+      goto out;
+    }
+
+  response->headers[response->headers_count] = header;
+  response->headers_count++;
+
+ out:
+  return realsize;
+}
 
 static size_t
 body_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
@@ -167,6 +187,9 @@ http_request(struct http_response *response, struct http_request *request, struc
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, body_cb);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
 
+  curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_cb);
+  curl_easy_setopt(curl, CURLOPT_HEADERDATA, response);
+
   // Allow redirects
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
   curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5);
@@ -180,8 +203,6 @@ http_request(struct http_response *response, struct http_request *request, struc
 
   res = curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &content_length);
   response->content_length = (res == CURLE_OK) ? (ssize_t)content_length : -1;
-
-  headers_save(response, curl);
 
   curl_slist_free_all(headers);
   if (!session)
