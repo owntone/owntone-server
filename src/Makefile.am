@@ -88,6 +88,7 @@ owntone_SOURCES = main.c \
 	library/filescanner.c library/filescanner.h \
 	library/filescanner_ffmpeg.c library/filescanner_playlist.c \
 	library/filescanner_smartpl.c library/filescanner_itunes.c \
+	library/filescanner_mountwatch.c \
 	library/rssscanner.c \
 	library.c library.h \
 	$(MDNS_SRC) mdns.h \
