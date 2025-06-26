@@ -97,6 +97,9 @@ AC_SEARCH_LIBS([pthread_getthreadid_np], [pthread],
 AC_SEARCH_LIBS([uuid_generate_random], [uuid],
 	[AC_DEFINE([HAVE_UUID], 1,
 		[Define to 1 if you have uuid_generate_random function])])
+AC_SEARCH_LIBS([mnt_new_monitor], [mount],
+	[AC_DEFINE([HAVE_LIBMOUNT], 1,
+		[Define to 1 if you have libmount])])
 
 AC_SEARCH_LIBS([log10], [m])
 AC_SEARCH_LIBS([lrint], [m])
