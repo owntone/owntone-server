@@ -8,7 +8,7 @@ need to broadcast the DAAP service to iTunes on your local machine. On macOS the
 command is:
 
 ```shell
-dns-sd -P iTunesServer _daap._tcp local 3689 localhost.local 127.0.0.1 "ffid=12345"
+dns-sd -P iTunesServer _daap._tcp local 3689 localhost.local 127.0.0.1 "txtvers=1" "ffid=12345678" "Database ID=0123456789abcdef" "Machine ID=0123456789abcdef" "Machine Name=owntone" "mtd-version=28.10" "iTSh Version=131073" "Version=196610"
 ```
 
 The `ffid` key is required but its value does not matter.
