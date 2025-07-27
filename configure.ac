@@ -96,7 +96,13 @@ AC_SEARCH_LIBS([pthread_getthreadid_np], [pthread],
 		[Define to 1 if you have pthread_getthreadid_np])])
 AC_SEARCH_LIBS([uuid_generate_random], [uuid],
 	[AC_DEFINE([HAVE_UUID], 1,
-		[Define to 1 if you have uuid_generate_random function])])
+		[Define to 1 if you have uuid_generate_random])])
+AC_SEARCH_LIBS([copy_file_range], [c],
+	[AC_DEFINE([HAVE_COPY_FILE_RANGE], 1,
+		[Define to 1 if you have copy_file_range])])
+AC_SEARCH_LIBS([fcopyfile], [c],
+	[AC_DEFINE([HAVE_FCOPYFILE], 1,
+		[Define to 1 if you have fcopyfile])])
 
 AC_SEARCH_LIBS([log10], [m])
 AC_SEARCH_LIBS([lrint], [m])
