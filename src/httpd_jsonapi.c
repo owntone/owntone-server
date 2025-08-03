@@ -1313,6 +1313,8 @@ jsonapi_reply_spotify(struct httpd_request *hreq)
   safe_json_add_string(jreply, "webapi_country", webapi_info.country);
   safe_json_add_string(jreply, "webapi_granted_scope", webapi_info.granted_scope);
   safe_json_add_string(jreply, "webapi_required_scope", webapi_info.required_scope);
+  safe_json_add_string(jreply, "webapi_client_id", webapi_info.client_id);
+  safe_json_add_string(jreply, "webapi_client_secret", webapi_info.client_secret);
 
   spotifywebapi_access_token_get(&webapi_token);
   safe_json_add_string(jreply, "webapi_token", webapi_token.token);
