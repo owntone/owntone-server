@@ -39,11 +39,12 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libavutil/opt.h>
+#include <libavutil/opt.h> // includes avutil.h
 
 #include "db.h"
 #include "logger.h"
 #include "misc.h"
+#include "misc_json.h"
 #include "http.h"
 #include "conffile.h"
 
@@ -376,6 +377,53 @@ extract_metadata_from_dict(struct media_file_info *mfi, AVDictionary *md, const 
     }
 
   return mdcount;
+}
+
+static void
+chapter_add(json_object *jchapters, AVChapter *chapter)
+{
+  json_object *jchapter;
+  const AVDictionaryEntry *tag = NULL;
+  AVRational ms = { .num = 1, .den = 1000 };
+  int64_t start_ms;
+  int64_t end_ms;
+
+  start_ms = av_rescale_q(chapter->start, chapter->time_base, ms);
+  end_ms = av_rescale_q(chapter->end, chapter->time_base, ms);
+
+  jchapter = json_object_new_object();
+  json_object_array_add(jchapters, jchapter);
+
+  json_object_object_add(jchapter, "id", json_object_new_int64(chapter->id));
+  json_object_object_add(jchapter, "start_ms", json_object_new_int64(start_ms));
+  json_object_object_add(jchapter, "end_ms", json_object_new_int64(end_ms));
+
+  if (!chapter->metadata)
+    return;
+
+  while ((tag = av_dict_iterate(chapter->metadata, tag)))
+    {
+      json_object_object_add(jchapter, tag->key, json_object_new_string(tag->value));
+//      DPRINTF(E_DBG, L_SCAN, "-> %s: %s\n", tag->key, tag->value);
+    }
+}
+
+static int
+extract_chapters(struct media_file_info *mfi, AVFormatContext *ctx)
+{
+  json_object *jchapters;
+  int i;
+
+  jchapters = json_object_new_array();
+
+  for (i = 0; i < ctx->nb_chapters; i++)
+    chapter_add(jchapters, ctx->chapters[i]);
+
+  mfi->chapters = safe_strdup(json_object_to_json_string(jchapters));
+
+  jparse_free(jchapters);
+
+  return ctx->nb_chapters;
 }
 
 static int
@@ -769,6 +817,14 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
       mdcount += ret;
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags with extra md_map\n", ret);
+    }
+
+  if (ctx->nb_chapters > 0)
+    {
+      ret = extract_chapters(mfi, ctx);
+      mdcount += 1; // All chapters saved to mfi->chapters so just count as 1
+
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d chapters\n", ret);
     }
 
   ret = extract_metadata(mfi, ctx, audio_stream, video_stream, md_map_generic);
