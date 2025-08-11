@@ -232,6 +232,7 @@ static const struct col_type_map mfi_cols_map[] =
     { "usermark",           mfi_offsetof(usermark),           DB_TYPE_INT },
     { "scan_kind",          mfi_offsetof(scan_kind),          DB_TYPE_INT },
     { "lyrics",             mfi_offsetof(lyrics),             DB_TYPE_STRING },
+    { "chapters",             mfi_offsetof(chapters),             DB_TYPE_STRING },
   };
 
 /* This list must be kept in sync with
@@ -374,6 +375,7 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(usermark),
     dbmfi_offsetof(scan_kind),
     dbmfi_offsetof(lyrics),
+    dbmfi_offsetof(chapters),
   };
 
 /* This list must be kept in sync with

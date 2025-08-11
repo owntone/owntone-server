@@ -99,7 +99,8 @@
   "   channels           INTEGER DEFAULT 0,"		\
   "   usermark           INTEGER DEFAULT 0,"		\
   "   scan_kind          INTEGER DEFAULT 0,"		\
-  "   lyrics             TEXT DEFAULT NULL COLLATE DAAP"		\
+  "   lyrics             TEXT DEFAULT NULL COLLATE DAAP,"		\
+  "   chapters           TEXT DEFAULT NULL"		\
   ");"
 
 #define T_PL					\

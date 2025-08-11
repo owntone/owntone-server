@@ -250,6 +250,7 @@ struct media_file_info {
 
   uint32_t scan_kind; /* Identifies the library_source that created/updates this item */
   char *lyrics;
+  char *chapters;
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -425,6 +426,7 @@ struct db_media_file_info {
   char *usermark;
   char *scan_kind;
   char *lyrics;
+  char *chapters;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
