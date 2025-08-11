@@ -101,6 +101,14 @@ safe_json_add_string(json_object *obj, const char *key, const char *value)
 }
 
 static inline void
+safe_json_add_raw(json_object *obj, const char *key, const char *raw)
+{
+  json_object *value = json_tokener_parse(raw);
+  if (value)
+    json_object_object_add(obj, key, value);
+}
+
+static inline void
 safe_json_add_string_from_int64(json_object *obj, const char *key, int64_t value)
 {
   char tmp[100];
@@ -348,6 +356,7 @@ track_to_json(struct db_media_file_info *dbmfi)
     json_object_object_add(item, "artwork_url", json_object_new_string(artwork_url));
 
   safe_json_add_string(item, "lyrics", dbmfi->lyrics);
+  safe_json_add_raw(item, "chapters", dbmfi->chapters);
   return item;
 }
 
