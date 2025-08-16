@@ -359,6 +359,9 @@ credentials_status_info(struct spotifywebapi_status_info *info)
       strncpy(info->required_scope, spotify_scope, (sizeof(info->required_scope) - 1));
     }
 
+  info->client_id = spotify_client_id;
+  info->client_secret = spotify_client_secret;
+
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
 }
 

@@ -1852,15 +1852,16 @@ dacp_reply_playqueueedit_clear(struct httpd_request *hreq)
   const char *param;
   struct player_status status;
 
-  param = httpd_query_value_find(hreq->query, "mode");
-
   /*
    * The mode parameter contains the playlist to be cleared.
    * If mode=0x68697374 (hex representation of the ascii string "hist") clear the history,
    * otherwise the current playlist.
    */
-  if (strcmp(param,"0x68697374") == 0)
-    player_queue_clear_history();
+  param = httpd_query_value_find(hreq->query, "mode");
+  if (param && strcmp(param,"0x68697374") == 0)
+    {
+      player_queue_clear_history();
+    }
   else
     {
       player_get_status(&status);

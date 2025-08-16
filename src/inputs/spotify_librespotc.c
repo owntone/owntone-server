@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <fcntl.h>
@@ -109,6 +110,7 @@ static int
 postlogin(struct global_ctx *ctx)
 {
   struct sp_credentials credentials;
+  bool use_legacy_mode;
   char *db_stored_cred;
   char *ptr;
   int i;
@@ -135,7 +137,13 @@ postlogin(struct global_ctx *ctx)
 
   librespotc_bitrate_set(ctx->session, ctx->bitrate_preferred);
 
-  DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully with username %s\n", credentials.username);
+  // For now, use old tcp based protocol as default unless configured not to.
+  // Note that setup() will switch the old protocol off on error.
+  use_legacy_mode = !cfg_getbool(cfg_getsec(cfg, "spotify"), "disable_legacy_mode");
+  if (use_legacy_mode)
+    librespotc_legacy_set(ctx->session, true);
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Logged into Spotify succesfully with username %s (%s mode)\n", credentials.username, use_legacy_mode ? "tcp" : "http");
 
   listener_notify(LISTENER_SPOTIFY);
 
@@ -620,13 +628,6 @@ login(const char *username, const char *token, const char **errmsg)
   ctx->session = librespotc_login_token(username, token);
   if (!ctx->session)
     goto error;
-
-  // For now, use old tcp based protocol as default unless configured not to.
-  // Note that setup() will switch the old protocol off on error.
-  if (!cfg_getbool(cfg_getsec(cfg, "spotify"), "disable_legacy_mode"))
-    librespotc_legacy_set(ctx->session, true);
-  else
-    DPRINTF(E_INFO, L_SPOTIFY, "Using experimental http protocol for Spotify\n");
 
   ret = postlogin(ctx);
   if (ret < 0)

@@ -31,9 +31,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-// For file copy
+// For file copy (fcopyfile currently Mac OSX only)
 #include <fcntl.h>
-#if defined(__APPLE__)
+#if defined(HAVE_FCOPYFILE)
 #include <copyfile.h>
 #endif
 
@@ -810,9 +810,9 @@ static int
 fast_copy(int fd_dst, int fd_src)
 {
   // Here we use kernel-space copying for performance reasons
-#if defined(__APPLE__)
+#if defined(HAVE_FCOPYFILE)
   return fcopyfile(fd_src, fd_dst, 0, COPYFILE_ALL);
-#else
+#elif defined(HAVE_COPY_FILE_RANGE)
   struct stat fileinfo = { 0 };
   ssize_t bytes_copied;
 
@@ -820,6 +820,23 @@ fast_copy(int fd_dst, int fd_src)
   bytes_copied = copy_file_range(fd_src, NULL, fd_dst, NULL, fileinfo.st_size, 0);
   if (bytes_copied < 0 || bytes_copied != fileinfo.st_size)
     return -1;
+
+  return 0;
+#else
+  unsigned char buf[4096];
+  ssize_t nr;
+
+  while (1)
+    {
+      nr = read(fd_src, buf, sizeof(buf));
+      if (nr == -1)
+	return -1;
+      else if (nr == 0)
+	return 0;
+
+      if (write(fd_dst, buf, nr) != nr)
+	return -1;
+    }
 
   return 0;
 #endif
