@@ -2,15 +2,19 @@
   <list-item
     v-for="item in items"
     :key="item.id"
-    :is-item="true"
+    :is-item="item.isItem"
     :image="image(item)"
     :index="item.index"
-    :lines="[item.name]"
+    :lines="[
+      item.name,
+      item.authors.map((item) => item.name).join(', '),
+      $formatters.toDate(item.release_date)
+    ]"
     @open="open(item)"
     @open-details="openDetails(item)"
   />
   <loader-list-item :load="load" />
-  <modal-dialog-artist-spotify
+  <modal-dialog-album-spotify
     :item="selectedItem"
     :show="showDetailsModal"
     @close="showDetailsModal = false"
@@ -20,25 +24,32 @@
 <script>
 import ListItem from '@/components/ListItem.vue'
 import LoaderListItem from '@/components/LoaderListItem.vue'
-import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
+import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
+import { useSettingsStore } from '@/stores/settings'
 
 export default {
-  name: 'ListArtistsSpotify',
-  components: { ListItem, LoaderListItem, ModalDialogArtistSpotify },
+  name: 'ListAlbumsSpotify',
+  components: { ListItem, LoaderListItem, ModalDialogAlbumSpotify },
   props: {
     items: { required: true, type: Object },
     load: { default: null, type: Function }
+  },
+  setup() {
+    return { settingsStore: useSettingsStore() }
   },
   data() {
     return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
     image(item) {
-      return { caption: item.name, url: item.images?.[0]?.url ?? '' }
+      if (this.settingsStore.showCoverArtworkInAlbumLists) {
+        return { caption: item.name, url: item.images?.[0]?.url ?? '' }
+      }
+      return null
     },
     open(item) {
       this.$router.push({
-        name: 'music-spotify-artist',
+        name: 'music-spotify-audiobook',
         params: { id: item.id }
       })
     },

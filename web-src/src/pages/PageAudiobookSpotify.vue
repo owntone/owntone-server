@@ -12,7 +12,7 @@
       />
     </template>
     <template #content>
-      <list-tracks-spotify :items="tracks" :context-uri="album.uri" />
+      <list-chapters-spotify :items="tracks" :context-uri="album.uri" />
     </template>
   </content-with-hero>
   <modal-dialog-album-spotify
@@ -25,24 +25,24 @@
 <script>
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
-import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
+import ListChaptersSpotify from '@/components/ListChaptersSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import PaneHero from '@/components/PaneHero.vue'
 import queue from '@/api/queue'
 import services from '@/api/services'
 
 export default {
-  name: 'PageAlbumSpotify',
+  name: 'PageAudiobookSpotify',
   components: {
     ContentWithHero,
     ControlImage,
-    ListTracksSpotify,
+    ListChaptersSpotify,
     ModalDialogAlbumSpotify,
     PaneHero
   },
   beforeRouteEnter(to, from, next) {
     services.spotify().then(({ api, configuration }) => {
-      api.albums
+      api.audiobooks
         .get(to.params.id, configuration.webapi_country)
         .then((album) => {
           next((vm) => {
@@ -53,7 +53,7 @@ export default {
   },
   data() {
     return {
-      album: { artists: [{}], tracks: {} },
+      album: { authors: [{}], chapters: {} },
       showDetailsModal: false
     }
   },
@@ -64,27 +64,20 @@ export default {
           { handler: this.play, icon: 'shuffle', key: 'actions.shuffle' },
           { handler: this.openDetails, icon: 'dots-horizontal' }
         ],
-        count: this.$t('data.tracks', { count: this.album.tracks.total }),
-        handler: this.openArtist,
-        subtitle: this.album.artists.map((item) => item.name).join(', '),
+        count: this.$t('data.tracks', { count: this.album.chapters.total }),
+        subtitle: this.album.authors.map((item) => item.name).join(', '),
         title: this.album.name
       }
     },
     tracks() {
       const { album } = this
-      if (album.tracks.total) {
-        return album.tracks.items.map((track) => ({ ...track, album }))
+      if (album.chapters.total) {
+        return album.chapters.items.map((track) => ({ ...track, album }))
       }
       return []
     }
   },
   methods: {
-    openArtist() {
-      this.$router.push({
-        name: 'music-spotify-artist',
-        params: { id: this.album.artists[0].id }
-      })
-    },
     openDetails() {
       this.showDetailsModal = true
     },

@@ -7,16 +7,19 @@ export const useServicesStore = defineStore('ServicesStore', {
       this.lastfm = await services.lastfm()
     },
     initialiseSpotify() {
-      services.spotify().then((data) => {
-        this.spotify = data
+      services.spotify().then(({ configuration }) => {
+        this.spotify = configuration
         if (this.spotifyTimerId > 0) {
           clearTimeout(this.spotifyTimerId)
           this.spotifyTimerId = 0
         }
-        if (data.webapi_token_expires_in > 0 && data.webapi_token) {
+        if (
+          configuration.webapi_token_expires_in > 0 &&
+          configuration.webapi_token
+        ) {
           this.spotifyTimerId = setTimeout(
             () => this.initialiseSpotify(),
-            1000 * data.webapi_token_expires_in
+            1000 * configuration.webapi_token_expires_in
           )
         }
       })

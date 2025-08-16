@@ -14,19 +14,15 @@
 <script>
 import ListProperties from '@/components/ListProperties.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import player from '@/api/player'
 import queue from '@/api/queue'
-import { useServicesStore } from '@/stores/services'
+import services from '@/api/services'
 
 export default {
   name: 'ModalDialogQueueItem',
   components: { ListProperties, ModalDialog },
   props: { item: { required: true, type: Object }, show: Boolean },
   emits: ['close'],
-  setup() {
-    return { servicesStore: useServicesStore() }
-  },
   data() {
     return {
       spotifyTrack: {}
@@ -50,7 +46,7 @@ export default {
           },
           {
             handler: this.openArtist,
-            key: 'property.album-artist',
+            key: 'property.artist',
             value: this.item.album_artist
           },
           { key: 'property.composer', value: this.item.composer },
@@ -90,16 +86,17 @@ export default {
   watch: {
     item() {
       if (this.item?.data_kind === 'spotify') {
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
-        spotifyApi
-          .getTrack(this.item.path.slice(this.item.path.lastIndexOf(':') + 1))
-          .then((response) => {
+        return services.spotify().then(({ api }) => {
+          const trackId = this.item.path.slice(
+            this.item.path.lastIndexOf(':') + 1
+          )
+          return api.tracks.get(trackId).then((response) => {
             this.spotifyTrack = response
           })
-      } else {
-        this.spotifyTrack = {}
+        })
       }
+      this.spotifyTrack = {}
+      return {}
     }
   },
   methods: {

@@ -12,6 +12,7 @@ import PageAudiobookAlbums from '@/pages/PageAudiobookAlbums.vue'
 import PageAudiobookArtist from '@/pages/PageAudiobookArtist.vue'
 import PageAudiobookArtists from '@/pages/PageAudiobookArtists.vue'
 import PageAudiobookGenres from '@/pages/PageAudiobookGenres.vue'
+import PageAudiobookSpotify from '@/pages/PageAudiobookSpotify.vue'
 import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
@@ -20,11 +21,7 @@ import PageGenreAlbums from '@/pages/PageGenreAlbums.vue'
 import PageGenreTracks from '@/pages/PageGenreTracks.vue'
 import PageGenres from '@/pages/PageGenres.vue'
 import PageMusic from '@/pages/PageMusic.vue'
-import PageMusicRecentlyAdded from '@/pages/PageMusicRecentlyAdded.vue'
-import PageMusicRecentlyPlayed from '@/pages/PageMusicRecentlyPlayed.vue'
 import PageMusicSpotify from '@/pages/PageMusicSpotify.vue'
-import PageMusicSpotifyFeaturedPlaylists from '@/pages/PageMusicSpotifyFeaturedPlaylists.vue'
-import PageMusicSpotifyNewReleases from '@/pages/PageMusicSpotifyNewReleases.vue'
 import PagePlayer from '@/pages/PagePlayer.vue'
 import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
 import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
@@ -104,6 +101,11 @@ export const router = createRouter({
       path: '/audiobook/genres'
     },
     {
+      component: PageAudiobookSpotify,
+      name: 'music-spotify-audiobook',
+      path: '/music/spotify/audiobooks/:id'
+    },
+    {
       name: 'audiobooks',
       path: '/audiobooks',
       redirect: { name: 'audiobook-artists' }
@@ -119,29 +121,9 @@ export const router = createRouter({
       path: '/music/history'
     },
     {
-      component: PageMusicRecentlyAdded,
-      name: 'music-recently-added',
-      path: '/music/recently-added'
-    },
-    {
-      component: PageMusicRecentlyPlayed,
-      name: 'music-recently-played',
-      path: '/music/recently-played'
-    },
-    {
       component: PageMusicSpotify,
       name: 'music-spotify',
       path: '/music/spotify'
-    },
-    {
-      component: PageMusicSpotifyFeaturedPlaylists,
-      name: 'music-spotify-featured-playlists',
-      path: '/music/spotify/featured-playlists'
-    },
-    {
-      component: PageMusicSpotifyNewReleases,
-      name: 'music-spotify-new-releases',
-      path: '/music/spotify/new-releases'
     },
     {
       component: PageComposerAlbums,

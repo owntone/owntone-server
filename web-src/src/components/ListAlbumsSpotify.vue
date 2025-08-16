@@ -7,7 +7,7 @@
     :index="item.index"
     :lines="[
       item.name,
-      item.artists[0]?.name,
+      item.artists.map((item) => item.name).join(', '),
       $formatters.toDate(item.release_date)
     ]"
     @open="open(item)"
@@ -15,6 +15,7 @@
   />
   <loader-list-item :load="load" />
   <modal-dialog-album-spotify
+    v-if="showDetailsModal"
     :item="selectedItem"
     :show="showDetailsModal"
     @close="showDetailsModal = false"

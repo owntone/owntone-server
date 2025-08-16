@@ -28,6 +28,7 @@ export default {
     playable() {
       return {
         name: this.item.title,
+        playable: true,
         properties: [
           {
             handler: this.openAlbum,
@@ -36,7 +37,7 @@ export default {
           },
           {
             handler: this.openArtist,
-            key: 'property.album-artist',
+            key: 'property.artist',
             value: this.item.album_artist
           },
           { key: 'property.composer', value: this.item.composer },

@@ -5,7 +5,7 @@
     :is-playable="item.is_playable"
     :lines="[
       item.name,
-      item.artists.map((item) => item.name).join(', '),
+      item.album.authors.map((item) => item.name).join(', '),
       item.album.name
     ]"
     @open="open(item)"
@@ -25,7 +25,7 @@
   </list-item>
   <loader-list-item :load="load" />
   <modal-dialog-track-spotify
-    v-if="showDetailsModal"
+    v-if="selectedItem"
     :item="selectedItem"
     :show="showDetailsModal"
     @close="showDetailsModal = false"
@@ -39,7 +39,7 @@ import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import queue from '@/api/queue'
 
 export default {
-  name: 'ListTracksSpotify',
+  name: 'ListChaptersSpotify',
   components: { ListItem, LoaderListItem, ModalDialogTrackSpotify },
   props: {
     contextUri: { default: '', type: String },
@@ -47,7 +47,7 @@ export default {
     load: { default: null, type: Function }
   },
   data() {
-    return { selectedItem: {}, showDetailsModal: false }
+    return { selectedItem: null, showDetailsModal: false }
   },
   methods: {
     open(item) {

@@ -37,9 +37,8 @@ import ControlButton from '@/components/ControlButton.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import queue from '@/api/queue'
-import { useServicesStore } from '@/stores/services'
+import services from '@/api/services'
 
 const PAGE_SIZE = 50
 
@@ -53,27 +52,26 @@ export default {
     PaneTitle
   },
   beforeRouteEnter(to, from, next) {
-    const spotifyApi = new SpotifyWebApi()
-    spotifyApi.setAccessToken(useServicesStore().spotify.webapi_token)
-    Promise.all([
-      spotifyApi.getPlaylist(to.params.id),
-      spotifyApi.getPlaylistTracks(to.params.id, {
-        limit: PAGE_SIZE,
-        market: useServicesStore().$state.spotify.webapi_country,
-        offset: 0
-      })
-    ]).then(([playlist, tracks]) => {
-      next((vm) => {
-        vm.playlist = playlist
-        vm.tracks = []
-        vm.total = 0
-        vm.offset = 0
-        vm.appendTracks(tracks)
+    services.spotify().then(({ api, configuration }) => {
+      Promise.all([
+        api.playlists.getPlaylist(to.params.id),
+        api.playlists.getPlaylistItems(
+          to.params.id,
+          configuration.webapi_country,
+          null,
+          PAGE_SIZE,
+          0
+        )
+      ]).then(([playlist, tracks]) => {
+        next((vm) => {
+          vm.playlist = playlist
+          vm.tracks = []
+          vm.total = 0
+          vm.offset = 0
+          vm.appendTracks(tracks)
+        })
       })
     })
-  },
-  setup() {
-    return { servicesStore: useServicesStore() }
   },
   data() {
     return {
@@ -88,9 +86,7 @@ export default {
     heading() {
       if (this.playlist.name) {
         return {
-          subtitle: [
-            { count: this.playlist.tracks.total, key: 'data.playlists' }
-          ],
+          subtitle: [{ count: this.playlist.tracks.total, key: 'data.tracks' }],
           title: this.playlist.name
         }
       }
@@ -118,21 +114,22 @@ export default {
       this.offset += data.limit
     },
     load({ loaded }) {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
-      spotifyApi
-        .getPlaylistTracks(this.playlist.id, {
-          limit: PAGE_SIZE,
-          market: this.servicesStore.spotify.webapi_country,
-          offset: this.offset
-        })
-        .then((data) => {
-          this.appendTracks(data)
-          loaded(data.items.length, PAGE_SIZE)
-        })
+      services.spotify().then(({ api, configuration }) => {
+        api.playlists
+          .getPlaylistItems(
+            this.playlist.id,
+            configuration.webapi_country,
+            null,
+            PAGE_SIZE,
+            this.offset
+          )
+          .then((data) => {
+            this.appendTracks(data)
+            loaded(data.items.length, PAGE_SIZE)
+          })
+      })
     },
     play() {
-      this.showDetailsModal = false
       queue.playUri(this.playlist.uri, true)
     },
     openDetails() {

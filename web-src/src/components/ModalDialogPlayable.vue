@@ -39,13 +39,24 @@ export default {
   computed: {
     actions() {
       return [
-        { handler: this.addToQueue, icon: 'playlist-plus', key: 'actions.add' },
         {
+          disabled: !this.item.playable,
+          handler: this.addToQueue,
+          icon: 'playlist-plus',
+          key: 'actions.add'
+        },
+        {
+          disabled: !this.item.playable,
           handler: this.addNextToQueue,
           icon: 'playlist-play',
           key: 'actions.add-next'
         },
-        { handler: this.play, icon: 'play', key: 'actions.play' }
+        {
+          disabled: !this.item.playable,
+          handler: this.play,
+          icon: 'play',
+          key: 'actions.play'
+        }
       ]
     }
   },

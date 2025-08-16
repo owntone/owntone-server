@@ -16,11 +16,9 @@ export default {
   emits: ['close'],
   computed: {
     playable() {
-      if (!this.item.artists) {
-        return {}
-      }
       return {
         name: this.item.name,
+        playable: this.item.is_playable,
         properties: [
           {
             handler: this.openAlbum,
@@ -29,12 +27,21 @@ export default {
           },
           {
             handler: this.openArtist,
-            key: 'property.album-artist',
-            value: this.item.artists[0]?.name
+            key: 'property.artist',
+            value: this.item.artists?.map((item) => item.name).join(', ')
+          },
+          {
+            handler: this.openArtist,
+            key: 'property.author',
+            value: this.item.album.authors?.map((item) => item.name).join(', ')
           },
           {
             key: 'property.release-date',
             value: this.$formatters.toDate(this.item.album.release_date)
+          },
+          {
+            key: 'property.release-date',
+            value: this.$formatters.toDate(this.item.release_date)
           },
           {
             key: 'property.position',

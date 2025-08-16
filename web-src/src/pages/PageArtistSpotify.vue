@@ -28,10 +28,8 @@ import ControlButton from '@/components/ControlButton.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import queue from '@/api/queue'
 import services from '@/api/services'
-import { useServicesStore } from '@/stores/services'
 
 const PAGE_SIZE = 50
 
@@ -45,17 +43,16 @@ export default {
     PaneTitle
   },
   beforeRouteEnter(to, from, next) {
-    services.spotify().then((data) => {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(data.webapi_token)
+    services.spotify().then(({ api, configuration }) => {
       Promise.all([
-        spotifyApi.getArtist(to.params.id),
-        spotifyApi.getArtistAlbums(to.params.id, {
-          include_groups: 'album,single',
-          limit: PAGE_SIZE,
-          market: useServicesStore().spotify.webapi_country,
-          offset: 0
-        })
+        api.artists.get(to.params.id),
+        api.artists.albums(
+          to.params.id,
+          'album,single',
+          configuration.webapi_country,
+          PAGE_SIZE,
+          0
+        )
       ]).then(([artist, albums]) => {
         next((vm) => {
           vm.artist = artist
@@ -65,9 +62,6 @@ export default {
         })
       })
     })
-  },
-  setup() {
-    return { servicesStore: useServicesStore() }
   },
   data() {
     return {
@@ -93,15 +87,15 @@ export default {
       this.offset += data.limit
     },
     load({ loaded }) {
-      services.spotify().then((data) => {
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(data.webapi_token)
-        spotifyApi
-          .getArtistAlbums(this.artist.id, {
-            include_groups: 'album,single',
-            limit: PAGE_SIZE,
-            offset: this.offset
-          })
+      services.spotify().then(({ api, configuration }) => {
+        api.artists
+          .albums(
+            this.artist.id,
+            'album,single',
+            configuration.webapi_country,
+            PAGE_SIZE,
+            this.offset
+          )
           .then((albums) => {
             this.appendAlbums(albums)
             loaded(albums.items.length, PAGE_SIZE)
@@ -112,7 +106,6 @@ export default {
       this.showDetailsModal = true
     },
     play() {
-      this.showDetailsModal = false
       queue.playUri(this.artist.uri, true)
     }
   }
