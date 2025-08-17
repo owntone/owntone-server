@@ -14,9 +14,9 @@
 <script>
 import ListProperties from '@/components/ListProperties.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import player from '@/api/player'
 import queue from '@/api/queue'
+import services from '@/api/services'
 import { useServicesStore } from '@/stores/services'
 
 export default {
@@ -90,16 +90,17 @@ export default {
   watch: {
     item() {
       if (this.item?.data_kind === 'spotify') {
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
-        spotifyApi
-          .getTrack(this.item.path.slice(this.item.path.lastIndexOf(':') + 1))
-          .then((response) => {
+        return services.spotify().then(({ api }) => {
+          const trackId = this.item.path.slice(
+            this.item.path.lastIndexOf(':') + 1
+          )
+          return api.tracks.get(trackId).then((response) => {
             this.spotifyTrack = response
           })
-      } else {
-        this.spotifyTrack = {}
+        })
       }
+      this.spotifyTrack = {}
+      return {}
     }
   },
   methods: {

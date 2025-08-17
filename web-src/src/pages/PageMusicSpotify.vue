@@ -41,7 +41,6 @@ import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
 
@@ -55,18 +54,15 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    services.spotify().then((data) => {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(data.webapi_token)
+    services.spotify().then(({ api, configuration }) => {
       Promise.all([
-        spotifyApi.getNewReleases({
-          country: data.webapi_country,
-          limit: 3
-        }),
-        spotifyApi.getFeaturedPlaylists({
-          country: data.webapi_country,
-          limit: 3
-        })
+        api.browse.getNewReleases(configuration.webapi_country, 3),
+        api.browse.getFeaturedPlaylists(
+          configuration.webapi_country,
+          null,
+          null,
+          3
+        )
       ]).then((response) => {
         next((vm) => {
           vm.albums = response[0].albums.items

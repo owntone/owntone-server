@@ -14,7 +14,6 @@
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
 
@@ -27,14 +26,9 @@ export default {
     TabsMusic
   },
   beforeRouteEnter(to, from, next) {
-    services.spotify().then((data) => {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(data.webapi_token)
-      spotifyApi
-        .getNewReleases({
-          country: data.webapi_country,
-          limit: 50
-        })
+    services.spotify().then(({ api, configuration }) => {
+      api.browse
+        .getNewReleases(configuration.webapi_country, 50)
         .then((response) => {
           next((vm) => {
             vm.albums = response.albums.items

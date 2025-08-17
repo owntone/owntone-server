@@ -20,7 +20,6 @@ import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import services from '@/api/services'
 import { useSearchStore } from '@/stores/search'
 
@@ -95,16 +94,17 @@ export default {
       }
     },
     searchItems() {
-      return services.spotify().then((data) => {
-        this.parameters.market = data.webapi_country
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(data.webapi_token)
-        return spotifyApi.search(
-          this.searchStore.query,
-          this.types,
-          this.parameters
+      return services
+        .spotify()
+        .then(({ api, configuration }) =>
+          api.search(
+            this.searchStore.query,
+            this.types,
+            configuration.webapi_country,
+            this.parameters.limit,
+            this.parameters.offset
+          )
         )
-      })
     },
     searchLibrary() {
       this.$router.push({ name: 'search-library' })

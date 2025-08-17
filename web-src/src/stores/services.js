@@ -7,18 +7,8 @@ export const useServicesStore = defineStore('ServicesStore', {
       this.lastfm = await services.lastfm()
     },
     initialiseSpotify() {
-      services.spotify().then((data) => {
-        this.spotify = data
-        if (this.spotifyTimerId > 0) {
-          clearTimeout(this.spotifyTimerId)
-          this.spotifyTimerId = 0
-        }
-        if (data.webapi_token_expires_in > 0 && data.webapi_token) {
-          this.spotifyTimerId = setTimeout(
-            () => this.initialiseSpotify(),
-            1000 * data.webapi_token_expires_in
-          )
-        }
+      services.spotify().then(({ configuration }) => {
+        this.spotify = configuration
       })
     }
   },
@@ -41,5 +31,5 @@ export const useServicesStore = defineStore('ServicesStore', {
     requiredSpotifyScopes: (state) =>
       state.spotify.webapi_required_scope?.split(' ') ?? []
   },
-  state: () => ({ lastfm: {}, spotify: {}, spotifyTimerId: 0 })
+  state: () => ({ lastfm: {}, spotify: {} })
 })
