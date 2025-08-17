@@ -17,7 +17,7 @@ export default {
   computed: {
     playable() {
       return {
-        image: this.item?.images?.[0]?.url || '',
+        image: this.item.images?.[0]?.url || '',
         name: this.item.name || '',
         properties: [
           {
