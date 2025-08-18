@@ -66,7 +66,7 @@ export default {
             key: 'property.quality',
             value:
               this.item.data_kind !== 'spotify' &&
-              this.$t('dialog.track.quality-value', {
+              this.$t('dialog.track.quality', {
                 bitrate: this.item.bitrate,
                 count: this.item.channels,
                 format: this.item.type,
@@ -79,7 +79,7 @@ export default {
           },
           {
             key: 'property.rating',
-            value: this.$t('dialog.track.rating-value', {
+            value: this.$t('dialog.track.rating', {
               rating: Math.floor(this.item.rating / 10)
             })
           },

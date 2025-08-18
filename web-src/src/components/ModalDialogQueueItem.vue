@@ -62,7 +62,9 @@ export default {
           },
           {
             key: 'property.position',
-            value: [this.item.disc_number, this.item.track_number].join(' / ')
+            value:
+              this.item.track_number > 0 &&
+              [this.item.disc_number, this.item.track_number].join(' / ')
           },
           {
             key: 'property.duration',
@@ -75,12 +77,14 @@ export default {
           },
           {
             key: 'property.quality',
-            value: this.$t('dialog.track.quality-value', {
-              bitrate: this.item.bitrate,
-              count: this.item.channels,
-              format: this.item.type,
-              samplerate: this.item.samplerate
-            })
+            value:
+              this.item.data_kind !== 'spotify' &&
+              this.$t('dialog.track.quality', {
+                bitrate: this.item.bitrate,
+                count: this.item.channels,
+                format: this.item.type,
+                samplerate: this.item.samplerate
+              })
           }
         ],
         uri: this.item.uri

@@ -70,15 +70,15 @@
       }
     },
     "queue-item": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
+      "quality": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
       "pairing-code": "Pairing code",
       "title": "Remote pairing request"
     },
     "track": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
-      "rating-value": "{rating} / 10"
+      "quality": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
+      "rating": "{rating} / 10"
     },
     "update": {
       "all": "Update everything",
