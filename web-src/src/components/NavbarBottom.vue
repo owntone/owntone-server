@@ -76,7 +76,6 @@ import ControlPlayerPrevious from '@/components/ControlPlayerPrevious.vue'
 import ControlPlayerRepeat from '@/components/ControlPlayerRepeat.vue'
 import ControlPlayerShuffle from '@/components/ControlPlayerShuffle.vue'
 import ControlStreamVolume from '@/components/ControlStreamVolume.vue'
-import { useNotificationsStore } from '@/stores/notifications'
 import { useOutputsStore } from '@/stores/outputs'
 import { useQueueStore } from '@/stores/queue'
 import { useUIStore } from '@/stores/ui'
@@ -100,7 +99,6 @@ export default {
   },
   setup() {
     return {
-      notificationsStore: useNotificationsStore(),
       outputsStore: useOutputsStore(),
       queueStore: useQueueStore(),
       uiStore: useUIStore()

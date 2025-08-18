@@ -86,9 +86,7 @@ export default {
     heading() {
       if (this.playlist.name) {
         return {
-          subtitle: [
-            { count: this.playlist.tracks.total, key: 'data.playlists' }
-          ],
+          subtitle: [{ count: this.playlist.tracks.total, key: 'data.tracks' }],
           title: this.playlist.name
         }
       }
