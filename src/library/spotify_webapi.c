@@ -152,7 +152,7 @@ static const char *spotify_client_id;
 static const char *spotify_client_secret;
 static const char *spotify_redirect_uri;
 
-static const char *spotify_scope         = "playlist-read-private playlist-read-collaborative user-library-read user-read-private streaming";
+static const char *spotify_scope         = "playlist-read-collaborative playlist-read-private streaming user-follow-read user-library-read user-read-private";
 
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";

@@ -266,6 +266,7 @@
     "spotify": {
       "music": {
         "featured-playlists": "Listes de lecture en vedette",
+        "followed-artists": "Artistes suivis",
         "new-releases": "Nouvelle sorties"
       }
     }

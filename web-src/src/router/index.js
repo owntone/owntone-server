@@ -24,6 +24,7 @@ import PageMusicRecentlyAdded from '@/pages/PageMusicRecentlyAdded.vue'
 import PageMusicRecentlyPlayed from '@/pages/PageMusicRecentlyPlayed.vue'
 import PageMusicSpotify from '@/pages/PageMusicSpotify.vue'
 import PageMusicSpotifyFeaturedPlaylists from '@/pages/PageMusicSpotifyFeaturedPlaylists.vue'
+import PageMusicSpotifyFollowedArtists from '@/pages/PageMusicSpotifyFollowedArtists.vue'
 import PageMusicSpotifyNewReleases from '@/pages/PageMusicSpotifyNewReleases.vue'
 import PagePlayer from '@/pages/PagePlayer.vue'
 import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
@@ -137,6 +138,11 @@ export const router = createRouter({
       component: PageMusicSpotifyFeaturedPlaylists,
       name: 'music-spotify-featured-playlists',
       path: '/music/spotify/featured-playlists'
+    },
+    {
+      component: PageMusicSpotifyFollowedArtists,
+      name: 'music-spotify-followed-artists',
+      path: '/music/spotify/followed-artists'
     },
     {
       component: PageMusicSpotifyNewReleases,

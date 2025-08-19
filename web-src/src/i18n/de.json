@@ -266,6 +266,7 @@
     "spotify": {
       "music": {
         "featured-playlists": "Ausgezeichnete Playlisten",
+        "followed-artists": "Verfolgte Künstler",
         "new-releases": "Neuvorstellung"
       }
     }

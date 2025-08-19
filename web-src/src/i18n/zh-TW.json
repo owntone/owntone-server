@@ -266,6 +266,7 @@
     "spotify": {
       "music": {
         "featured-playlists": "特色列表",
+        "followed-artists": "關注的藝人",
         "new-releases": "最新發行"
       }
     }
