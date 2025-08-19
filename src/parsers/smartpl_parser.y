@@ -229,6 +229,7 @@ enum sql_append_type {
   SQL_APPEND_FIELD,
   SQL_APPEND_STR,
   SQL_APPEND_INT,
+  SQL_APPEND_NULL,
   SQL_APPEND_ORDER,
   SQL_APPEND_PARENS,
   SQL_APPEND_DATE_STRFTIME,
@@ -339,6 +340,11 @@ static void sql_append_recursive(struct smartpl_result *result, struct result_pa
       assert(a->r == NULL);
       sql_append(result, part, "%d", a->ival);
       break;
+    case SQL_APPEND_NULL:
+      assert(a->l == NULL);
+      assert(a->r == NULL);
+      sql_append(result, part, "NULL", NULL);
+      break;
     case SQL_APPEND_ORDER:
       assert(a->l == NULL);
       assert(a->r == NULL);
@@ -397,6 +403,8 @@ static void sql_from_ast(struct smartpl_result *result, struct result_part *part
       sql_append_recursive(result, part, a, ">=", "<", is_not, SQL_APPEND_OPERATOR); break;
     case SMARTPL_T_IS:
       sql_append_recursive(result, part, a, "=", "!=", is_not, SQL_APPEND_OPERATOR_STR); break;
+    case SMARTPL_T_IS_OPERATOR:
+      sql_append_recursive(result, part, a, "IS", "IS NOT", is_not, SQL_APPEND_OPERATOR); break;
     case SMARTPL_T_INCLUDES:
     case SMARTPL_T_STARTSWITH:
     case SMARTPL_T_ENDSWITH:
@@ -437,6 +445,8 @@ static void sql_from_ast(struct smartpl_result *result, struct result_part *part
       sql_append_recursive(result, part, a, NULL, NULL, 0, SQL_APPEND_FIELD); break;
     case SMARTPL_T_NUM:
       sql_append_recursive(result, part, a, NULL, NULL, 0, SQL_APPEND_INT); break;
+    case SMARTPL_T_NULL:
+      sql_append_recursive(result, part, a, NULL, NULL, 0, SQL_APPEND_NULL); break;
     case SMARTPL_T_ORDERBY:
       sql_append_recursive(result, part, a, "ASC", "DESC", is_not, SQL_APPEND_ORDER); break;
     case SMARTPL_T_RANDOM:
@@ -518,6 +528,8 @@ static int result_set(struct smartpl_result *result, char *title, struct ast *cr
 %token SMARTPL_T_OR
 %token SMARTPL_T_AND
 %token SMARTPL_T_NOT
+%token SMARTPL_T_NULL
+%token SMARTPL_T_IS_OPERATOR
 
 %token SMARTPL_T_DAYS
 %token SMARTPL_T_WEEKS
@@ -590,6 +602,7 @@ criteria: criteria SMARTPL_T_AND criteria                   { $$ = ast_new(SMART
 predicate: SMARTPL_T_STRTAG strbool SMARTPL_T_STRING        { $$ = ast_new($2, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_STRING, $3)); }
 | SMARTPL_T_INTTAG intbool SMARTPL_T_NUM                    { $$ = ast_new($2, ast_data(SMARTPL_T_INTTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
 | SMARTPL_T_DATETAG datebool dateexpr                       { $$ = ast_new($2, ast_data(SMARTPL_T_DATETAG, $1), $3); }
+| SMARTPL_T_STRTAG SMARTPL_T_NULL                           { $$ = ast_new(SMARTPL_T_IS_OPERATOR, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_NULL, NULL)); }
 | enumexpr
 ;
 

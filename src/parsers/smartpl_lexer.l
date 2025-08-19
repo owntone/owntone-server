@@ -138,6 +138,7 @@ before         { return (yylval->ival = SMARTPL_T_BEFORE); }
 after          { return (yylval->ival = SMARTPL_T_AFTER); }
 
 is             { return (yylval->ival = SMARTPL_T_IS); }
+nil            { return (yylval->ival = SMARTPL_T_NULL); }
 includes       { return (yylval->ival = SMARTPL_T_INCLUDES); }
 starts\ with   { return (yylval->ival = SMARTPL_T_STARTSWITH); }
 ends\ with     { return (yylval->ival = SMARTPL_T_ENDSWITH); }
