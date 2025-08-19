@@ -47,7 +47,12 @@
       />
     </template>
     <template #content>
-      <draggable v-model="items" item-key="id" @end="moveItem">
+      <draggable
+        v-model="items"
+        :disabled="!editing"
+        item-key="id"
+        @end="moveItem"
+      >
         <template #item="{ element, index }">
           <list-item-queue-item
             :item="element"
