@@ -130,6 +130,7 @@
     "files": "Files",
     "genres": "Genres",
     "music": "Music",
+    "outputs": "Outputs",
     "playlists": "Playlists",
     "podcasts": "Podcasts",
     "radio": "Radio",
@@ -137,7 +138,6 @@
     "settings": "Settings",
     "spotify": "Spotify",
     "stream": "HTTP stream",
-    "stream-error": "HTTP stream error: failed to load stream or stopped loading due to network problem",
     "update-library": "Update Library",
     "volume": "Volume"
   },
@@ -212,6 +212,9 @@
         "history": "History",
         "spotify": "Spotify"
       }
+    },
+    "outputs": {
+      "title": "Outputs"
     },
     "player": {
       "info": "Add some tracks by browsing your library",

@@ -26,6 +26,7 @@ import PageMusicSpotify from '@/pages/PageMusicSpotify.vue'
 import PageMusicSpotifyFeaturedPlaylists from '@/pages/PageMusicSpotifyFeaturedPlaylists.vue'
 import PageMusicSpotifyFollowedArtists from '@/pages/PageMusicSpotifyFollowedArtists.vue'
 import PageMusicSpotifyNewReleases from '@/pages/PageMusicSpotifyNewReleases.vue'
+import PageOutputs from '@/pages/PageOutputs.vue'
 import PagePlayer from '@/pages/PagePlayer.vue'
 import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
 import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
@@ -108,6 +109,11 @@ export const router = createRouter({
       name: 'audiobooks',
       path: '/audiobooks',
       redirect: { name: 'audiobook-artists' }
+    },
+    {
+      component: PageOutputs,
+      name: 'outputs',
+      path: '/outputs'
     },
     {
       name: 'music',

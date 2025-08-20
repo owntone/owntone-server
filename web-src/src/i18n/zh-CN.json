@@ -130,6 +130,7 @@
     "files": "文件",
     "genres": "流派",
     "music": "音乐",
+    "outputs": "输出",
     "playlists": "播放列表",
     "podcasts": "播客",
     "radio": "广播电台",
@@ -137,7 +138,6 @@
     "settings": "设置",
     "spotify": "Spotify",
     "stream": "HTTP流",
-    "stream-error": "HTTP流错误：流载入失败或者由于网络原因无法载入",
     "update-library": "更新资料库",
     "volume": "音量"
   },
@@ -212,6 +212,9 @@
         "history": "历史",
         "spotify": "Spotify"
       }
+    },
+    "outputs": {
+      "title": "输出"
     },
     "player": {
       "info": "浏览资料库添加曲目",

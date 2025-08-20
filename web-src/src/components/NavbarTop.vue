@@ -128,6 +128,7 @@ export default {
         },
         { separator: true },
         { key: 'navigation.settings', name: 'settings-webinterface' },
+        { key: 'navigation.outputs', name: 'outputs' },
         { action: this.openUpdateDialog, key: 'navigation.update-library' },
         { key: 'navigation.about', name: 'about' }
       ]

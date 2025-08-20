@@ -130,6 +130,7 @@
     "files": "Fichiers",
     "genres": "Genres",
     "music": "Musique",
+    "outputs": "Sorties",
     "playlists": "Listes de lecture",
     "podcasts": "Podcasts",
     "radio": "Radio",
@@ -137,7 +138,6 @@
     "settings": "Réglages",
     "spotify": "Spotify",
     "stream": "Flux HTTP",
-    "stream-error": "Erreur du flux HTTP : échec du chargement du flux ou arrêt du chargement en raison d’un problème réseau",
     "update-library": "Actualiser la bibliothèque",
     "volume": "Volume"
   },
@@ -212,6 +212,9 @@
         "history": "Historique",
         "spotify": "Spotify"
       }
+    },
+    "outputs": {
+      "title": "Sorties"
     },
     "player": {
       "info": "Ajoutez des pistes en parcourant votre bibliothèque",

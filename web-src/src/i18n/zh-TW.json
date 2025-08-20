@@ -130,6 +130,7 @@
     "files": "文件",
     "genres": "音樂類型",
     "music": "音樂",
+    "outputs": "輸出",
     "playlists": "播放列表",
     "podcasts": "Podcast",
     "radio": "電台",
@@ -137,7 +138,6 @@
     "settings": "設定",
     "spotify": "Spotify",
     "stream": "HTTP串流",
-    "stream-error": "HTTP串流錯誤：串流載入失敗或者由於網絡原因無法載入",
     "update-library": "更新資料庫",
     "volume": "音量"
   },
@@ -212,6 +212,9 @@
         "history": "歷史",
         "spotify": "Spotify"
       }
+    },
+    "outputs": {
+      "title": "輸出"
     },
     "player": {
       "info": "瀏覽資料庫新增曲目",

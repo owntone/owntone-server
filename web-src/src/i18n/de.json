@@ -130,6 +130,7 @@
     "files": "Dateien",
     "genres": "Genres",
     "music": "Musik",
+    "outputs": "Ausgänge",
     "playlists": "Playlisten",
     "podcasts": "Podcasts",
     "radio": "Radio",
@@ -137,7 +138,6 @@
     "settings": "Einstellungen",
     "spotify": "Spotify",
     "stream": "HTTP-stream",
-    "stream-error": "HTTP-stream-Fehler: Stream kann nicht geladen werden oder wurde wg. Netzwerkfehler gestopt",
     "update-library": "Bibliothek neu einlesen",
     "volume": "Lautstärke"
   },
@@ -212,6 +212,9 @@
         "history": "Verlauf",
         "spotify": "Spotify"
       }
+    },
+    "outputs": {
+      "title": "Ausgänge"
     },
     "player": {
       "info": "Tracks durch Auswählen aus der Bibliothek anfügen",
