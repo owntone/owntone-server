@@ -602,7 +602,7 @@ criteria: criteria SMARTPL_T_AND criteria                   { $$ = ast_new(SMART
 predicate: SMARTPL_T_STRTAG strbool SMARTPL_T_STRING        { $$ = ast_new($2, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_STRING, $3)); }
 | SMARTPL_T_INTTAG intbool SMARTPL_T_NUM                    { $$ = ast_new($2, ast_data(SMARTPL_T_INTTAG, $1), ast_int(SMARTPL_T_NUM, $3)); }
 | SMARTPL_T_DATETAG datebool dateexpr                       { $$ = ast_new($2, ast_data(SMARTPL_T_DATETAG, $1), $3); }
-| SMARTPL_T_STRTAG SMARTPL_T_NULL                           { $$ = ast_new(SMARTPL_T_IS_OPERATOR, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_NULL, NULL)); }
+| SMARTPL_T_STRTAG SMARTPL_T_IS SMARTPL_T_NULL              { $$ = ast_new(SMARTPL_T_IS_OPERATOR, ast_data(SMARTPL_T_STRTAG, $1), ast_data(SMARTPL_T_NULL, NULL)); }
 | enumexpr
 ;
 
