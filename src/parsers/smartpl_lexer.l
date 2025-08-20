@@ -150,7 +150,7 @@ ends\ with     { return (yylval->ival = SMARTPL_T_ENDSWITH); }
 or             { return SMARTPL_T_OR; }
 and            { return SMARTPL_T_AND; }
 not            { return SMARTPL_T_NOT; }
-empty          { return SMARTPL_T_NULL; }
+empty          { return SMARTPL_T_EMPTY; }
 
 {quoted}       { yylval->str=strdup(yytext+1);
                  if(yylval->str[strlen(yylval->str)-1] == '"')
