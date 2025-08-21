@@ -103,9 +103,6 @@ AC_SEARCH_LIBS([copy_file_range], [c],
 AC_SEARCH_LIBS([fcopyfile], [c],
 	[AC_DEFINE([HAVE_FCOPYFILE], 1,
 		[Define to 1 if you have fcopyfile])])
-AC_SEARCH_LIBS([mnt_new_monitor], [mount],
-	[AC_DEFINE([HAVE_LIBMOUNT], 1,
-		[Define to 1 if you have libmount])])
 
 AC_SEARCH_LIBS([log10], [m])
 AC_SEARCH_LIBS([lrint], [m])
