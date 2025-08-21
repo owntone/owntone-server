@@ -141,7 +141,7 @@ mountwatch_init(void)
 }
 #else
 int
-mountwatch_changed_get(char **path)
+mountwatch_event_get(char **path)
 {
   return -1;
 }
