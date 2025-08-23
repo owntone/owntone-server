@@ -56,7 +56,7 @@ export default {
 
 <style scoped>
 .card-content {
-  max-height: calc(100vh - calc(4 * var(--bulma-navbar-height)));
+  max-height: calc(100vh - var(--bulma-modal-content-spacing-tablet) - calc(4 * var(--bulma-navbar-height)));
   overflow: auto;
 }
 .fade-leave-active {
