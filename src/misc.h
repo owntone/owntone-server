@@ -15,6 +15,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#define NET_CONNECT_TIMEOUT_MS 3000
+
 union net_sockaddr
 {
   struct sockaddr_in sin;

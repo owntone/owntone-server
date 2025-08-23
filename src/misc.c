@@ -49,6 +49,7 @@
 #endif
 
 #include <fcntl.h>
+#include <poll.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h> // getifaddrs
@@ -321,14 +322,102 @@ net_if_get(char *ifname, size_t ifname_len, const char *addr)
 }
 
 static int
-net_connect_impl(const char *addr, unsigned short port, int type, const char *log_service_name, bool set_nonblock)
+net_connect_addrinfo(struct addrinfo *ai, int timeout_ms, bool set_nonblock, const char **errmsg)
+{
+  int fd = -1;
+  int flags;
+  struct pollfd pollfd;
+  socklen_t len;
+  int error;
+  int ret;
+
+  fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+  if (fd < 0)
+    {
+      *errmsg = strerror(errno);
+      goto error;
+    }
+
+  // For Linux we could just give SOCK_CLOEXEC to socket(), but that won't work
+  // with MacOS, so we have to use fcntl()
+  flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0)
+    {
+      *errmsg = "fcntl() with F_GETFL returned an error";
+      goto error;
+    }
+
+  ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_CLOEXEC);
+  if (ret < 0)
+    {
+      *errmsg = "fcntl() with F_SETFL non-block returned an error";
+      goto error;
+    }
+
+  // We often need to wait for the connection. On Linux this seems always to be
+  // the case, but FreeBSD connect() sometimes returns immediate success.
+  ret = connect(fd, ai->ai_addr, ai->ai_addrlen);
+  if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of nonblock
+    {
+      *errmsg = strerror(errno);
+      goto error;
+    }
+  else if (ret != 0)
+    {
+      // Use poll here since select requires using fdset that would be
+      // overflowed in FreeBSD
+      pollfd.fd = fd;
+      pollfd.events = POLLOUT;
+
+      ret = poll(&pollfd, 1, timeout_ms);
+      if (ret < 0)
+	{
+	  *errmsg = strerror(errno);
+	  goto error;
+	}
+      else if (ret == 0)
+	{
+	  *errmsg = "Timed out trying to connect";
+	  goto error;
+	}
+
+      len = sizeof(error);
+      ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len);
+      if (ret < 0 || error)
+	{
+	  *errmsg = error ? strerror(error) : strerror(errno);
+	  goto error;
+	}
+    }
+
+  if (!set_nonblock)
+    {
+      ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
+      if (ret < 0)
+	{
+	  *errmsg = "fcntl() with F_SETFL block returned an error";
+	  goto error;
+	}
+    }
+
+  return fd;
+
+ error:
+  if (fd >= 0)
+    close(fd);
+
+  return -1;
+}
+
+static int
+net_connect_impl(const char *addr, unsigned short port, int type, const char *log_service_name, int timeout_ms, bool set_nonblock)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
-  struct addrinfo *ptr;
+  struct addrinfo *ai;
   char strport[8];
-  int flags;
-  int fd;
+  const char *errmsg = NULL;
+  int fd = -1;
   int ret;
 
   DPRINTF(E_DBG, L_MISC, "Connecting to '%s' at %s (port %u)\n", log_service_name, addr, port);
@@ -344,45 +433,20 @@ net_connect_impl(const char *addr, unsigned short port, int type, const char *lo
       return -1;
     }
 
-  for (ptr = servinfo; ptr; ptr = ptr->ai_next)
+  for (ai = servinfo; ai && fd < 0; ai = ai->ai_next)
     {
-      fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-      if (fd < 0)
-	{
-	  continue;
-	}
-
-      // For Linux we could just give SOCK_CLOEXEC to socket(), but that won't
-      // work with MacOS, so we have to use fcntl()
-      flags = fcntl(fd, F_GETFL, 0);
-      if (flags < 0)
-	continue;
-      if (set_nonblock)
-	ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_CLOEXEC);
-      else
-	ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
-      if (ret < 0)
-	continue;
-
-      ret = connect(fd, ptr->ai_addr, ptr->ai_addrlen);
-      if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of nonblock
-	{
-	  close(fd);
-	  continue;
-	}
-
-      break;
+      fd = net_connect_addrinfo(ai, timeout_ms, set_nonblock, &errmsg);
     }
 
   freeaddrinfo(servinfo);
 
-  if (!ptr)
+  if (fd < 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, strerror(errno));
+      DPRINTF(E_LOG, L_MISC, "Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, errmsg);
       return -1;
     }
 
-  // net_address_get(ipaddr, sizeof(ipaddr), (union net_sockaddr *)ptr->ai-addr);
+  // net_address_get(ipaddr, sizeof(ipaddr), (union net_sockaddr *)ai->ai-addr);
 
   return fd;
 }
@@ -390,7 +454,7 @@ net_connect_impl(const char *addr, unsigned short port, int type, const char *lo
 int
 net_connect(const char *addr, unsigned short port, int type, const char *log_service_name)
 {
-  return net_connect_impl(addr, port, type, log_service_name, false);
+  return net_connect_impl(addr, port, type, log_service_name, NET_CONNECT_TIMEOUT_MS, false);
 }
 
 // If *port is 0 then a random port will be assigned, and *port will be updated
