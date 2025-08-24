@@ -48,6 +48,8 @@
 #define USE_NO_CLEAR_AVFMT_NOFILE (LIBAVFORMAT_VERSION_MAJOR > 59) || ((LIBAVFORMAT_VERSION_MAJOR == 59) && (LIBAVFORMAT_VERSION_MINOR > 15))
 #define USE_CH_LAYOUT (LIBAVCODEC_VERSION_MAJOR > 59) || ((LIBAVCODEC_VERSION_MAJOR == 59) && (LIBAVCODEC_VERSION_MINOR > 24))
 #define USE_CONST_AVIO_WRITE_PACKET (LIBAVFORMAT_VERSION_MAJOR > 61) || ((LIBAVFORMAT_VERSION_MAJOR == 61) && (LIBAVFORMAT_VERSION_MINOR > 0))
+#define USE_AVCODEC_GET_SUPPORTED_CONFIG (LIBAVCODEC_VERSION_MAJOR > 61) || ((LIBAVCODEC_VERSION_MAJOR == 61) && (LIBAVCODEC_VERSION_MINOR > 13))
+#define USE_INJECT_GLOBAL_SIDE_DATA (LIBAVFORMAT_VERSION_MAJOR < 61) || ((LIBAVFORMAT_VERSION_MAJOR == 61) && (LIBAVFORMAT_VERSION_MINOR < 8))
 
 // Interval between ICY metadata checks for streams, in seconds
 #define METADATA_ICY_INTERVAL 5
@@ -621,6 +623,7 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
   AVCodec *encoder;
 #endif
   AVDictionary *options = NULL;
+  const enum AVPixelFormat *pix_fmts = NULL;
   int ret;
 
   codec_desc = avcodec_descriptor_get(codec_id);
@@ -646,7 +649,12 @@ stream_add(struct encode_ctx *ctx, struct stream_ctx *s, enum AVCodecID codec_id
 
   if (!s->codec->pix_fmt)
     {
-      s->codec->pix_fmt = avcodec_default_get_format(s->codec, encoder->pix_fmts);
+#if USE_AVCODEC_GET_SUPPORTED_CONFIG
+      avcodec_get_supported_config(s->codec, NULL, AV_CODEC_CONFIG_PIX_FORMAT, 0, (const void **)&pix_fmts, NULL);
+#else
+      pix_fmts = encoder->pix_fmts;
+#endif
+      s->codec->pix_fmt = pix_fmts ? avcodec_default_get_format(s->codec, pix_fmts) : AV_PIX_FMT_NONE;
       DPRINTF(E_DBG, L_XCODE, "Pixel format set to %s (encoder is %s)\n", av_get_pix_fmt_name(s->codec->pix_fmt), codec_desc->name);
     }
 
@@ -1438,11 +1446,13 @@ open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *
       goto out_fail;
     }
 
+#if USE_INJECT_GLOBAL_SIDE_DATA
   // If the source has REPLAYGAIN_TRACK_GAIN metadata, this will inject the
   // values into the the next packet's side data (as AV_FRAME_DATA_REPLAYGAIN),
   // which has the effect that a volume replaygain filter works. Note that
   // ffmpeg itself uses another method in process_input() in ffmpeg.c.
   av_format_inject_global_side_data(ctx->ifmt_ctx);
+#endif
 
   ret = avformat_find_stream_info(ctx->ifmt_ctx, NULL);
   if (ret < 0)
