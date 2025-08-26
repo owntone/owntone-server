@@ -37,9 +37,7 @@ export default {
     })
   },
   data() {
-    return {
-      playlists: []
-    }
+    return { playlists: [] }
   },
   computed: {
     heading() {

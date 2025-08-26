@@ -37,9 +37,7 @@ export default {
     })
   },
   data() {
-    return {
-      albums: []
-    }
+    return { albums: [] }
   },
   computed: {
     heading() {

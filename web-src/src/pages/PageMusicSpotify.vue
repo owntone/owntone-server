@@ -94,11 +94,7 @@ export default {
     })
   },
   data() {
-    return {
-      albums: [],
-      artists: [],
-      playlists: []
-    }
+    return { albums: [], artists: [], playlists: [] }
   }
 }
 </script>
