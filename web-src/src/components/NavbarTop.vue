@@ -1,14 +1,16 @@
 <template>
   <nav class="navbar is-fixed-top is-top">
-    <div class="navbar-brand is-flex-grow-1">
-      <control-link
-        v-for="menu in menus.filter((menu) => menu.show && !menu.sub)"
-        :key="menu.name"
-        :to="{ name: menu.name }"
-        class="navbar-item is-hidden-mobile"
-      >
-        <mdicon class="icon" :name="menu.icon" size="16" />
-      </control-link>
+    <div class="navbar-brand is-fullwidth">
+      <div class="is-flex is-clipped">
+        <control-link
+          v-for="menu in menus.filter((menu) => menu.show && !menu.sub)"
+          :key="menu.name"
+          :to="{ name: menu.name }"
+          class="navbar-item"
+        >
+          <mdicon class="icon" :name="menu.icon" size="16" />
+        </control-link>
+      </div>
       <a class="navbar-item ml-auto" @click="uiStore.toggleBurgerMenu">
         <mdicon
           class="icon"
@@ -142,3 +144,9 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.is-fullwidth {
+  width: 100%;
+}
+</style>
