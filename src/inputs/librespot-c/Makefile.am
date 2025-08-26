@@ -22,7 +22,12 @@ HTTP_PROTO_SRC = \
 	src/proto/login5_challenges_hashcash.pb-c.h src/proto/login5_challenges_hashcash.pb-c.c \
 	src/proto/login5_challenges_code.pb-c.h src/proto/login5_challenges_code.pb-c.c \
 	src/proto/google_duration.pb-c.h src/proto/google_duration.pb-c.c \
-	src/proto/storage_resolve.pb-c.h src/proto/storage_resolve.pb-c.c
+	src/proto/storage_resolve.pb-c.h src/proto/storage_resolve.pb-c.c \
+	src/proto/extended_metadata.pb-c.h src/proto/extended_metadata.pb-c.c \
+	src/proto/extension_kind.pb-c.h src/proto/extension_kind.pb-c.c \
+	src/proto/entity_extension_data.pb-c.h src/proto/entity_extension_data.pb-c.c \
+	src/proto/google_any.pb-c.h src/proto/google_any.pb-c.c
+
 
 CORE_SRC = \
 	src/librespot-c.c src/connection.c src/channel.c src/crypto.c src/commands.c \

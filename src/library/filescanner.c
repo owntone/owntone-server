@@ -115,6 +115,7 @@ struct stacked_dir {
 
 static int inofd;
 static struct event *inoev;
+static struct event *mntev;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
 
@@ -1130,13 +1131,6 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 
   DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%08x, cookie 0x%08x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
-  if (ie->mask & IN_UNMOUNT)
-    {
-      db_file_disable_bymatch(path, STRIP_NONE, 0);
-      db_pl_disable_bymatch(path, STRIP_NONE, 0);
-      db_directory_disable_bymatch(path, STRIP_NONE, 0);
-    }
-
   if (ie->mask & IN_MOVE_SELF)
     {
       /* A directory we know about, that got moved from a place
@@ -1508,6 +1502,7 @@ inotify_cb(int fd, short event, void *arg)
 {
   struct inotify_event *ie;
   struct watch_info wi;
+  struct stat sb;
   uint8_t *buf;
   uint8_t *ptr;
   char path[PATH_MAX];
@@ -1565,8 +1560,16 @@ inotify_cb(int fd, short event, void *arg)
 	  DPRINTF(E_DBG, L_SCAN, "%s deleted or backing filesystem unmounted!\n", wi.path);
 
 	  db_watch_delete_bywd(ie->wd);
-	  free_wi(&wi, 1);
-	  continue;
+
+	  // Is the directory gone?
+	  if (! (lstat(wi.path, &sb) == 0 && S_ISDIR(sb.st_mode)))
+	    {
+	      free_wi(&wi, 1);
+	      continue;
+	    }
+
+	  // After an unmount event the mount point is a regular dir that we must process
+	  ie->mask |= IN_CREATE;
 	}
 
       path[0] = '\0';
@@ -1614,28 +1617,77 @@ inotify_cb(int fd, short event, void *arg)
   event_add(inoev, NULL);
 }
 
+static void
+mount_cb(int fd, short event, void *arg)
+{
+  struct watch_info wi = { 0 };
+  char *path = NULL;
+  enum mountwatch_event mev;
+  int parent_id;
+  int ret;
+
+  mev = mountwatch_event_get(&path);
+  if (mev == MOUNTWATCH_ERR || mev == MOUNTWATCH_NONE)
+    goto readd;
+
+  // Check if this is a location we are watching
+  ret = db_watch_get_bypath(&wi, path);
+  if (ret < 0)
+    goto readd;
+
+  if (mev == MOUNTWATCH_MOUNT)
+    {
+      DPRINTF(E_DBG, L_SCAN, "MNT_MOUNT path %s\n", path);
+
+      // After a mount, the inotify watch we had on the mount point will no
+      // longer be working, so remove.
+      inotify_rm_watch(inofd, wi.wd);
+      db_watch_delete_bywd(wi.wd);
+
+      // Adds watches, scans and sets disabled = 0
+      parent_id = get_parent_dir_id(path);
+      process_directories(path, parent_id, 0);
+    }
+  else if (mev == MOUNTWATCH_UNMOUNT)
+    {
+      DPRINTF(E_DBG, L_SCAN, "MNT_UNMOUNT path %s\n", path);
+
+      db_file_disable_bymatch(path, STRIP_NONE, 0);
+      db_pl_disable_bymatch(path, STRIP_NONE, 0);
+      db_directory_disable_bymatch(path, STRIP_NONE, 0);
+    }
+
+ readd:
+  free_wi(&wi, 1);
+  free(path);
+  event_add(mntev, NULL);
+}
+
 /* Thread: main & scan */
 static int
 inofd_event_set(void)
 {
+  int mntfd;
+
   inofd = inotify_init1(IN_CLOEXEC);
   if (inofd < 0)
     {
       DPRINTF(E_FATAL, L_SCAN, "Could not create inotify fd: %s\n", strerror(errno));
-
       return -1;
     }
+  else
+    CHECK_NULL(L_SCAN, inoev = event_new(evbase_lib, inofd, EV_READ, inotify_cb, NULL));
 
-  inoev = event_new(evbase_lib, inofd, EV_READ, inotify_cb, NULL);
+  // If mountwatch cannot be initialized we create mntev as a timer (that will
+  // never trigger), so that all the event_add() don't need a "if (mntev)" test.
+  mntfd = mountwatch_init();
+  if (mntfd >= 0)
+    CHECK_NULL(L_SCAN, mntev = event_new(evbase_lib, mntfd, EV_READ, mount_cb, NULL));
+  else
+    CHECK_NULL(L_SCAN, mntev = evtimer_new(evbase_lib, mount_cb, NULL));
 
 #ifndef __linux__
-  deferred_inoev = evtimer_new(evbase_lib, inotify_deferred_cb, NULL);
-  if (!deferred_inoev)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not create deferred inotify event\n");
-
-      return -1;
-    }
+  CHECK_NULL(L_SCAN, deferred_inoev = evtimer_new(evbase_lib, inotify_deferred_cb, NULL));
 #endif
 
   return 0;
@@ -1648,6 +1700,9 @@ inofd_event_unset(void)
 #ifndef __linux__
   event_free(deferred_inoev);
 #endif
+  event_free(mntev);
+  mountwatch_deinit();
+
   event_free(inoev);
   close(inofd);
 }
@@ -1674,6 +1729,7 @@ filescanner_initscan()
     {
       /* Enable inotify */
       event_add(inoev, NULL);
+      event_add(mntev, NULL);
     }
   return 0;
 }
@@ -1692,6 +1748,7 @@ filescanner_rescan()
     {
       /* Enable inotify */
       event_add(inoev, NULL);
+      event_add(mntev, NULL);
     }
   return 0;
 }
@@ -1710,6 +1767,7 @@ filescanner_metarescan()
     {
       /* Enable inotify */
       event_add(inoev, NULL);
+      event_add(mntev, NULL);
     }
   return 0;
 }
@@ -1727,6 +1785,7 @@ filescanner_fullrescan()
     {
       /* Enable inotify */
       event_add(inoev, NULL);
+      event_add(mntev, NULL);
     }
   return 0;
 }
@@ -2210,9 +2269,7 @@ filescanner_init(void)
 
   ret = inofd_event_set();
   if (ret < 0)
-    {
-      return -1;
-    }
+    return -1;
 
   return 0;
 }

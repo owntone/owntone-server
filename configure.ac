@@ -103,6 +103,9 @@ AC_SEARCH_LIBS([copy_file_range], [c],
 AC_SEARCH_LIBS([fcopyfile], [c],
 	[AC_DEFINE([HAVE_FCOPYFILE], 1,
 		[Define to 1 if you have fcopyfile])])
+AC_SEARCH_LIBS([mnt_new_monitor], [mount],
+	[AC_DEFINE([HAVE_LIBMOUNT], 1,
+		[Define to 1 if you have libmount])])
 
 AC_SEARCH_LIBS([log10], [m])
 AC_SEARCH_LIBS([lrint], [m])
@@ -191,6 +194,9 @@ PKG_CHECK_EXISTS([libplist],
 		[plist_dict_get_item], [plist/plist.h])],
 	[OWNTONE_MODULES_CHECK([OWNTONE], [LIBPLIST], [libplist-2.0],
 		[plist_dict_get_item], [plist/plist.h])])
+
+dnl AC_SEARCH_LIBS does not find plist_get_unix_date_val() on MacOS
+OWNTONE_CHECK_DECLS([plist_get_unix_date_val], [plist/plist.h])
 
 AM_PATH_LIBGCRYPT([1:1.7.0])
 OWNTONE_FUNC_REQUIRE([OWNTONE], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
