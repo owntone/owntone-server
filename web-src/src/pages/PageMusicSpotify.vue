@@ -1,6 +1,6 @@
 <template>
   <tabs-music />
-  <content-with-heading>
+  <content-with-heading v-if="albums">
     <template #heading>
       <pane-title :content="{ title: $t('page.spotify.music.new-releases') }" />
     </template>
@@ -16,7 +16,7 @@
       </router-link>
     </template>
   </content-with-heading>
-  <content-with-heading>
+  <content-with-heading v-if="playlists">
     <template #heading>
       <pane-title
         :content="{ title: $t('page.spotify.music.featured-playlists') }"
@@ -34,7 +34,7 @@
       </router-link>
     </template>
   </content-with-heading>
-  <content-with-heading>
+  <content-with-heading v-if="artists">
     <template #heading>
       <pane-title
         :content="{ title: $t('page.spotify.music.followed-artists') }"
@@ -84,11 +84,11 @@ export default {
           null,
           3
         )
-      ]).then((response) => {
+      ]).then(([newReleases, followedArtists, featuredPlaylists]) => {
         next((vm) => {
-          vm.albums = response[0].albums.items
-          vm.artists = response[1].artists.items
-          vm.playlists = response[2].playlists.items
+          vm.albums = newReleases.albums.items
+          vm.artists = followedArtists?.artists.items
+          vm.playlists = featuredPlaylists.playlists.items
         })
       })
     })

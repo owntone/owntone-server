@@ -16,9 +16,13 @@ export default {
   },
   spotify() {
     return api.get('./api/spotify').then((configuration) => {
-      const sdk = SpotifyApi.withAccessToken(configuration.webapi_client_id, {
-        access_token: configuration.webapi_token
-      })
+      const sdk = SpotifyApi.withAccessToken(
+        configuration.webapi_client_id,
+        {
+          access_token: configuration.webapi_token
+        },
+        { errorHandler: { handleErrors: () => true } }
+      )
       return { api: sdk, configuration }
     })
   }
