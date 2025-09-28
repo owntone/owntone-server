@@ -1,4 +1,4 @@
-AC_INIT([librespot-c], [0.6])
+AC_INIT([librespot-c], [0.7])
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_SILENT_RULES([yes])
@@ -9,6 +9,8 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_CC
 AM_PROG_AR
 AC_PROG_RANLIB
+
+AC_PATH_PROG([PROTOC], [protoc-c])
 
 AM_CPPFLAGS="-Wall"
 AC_SUBST([AM_CPPFLAGS])
