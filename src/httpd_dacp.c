@@ -1894,6 +1894,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
   const char *querymodifier;
   const char *sort;
   const char *param;
+  const char *ptr;
   char modifiedquery[32];
   int mode;
   int plid;
@@ -1955,7 +1956,8 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
   else
     {
       // Modify the query: Take the id from the editquery and use it as a queuefilter playlist id
-      ret = safe_atoi32(strchr(editquery, ':') + 1, &plid);
+      ptr = strchr(editquery, ':');
+      ret = ptr ? safe_atoi32(ptr + 1, &plid) : -1;
       if (ret < 0)
         {
 	  DPRINTF(E_LOG, L_DACP, "Invalid playlist id in request: %s\n", editquery);
@@ -2029,38 +2031,44 @@ dacp_reply_playqueueedit_move(struct httpd_request *hreq)
   struct player_status status;
   int ret;
   const char *param;
+  const char *ptr;
   int src;
   int dst;
 
   param = httpd_query_value_find(hreq->query, "edit-params");
-  if (param)
-  {
-    ret = safe_atoi32(strchr(param, ':') + 1, &src);
-    if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-from value in playqueue-edit request\n");
+  if (!param)
+    goto out;
 
-      dacp_send_error(hreq, "cacr", "Invalid request");
-      return -1;
-    }
+  ptr = strchr(param, ':');
+  if (!ptr)
+    goto error;
 
-    ret = safe_atoi32(strchr(param, ',') + 1, &dst);
-    if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-to value in playqueue-edit request\n");
+  ret = safe_atoi32(ptr + 1, &src);
+  if (ret < 0)
+    goto error;
 
-      dacp_send_error(hreq, "cacr", "Invalid request");
-      return -1;
-    }
+  ptr = strchr(param, ',');
+  if (!ptr)
+    goto error;
 
-    player_get_status(&status);
-    db_queue_move_byposrelativetoitem(src, dst, status.item_id, status.shuffle);
-  }
+  ret = safe_atoi32(ptr + 1, &dst);
+  if (ret < 0)
+    goto error;
 
+  player_get_status(&status);
+  db_queue_move_byposrelativetoitem(src, dst, status.item_id, status.shuffle);
+
+ out:
   /* 204 No Content is the canonical reply */
   httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
+
+ error:
+  DPRINTF(E_LOG, L_DACP, "Invalid edit-params in playqueue-edit request: '%s'\n", param);
+
+  dacp_send_error(hreq, "cacr", "Invalid request");
+  return -1;
 }
 
 static int
@@ -2538,8 +2546,7 @@ dacp_reply_setspeakers(struct httpd_request *hreq)
     }
 
   nspk = 1;
-  ptr = param;
-  while ((ptr = strchr(ptr + 1, ',')))
+  for (ptr = param; ptr; ptr = strchr(ptr + 1, ','))
     nspk++;
 
   CHECK_NULL(L_DACP, ids = calloc((nspk + 1), sizeof(uint64_t)));
