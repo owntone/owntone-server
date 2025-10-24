@@ -490,3 +490,7 @@ Note however, the equalizer appears to require a `plughw` device which means you
     This error will occur for output hardware that do not support concurrent device open and the server plays 2 files of different bitrate (44.1khz and 48khz) back to back.
 
     If you observe the error, you will need to use the `dmix` configuration as mentioned above.
+
+* Volume control on Raspberry Pi with hdmi output doesn't work
+
+Prior to Debian 13, in the /boot/firmware.config file the entry "dtoverlay=vc4-kms-v3d" was commented out. Since 13 this line is active (not commented out). This changes, among other things, the way the HDMI and BCM devices are handled. Commenting out the entry again will fix the volume control for the hdmi output. If you use the RPi headless commenting this out shouldn't have undesirable effects. See https://forums.raspberrypi.com/viewtopic.php?t=49928&start=1825#p2344272.
