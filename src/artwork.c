@@ -1897,7 +1897,7 @@ source_queue_item_artwork_url_get(struct artwork_ctx *ctx)
 /* --------------------------- SOURCE PROCESSING --------------------------- */
 
 static int
-process_items(struct artwork_ctx *ctx, int item_mode)
+process_file_items(struct artwork_ctx *ctx, int item_mode)
 {
   struct db_media_file_info dbmfi;
   int i;
@@ -2041,7 +2041,7 @@ process_group(struct artwork_ctx *ctx)
     }
 
  invalid_group:
-  return process_items(ctx, 0);
+  return process_file_items(ctx, 0);
 }
 
 static int
@@ -2087,7 +2087,7 @@ process_queue_item(struct artwork_ctx *ctx)
 /* ------------------------------ ARTWORK API ------------------------------ */
 
 int
-artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
+artwork_get_by_file_id(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
 {
   struct artwork_ctx ctx = { 0 };
   char filter[32];
@@ -2116,7 +2116,7 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int forma
 
   // Note: process_items will set ctx.persistentid for the following process_group()
   // - and do nothing else if artwork_individual is not configured by user
-  ret = process_items(&ctx, 1);
+  ret = process_file_items(&ctx, 1);
   if (ret > 0)
     {
       if (ctx.cache & ON_SUCCESS)
@@ -2146,7 +2146,7 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int forma
 }
 
 int
-artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
+artwork_get_by_group_id(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
 {
   struct artwork_ctx ctx = { 0 };
   int ret;
@@ -2202,7 +2202,7 @@ artwork_get_by_queue_item_id(struct evbuffer *evbuf, int item_id, int max_w, int
 
   if (queue_item->file_id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
-      ret = artwork_get_item(evbuf, queue_item->file_id, max_w, max_h, format);
+      ret = artwork_get_by_file_id(evbuf, queue_item->file_id, max_w, max_h, format);
       free_queue_item(queue_item, 0);
       return ret;
     }

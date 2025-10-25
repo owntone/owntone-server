@@ -1986,9 +1986,9 @@ daap_reply_extra_data(struct httpd_request *hreq)
     }
 
   if (strcmp(hreq->path_parts[2], "groups") == 0)
-    ret = artwork_get_group(hreq->out_body, id, max_w, max_h, 0);
+    ret = artwork_get_by_group_id(hreq->out_body, id, max_w, max_h, 0);
   else if (strcmp(hreq->path_parts[2], "items") == 0)
-    ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
+    ret = artwork_get_by_file_id(hreq->out_body, id, max_w, max_h, 0);
 
   len = evbuffer_get_length(hreq->out_body);
 
