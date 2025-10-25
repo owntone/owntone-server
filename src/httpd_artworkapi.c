@@ -74,20 +74,20 @@ response_process(struct httpd_request *hreq, int format)
 static int
 artworkapi_reply_nowplaying(struct httpd_request *hreq)
 {
+  struct player_status status;
   uint32_t max_w;
   uint32_t max_h;
-  uint32_t id;
   int ret;
 
   ret = request_process(hreq, &max_w, &max_h);
   if (ret != 0)
     return ret;
 
-  ret = player_playing_now(&id);
-  if (ret != 0)
+  player_get_status(&status);
+  if (status.status == PLAY_STOPPED)
     return HTTP_NOTFOUND;
 
-  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
+  ret = artwork_get_by_queue_item_id(hreq->out_body, status.item_id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -108,7 +108,7 @@ artworkapi_reply_item(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_BADREQUEST;
 
-  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
+  ret = artwork_get_by_file_id(hreq->out_body, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }
@@ -129,7 +129,7 @@ artworkapi_reply_group(struct httpd_request *hreq)
   if (ret != 0)
     return HTTP_BADREQUEST;
 
-  ret = artwork_get_group(hreq->out_body, id, max_w, max_h, 0);
+  ret = artwork_get_by_group_id(hreq->out_body, id, max_w, max_h, 0);
 
   return response_process(hreq, ret);
 }

@@ -2391,7 +2391,7 @@ mpd_command_albumart(struct mpd_command_output *out, struct mpd_command_input *i
 
   // Ref. docs: "If the song file was recognized, but there is no picture, the
   // response is successful, but is otherwise empty"
-  format = artwork_get_item(artwork, id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
+  format = artwork_get_by_file_id(artwork, id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (format == ART_FMT_PNG)
     evbuffer_add_printf(out->evbuf, "type: image/png\n");
   else if (format == ART_FMT_JPEG)
@@ -4150,7 +4150,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   const char *path;
   char *decoded_path;
   char *last_slash;
-  int itemid;
+  int file_id;
   int format;
 
   if (evhttp_request_get_command(req) != EVHTTP_REQ_GET)
@@ -4195,8 +4195,8 @@ artwork_cb(struct evhttp_request *req, void *arg)
 
   DPRINTF(E_DBG, L_MPD, "Artwork request for path: %s\n", decoded_path);
 
-  itemid = db_file_id_byvirtualpath_match(decoded_path);
-  if (!itemid)
+  file_id = db_file_id_byvirtualpath_match(decoded_path);
+  if (!file_id)
     {
       DPRINTF(E_WARN, L_MPD, "No item found for path '%s' from request uri '%s'\n", decoded_path, uri);
       evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
@@ -4205,17 +4205,9 @@ artwork_cb(struct evhttp_request *req, void *arg)
       return;
     }
 
-  evbuffer = evbuffer_new();
-  if (!evbuffer)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not allocate an evbuffer for artwork request\n");
-      evhttp_send_error(req, HTTP_INTERNAL, "Document was not found");
-      evhttp_uri_free(decoded);
-      free(decoded_path);
-      return;
-    }
+  CHECK_NULL(L_MPD, evbuffer = evbuffer_new());
 
-  format = artwork_get_item(evbuffer, itemid, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
+  format = artwork_get_by_file_id(evbuffer, file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (format < 0)
     {
       evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
