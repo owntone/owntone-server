@@ -164,7 +164,7 @@ dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct db_
    * FIXME: Giving the client invalid ids on purpose is hardly ideal, but the
    * clients don't seem to use these ids for anything other than rating.
    */
-  if (queue_item->data_kind == DATA_KIND_HTTP || queue_item->data_kind == DATA_KIND_PIPE)
+  if (queue_item->data_kind == DATA_KIND_HTTP || queue_item->data_kind == DATA_KIND_PIPE || queue_item->file_id == DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
       // Could also use queue_item->queue_version, but it changes a bit too much
       // leading to Remote reloading too much
@@ -2257,11 +2257,11 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
 static int
 dacp_reply_nowplayingartwork(struct httpd_request *hreq)
 {
+  struct player_status status;
   char clen[32];
   const char *param;
   char *ctype;
   size_t len;
-  uint32_t id;
   int max_w;
   int max_h;
   int ret;
@@ -2298,11 +2298,11 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
       goto error;
     }
 
-  ret = player_playing_now(&id);
-  if (ret < 0)
+  player_get_status(&status);
+  if (status.status == PLAY_STOPPED)
     goto no_artwork;
 
-  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
+  ret = artwork_get_by_queue_item_id(hreq->out_body, status.item_id, max_w, max_h, 0);
   len = evbuffer_get_length(hreq->out_body);
 
   switch (ret)
