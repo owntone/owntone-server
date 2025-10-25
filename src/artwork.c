@@ -113,6 +113,8 @@ struct artwork_ctx {
   uint32_t media_kind;
   // Input data for group handlers
   int64_t persistentid;
+  // Input data for queue item handlers
+  struct db_queue_item *queue_item;
 
   // Not to be used by handler - query for item or group
   struct query_params qp;
@@ -210,6 +212,8 @@ static int source_item_ownpl_get(struct artwork_ctx *ctx);
 static int source_item_spotifywebapi_search_get(struct artwork_ctx *ctx);
 static int source_item_discogs_get(struct artwork_ctx *ctx);
 static int source_item_coverartarchive_get(struct artwork_ctx *ctx);
+/* Forward - queue item handlers */
+static int source_queue_item_artwork_url_get(struct artwork_ctx *ctx);
 
 /* List of sources that can provide artwork for a group (i.e. usually an album
  * identified by a persistentid). The source handlers will be called in the
@@ -349,6 +353,24 @@ static struct artwork_source artwork_item_source[] =
       .name = NULL,
       .handler = NULL,
       .data_kinds = 0,
+      .cache = 0,
+    }
+  };
+
+/* List of sources that can provide artwork for a queue item. The source
+ * handlers will be called in the order of this list. Must be terminated by a
+ * NULL struct.
+ */
+static struct artwork_source artwork_queue_item_source[] =
+  {
+    {
+      .name = "artwork url",
+      .handler = source_queue_item_artwork_url_get,
+      .cache = NEVER,
+    },
+    {
+      .name = NULL,
+      .handler = NULL,
       .cache = 0,
     }
   };
@@ -1607,41 +1629,25 @@ source_item_own_get(struct artwork_ctx *ctx)
   return artwork_get(ctx->evbuf, path, NULL, false, ctx->data_kind, ctx->req_params);
 }
 
-/*
- * Downloads the artwork from the location pointed to by queue_item->artwork_url
- */
 static int
 source_item_artwork_url_get(struct artwork_ctx *ctx)
 {
-  struct db_queue_item *queue_item;
-  const char *proto_http = "http:";
-  const char *proto_https = "https:";
-  bool is_http;
-  bool is_https;
   int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying artwork url for %s\n", ctx->dbmfi->path);
 
-  queue_item = db_queue_fetch_byfileid(ctx->id);
-  if (!queue_item || !queue_item->artwork_url)
-    goto notfound;
-
-  is_http = (strncmp(queue_item->artwork_url, proto_http, strlen(proto_http)) == 0);
-  is_https = (strncmp(queue_item->artwork_url, proto_https, strlen(proto_https)) == 0);
-  if (!is_http && !is_https)
-    goto notfound;
-
-  ret = artwork_get_byurl(ctx->evbuf, queue_item->artwork_url, ctx->req_params);
-
-  snprintf(ctx->path, sizeof(ctx->path), "%s", queue_item->artwork_url);
-
-  free_queue_item(queue_item, 0);
+  if (ctx->queue_item)
+    {
+      ret = source_queue_item_artwork_url_get(ctx);
+    }
+  else
+    {
+      ctx->queue_item = db_queue_fetch_byfileid(ctx->id);
+      ret = source_queue_item_artwork_url_get(ctx);
+      free_queue_item(ctx->queue_item, 0);
+    }
 
   return ret;
-
- notfound:
-  free_queue_item(queue_item, 0);
-  return ART_E_NONE;
 }
 
 /*
@@ -1852,6 +1858,41 @@ source_item_ownpl_get(struct artwork_ctx *ctx)
   return format;
 }
 
+/*
+ * Downloads artwork from ctx->queue_item->artwork_url
+ */
+static int
+source_queue_item_artwork_url_get(struct artwork_ctx *ctx)
+{
+  const char *proto_http = "http:";
+  const char *proto_https = "https:";
+  const char *artwork_url;
+  bool is_http;
+  bool is_https;
+  int ret;
+
+  if (!ctx->queue_item || !ctx->queue_item->artwork_url)
+    goto notfound;
+
+  DPRINTF(E_SPAM, L_ART, "Trying artwork url for %s\n", ctx->queue_item->path);
+
+  artwork_url = ctx->queue_item->artwork_url;
+
+  is_http = (strncmp(artwork_url, proto_http, strlen(proto_http)) == 0);
+  is_https = (strncmp(artwork_url, proto_https, strlen(proto_https)) == 0);
+  if (!is_http && !is_https)
+    goto notfound;
+
+  ret = artwork_get_byurl(ctx->evbuf, artwork_url, ctx->req_params);
+
+  snprintf(ctx->path, sizeof(ctx->path), "%s", artwork_url);
+
+  return ret;
+
+ notfound:
+  return ART_E_NONE;
+}
+
 
 /* --------------------------- SOURCE PROCESSING --------------------------- */
 
@@ -2003,13 +2044,52 @@ process_group(struct artwork_ctx *ctx)
   return process_items(ctx, 0);
 }
 
+static int
+process_queue_item(struct artwork_ctx *ctx)
+{
+  const char *source_name;
+  int i;
+  int ret;
+
+  for (i = 0; artwork_queue_item_source[i].handler; i++)
+    {
+      // If just one handler says we should not cache a negative result then we obey that
+      if ((artwork_queue_item_source[i].cache & ON_FAILURE) == 0)
+	ctx->cache = NEVER;
+
+      source_name = artwork_queue_item_source[i].name;
+
+      DPRINTF(E_SPAM, L_ART, "Checking queue item source '%s'\n", source_name);
+
+      ret = artwork_queue_item_source[i].handler(ctx);
+      if (ret > 0)
+	{
+	  DPRINTF(E_DBG, L_ART, "Artwork for queue item '%s' found in source '%s'\n", ctx->queue_item->title, source_name);
+	  ctx->cache = artwork_queue_item_source[i].cache;
+	  return ret;
+	}
+      else if (ret == ART_E_ABORT)
+	{
+	  DPRINTF(E_DBG, L_ART, "Source '%s' stopped search for artwork for queue item '%s'\n", source_name, ctx->queue_item->title);
+	  ctx->cache = NEVER;
+	}
+      else if (ret == ART_E_ERROR)
+	{
+	  DPRINTF(E_LOG, L_ART, "Source '%s' returned an error for queue item '%s'\n", source_name, ctx->queue_item->title);
+	  ctx->cache = NEVER;
+	}
+    }
+
+  return -1;
+}
+
 
 /* ------------------------------ ARTWORK API ------------------------------ */
 
 int
 artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
 {
-  struct artwork_ctx ctx;
+  struct artwork_ctx ctx = { 0 };
   char filter[32];
   int ret;
 
@@ -2017,8 +2097,6 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int forma
 
   if (id == DB_MEDIA_FILE_NON_PERSISTENT_ID)
     return  -1;
-
-  memset(&ctx, 0, sizeof(struct artwork_ctx));
 
   ctx.qp.type = Q_ITEMS;
   ctx.qp.filter = filter;
@@ -2070,12 +2148,10 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int forma
 int
 artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h, int format)
 {
-  struct artwork_ctx ctx;
+  struct artwork_ctx ctx = { 0 };
   int ret;
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %d (max_w=%d, max_h=%d)\n", id, max_w, max_h);
-
-  memset(&ctx, 0, sizeof(struct artwork_ctx));
 
   /* Get the persistent id for the given group id */
   ret = db_group_persistentid_byid(id, &ctx.persistentid);
@@ -2107,6 +2183,48 @@ artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h, int form
 
   if (ctx.cache & ON_FAILURE)
     cache_artwork_add(CACHE_ARTWORK_GROUP, ctx.persistentid, max_w, max_h, 0, "", evbuf);
+
+  return -1;
+}
+
+int
+artwork_get_by_queue_item_id(struct evbuffer *evbuf, int item_id, int max_w, int max_h, int format)
+{
+  struct artwork_ctx ctx = { 0 };
+  struct db_queue_item *queue_item;
+  int ret;
+
+  DPRINTF(E_DBG, L_ART, "Artwork request for queue item %d (max_w=%d, max_h=%d)\n", item_id, max_w, max_h);
+
+  queue_item = db_queue_fetch_byitemid(item_id);
+  if (!queue_item)
+    return -1;
+
+  if (queue_item->file_id != DB_MEDIA_FILE_NON_PERSISTENT_ID)
+    {
+      ret = artwork_get_item(evbuf, queue_item->file_id, max_w, max_h, format);
+      free_queue_item(queue_item, 0);
+      return ret;
+    }
+
+  ctx.queue_item = queue_item;
+  ctx.evbuf = evbuf;
+  ctx.req_params.max_w = max_w;
+  ctx.req_params.max_h = max_h;
+  ctx.req_params.format = format;
+  ctx.cache = ON_FAILURE;
+
+  ret = process_queue_item(&ctx);
+  if (ret > 0)
+    {
+      // No caching of queue item artwork implemented as of yet
+      free_queue_item(queue_item, 0);
+      return ret;
+    }
+
+  DPRINTF(E_DBG, L_ART, "No artwork found for queue item %d\n", item_id);
+
+  free_queue_item(queue_item, 0);
 
   return -1;
 }
