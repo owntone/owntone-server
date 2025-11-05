@@ -319,8 +319,8 @@ int
 mutex_init(pthread_mutex_t *mutex);
 
 // wrapper for gettid/pthread_getthreadid_np
-int
-thread_gettid();
+int64_t
+thread_gettid(pthread_t p);
 
 // wrapper for pthread_getname_np/pthread_get_name_np
 void

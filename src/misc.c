@@ -1852,14 +1852,16 @@ mutex_init(pthread_mutex_t *mutex)
   return err;
 }
 
-int
-thread_gettid()
+int64_t
+thread_gettid(pthread_t p)
 {
-  int tid = -1;
+  int64_t tid = -1;
 #if defined(HAVE_GETTID)
-  tid = (int)gettid();
+  tid = (int64_t)gettid();
 #elif defined(HAVE_PTHREAD_GETTHREADID_NP)
-  tid = pthread_getthreadid_np();
+  tid = (int64_t)pthread_getthreadid_np();
+#else //defacto thread id
+  tid = (int64_t)p;
 #endif
   return tid;
 }
@@ -1879,19 +1881,25 @@ thread_getname(pthread_t thread, char *name, size_t len)
 void
 thread_getnametid(char *buf, size_t len)
 {
-  int tid;
+  int64_t tid;
   char thread_name[32];
   pthread_t p = pthread_self();
 
   thread_getname(p, thread_name, sizeof(thread_name));
-  tid = thread_gettid() % 10000;
-  snprintf(buf, len, "%s (%d)", thread_name, tid);
+  tid = thread_gettid(p) % 10000;
+  snprintf(buf, len, "%s (%" PRId64 ")", thread_name, tid);
 }
 
 void
 thread_setname(pthread_t thread, const char *name)
 {
-#if defined(HAVE_PTHREAD_SETNAME_NP)
+#if defined(HAVE_PTHREAD_SETNAME_NP_1)
+  pthread_setname_np(name);
+  DPRINTF(E_DBG, L_MISC,
+    "%s: Single argument pthread_setname_np(%s). Be aware! It must be called from thread whose name is to be changed\n",
+    __func__, name
+  );
+#elif defined(HAVE_PTHREAD_SETNAME_NP_2)
   pthread_setname_np(thread, name);
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)
   pthread_set_name_np(thread, name);
