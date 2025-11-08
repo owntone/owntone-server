@@ -111,6 +111,9 @@ xml_from_file(const char *path)
 void
 xml_free(xml_node *top)
 {
+  if (!top || !top->doc)
+    return;
+
   xmlFreeDoc(top->doc);
 }
 
