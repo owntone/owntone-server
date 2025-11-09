@@ -470,6 +470,8 @@ incoming_cb(int fd, short what, void *arg)
 static void *
 airplay_events(void *arg)
 {
+
+  thread_setname("airplay events");
   event_base_dispatch(evbase);
 
   pthread_exit(NULL);
@@ -518,8 +520,6 @@ airplay_events_init(void)
 
       goto error;
     }
-
-// TODO  thread_name_set(thread_id, "airplay events");
 
   return 0;
 

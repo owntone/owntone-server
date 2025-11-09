@@ -331,7 +331,7 @@ thread_getnametid(char *buf, size_t len);
 
 // wrapper for pthread_setname_np/pthread_set_name_np
 void
-thread_setname(pthread_t thread, const char *name);
+thread_setname(const char *name);
 
 void
 uuid_make(char *str);

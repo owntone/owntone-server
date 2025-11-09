@@ -1891,7 +1891,7 @@ thread_getnametid(char *buf, size_t len)
 }
 
 void
-thread_setname(pthread_t thread, const char *name)
+thread_setname(const char *name)
 {
 #if defined(HAVE_PTHREAD_SETNAME_NP_1)
   pthread_setname_np(name);
@@ -1900,9 +1900,9 @@ thread_setname(pthread_t thread, const char *name)
     __func__, name
   );
 #elif defined(HAVE_PTHREAD_SETNAME_NP_2)
-  pthread_setname_np(thread, name);
+  pthread_setname_np(pthread_self(), name);
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(thread, name);
+  pthread_set_name_np(pthread_self(), name);
 #endif
 }
 

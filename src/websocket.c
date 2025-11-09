@@ -415,6 +415,7 @@ static struct lws_protocols protocols[] =
 static void *
 websocket(void *arg)
 {
+  thread_setname("websocket");
   listener_add(listener_cb, LISTENER_UPDATE | LISTENER_DATABASE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM | LISTENER_SPEAKER
                | LISTENER_PLAYER | LISTENER_OPTIONS | LISTENER_VOLUME | LISTENER_QUEUE, NULL);
 
@@ -532,8 +533,6 @@ websocket_init(void)
       lws_context_destroy(websocket_context);
       return -1;
     }
-
-  thread_setname(tid_websocket, "websocket");
 
   websocket_is_initialized = true;
 
