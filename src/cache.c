@@ -1691,6 +1691,7 @@ cache(void *arg)
   int i;
 
   thread_setname("cache");
+
   ret = cache_open();
   if (ret < 0)
     {

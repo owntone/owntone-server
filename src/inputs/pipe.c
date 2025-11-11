@@ -818,6 +818,7 @@ static void *
 pipe_thread_run(void *arg)
 {
   thread_setname("pipe");
+
   event_base_dispatch(evbase_pipe);
 
   pthread_exit(NULL);

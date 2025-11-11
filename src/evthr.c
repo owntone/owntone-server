@@ -137,6 +137,7 @@ _evthr_loop(void *args)
     }
 
     thread_setname("evthr");
+
     thread->evbase = event_base_new();
     thread->event  = event_new(thread->evbase, thread->rdr,
                                EV_READ | EV_PERSIST, _evthr_read_cmd, args);

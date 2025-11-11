@@ -472,6 +472,7 @@ airplay_events(void *arg)
 {
 
   thread_setname("airplay events");
+
   event_base_dispatch(evbase);
 
   pthread_exit(NULL);
