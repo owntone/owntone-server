@@ -1005,6 +1005,8 @@ library(void *arg)
 {
   int ret;
 
+  thread_setname("library");
+
 #ifdef __linux__
   struct sched_param param;
 
@@ -1073,8 +1075,6 @@ library_init(void)
   CHECK_NULL(L_LIB, cmdbase = commands_base_new(evbase_lib, NULL));
 
   CHECK_ERR(L_LIB, pthread_create(&tid_library, NULL, library, NULL));
-
-  thread_setname(tid_library, "library");
 
   return 0;
 }

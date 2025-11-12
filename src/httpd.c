@@ -1538,7 +1538,7 @@ thread_init_cb(struct evthr *thr, void *shared)
   struct event_base *evbase;
   httpd_server *server;
 
-  thread_setname(pthread_self(), "httpd");
+  thread_setname("httpd");
 
   CHECK_ERR(L_HTTPD, db_perthread_init());
   CHECK_NULL(L_HTTPD, evbase = evthr_get_base(thr));

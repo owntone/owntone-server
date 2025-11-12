@@ -4242,6 +4242,8 @@ mpd(void *arg)
 {
   int ret;
 
+  thread_setname("mpd");
+
   ret = db_perthread_init();
   if (ret < 0)
     {
@@ -4369,8 +4371,6 @@ mpd_init(void)
 
       goto thread_fail;
     }
-
-  thread_setname(tid_mpd, "mpd");
 
   mpd_clients = NULL;
   listener_add(mpd_listener_cb, MPD_ALL_IDLE_LISTENER_EVENTS, NULL);

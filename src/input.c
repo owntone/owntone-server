@@ -656,6 +656,8 @@ input(void *arg)
 {
   int ret;
 
+  thread_setname("input");
+
   ret = db_perthread_init();
   if (ret < 0)
     {
@@ -931,8 +933,6 @@ input_init(void)
       DPRINTF(E_LOG, L_MAIN, "Could not spawn input thread: %s\n", strerror(errno));
       goto thread_fail;
     }
-
-  thread_setname(tid_input, "input");
 
   return 0;
 

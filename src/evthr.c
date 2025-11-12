@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <event2/thread.h>
 
 #include "evthr.h"
+#include "misc.h"
 
 #ifndef TAILQ_FOREACH_SAFE
 #define TAILQ_FOREACH_SAFE(var, head, field, tvar)        \
@@ -134,6 +135,8 @@ _evthr_loop(void *args)
     if (thread == NULL || thread->thr == NULL) {
         pthread_exit(NULL);
     }
+
+    thread_setname("evthr");
 
     thread->evbase = event_base_new();
     thread->event  = event_new(thread->evbase, thread->rdr,

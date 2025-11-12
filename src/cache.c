@@ -1690,6 +1690,8 @@ cache(void *arg)
   int ret;
   int i;
 
+  thread_setname("cache");
+
   ret = cache_open();
   if (ret < 0)
     {
@@ -2062,7 +2064,6 @@ cache_init(void)
   CHECK_NULL(L_CACHE, cmdbase = commands_base_new(evbase_cache, NULL));
 
   CHECK_ERR(L_CACHE, pthread_create(&tid_cache, NULL, cache, NULL));
-  thread_setname(tid_cache, "cache");
 
   DPRINTF(E_INFO, L_CACHE, "Cache thread init\n");
 

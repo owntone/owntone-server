@@ -1853,26 +1853,29 @@ mutex_init(pthread_mutex_t *mutex)
 }
 
 int
-thread_gettid()
+thread_gettid(void)
 {
-  int tid = -1;
+  int tid;
 #if defined(HAVE_GETTID)
   tid = (int)gettid();
 #elif defined(HAVE_PTHREAD_GETTHREADID_NP)
   tid = pthread_getthreadid_np();
+#else //defacto thread id
+  tid = (int)pthread_self();
 #endif
   return tid;
 }
 
 void
-thread_getname(pthread_t thread, char *name, size_t len)
+thread_getname(char *name, size_t len)
 {
 #if defined(HAVE_PTHREAD_GETNAME_NP)
-  pthread_getname_np(thread, name, len);
+  pthread_getname_np(pthread_self(), name, len);
 #elif defined(HAVE_PTHREAD_GET_NAME_NP)
-  pthread_get_name_np(thread, name, len);
+  pthread_get_name_np(pthread_self(), name, len);
 #else
-  name[0] = '\0';
+  if (len > 0)
+    name[0] = '\0';
 #endif
 }
 
@@ -1881,20 +1884,21 @@ thread_getnametid(char *buf, size_t len)
 {
   int tid;
   char thread_name[32];
-  pthread_t p = pthread_self();
 
-  thread_getname(p, thread_name, sizeof(thread_name));
+  thread_getname(thread_name, sizeof(thread_name));
   tid = thread_gettid() % 10000;
   snprintf(buf, len, "%s (%d)", thread_name, tid);
 }
 
 void
-thread_setname(pthread_t thread, const char *name)
+thread_setname(const char *name)
 {
 #if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(thread, name);
+  pthread_setname_np(pthread_self(), name);
+#elif defined(HAVE_PTHREAD_SETNAME_NP_MACOS)
+  pthread_setname_np(name);
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(thread, name);
+  pthread_set_name_np(pthread_self(), name);
 #endif
 }
 

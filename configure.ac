@@ -75,25 +75,33 @@ AC_SEARCH_LIBS([timer_settime], [rt],
 AC_SEARCH_LIBS([pthread_exit], [pthread], [],
 	[AC_MSG_ERROR([[pthreads library is required]])])
 AC_SEARCH_LIBS([pthread_setname_np], [pthread],
-	[dnl Validate pthread_setname_np with 2 args (some have 1)
-	 AC_MSG_CHECKING([[for two-parameter pthread_setname_np]])
+	[AC_MSG_CHECKING([[for two-parameter pthread_setname_np]])
 	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@include <pthread.h>]],
 		[[pthread_setname_np(pthread_self(), "name");]])],
 		[AC_MSG_RESULT([yes])
 		 AC_DEFINE([HAVE_PTHREAD_SETNAME_NP], 1,
-			[Define to 1 if you have pthread_setname_np])],
-		[AC_MSG_RESULT([[no]])])],
-	[AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
-		[AC_CHECK_FUNCS([pthread_set_name_np])])])
+			[Define to 1 if you have pthread_setname_np with 2 args])],
+		[AC_MSG_RESULT([[no]])])
+	 AC_MSG_CHECKING([[for MacOS single-parameter pthread_setname_np]])
+	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@include <pthread.h>]],
+		[[pthread_setname_np("name");]])],
+		[AC_MSG_RESULT([yes])
+		 AC_DEFINE([HAVE_PTHREAD_SETNAME_NP_MACOS], 1,
+			[Define to 1 if you have pthread_setname_np with 1 arg])],
+		[AC_MSG_RESULT([[no]])])])
+AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
+	[AC_DEFINE([HAVE_PTHREAD_SET_NAME_NP], 1,
+		[Define to 1 if you have pthread_set_name_np])])
 AC_SEARCH_LIBS([pthread_getname_np], [pthread],
 	[AC_DEFINE([HAVE_PTHREAD_GETNAME_NP], 1,
-		[Define to 1 if you have pthread_getname_np])]
-	[AC_SEARCH_LIBS([pthread_get_name_np], [pthread],
-		[AC_DEFINE([HAVE_PTHREAD_GETNAME_NP], 1,
-			[Define to 1 if you have pthread_get_name_np])])])
+		[Define to 1 if you have pthread_getname_np])])
+AC_SEARCH_LIBS([pthread_get_name_np], [pthread],
+	[AC_DEFINE([HAVE_PTHREAD_GET_NAME_NP], 1,
+		[Define to 1 if you have pthread_get_name_np])])
 AC_SEARCH_LIBS([pthread_getthreadid_np], [pthread],
 	[AC_DEFINE([HAVE_PTHREAD_GETTHREADID_NP], 1,
 		[Define to 1 if you have pthread_getthreadid_np])])
+
 AC_SEARCH_LIBS([uuid_generate_random], [uuid],
 	[AC_DEFINE([HAVE_UUID], 1,
 		[Define to 1 if you have uuid_generate_random])])

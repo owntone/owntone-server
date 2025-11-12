@@ -318,20 +318,19 @@ buildopts_get(void);
 int
 mutex_init(pthread_mutex_t *mutex);
 
-// wrapper for gettid/pthread_getthreadid_np
 int
-thread_gettid();
+thread_gettid(void);
 
 // wrapper for pthread_getname_np/pthread_get_name_np
 void
-thread_getname(pthread_t thread, char *name, size_t len);
+thread_getname(char *name, size_t len);
 
 void
 thread_getnametid(char *buf, size_t len);
 
 // wrapper for pthread_setname_np/pthread_set_name_np
 void
-thread_setname(pthread_t thread, const char *name);
+thread_setname(const char *name);
 
 void
 uuid_make(char *str);

@@ -3839,6 +3839,8 @@ player(void *arg)
   struct output_device *device;
   int ret;
 
+  thread_setname("player");
+
   ret = db_perthread_init();
   if (ret < 0)
     {
@@ -3953,8 +3955,6 @@ player_init(void)
       DPRINTF(E_FATAL, L_PLAYER, "Could not spawn player thread: %s\n", strerror(errno));
       goto error_input_deinit;
     }
-
-  thread_setname(tid_player, "player");
 
   return 0;
 
