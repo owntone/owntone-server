@@ -1,4 +1,6 @@
 name: build and deploy mkdocs to github pages
+permissions:
+  contents: write
 on:
   push:
     branches:

@@ -1,4 +1,6 @@
 name: Build htdocs
+permissions:
+  contents: write
 
 on:
   push:
