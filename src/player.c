@@ -926,9 +926,8 @@ session_update_read_quality(struct media_quality *quality)
 static void
 session_update_read_ts(struct timespec *ts)
 {
-  pb_session.start_ts = *ts;
-  pb_session.start_ts.tv_sec += OUTPUTS_BUFFER_DURATION;
-  pb_session.pts = pb_session.start_ts;
+  pb_session.pts = *ts;
+  pb_session.pts.tv_sec += OUTPUTS_BUFFER_DURATION;
 }
 
 static void
