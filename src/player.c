@@ -927,7 +927,6 @@ static void
 session_update_read_ts(struct timespec *ts)
 {
   pb_session.pts = *ts;
-  pb_session.pts.tv_sec += OUTPUTS_BUFFER_DURATION;
 }
 
 static void
