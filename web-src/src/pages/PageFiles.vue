@@ -73,6 +73,9 @@ export default {
     current() {
       return this.$route.query?.directory || '/'
     },
+    expression() {
+      return `path starts with "${this.current}" order by path asc`
+    },
     name() {
       if (this.current !== '/') {
         return this.current?.slice(this.current.lastIndexOf('/') + 1)
@@ -81,7 +84,7 @@ export default {
     },
     playable() {
       return {
-        expression: `path starts with "${this.current}" order by path asc`,
+        expression: this.expression,
         name: this.current,
         properties: [
           { key: 'property.folders', value: this.directories.length },
