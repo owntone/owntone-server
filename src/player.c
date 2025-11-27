@@ -2163,7 +2163,12 @@ playback_start(void *arg, int *retval)
       // Start playback of first item in queue
       queue_item = db_queue_fetch_bypos(0, shuffle);
       if (!queue_item)
-	return COMMAND_END;
+	{
+	  uint32_t queue_len = 999;
+	  int ret = db_queue_get_count(&queue_len);
+          DPRINTF(E_DBG, L_PLAYER, "No queue item at pos 0, queue len is %" PRIu32 " (ret %d)\n", queue_len, ret);
+	  return COMMAND_END;
+	}
     }
 
   cmd_state = playback_start_item(queue_item, retval);

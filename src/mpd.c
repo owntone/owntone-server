@@ -1385,6 +1385,8 @@ mpd_command_play(struct mpd_command_output *out, struct mpd_command_input *in, s
 
   if (has_songpos)
     {
+      DPRINTF(E_DBG, L_MPD, "has_songpos with %" PRIu32 "\n", songpos);
+
       queue_item = db_queue_fetch_bypos(songpos, 0);
       if (!queue_item)
 	RETURN_ERROR(ACK_ERROR_UNKNOWN, "Failed to start playback, unknown song position");
@@ -1393,7 +1395,10 @@ mpd_command_play(struct mpd_command_output *out, struct mpd_command_input *in, s
       free_queue_item(queue_item, 0);
     }
   else
-    ret = player_playback_start();
+    {
+      DPRINTF(E_DBG, L_MPD, "no songpos\n");
+      ret = player_playback_start();
+    }
 
   if (ret < 0)
     RETURN_ERROR(ACK_ERROR_UNKNOWN, "Failed to start playback (queue empty?)");
