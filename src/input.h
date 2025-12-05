@@ -36,6 +36,8 @@ enum input_flags
   INPUT_FLAG_METADATA   = (1 << 3),
   // Flags new stream quality
   INPUT_FLAG_QUALITY    = (1 << 4),
+  // Flags time sync
+  INPUT_FLAG_SYNC       = (1 << 5),
 };
 
 struct input_source
@@ -125,6 +127,9 @@ struct input_definition
 
   // Return metadata
   int (*metadata_get)(struct input_metadata *metadata, struct input_source *source);
+
+  // Return playback timing sync
+  int (*ts_get)(struct timespec *ts, struct input_source *source);
 
   // Initialization function called during startup
   int (*init)(void);
