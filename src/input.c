@@ -334,7 +334,7 @@ markers_set(short flags, size_t write_size)
       ts_get(&ts, &input_now_reading);
       if (ts.tv_sec != 0)
         {
-	marker_add(input_buffer.bytes_written - write_size, INPUT_FLAG_SYNC, ts);
+	marker_add(input_buffer.bytes_written - write_size, INPUT_FLAG_SYNC, &ts);
         }
     }
 }
