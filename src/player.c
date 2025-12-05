@@ -924,6 +924,12 @@ session_update_read_quality(struct media_quality *quality)
 }
 
 static void
+session_update_read_ts(struct timespec *ts)
+{
+  pb_session.pts = *ts;
+}
+
+static void
 session_update_read_metadata(void)
 {
   if (!pb_session.reading_now)
@@ -987,6 +993,14 @@ event_read_quality(struct media_quality *quality)
   DPRINTF(E_DBG, L_PLAYER, "event_read_quality()\n");
 
   session_update_read_quality(quality);
+}
+
+static void
+event_read_ts(struct timespec *ts)
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_read_ts()\n");
+
+  session_update_read_ts(ts);
 }
 
 // Stuff to do when read of current track ends
@@ -1231,6 +1245,10 @@ source_read(int *nbytes, int *nsamples, uint8_t *buf, int len)
   else if (flag == INPUT_FLAG_QUALITY)
     {
       event_read_quality((struct media_quality *)flagdata);
+    }
+  else if (flag == INPUT_FLAG_SYNC)
+    {
+      event_read_ts((struct timespec *)flagdata);
     }
 
   if (*nbytes == 0 || pb_session.quality.channels == 0)
