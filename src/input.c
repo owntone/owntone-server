@@ -232,20 +232,13 @@ metadata_get(struct input_source *source)
   return NULL;
 }
 
-static struct timespec *
-ts_get(struct input_source *source)
+static void
+ts_get(struct timespec *ts, struct input_source *source)
 {
-  static struct timespec ts = {0, 0};
-  int ret;
-
   if (!inputs[source->type]->ts_get)
-    return NULL;
+    return;
 
-  ret = inputs[source->type]->ts_get(&ts, source);
-  if (ret < 0)
-    return NULL;
-
-  return &ts;
+  inputs[source->type]->ts_get(ts, source);
 }
 
 static void
@@ -306,7 +299,7 @@ markers_set(short flags, size_t write_size)
 {
   struct media_quality *quality;
   struct input_metadata *metadata;
-  struct timespec *ts;
+  struct timespec ts = {0, 0};
 
   if (flags & INPUT_FLAG_QUALITY)
     {
@@ -338,8 +331,8 @@ markers_set(short flags, size_t write_size)
 
   if (flags & INPUT_FLAG_SYNC)
     {
-      ts = ts_get(&input_now_reading);
-      if (ts)
+      ts_get(&ts, &input_now_reading);
+      if (ts.tv_sec != 0)
         {
 	marker_add(input_buffer.bytes_written - write_size, INPUT_FLAG_SYNC, ts);
         }
