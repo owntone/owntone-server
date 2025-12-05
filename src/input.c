@@ -232,6 +232,28 @@ metadata_get(struct input_source *source)
   return NULL;
 }
 
+static struct timespec *
+ts_get(struct input_source *source)
+{
+  struct timespec *ts;
+  int ret;
+
+  if (!inputs[source->type]->ts_get)
+    return NULL;
+
+  CHECK_NULL(L_PLAYER, ts = calloc(1, sizeof(struct timespec)));
+
+  ret = inputs[source->type]->ts_get(ts, source);
+  if (ret < 0)
+    goto out_free_ts;
+
+  return ts;
+
+ out_free_ts:
+  free(ts);
+  return NULL;
+}
+
 static void
 marker_free(struct marker *marker)
 {
@@ -242,6 +264,9 @@ marker_free(struct marker *marker)
     metadata_free(marker->data, 0);
 
   if (marker->flag == INPUT_FLAG_QUALITY && marker->data)
+    free(marker->data);
+
+  if (marker->flag == INPUT_FLAG_SYNC && marker->data)
     free(marker->data);
 
   free(marker);
@@ -290,6 +315,7 @@ markers_set(short flags, size_t write_size)
 {
   struct media_quality *quality;
   struct input_metadata *metadata;
+  struct timespec *ts;
 
   if (flags & INPUT_FLAG_QUALITY)
     {
@@ -317,6 +343,13 @@ markers_set(short flags, size_t write_size)
       metadata = metadata_get(&input_now_reading);
       if (metadata)
 	marker_add(input_buffer.bytes_written, INPUT_FLAG_METADATA, metadata);
+    }
+
+  if (flags & INPUT_FLAG_SYNC)
+    {
+      ts = ts_get(&input_now_reading);
+      if (ts)
+	marker_add(input_buffer.bytes_written - write_size, INPUT_FLAG_SYNC, ts);
     }
 }
 
