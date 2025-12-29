@@ -455,6 +455,9 @@ static struct airplay_session *airplay_sessions;
 /* Our own device ID */
 static uint64_t airplay_device_id;
 
+/* Start buffer size in milliseconds */
+static int start_buffer_ms;
+
 // Forwards
 static int
 airplay_device_start(struct output_device *rd, int callback_id);
@@ -1168,7 +1171,7 @@ master_session_make(struct media_quality *quality)
   rms->quality = *quality;
   rms->samples_per_packet = AIRPLAY_SAMPLES_PER_PACKET;
   rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
-  rms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+  rms->output_buffer_samples = start_buffer_ms * quality->sample_rate / 1000;
 
   CHECK_NULL(L_AIRPLAY, rms->rawbuf = malloc(rms->rawbuf_size));
   CHECK_NULL(L_AIRPLAY, rms->input_buffer = evbuffer_new());
@@ -4023,6 +4026,12 @@ airplay_init(void)
   int control_port;
 
   airplay_device_id = libhash;
+
+  start_buffer_ms = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "start_buffer_ms");
+  if (start_buffer_ms < 10 || start_buffer_ms > OUTPUTS_BUFFER_DURATION) {
+      start_buffer_ms = OUTPUTS_BUFFER_DURATION;
+      DPRINTF(E_WARN, L_AIRPLAY, "out of range start_buffer_ms ignored\n");
+  }
 
   // Check alignment of enum seq_type with airplay_seq_definition and
   // airplay_seq_request

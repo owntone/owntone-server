@@ -36,6 +36,7 @@
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
+#include "outputs.h"
 
 
 /* Forward */
@@ -165,6 +166,7 @@ static cfg_opt_t sec_airplay_shared[] =
   {
     CFG_INT("control_port", 0, CFGF_NONE),
     CFG_INT("timing_port", 0, CFGF_NONE),
+    CFG_INT("start_buffer_ms", OUTPUTS_BUFFER_DURATION*1000, CFGF_NONE),
     CFG_BOOL("uncompressed_alac", cfg_false, CFGF_NONE),
     CFG_END()
   };

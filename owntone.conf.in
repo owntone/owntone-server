@@ -336,6 +336,12 @@ audio {
 	# Switch Airplay 1 streams to uncompressed ALAC (as opposed to regular,
 	# compressed ALAC). Reduces CPU use at the cost of network bandwidth.
 #	uncompressed_alac = false
+
+	# Adjust the initial session buffer size.
+	# The default 2000ms is conservative. With modern networks, it's often
+	# possible to reduce this to 250ms, which most listeners will perceive as
+	# starting "instantly" without sacrificing playback reliability.
+	# start_buffer_ms = 2000
 #}
 
 # AirPlay per device settings
