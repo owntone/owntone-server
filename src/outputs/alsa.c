@@ -722,7 +722,7 @@ playback_session_add(struct alsa_session *as, struct media_quality *quality, str
   struct alsa_playback_session *pb;
   struct alsa_playback_session *tail_pb;
   struct timespec ts;
-  snd_pcm_sframes_t offset_nsamp;
+  uint64_t buffer_duration_ms;
   size_t size;
   int ret;
 
@@ -766,19 +766,17 @@ playback_session_add(struct alsa_session *as, struct media_quality *quality, str
   dump_config(pb->pcm);
 
   // Time stamps used for syncing, here we set when playback should start
-  ts.tv_sec = OUTPUTS_BUFFER_DURATION;
-  ts.tv_nsec = (uint64_t)as->offset_ms * 1000000UL;
+  buffer_duration_ms = outputs_buffer_duration_ms_get();
+  ts.tv_sec = buffer_duration_ms / 1000;
+  ts.tv_nsec = (buffer_duration_ms + (uint64_t)as->offset_ms) % 1000 * 1000000UL;
   pb->stamp_pts = timespec_add(pts, ts);
 
   // The difference between pos and start pos should match the 2 second buffer
-  // that AirPlay uses (OUTPUTS_BUFFER_DURATION) + user configured offset_ms. We
-  // will not use alsa's buffer for the initial buffering, because my sound
-  // card's start_threshold is not to be counted on. Instead we allocate our own
-  // buffer, and when it is time to play we write as much as we can to alsa's
-  // buffer.
-  offset_nsamp = (as->offset_ms * pb->quality.sample_rate / 1000);
-
-  pb->buffer_nsamp = OUTPUTS_BUFFER_DURATION * pb->quality.sample_rate + offset_nsamp;
+  // that e.g. AirPlay uses + user configured offset_ms. We will not use alsa's
+  // buffer for the initial buffering, because my sound card's start_threshold
+  // is not to be counted on. Instead we allocate our own buffer, and when it is
+  // time to play we write as much as we can to alsa's buffer.
+  pb->buffer_nsamp = (buffer_duration_ms + as->offset_ms) * pb->quality.sample_rate / 1000;
   size = STOB(pb->buffer_nsamp, pb->quality.bits_per_sample, pb->quality.channels);
   ringbuffer_init(&pb->prebuf, size);
 

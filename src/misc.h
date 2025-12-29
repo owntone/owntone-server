@@ -265,6 +265,9 @@ clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec 
 struct timespec
 timespec_add(struct timespec time1, struct timespec time2);
 
+struct timespec
+timespec_sub(struct timespec time1, struct timespec time2);
+
 int
 timespec_cmp(struct timespec time1, struct timespec time2);
 

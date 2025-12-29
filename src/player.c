@@ -222,7 +222,7 @@ struct player_source
   uint64_t read_end;
 
   // Same as the above, but added with samples equivalent to
-  // OUTPUTS_BUFFER_DURATION. So when the session position reaches play_start it
+  // outputs_buffer_duration_ms. When the session position reaches play_start it
   // means the media should actually be playing on your device.
   uint64_t play_start;
   uint64_t play_end;
@@ -256,7 +256,7 @@ struct player_session
   struct timespec start_ts;
 
   // The time the first sample in the buffer should be played by the output,
-  // without taking output buffer time (OUTPUTS_BUFFER_DURATION) into account.
+  // without taking outputs_buffer_duration_ms into account.
   // It will be equal to:
   // pts = start_ts + ticks_elapsed * player_tick_interval
   struct timespec pts;
@@ -898,7 +898,7 @@ session_update_read_quality(struct media_quality *quality)
   pb_session.reading_now->quality = *quality;
 
   samples_per_read = ((uint64_t)quality->sample_rate * (player_tick_interval.tv_nsec / 1000000)) / 1000;
-  pb_session.reading_now->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+  pb_session.reading_now->output_buffer_samples = outputs_buffer_duration_ms_get() * quality->sample_rate / 1000;
 
   pb_session.bufsize = STOB(samples_per_read, quality->bits_per_sample, quality->channels);
   pb_session.read_deficit_max = STOB(((uint64_t)quality->sample_rate * PLAYER_READ_BEHIND_MAX) / 1000, quality->bits_per_sample, quality->channels);
@@ -1050,7 +1050,7 @@ event_read_metadata(struct input_metadata *metadata)
   DPRINTF(E_DBG, L_PLAYER, "event_read_metadata()\n");
 
   // Add the metadata to the register of pending events with a trigger position
-  // that corresponds to OUTPUTS_BUFFER_DURATION into the future. If we have
+  // that corresponds to outputs_buffer_duration_ms into the future. If we have
   // received a negative position we assume the metadata needs to be delayed
   // until the position is 0.
   if (metadata->pos_is_updated && metadata->pos_ms < 0)

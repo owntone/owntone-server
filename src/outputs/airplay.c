@@ -202,7 +202,7 @@ struct airplay_extra
 struct airplay_master_session
 {
   struct evbuffer *input_buffer;
-  int input_buffer_samples;
+  uint32_t input_buffer_samples;
 
   // ALAC encoder and buffer for encoded data
   struct encode_ctx *encode_ctx;
@@ -214,14 +214,14 @@ struct airplay_master_session
 
   uint8_t *rawbuf;
   size_t rawbuf_size;
-  int samples_per_packet;
+  uint32_t samples_per_packet;
 
   struct media_quality quality;
 
   // Number of samples that we tell the output to buffer (this will mean that
   // the position that we send in the sync packages are offset by this amount
   // compared to the rtptimes of the corresponding RTP packages we are sending)
-  int output_buffer_samples;
+  uint32_t output_buffer_samples;
 
   struct airplay_master_session *next;
 };
@@ -1168,7 +1168,7 @@ master_session_make(struct media_quality *quality)
   rms->quality = *quality;
   rms->samples_per_packet = AIRPLAY_SAMPLES_PER_PACKET;
   rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
-  rms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+  rms->output_buffer_samples = outputs_buffer_duration_ms_get() * quality->sample_rate / 1000;
 
   CHECK_NULL(L_AIRPLAY, rms->rawbuf = malloc(rms->rawbuf_size));
   CHECK_NULL(L_AIRPLAY, rms->input_buffer = evbuffer_new());

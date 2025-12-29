@@ -393,6 +393,8 @@ fifo_write(struct output_buffer *obuf)
   struct fifo_session *fifo_session = sessions;
   struct fifo_packet *packet;
   struct timespec now;
+  struct timespec delay;
+  uint64_t buffer_duration_ms;
   ssize_t bytes;
   int i;
 
@@ -430,8 +432,12 @@ fifo_write(struct output_buffer *obuf)
   if (!buffer.tail)
     buffer.tail = packet;
 
-  now.tv_sec = obuf->pts.tv_sec - OUTPUTS_BUFFER_DURATION;
-  now.tv_nsec = obuf->pts.tv_sec;
+  buffer_duration_ms = outputs_buffer_duration_ms_get();
+
+  delay.tv_sec = buffer_duration_ms / 1000;
+  delay.tv_nsec = (buffer_duration_ms % 1000) * 1000000UL;
+
+  now = timespec_sub(obuf->pts, delay);
 
   while (buffer.tail && (timespec_cmp(buffer.tail->pts, now) == -1))
     {
