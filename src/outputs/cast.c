@@ -1948,7 +1948,7 @@ cast_session_make(struct output_device *device, int family, int callback_id)
       offset_ms = 0;
     }
 
-  offset_ms += OUTPUTS_BUFFER_DURATION * 1000 + CAST_DEVICE_START_DELAY_MS;
+  offset_ms += outputs_buffer_duration_ms_get() + CAST_DEVICE_START_DELAY_MS;
 
   cs->offset_ts.tv_sec  = (offset_ms / 1000);
   cs->offset_ts.tv_nsec = (offset_ms % 1000) * 1000000UL;

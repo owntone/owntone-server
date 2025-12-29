@@ -570,6 +570,7 @@ stream_open(struct pulse_session *ps, struct media_quality *quality, pa_stream_n
   pa_stream_flags_t flags;
   pa_sample_spec ss;
   pa_cvolume cvol;
+  uint64_t buffer_duration_ms;
   int offset_ms;
   int ret;
 
@@ -602,8 +603,9 @@ stream_open(struct pulse_session *ps, struct media_quality *quality, pa_stream_n
   pa_stream_set_state_callback(ps->stream, cb, ps);
 
   flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_AUTO_TIMING_UPDATE;
+  buffer_duration_ms = outputs_buffer_duration_ms_get();
 
-  ps->attr.tlength   = STOB((OUTPUTS_BUFFER_DURATION * 1000 + offset_ms) * ss.rate / 1000, quality->bits_per_sample, quality->channels);
+  ps->attr.tlength   = STOB((buffer_duration_ms + offset_ms) * ss.rate / 1000, quality->bits_per_sample, quality->channels);
   ps->attr.maxlength = 2 * ps->attr.tlength;
   ps->attr.prebuf    = (uint32_t)-1;
   ps->attr.minreq    = (uint32_t)-1;

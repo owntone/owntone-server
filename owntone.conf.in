@@ -67,6 +67,12 @@ general {
 	# unusual platform and experience audio drop-outs, you can try changing
 	# this option
 #	high_resolution_clock = yes
+
+	# Milliseconds the audio outputs should buffer before starting playback.
+	# The default is 2000 ms, because some Airplay devices are hardcoded to
+	# use this. You may be able to reduce this to 250 ms, which most
+	# listeners will perceive as starting "instantly".
+#	start_buffer_ms = 2000
 }
 
 # Library configuration
@@ -205,7 +211,7 @@ library {
 #	force_decode = { "format", "format" }
 	# Prefer transcode to wav (default), alac or mpeg (mp3 with the bit rate
 	# configured below in the streaming section). Note that alac requires
-	# precomputing and caching mp4 headers, which takes both cpu and disk. 
+	# precomputing and caching mp4 headers, which takes both cpu and disk.
 #	prefer_format = "format"
 
 	# Set ffmpeg filters (similar to 'ffmpeg -af xxx') that you want the
@@ -418,7 +424,7 @@ spotify {
 	# list
 #	exclude = false
 
-	# A Roku/SoundBridge can power up in 2 modes: (default) reconnect to the 
+	# A Roku/SoundBridge can power up in 2 modes: (default) reconnect to the
 	# previously used library (ie OwnTone) or in a 'cleared library' mode.
 	# The Roku power up behaviour is affected by how OwnTone disconnects
 	# from the Roku device.

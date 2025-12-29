@@ -38,6 +38,7 @@
 #include "player.h" //TODO remove me when player_pmap is removed again
 #include "worker.h"
 #include "outputs.h"
+#include "conffile.h"
 
 extern struct output_definition output_raop;
 extern struct output_definition output_airplay;
@@ -114,6 +115,7 @@ static struct output_buffer output_buffer;
 
 static struct output_device *outputs_device_list;
 static int outputs_master_volume;
+static uint64_t outputs_buffer_duration_ms;
 
 static struct outputs_callback_register outputs_cb_register[OUTPUTS_MAX_CALLBACKS];
 static struct event *outputs_deferredev;
@@ -612,6 +614,12 @@ outputs_device_get(uint64_t device_id)
 
   DPRINTF(E_WARN, L_PLAYER, "Output device with id %" PRIu64 " is not in our list\n", device_id);
   return NULL;
+}
+
+uint64_t
+outputs_buffer_duration_ms_get(void)
+{
+  return outputs_buffer_duration_ms;
 }
 
 /* ----------------------- Called by backend modules ------------------------ */
@@ -1298,6 +1306,14 @@ outputs_init(void)
   int i;
 
   outputs_master_volume = -1;
+
+  // Number of milliseconds the outputs should buffer before starting playback.
+  // This value cannot freely be changed because 1) some Airplay devices ignore
+  // the values we give and stick to 2 seconds, 2) those devices that can handle
+  // different values can only do so within a limited range (maybe max 3 secs)
+  outputs_buffer_duration_ms = cfg_getint(cfg_getsec(cfg, "general"), "start_buffer_ms");
+  if (outputs_buffer_duration_ms != 2000)
+    DPRINTF(E_WARN, L_PLAYER, "Output buffer duration is configured to a non-standard value %" PRIu64 "\n", outputs_buffer_duration_ms);
 
   CHECK_NULL(L_PLAYER, outputs_deferredev = evtimer_new(evbase_player, deferred_cb, NULL));
 
