@@ -367,6 +367,14 @@ audio {
 
 	# Name used in the speaker list, overrides name from the device
 #	nickname = "My speaker name"
+
+  # offset_ms adjusts this device to improve multi-room sync when a device has
+	# an intrinsic delay, like a DSP or lagging implementation of HDMI.
+  # Negative values correspond to moving local audio ahead, positive correspond
+	# to delaying it. The unit is milliseconds. The offset must be between -1000
+	# and 1000 (+/- 1 sec).
+# offset_ms = 0
+
 #}
 
 # Chromecast settings

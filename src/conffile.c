@@ -179,6 +179,7 @@ static cfg_opt_t sec_airplay[] =
     CFG_STR("password", NULL, CFGF_NONE),
     CFG_BOOL("raop_disable", cfg_false, CFGF_NONE),
     CFG_STR("nickname", NULL, CFGF_NONE),
+    CFG_INT("offset_ms", 0, CFGF_NONE),
     CFG_END()
   };
 

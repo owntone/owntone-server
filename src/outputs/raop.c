@@ -220,6 +220,9 @@ struct raop_session
 
   int volume;
 
+  // Used to correct for static amplifier or DSP delays
+  int offset_ms;
+
   /* AirTunes v2 */
   unsigned short server_port;
   unsigned short control_port;
@@ -2174,6 +2177,7 @@ session_make(struct output_device *rd, int callback_id, bool only_probe)
 {
   struct raop_session *rs;
   struct raop_extra *re;
+  cfg_t *devcfg;
   int ret;
 
   re = rd->extra_device_info;
@@ -2234,6 +2238,17 @@ session_make(struct output_device *rd, int callback_id, bool only_probe)
 
   rs->timing_svc = &raop_timing_svc;
   rs->control_svc = &raop_control_svc;
+
+  rs->offset_ms = 0;
+  devcfg = cfg_gettsec(cfg, "airplay", rs->devname);
+  if (devcfg)
+  {
+    rs->offset_ms = cfg_getint(devcfg, "offset_ms");
+    if (rs->offset_ms < -1000 || rs->offset_ms > 1000) {
+      rs->offset_ms = 0;
+      DPRINTF(E_WARN, L_RAOP, "Out of bounds offset_ms %d was ignored for device '%s'\n", rs->offset_ms, rd->name);
+    }
+  }
 
   ret = session_connection_setup(rs, rd, AF_INET6);
   if (ret < 0)
@@ -3039,6 +3054,9 @@ packets_sync_send(struct raop_master_session *rms)
     {
       if (rs->master_session != rms)
 	continue;
+
+      // offset_ms delays the audio, a negative offset moves the audio ahead.
+      rms->cur_stamp.pos -= (rms->rtp_session->quality.sample_rate * rs->offset_ms / 1000);
 
       // A device has joined and should get an init sync packet
       if (rs->state == RAOP_STATE_CONNECTED)
