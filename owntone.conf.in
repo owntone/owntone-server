@@ -69,10 +69,10 @@ general {
 #	high_resolution_clock = yes
 
 	# Milliseconds the audio outputs should buffer before starting playback.
-	# The default is 2000 ms, because some Airplay devices are hardcoded to
-	# use this. You may be able to reduce this to 250 ms, which most
-	# listeners will perceive as starting "instantly".
-#	start_buffer_ms = 2000
+	# The default is 2250 ms due to old Airplay device hardcoding. You may
+	# be able to reduce this to 500 ms, which most listeners will perceive
+	# as starting "instantly".
+#	start_buffer_ms = 2250
 }
 
 # Library configuration

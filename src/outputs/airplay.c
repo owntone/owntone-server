@@ -85,11 +85,17 @@
 
 #define AIRPLAY_RTP_PAYLOADTYPE                 0x60
 
+// Quoting shairport-sync's rtp.c:
+// The value of 11025 (0.25 seconds) is a guess based on the "Audio-Latency"
+// parameter returned by an AE. Sigh, it would be nice to have a published
+// protocol...
+#define AIRPLAY_AUDIO_LATENCY_MS                250
+
 // For transient pairing the key_len will be 64 bytes, but only 32 are used for
 // audio payload encryption. For normal pairing the key is 32 bytes.
 #define AIRPLAY_AUDIO_KEY_LEN 32
 
-// How many RTP packets keep in a buffer for retransmission
+// How many RTP packets to buffer for retransmission
 #define AIRPLAY_PACKET_BUFFER_SIZE    1000
 
 #define AIRPLAY_MD_DELAY_STARTUP      15360
@@ -1124,6 +1130,7 @@ static struct airplay_master_session *
 master_session_make(struct media_quality *quality)
 {
   struct airplay_master_session *rms;
+  uint64_t buffer_duration_ms;
   struct transcode_encode_setup_args encode_args = { .profile = XCODE_ALAC, .quality = quality };
   int ret;
 
@@ -1165,10 +1172,17 @@ master_session_make(struct media_quality *quality)
       goto error;
     }
 
+  buffer_duration_ms = outputs_buffer_duration_ms_get();
+  if (buffer_duration_ms <= AIRPLAY_AUDIO_LATENCY_MS)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "Configuration of start_buffer_ms must be higher than min latency (%d)\n", AIRPLAY_AUDIO_LATENCY_MS);
+      goto error;
+    }
+
   rms->quality = *quality;
   rms->samples_per_packet = AIRPLAY_SAMPLES_PER_PACKET;
   rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
-  rms->output_buffer_samples = outputs_buffer_duration_ms_get() * quality->sample_rate / 1000;
+  rms->output_buffer_samples = (buffer_duration_ms - AIRPLAY_AUDIO_LATENCY_MS) * quality->sample_rate / 1000;
 
   CHECK_NULL(L_AIRPLAY, rms->rawbuf = malloc(rms->rawbuf_size));
   CHECK_NULL(L_AIRPLAY, rms->input_buffer = evbuffer_new());
@@ -2490,7 +2504,7 @@ payload_make_setup_stream(struct evrtsp_request *req, struct airplay_session *rs
   wplist_dict_add_uint(stream, "ct", 2); // Compression type, 1 LPCM, 2 ALAC, 3 AAC, 4 AAC ELD, 32 OPUS
   wplist_dict_add_bool(stream, "isMedia", true); // ?
   wplist_dict_add_uint(stream, "latencyMax", 88200); // TODO how do these latencys work?
-  wplist_dict_add_uint(stream, "latencyMin", 11025);
+  wplist_dict_add_uint(stream, "latencyMin", 11025); // AIRPLAY_AUDIO_LATENCY_MS in samples (?)
   wplist_dict_add_data(stream, "shk", rs->shared_secret, AIRPLAY_AUDIO_KEY_LEN);
   wplist_dict_add_uint(stream, "spf", AIRPLAY_SAMPLES_PER_PACKET); // frames per packet
   wplist_dict_add_uint(stream, "sr", AIRPLAY_QUALITY_SAMPLE_RATE_DEFAULT); // sample rate

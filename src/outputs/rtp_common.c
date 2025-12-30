@@ -247,6 +247,10 @@ rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stam
 
   session->sync_packet_next.data[0] = type;
   session->sync_packet_next.data[1] = 0xd4;
+
+  // These values are used by iTunes/Apple Music, and according to
+  // shairport-sync's rtp.c they tell the speaker to add a 11025 sample latency.
+  // rtp.c says pure AirPlay uses 0x04, which doesn't add the latency.
   session->sync_packet_next.data[2] = 0x00;
   session->sync_packet_next.data[3] = 0x07;
 

@@ -1308,11 +1308,13 @@ outputs_init(void)
   outputs_master_volume = -1;
 
   // Number of milliseconds the outputs should buffer before starting playback.
-  // This value cannot freely be changed because 1) some Airplay devices ignore
-  // the values we give and stick to 2 seconds, 2) those devices that can handle
-  // different values can only do so within a limited range (maybe max 3 secs)
+  // The default of 2250 comes from RAOP, where iTunes and Apple Music will send
+  // a sync packet with a 2000 ms/88200 delay, and the speaker will add it's own
+  // audio latency of 250 ms/11025. See e.g. shairport-sync's rtp.c. While a
+  // shorter delay would seem desirable, some Airplay devices ignore the values
+  // we give and stick to 2.25 seconds.
   outputs_buffer_duration_ms = cfg_getint(cfg_getsec(cfg, "general"), "start_buffer_ms");
-  if (outputs_buffer_duration_ms != 2000)
+  if (outputs_buffer_duration_ms != 2250)
     DPRINTF(E_WARN, L_PLAYER, "Output buffer duration is configured to a non-standard value %" PRIu64 "\n", outputs_buffer_duration_ms);
 
   CHECK_NULL(L_PLAYER, outputs_deferredev = evtimer_new(evbase_player, deferred_cb, NULL));

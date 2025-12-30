@@ -85,7 +85,10 @@
 
 #define RAOP_RTP_PAYLOADTYPE                 0x60
 
-// How many RTP packets keep in a buffer for retransmission
+// See AIRPLAY_AUDIO_LATENCY_MS
+#define RAOP_AUDIO_LATENCY_MS                250
+
+// How many RTP packets to buffer for retransmission
 #define RAOP_PACKET_BUFFER_SIZE    1000
 
 #define RAOP_MD_DELAY_STARTUP      15360
@@ -1860,6 +1863,7 @@ master_session_make(struct media_quality *quality, bool encrypt)
 {
   struct raop_master_session *rms;
   struct transcode_encode_setup_args encode_args = { .profile = XCODE_ALAC, .quality = quality };
+  uint64_t buffer_duration_ms;
   int ret;
 
   // First check if we already have a suitable session
@@ -1898,7 +1902,14 @@ master_session_make(struct media_quality *quality, bool encrypt)
   transcode_decode_cleanup(&encode_args.src_ctx);
   if (!rms->encode_ctx)
     {
-      DPRINTF(E_LOG, L_RAOP, "Will not be able to stream AirPlay 2, ffmpeg has no ALAC encoder\n");
+      DPRINTF(E_LOG, L_RAOP, "Will not be able to stream AirPlay, ffmpeg has no ALAC encoder\n");
+      goto error;
+    }
+
+  buffer_duration_ms = outputs_buffer_duration_ms_get();
+  if (buffer_duration_ms <= RAOP_AUDIO_LATENCY_MS)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Configuration of start_buffer_ms must be higher than min latency (%d)\n", RAOP_AUDIO_LATENCY_MS);
       goto error;
     }
 
@@ -1906,7 +1917,7 @@ master_session_make(struct media_quality *quality, bool encrypt)
   rms->quality = *quality;
   rms->samples_per_packet = RAOP_SAMPLES_PER_PACKET;
   rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
-  rms->output_buffer_samples = outputs_buffer_duration_ms_get() * quality->sample_rate / 1000;
+  rms->output_buffer_samples = (buffer_duration_ms - RAOP_AUDIO_LATENCY_MS) * quality->sample_rate / 1000;
 
   CHECK_NULL(L_RAOP, rms->rawbuf = malloc(rms->rawbuf_size));
   CHECK_NULL(L_RAOP, rms->input_buffer = evbuffer_new());
