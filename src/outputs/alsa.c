@@ -1063,7 +1063,7 @@ playback_write(struct alsa_playback_session *pb, struct output_buffer *obuf)
       return -1;
     }
 
-  prebuffering = (pb->pos + obuf->data[i].bufsize <= pb->buffer_nsamp);
+  prebuffering = (pb->pos + obuf->data[i].samples <= pb->buffer_nsamp);
   if (prebuffering)
     {
       // Can never fail since we don't actually write to the device
