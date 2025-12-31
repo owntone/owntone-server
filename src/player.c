@@ -154,6 +154,7 @@ struct speaker_attr_param
 
   struct media_quality quality;
   enum media_format format;
+  int offset_ms;
 
   int audio_fd;
   int metadata_fd;
@@ -2548,6 +2549,7 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->output_type[sizeof(spk->output_type) - 1] = '\0';
   spk->relvol = device->relvol;
   spk->absvol = device->volume;
+  spk->offset_ms = device->offset_ms;
 
   spk->supported_formats = device->supported_formats;
   // Devices supporting more than one format should at least have default_format set
@@ -2914,6 +2916,30 @@ speaker_format_set(void *arg, int *retval)
 
  error:
   DPRINTF(E_LOG, L_PLAYER, "Error setting format '%s', device unknown or format unsupported\n", media_format_to_string(param->format));
+  *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_offset_ms_set(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  if (param->offset_ms < -2000 || param->offset_ms > 2000)
+    goto error;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    goto error;
+
+  device->offset_ms = param->offset_ms;
+
+  *retval = 0;
+  return COMMAND_END;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Error setting offset_ms %d, outside of supported range -2000 to 2000\n", param->offset_ms);
   *retval = -1;
   return COMMAND_END;
 }
@@ -3623,6 +3649,17 @@ player_speaker_format_set(uint64_t id, enum media_format format)
   param.format = format;
 
   return commands_exec_sync(cmdbase, speaker_format_set, speaker_generic_bh, &param);
+}
+
+int
+player_speaker_offset_ms_set(uint64_t id, int offset_ms)
+{
+  struct speaker_attr_param param;
+
+  param.spk_id = id;
+  param.offset_ms = offset_ms;
+
+  return commands_exec_sync(cmdbase, speaker_offset_ms_set, speaker_generic_bh, &param);
 }
 
 int
