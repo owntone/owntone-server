@@ -134,6 +134,9 @@ struct output_device
   enum media_format default_format;
   uint32_t supported_formats;
 
+  // For user config of speaker start
+  int offset_ms;
+
   // Address
   char *v4_address;
   char *v6_address;
