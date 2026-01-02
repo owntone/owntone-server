@@ -145,7 +145,7 @@ static cfg_opt_t sec_audio[] =
     CFG_STR("mixer_device", NULL, CFGF_NONE),
     CFG_BOOL("sync_disable", cfg_false, CFGF_NONE),
     CFG_INT("offset", 0, CFGF_DEPRECATED),
-    CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
     CFG_INT("adjust_period_seconds", 100, CFGF_NONE),
     CFG_END()
   };
@@ -157,7 +157,7 @@ static cfg_opt_t sec_alsa[] =
     CFG_STR("nickname", NULL, CFGF_NONE),
     CFG_STR("mixer", NULL, CFGF_NONE),
     CFG_STR("mixer_device", NULL, CFGF_NONE),
-    CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
     CFG_END()
   };
 
@@ -188,7 +188,7 @@ static cfg_opt_t sec_chromecast[] =
   {
     CFG_INT("max_volume", 11, CFGF_NONE),
     CFG_BOOL("exclude", cfg_false, CFGF_NONE),
-    CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
     CFG_STR("nickname", NULL, CFGF_NONE),
     CFG_END()
   };
