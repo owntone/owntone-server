@@ -127,7 +127,6 @@ struct alsa_extra
   const char *card_name;
   const char *mixer_name;
   const char *mixer_device_name;
-  int offset_ms;
 };
 
 struct alsa_session
@@ -143,7 +142,7 @@ struct alsa_session
 
   struct alsa_mixer mixer;
 
-  int offset_ms;
+  uint64_t delay_ms;
 
   // A session will have multiple playback sessions when the quality changes
   struct alsa_playback_session *pb;
@@ -721,8 +720,7 @@ playback_session_add(struct alsa_session *as, struct media_quality *quality, str
 {
   struct alsa_playback_session *pb;
   struct alsa_playback_session *tail_pb;
-  struct timespec ts;
-  uint64_t buffer_duration_ms;
+  struct timespec delay_ts;
   size_t size;
   int ret;
 
@@ -766,17 +764,16 @@ playback_session_add(struct alsa_session *as, struct media_quality *quality, str
   dump_config(pb->pcm);
 
   // Time stamps used for syncing, here we set when playback should start
-  buffer_duration_ms = outputs_buffer_duration_ms_get();
-  ts.tv_sec = buffer_duration_ms / 1000;
-  ts.tv_nsec = (buffer_duration_ms + (uint64_t)as->offset_ms) % 1000 * 1000000UL;
-  pb->stamp_pts = timespec_add(pts, ts);
+  delay_ts.tv_sec = as->delay_ms / 1000;
+  delay_ts.tv_nsec = as->delay_ms % 1000 * 1000000UL;
+  pb->stamp_pts = timespec_add(pts, delay_ts);
 
   // The difference between pos and start pos should match the 2 second buffer
   // that e.g. AirPlay uses + user configured offset_ms. We will not use alsa's
   // buffer for the initial buffering, because my sound card's start_threshold
   // is not to be counted on. Instead we allocate our own buffer, and when it is
   // time to play we write as much as we can to alsa's buffer.
-  pb->buffer_nsamp = (buffer_duration_ms + as->offset_ms) * pb->quality.sample_rate / 1000;
+  pb->buffer_nsamp = as->delay_ms * pb->quality.sample_rate / 1000;
   size = STOB(pb->buffer_nsamp, pb->quality.bits_per_sample, pb->quality.channels);
   ringbuffer_init(&pb->prebuf, size);
 
@@ -1152,6 +1149,13 @@ alsa_session_make(struct output_device *device, int callback_id)
   struct alsa_extra *ae;
   int ret;
 
+  ret = outputs_quality_subscribe(&alsa_fallback_quality);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Could not subscribe to fallback audio quality\n");
+      return NULL;
+    }
+
   ae = device->extra_device_info;
 
   CHECK_NULL(L_LAUDIO, as = calloc(1, sizeof(struct alsa_session)));
@@ -1162,20 +1166,18 @@ alsa_session_make(struct output_device *device, int callback_id)
   as->devname = ae->card_name;
   as->mixer_name = ae->mixer_name;
   as->mixer_device_name = ae->mixer_device_name;
-  as->offset_ms = ae->offset_ms;
+
+  as->delay_ms = outputs_buffer_duration_ms_get();
+  if (as->delay_ms + device->offset_ms < 0)
+    DPRINTF(E_LOG, L_LAUDIO, "'%s' configured with invalid start time (delay=%" PRIu64 ", offset=%d)\n", device->name, as->delay_ms, device->offset_ms);
+  else
+    as->delay_ms += device->offset_ms;
 
   ret = mixer_open(&as->mixer, as->mixer_device_name, as->mixer_name);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Could not open mixer '%s' ('%s')\n", as->mixer_device_name, as->mixer_name);
       goto error_free_session;
-    }
-
-  ret = outputs_quality_subscribe(&alsa_fallback_quality);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not subscribe to fallback audio quality\n");
-      goto error_mixer_close;
     }
 
   as->state = OUTPUT_STATE_CONNECTED;
@@ -1187,10 +1189,8 @@ alsa_session_make(struct output_device *device, int callback_id)
 
   return as;
 
- error_mixer_close:
-  mixer_close(&as->mixer, as->mixer_device_name);
  error_free_session:
-  free(as);
+  alsa_session_free(as);
   return NULL;
 }
 
@@ -1363,6 +1363,7 @@ alsa_device_add(cfg_t* cfg_audio, int id)
   struct output_device *device;
   struct alsa_extra *ae;
   const char *nickname;
+  int offset_ms;
   int ret;
 
   CHECK_NULL(L_LAUDIO, device = calloc(1, sizeof(struct output_device)));
@@ -1388,12 +1389,11 @@ alsa_device_add(cfg_t* cfg_audio, int id)
   if (!ae->mixer_device_name || strlen(ae->mixer_device_name) == 0)
     ae->mixer_device_name = ae->card_name;
 
-  ae->offset_ms = cfg_getint(cfg_audio, "offset_ms");
-  if (abs(ae->offset_ms) > 1000)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset_ms (%d) set in the configuration is out of bounds\n", ae->offset_ms);
-      ae->offset_ms = 1000 * (ae->offset_ms/abs(ae->offset_ms));
-    }
+  offset_ms = cfg_getint(cfg_audio, "offset_ms");
+  if (abs(offset_ms) > 1000)
+    DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset_ms (%d) set in the configuration is out of bounds (-1000 -> 1000)\n", offset_ms);
+  else
+    device->offset_ms = offset_ms;
 
   DPRINTF(E_INFO, L_LAUDIO, "Adding ALSA device '%s' with name '%s'\n", ae->card_name, device->name);
 
