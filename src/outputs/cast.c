@@ -223,7 +223,7 @@ struct cast_session
 
   // For initial buffering (delay playback to achieve some sort of sync).
   struct timespec start_pts;
-  struct timespec offset_ts;
+  struct timespec delay_ts;
   uint16_t seqnum_next;
 
   uint16_t ack_last;
@@ -1746,6 +1746,7 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
   struct output_device *device;
   const char *friendly_name;
   cfg_t *devcfg;
+  int offset_ms;
   uint32_t id;
 
   id = djb_hash(name, strlen(name));
@@ -1799,13 +1800,18 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
       return;
     }
 
-  // Max volume
   device->max_volume = devcfg ? cfg_getint(devcfg, "max_volume") : CAST_CONFIG_MAX_VOLUME;
   if ((device->max_volume < 1) || (device->max_volume > CAST_CONFIG_MAX_VOLUME))
     {
       DPRINTF(E_LOG, L_CAST, "Config has bad max_volume (%d) for device '%s', using default instead\n", device->max_volume, name);
       device->max_volume = CAST_CONFIG_MAX_VOLUME;
     }
+
+  offset_ms = devcfg ? cfg_getint(devcfg, "offset_ms") : 0;
+  if (abs(offset_ms) > CAST_OFFSET_MAX)
+    DPRINTF(E_LOG, L_CAST, "The offset_ms (%d) set in the configuration for '%s' is out of bounds (-%d -> %d)\n", offset_ms, name, CAST_OFFSET_MAX, CAST_OFFSET_MAX);
+  else
+    device->offset_ms = offset_ms;
 
   DPRINTF(E_INFO, L_CAST, "Adding Chromecast device '%s'\n", name);
 
@@ -1876,12 +1882,11 @@ static struct cast_session *
 cast_session_make(struct output_device *device, int family, int callback_id)
 {
   struct cast_session *cs;
-  cfg_t *chromecast;
   const char *proto;
   const char *err;
   char *address;
   unsigned short port;
-  int offset_ms;
+  uint64_t delay_ms;
   int flags;
   int ret;
 
@@ -1939,21 +1944,16 @@ cast_session_make(struct output_device *device, int family, int callback_id)
       goto out_deinit_gnutls;
     }
 
-  chromecast = cfg_gettsec(cfg, "chromecast", device->name);
+  delay_ms = outputs_buffer_duration_ms_get() + CAST_DEVICE_START_DELAY_MS;
+  if (delay_ms + device->offset_ms < 0)
+    DPRINTF(E_LOG, L_CAST, "'%s' configured with invalid start time (delay=%" PRIu64 ", offset=%d)\n", device->name, delay_ms, device->offset_ms);
+  else
+    delay_ms += device->offset_ms;
 
-  offset_ms = chromecast ? cfg_getint(chromecast, "offset_ms") : 0;
-  if (abs(offset_ms) > CAST_OFFSET_MAX)
-    {
-      DPRINTF(E_LOG, L_CAST, "Ignoring invalid configuration of Chromecast offset (%d ms)\n", offset_ms);
-      offset_ms = 0;
-    }
+  cs->delay_ts.tv_sec  = (delay_ms / 1000);
+  cs->delay_ts.tv_nsec = (delay_ms % 1000) * 1000000UL;
 
-  offset_ms += outputs_buffer_duration_ms_get() + CAST_DEVICE_START_DELAY_MS;
-
-  cs->offset_ts.tv_sec  = (offset_ms / 1000);
-  cs->offset_ts.tv_nsec = (offset_ms % 1000) * 1000000UL;
-
-  DPRINTF(E_DBG, L_CAST, "Offset is set to %ld:%09ld\n", (long)cs->offset_ts.tv_sec, (long)cs->offset_ts.tv_nsec);
+  DPRINTF(E_DBG, L_CAST, "Delay is set to %ld:%09ld\n", (long)cs->delay_ts.tv_sec, (long)cs->delay_ts.tv_nsec);
 
   cs->ev = event_new(evbase_player, cs->server_fd, EV_READ | EV_PERSIST, cast_listen_cb, cs);
   if (!cs->ev)
@@ -2249,7 +2249,7 @@ cast_write(struct output_buffer *obuf)
       if (cs->state == CAST_STATE_APP_READY)
 	{
 	  // Sets that playback will start at time = start_pts with the packet that comes after seqnum_last
-	  cs->start_pts = timespec_add(obuf->pts, cs->offset_ts);
+	  cs->start_pts = timespec_add(obuf->pts, cs->delay_ts);
 	  cs->seqnum_next = cast_master_session->rtp_session->seqnum;
 	  cs->state = CAST_STATE_BUFFERING;
 

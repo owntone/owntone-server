@@ -770,6 +770,7 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 {
   struct output_device *device;
   char *keep_name;
+  int keep_offset_ms;
   int ret;
 
   for (device = outputs_device_list; device; device = device->next)
@@ -801,6 +802,8 @@ outputs_device_add(struct output_device *add, bool new_deselect)
       device->stop_timer = evtimer_new(evbase_player, stop_timer_cb, device);
 
       keep_name = strdup(device->name);
+      keep_offset_ms = device->offset_ms; // For legacy local audio and Chromecast where offset could come from config file
+
       ret = db_speaker_get(device, device->id);
       if (ret < 0)
 	{
@@ -810,6 +813,9 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 
       free(device->name);
       device->name = keep_name;
+
+      if (keep_offset_ms != 0)
+	device->offset_ms = keep_offset_ms;
 
       if (new_deselect)
 	device->selected = 0;

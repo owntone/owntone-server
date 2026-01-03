@@ -341,6 +341,7 @@ GET /api/outputs
 | requires_auth   | boolean  | `true` if output requires authentication |
 | needs_auth_key  | boolean  | `true` if output requires an authorization key (device verification) |
 | volume          | integer  | Volume in percent (0 - 100)               |
+| offset_ms       | integer  | User configured playback offset in ms     |
 | format          | string   | Stream format                             |
 | supported_formats | array  | Array of formats supported by output      |
 
@@ -362,6 +363,7 @@ curl -X GET "http://localhost:3689/api/outputs"
       "requires_auth": false,
       "needs_auth_key": false,
       "volume": 0,
+      "offset_ms": 0,
       "format": "alac",
       "supported_formats": [ "alac" ]
     },
@@ -374,6 +376,7 @@ curl -X GET "http://localhost:3689/api/outputs"
       "requires_auth": false,
       "needs_auth_key": false,
       "volume": 19,
+      "offset_ms": 0,
       "format": "pcm",
       "supported_formats": [ "pcm" ]
     },
@@ -386,6 +389,7 @@ curl -X GET "http://localhost:3689/api/outputs"
       "requires_auth": false,
       "needs_auth_key": false,
       "volume": 0,
+      "offset_ms": -100,
       "format": "pcm",
       "supported_formats": [ "pcm" ]
     }
@@ -456,6 +460,7 @@ curl -X GET "http://localhost:3689/api/outputs/0"
   "requires_auth": false,
   "needs_auth_key": false,
   "volume": 3
+  "offset_ms": 0,
   "format": "pcm",
   "supported_formats": [ "pcm" ]
 }
@@ -479,12 +484,13 @@ PUT /api/outputs/{id}
 
 **Body parameters**
 
-| Parameter       | Type      | Value                |
-| --------------- | --------- | -------------------- |
+| Parameter       | Type      | Value                                                           |
+| --------------- | --------- | --------------------------------------------------------------- |
 | selected        | boolean   | *(Optional)* `true` to enable and `false` to disable the output |
-| volume          | integer   | *(Optional)* Volume in percent (0 - 100)  |
-| pin             | string    | *(Optional)* PIN for device verification  |
-| format          | string    | *(Optional)* Stream format                |
+| volume          | integer   | *(Optional)* Volume in percent (0 - 100)                        |
+| pin             | string    | *(Optional)* PIN for device verification                        |
+| format          | string    | *(Optional)* Stream format                                      |
+| offset_ms       | integer   | *(Optional)* Playback offset in ms (-2000 - 2000)               |
 
 **Response**
 

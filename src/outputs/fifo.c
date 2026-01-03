@@ -93,6 +93,8 @@ struct fifo_session
 
   int created;
 
+  struct timespec delay;
+
   uint64_t device_id;
   int callback_id;
 };
@@ -249,12 +251,22 @@ static struct fifo_session *
 fifo_session_make(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session;
+  uint64_t delay_ms;
 
   CHECK_NULL(L_FIFO, fifo_session = calloc(1, sizeof(struct fifo_session)));
 
   fifo_session->state = OUTPUT_STATE_CONNECTED;
   fifo_session->device_id = device->id;
   fifo_session->callback_id = callback_id;
+
+  delay_ms = outputs_buffer_duration_ms_get();
+  if (delay_ms + device->offset_ms < 0)
+    DPRINTF(E_LOG, L_FIFO, "'%s' configured with invalid start time (delay=%" PRIu64 ", offset=%d)\n", device->name, delay_ms, device->offset_ms);
+  else
+    delay_ms += device->offset_ms;
+
+  fifo_session->delay.tv_sec = delay_ms / 1000;
+  fifo_session->delay.tv_nsec = (delay_ms % 1000) * 1000000UL;
 
   fifo_session->created = 0;
   fifo_session->path = device->extra_device_info;
@@ -393,8 +405,6 @@ fifo_write(struct output_buffer *obuf)
   struct fifo_session *fifo_session = sessions;
   struct fifo_packet *packet;
   struct timespec now;
-  struct timespec delay;
-  uint64_t buffer_duration_ms;
   ssize_t bytes;
   int i;
 
@@ -432,12 +442,7 @@ fifo_write(struct output_buffer *obuf)
   if (!buffer.tail)
     buffer.tail = packet;
 
-  buffer_duration_ms = outputs_buffer_duration_ms_get();
-
-  delay.tv_sec = buffer_duration_ms / 1000;
-  delay.tv_nsec = (buffer_duration_ms % 1000) * 1000000UL;
-
-  now = timespec_sub(obuf->pts, delay);
+  now = timespec_sub(obuf->pts, fifo_session->delay);
 
   while (buffer.tail && (timespec_cmp(buffer.tail->pts, now) == -1))
     {

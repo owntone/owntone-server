@@ -223,6 +223,10 @@ struct raop_session
 
   int volume;
 
+  // device->offset_ms in samples (user config for correction of static
+  // amplifier or DSP delays)
+  int offset_samples;
+
   /* AirTunes v2 */
   unsigned short server_port;
   unsigned short control_port;
@@ -2195,6 +2199,7 @@ session_make(struct output_device *rd, int callback_id, bool only_probe)
 
   rs->devname = strdup(rd->name);
   rs->volume = rd->volume;
+  rs->offset_samples = rd->offset_ms * rd->quality.sample_rate / 1000;
 
   rs->state = RAOP_STATE_STOPPED;
   rs->only_probe = only_probe;
@@ -3036,6 +3041,7 @@ static void
 packets_sync_send(struct raop_master_session *rms)
 {
   struct rtp_packet *sync_pkt;
+  struct rtcp_timestamp cur_stamp;
   struct raop_session *rs;
   struct timespec ts;
   bool is_sync_time;
@@ -3051,18 +3057,23 @@ packets_sync_send(struct raop_master_session *rms)
       if (rs->master_session != rms)
 	continue;
 
+      cur_stamp = rms->cur_stamp;
+
+      // Apply user configured offset
+      cur_stamp.pos += rs->offset_samples;
+
       // A device has joined and should get an init sync packet
       if (rs->state == RAOP_STATE_CONNECTED)
 	{
-	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, rms->cur_stamp, 0x90);
+	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, cur_stamp, 0x90);
 	  control_packet_send(rs, sync_pkt);
 
-	  DPRINTF(E_DBG, L_RAOP, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
-	    rs->devname, rms->cur_stamp.pos, (long)rms->cur_stamp.ts.tv_sec, (long)rms->cur_stamp.ts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec, rms->rtp_session->pos);
+	  DPRINTF(E_DBG, L_RAOP, "Start sync packet sent to '%s': offset=%d, cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
+	    rs->devname, rs->offset_samples, cur_stamp.pos, (long)cur_stamp.ts.tv_sec, (long)cur_stamp.ts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec, rms->rtp_session->pos);
 	}
       else if (is_sync_time && rs->state == RAOP_STATE_STREAMING)
 	{
-	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, rms->cur_stamp, 0x80);
+	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, cur_stamp, 0x80);
 	  control_packet_send(rs, sync_pkt);
 	}
     }

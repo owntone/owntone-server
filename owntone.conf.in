@@ -293,12 +293,6 @@ audio {
 	# are better off disabling the feature.
 #	sync_disable = false
 
-	# Here you can adjust when local audio is started relative to other
-	# speakers, e.g. Airplay. Negative values correspond to moving local
-	# audio ahead, positive correspond to delaying it. The unit is
-	# milliseconds. The offset must be between -1000 and 1000 (+/- 1 sec).
-#	offset_ms = 0
-
 	# To calculate what and if resampling is required, local audio delay is
 	# measured each second. After a period the collected measurements are
 	# used to estimate drift and latency, which determines if corrections

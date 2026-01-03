@@ -4793,10 +4793,10 @@ db_admin_delete(const char *key)
 int
 db_speaker_save(struct output_device *device)
 {
-#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name, auth_key, format) VALUES (%" PRIi64 ", %d, %d, %Q, %Q, %d);"
+#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name, auth_key, format, offset_ms) VALUES (%" PRIi64 ", %d, %d, %Q, %Q, %d, %d);"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, device->id, device->selected, device->volume, device->name, device->auth_key, device->selected_format);
+  query = sqlite3_mprintf(Q_TMPL, device->id, device->selected, device->volume, device->name, device->auth_key, device->selected_format, device->offset_ms);
 
   return db_query_run(query, 1, 0);
 #undef Q_TMPL
@@ -4805,7 +4805,7 @@ db_speaker_save(struct output_device *device)
 int
 db_speaker_get(struct output_device *device, uint64_t id)
 {
-#define Q_TMPL "SELECT s.selected, s.volume, s.name, s.auth_key, s.format FROM speakers s WHERE s.id = %" PRIi64 ";"
+#define Q_TMPL "SELECT s.selected, s.volume, s.name, s.auth_key, s.format, s.offset_ms FROM speakers s WHERE s.id = %" PRIi64 ";"
   sqlite3_stmt *stmt;
   char *query;
   int ret;
@@ -4848,6 +4848,7 @@ db_speaker_get(struct output_device *device, uint64_t id)
   device->auth_key = safe_strdup((char *)sqlite3_column_text(stmt, 3));
 
   device->selected_format = sqlite3_column_int(stmt, 4);
+  device->offset_ms = sqlite3_column_int(stmt, 5);
 
 #ifdef DB_PROFILE
   while (db_blocking_step(stmt) == SQLITE_ROW)

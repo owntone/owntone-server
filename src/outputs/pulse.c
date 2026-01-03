@@ -71,6 +71,8 @@ struct pulse_session
 
   struct media_quality quality;
 
+  uint64_t delay_ms;
+
   int logcount;
 
   struct pulse_session *next;
@@ -166,6 +168,12 @@ pulse_session_make(struct output_device *device, int callback_id)
   ps->callback_id = callback_id;
   ps->volume = pulse_from_device_volume(device->volume);
   ps->devname = strdup(device->extra_device_info);
+
+  ps->delay_ms = outputs_buffer_duration_ms_get();
+  if (ps->delay_ms + device->offset_ms < 0)
+    DPRINTF(E_LOG, L_LAUDIO, "'%s' configured with invalid start time (delay=%" PRIu64 ", offset=%d)\n", device->name, ps->delay_ms, device->offset_ms);
+  else
+    ps->delay_ms += device->offset_ms;
 
   ps->next = sessions;
   sessions = ps;
@@ -387,6 +395,7 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *info, int eol, void *userdata)
   const char *name;
   int i;
   int pos;
+  int offset_ms;
 
   if (eol > 0 || !info)
     return;
@@ -415,6 +424,12 @@ sinklist_cb(pa_context *ctx, const pa_sink_info *info, int eol, void *userdata)
       DPRINTF(E_LOG, L_LAUDIO, "Out of memory for new Pulseaudio sink\n");
       return;
     }
+
+  offset_ms =  cfg_getint(cfg_getsec(cfg, "audio"), "offset_ms");
+  if (abs(offset_ms) > 1000)
+    DPRINTF(E_LOG, L_LAUDIO, "Pulseaudio offset_ms (%d) set in the configuration is out of bounds (-1000 -> 1000)\n", offset_ms);
+  else
+    device->offset_ms = offset_ms;
 
   if (info->index == 0)
     {
@@ -570,8 +585,6 @@ stream_open(struct pulse_session *ps, struct media_quality *quality, pa_stream_n
   pa_stream_flags_t flags;
   pa_sample_spec ss;
   pa_cvolume cvol;
-  uint64_t buffer_duration_ms;
-  int offset_ms;
   int ret;
 
   DPRINTF(E_DBG, L_LAUDIO, "Opening Pulseaudio stream to '%s'\n", ps->devname);
@@ -588,13 +601,6 @@ stream_open(struct pulse_session *ps, struct media_quality *quality, pa_stream_n
   ss.channels = quality->channels;
   ss.rate = quality->sample_rate;
 
-  offset_ms = cfg_getint(cfg_getsec(cfg, "audio"), "offset_ms");
-  if (abs(offset_ms) > 1000)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "The audio offset (%d) set in the configuration is out of bounds\n", offset_ms);
-      offset_ms = 1000 * (offset_ms/abs(offset_ms));
-    }
-
   pa_threaded_mainloop_lock(pulse.mainloop);
 
   if (!(ps->stream = pa_stream_new(pulse.context, PACKAGE_NAME " audio", &ss, NULL)))
@@ -603,9 +609,8 @@ stream_open(struct pulse_session *ps, struct media_quality *quality, pa_stream_n
   pa_stream_set_state_callback(ps->stream, cb, ps);
 
   flags = PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_AUTO_TIMING_UPDATE;
-  buffer_duration_ms = outputs_buffer_duration_ms_get();
 
-  ps->attr.tlength   = STOB((buffer_duration_ms + offset_ms) * ss.rate / 1000, quality->bits_per_sample, quality->channels);
+  ps->attr.tlength   = STOB(ps->delay_ms * ss.rate / 1000, quality->bits_per_sample, quality->channels);
   ps->attr.maxlength = 2 * ps->attr.tlength;
   ps->attr.prebuf    = (uint32_t)-1;
   ps->attr.minreq    = (uint32_t)-1;
