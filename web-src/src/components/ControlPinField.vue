@@ -1,10 +1,11 @@
 <template>
-  <div class="field is-grouped">
+  <div class="field">
     <div class="control">
       <input
         ref="input"
         v-model="value"
         class="input"
+        type="text"
         inputmode="numeric"
         pattern="[\d]{4}"
         :placeholder="placeholder"

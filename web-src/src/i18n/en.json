@@ -357,7 +357,7 @@
       "pairing-code": "Pairing code",
       "pairing-request": "Remote pairing request from ",
       "speaker-pairing": "Speaker pairing and device verification",
-      "speaker-pairing-info": "If your speaker requires pairing then activate it below and enter the PIN that it displays.",
+      "speaker-pairing-info": "If your speaker requires pairing, enter the verification code displayed. You can also set an offset compensation (±2000 ms) to synchronise playback between multiple speakers.",
       "verification-code": "Verification code"
     },
     "services": {

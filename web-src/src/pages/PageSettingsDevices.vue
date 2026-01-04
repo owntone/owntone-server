@@ -41,33 +41,50 @@
       <div
         v-for="output in outputsStore.outputs"
         :key="output.id"
-        class="field is-grouped"
+        class="field columns is-multiline"
       >
-        <control-switch
-          v-model="output.selected"
-          @update:model-value="toggleOutput(output.id)"
-        >
-          <template #label>
-            <span v-text="output.name" />
-          </template>
-        </control-switch>
-        <form
-          v-if="output.needs_auth_key"
-          @submit.prevent="pairOutput(output.id)"
-        >
-          <control-pin-field
-            :placeholder="$t('settings.devices.verification-code')"
-            @input="onOutputPinChange"
+        <div class="column is-flex is-one-third">
+          <control-switch
+            v-model="output.selected"
+            @update:model-value="toggleOutput(output.id)"
           >
-            <div class="control">
-              <button
-                class="button"
-                type="submit"
-                v-text="$t('actions.verify')"
-              />
-            </div>
-          </control-pin-field>
-        </form>
+            <template #label>
+              <span v-text="output.name" />
+            </template>
+          </control-switch>
+        </div>
+        <div class="column is-one-third">
+          <control-integer-field
+            v-model="output.offset_ms"
+            :min="-2000"
+            :max="2000"
+            @update:model-value="
+              (value) => onOutputOffsetChange(output.id, value)
+            "
+          >
+            <mdicon class="icon is-small is-left" name="timelapse" size="16" />
+          </control-integer-field>
+        </div>
+        <div class="column is-one-third">
+          <form
+            v-if="output.needs_auth_key"
+            @submit.prevent="pairOutput(output.id)"
+          >
+            <control-pin-field
+              class="has-addons"
+              :placeholder="$t('settings.devices.verification-code')"
+              @input="onOutputPinChange"
+            >
+              <div class="control">
+                <button
+                  class="button"
+                  type="submit"
+                  v-text="$t('actions.verify')"
+                />
+              </div>
+            </control-pin-field>
+          </form>
+        </div>
       </div>
     </template>
   </content-with-heading>
@@ -75,6 +92,7 @@
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
+import ControlIntegerField from '@/components/ControlIntegerField.vue'
 import ControlPinField from '@/components/ControlPinField.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
@@ -88,6 +106,7 @@ export default {
   name: 'PageSettingsDevices',
   components: {
     ContentWithHeading,
+    ControlIntegerField,
     ControlPinField,
     ControlSwitch,
     PaneTitle,
@@ -106,6 +125,9 @@ export default {
   methods: {
     onOutputPinChange(pin) {
       this.outputPin = pin
+    },
+    onOutputOffsetChange(identifier, value) {
+      outputs.update(identifier, { offset_ms: value })
     },
     onRemotePinChange(pin, disabled) {
       this.remotePin = pin

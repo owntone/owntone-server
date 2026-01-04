@@ -22,21 +22,21 @@
     "mdi-vue": "^3.0.13",
     "pinia": "^3.0.4",
     "reconnectingwebsocket": "^1.0.0",
-    "vue": "^3.5.24",
-    "vue-i18n": "^11.2.1",
-    "vue-router": "^4.6.3",
+    "vue": "^3.5.26",
+    "vue-i18n": "^11.2.8",
+    "vue-router": "^4.6.4",
     "vue3-click-away": "^1.2.4",
     "vue3-lazyload": "^0.3.8",
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
-    "@intlify/unplugin-vue-i18n": "^11.0.1",
-    "@vitejs/plugin-vue": "^6.0.2",
-    "eslint": "^9.39.1",
+    "@intlify/unplugin-vue-i18n": "^11.0.3",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-vue": "^10.6.0",
-    "prettier": "^3.6.2",
-    "sass": "^1.94.2",
-    "vite": "^7.2.4"
+    "eslint-plugin-vue": "^10.6.2",
+    "prettier": "^3.7.4",
+    "sass": "~1.94.3",
+    "vite": "^7.3.0"
   }
 }
