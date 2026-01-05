@@ -58,11 +58,13 @@
             v-model="output.offset_ms"
             :min="-2000"
             :max="2000"
+            :step="50"
             @update:model-value="
               (value) => onOutputOffsetChange(output.id, value)
             "
           >
             <mdicon class="icon is-small is-left" name="timelapse" size="16" />
+            <span class="icon is-right">ms</span>
           </control-integer-field>
         </div>
         <div class="column is-one-third">

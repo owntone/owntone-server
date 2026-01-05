@@ -1,6 +1,6 @@
 <template>
   <div class="field">
-    <div class="control has-icons-left">
+    <div class="control has-icons-left has-icons-right">
       <input
         ref="input"
         :value="modelValue"
