@@ -357,7 +357,7 @@
       "pairing-code": "Code de jumelage",
       "pairing-request": "Demande de jumelage de télécommande ",
       "speaker-pairing": "Jumelage d’enceinte et vérification d’appareil",
-      "speaker-pairing-info": "Si votre enceinte nécessite un jumelage entrez le code de vérification affiché. Vous pouvez également définir un délai de compensation (±2000 ms) pour synchroniser la lecture entre plusieurs enceintes.",
+      "speaker-pairing-info": "Si votre enceinte nécessite un jumelage entrez le code de vérification affiché. Vous pouvez également définir un délai de compensation (±2000 ms) pour synchroniser la lecture entre plusieurs enceintes. Pour appliquer ce délai, veuillez redémarrer le flux.",
       "verification-code": "Code de vérification"
     },
     "services": {

@@ -357,7 +357,7 @@
       "pairing-code": "配對代碼",
       "pairing-request": "遠程配對請求來自於 ",
       "speaker-pairing": "揚聲器配對和設備驗證",
-      "speaker-pairing-info": "若您的揚聲器需要配對，請輸入其顯示的驗證碼。您還可以設置一個偏移補償（±2000 毫秒）以同步多個揚聲器之間的播放。",
+      "speaker-pairing-info": "若您的揚聲器需要配對，請輸入其顯示的驗證碼。您還可以設置一個偏移補償（±2000 毫秒）以同步多個揚聲器之間的播放。 要使偏移生效，請重新啟動串流。",
       "verification-code": "驗證碼"
     },
     "services": {

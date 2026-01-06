@@ -357,7 +357,7 @@
       "pairing-code": "Pairing-Code",
       "pairing-request": "Remote-Pairing-Anfrage von ",
       "speaker-pairing": "Lautsprecher-Pairing und Geräteverifikation",
-      "speaker-pairing-info": "Wenn Ihr Lautsprecher gekoppelt werden muss, geben Sie den angezeigten Verifikationscode ein. Sie können auch eine Offset-Kompensation (±2000 ms) einstellen, um die Wiedergabe zwischen mehreren Lautsprechern zu synchronisieren.",
+      "speaker-pairing-info": "Wenn Ihr Lautsprecher gekoppelt werden muss, geben Sie den angezeigten Verifikationscode ein. Sie können auch eine Offset-Kompensation (±2000 ms) einstellen, um die Wiedergabe zwischen mehreren Lautsprechern zu synchronisieren. Um den Offset anzuwenden, starten Sie bitte den Stream neu.",
       "verification-code": "Verifikationscode"
     },
     "services": {
