@@ -445,6 +445,27 @@ static const struct online_source musicbrainz_source =
 
 /* -------------------------------- HELPERS -------------------------------- */
 
+static int
+format_from_path(const char *path)
+{
+  int format;
+  const char *ext;
+
+  ext = strrchr(path, '.');
+  if (!ext || (strlen(ext) == 1))
+    format = ART_E_ERROR;
+  else if (strcasecmp(ext, ".jpg") == 0)
+    format = ART_FMT_JPEG;
+  else  if (strcasecmp(ext, ".jpeg") == 0)
+    format = ART_FMT_JPEG;
+  else if (strcasecmp(ext, ".png") == 0)
+    format = ART_FMT_PNG;
+  else
+    format = ART_E_ERROR;
+
+  return format;
+}
+
 /* Reads an artwork file from the given http url straight into an evbuf
  *
  * @out evbuf     Image data
@@ -458,12 +479,11 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
   struct keyval *kv;
   const char *content_type;
   size_t len;
-  int format;
+  int format = ART_E_ERROR;
   int ret;
 
   DPRINTF(E_SPAM, L_ART, "Trying internet artwork in %s\n", url);
 
-  format = ART_E_ERROR;
   CHECK_NULL(L_ART, kv = keyval_alloc());
 
   len = strlen(url);
@@ -501,8 +521,8 @@ artwork_read_byurl(struct evbuffer *evbuf, const char *url)
     format = ART_FMT_JPEG;
   else if (content_type && strcasecmp(content_type, "image/png") == 0)
     format = ART_FMT_PNG;
-  else
-    DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known content type\n", url);
+  else if ((format = format_from_path(url)) == ART_E_ERROR)
+    DPRINTF(E_LOG, L_ART, "Artwork from '%s' has no known format\n", url);
 
  out:
   keyval_clear(kv);
