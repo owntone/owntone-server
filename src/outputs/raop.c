@@ -3060,7 +3060,7 @@ packets_sync_send(struct raop_master_session *rms)
       cur_stamp = rms->cur_stamp;
 
       // Apply user configured offset
-      cur_stamp.pos += rs->offset_samples;
+      cur_stamp.pos -= rs->offset_samples;
 
       // A device has joined and should get an init sync packet
       if (rs->state == RAOP_STATE_CONNECTED)
