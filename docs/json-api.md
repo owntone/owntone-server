@@ -341,7 +341,7 @@ GET /api/outputs
 | requires_auth   | boolean  | `true` if output requires authentication |
 | needs_auth_key  | boolean  | `true` if output requires an authorization key (device verification) |
 | volume          | integer  | Volume in percent (0 - 100)               |
-| offset_ms       | integer  | User configured playback offset in ms     |
+| offset_ms       | integer  | User configured playback offset in ms (positive value means delay) |
 | format          | string   | Stream format                             |
 | supported_formats | array  | Array of formats supported by output      |
 
@@ -484,13 +484,13 @@ PUT /api/outputs/{id}
 
 **Body parameters**
 
-| Parameter       | Type      | Value                                                           |
-| --------------- | --------- | --------------------------------------------------------------- |
-| selected        | boolean   | *(Optional)* `true` to enable and `false` to disable the output |
-| volume          | integer   | *(Optional)* Volume in percent (0 - 100)                        |
-| pin             | string    | *(Optional)* PIN for device verification                        |
-| format          | string    | *(Optional)* Stream format                                      |
-| offset_ms       | integer   | *(Optional)* Playback offset in ms (-2000 - 2000)               |
+| Parameter       | Type      | Value                                                                         |
+| --------------- | --------- | ----------------------------------------------------------------------------- |
+| selected        | boolean   | *(Optional)* `true` to enable and `false` to disable the output               |
+| volume          | integer   | *(Optional)* Volume in percent (0 - 100)                                      |
+| pin             | string    | *(Optional)* PIN for device verification                                      |
+| format          | string    | *(Optional)* Stream format                                                    |
+| offset_ms       | integer   | *(Optional)* Playback offset in ms (-2000 - 2000, positive value means delay) |
 
 **Response**
 
