@@ -2935,7 +2935,16 @@ speaker_offset_ms_set(void *arg, int *retval)
 
   device->offset_ms = param->offset_ms;
 
-  *retval = 0;
+  // We can't change offset during playback, but if playback is paused we stop
+  // the output session, so the new offset is used when restarting playback
+  if (player_state == PLAY_PAUSED)
+    *retval = outputs_device_stop(device, device_shutdown_cb);
+  else
+    *retval = 0;
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
   return COMMAND_END;
 
  error:
