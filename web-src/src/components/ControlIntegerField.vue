@@ -6,7 +6,6 @@
         :value="modelValue"
         class="input"
         type="number"
-        inputmode="numeric"
         :placeholder="placeholder"
         :min="min"
         :max="max"
