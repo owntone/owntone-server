@@ -2595,8 +2595,6 @@ static int
 payload_make_setup_session(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
 {
   plist_t root;
-  plist_t addresses;
-  plist_t address;
   char device_id_colon[24];
   uint8_t *data;
   size_t len;
@@ -2604,9 +2602,11 @@ payload_make_setup_session(struct evrtsp_request *req, struct airplay_session *r
 
   device_id_colon_make(device_id_colon, sizeof(device_id_colon), airplay_device_id);
 
+/* For future PTP support
   address = plist_new_string(rs->local_address);
   addresses = plist_new_array();
   plist_array_append_item(addresses, address);
+*/
 
   root = plist_new_dict();
   wplist_dict_add_string(root, "deviceID", device_id_colon);
