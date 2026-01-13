@@ -69,6 +69,7 @@
 #include "player.h"
 #include "worker.h"
 #include "library.h"
+#include "ptpd.h"
 #ifdef LASTFM
 # include "lastfm.h"
 #endif
@@ -710,6 +711,9 @@ main(int argc, char **argv)
   gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
   DPRINTF(E_DBG, L_MAIN, "Initialized with gcrypt %s\n", gcry_version);
+
+  /* ptpd binds to priviliged ports 319 and 320 (if they are available) */
+  ptpd_bind();
 
   /* Block signals for all threads except the main one */
   sigemptyset(&sigs);
