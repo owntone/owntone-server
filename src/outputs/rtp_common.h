@@ -103,11 +103,14 @@ struct rtp_session
   int sync_each_nsamples;
   int sync_counter;
   struct rtp_packet sync_packet_next;
+
+  // For PTP
+  uint64_t clock_id;
 };
 
 
 struct rtp_session *
-rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples);
+rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples, uint64_t clock_id);
 
 void
 rtp_session_free(struct rtp_session *session);

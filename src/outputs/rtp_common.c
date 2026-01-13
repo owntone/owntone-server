@@ -38,7 +38,7 @@
 #include "rtp_common.h"
 
 #define RTP_HEADER_LEN        12
-#define RTCP_SYNC_PACKET_LEN  20 
+#define RTCP_SYNC_PACKET_LEN  28
 
 // NTP timestamp definitions
 #define FRAC             4294967296. // 2^32 as a double
@@ -65,7 +65,7 @@ ntp_to_timespec(struct ntp_timestamp *ns, struct timespec *ts)
 }
 */
 struct rtp_session *
-rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples)
+rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples, uint64_t clock_id)
 {
   struct rtp_session *session;
 
@@ -75,6 +75,8 @@ rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_ns
   gcry_randomize(&session->ssrc_id, sizeof(session->ssrc_id), GCRY_STRONG_RANDOM);
   gcry_randomize(&session->pos, sizeof(session->pos), GCRY_STRONG_RANDOM);
   gcry_randomize(&session->seqnum, sizeof(session->seqnum), GCRY_STRONG_RANDOM);
+
+  session->clock_id = clock_id;
 
   if (quality)
     session->quality = *quality;
@@ -232,12 +234,31 @@ rtp_sync_is_time(struct rtp_session *session)
   return false;
 }
 
+// Example first raw packet, Spotify iOS Airplay 2 (28 bytes)
+// 90d70006 cbbbfe40 0001fd16 85aea593 cbbd2bb7 f8428888 8f4f0008
+//
+//    0                   1                   2                   3
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |V=2|P|M|   -   |       PT      |               ?               |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |          rtptime of first packet minus latency of 77075       |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                          Wall clock time                      |
+//   |                                                               |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                     rtptime of first packet                   |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                            Clock ID                           |
+//   |                                                               |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 struct rtp_packet *
 rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, char type)
 {
-  struct ntp_timestamp cur_ts;
-  uint32_t rtptime;
   uint32_t cur_pos;
+  uint64_t cur_ns;
+  uint32_t rtptime;
+  uint64_t clock_id;
 
   if (!session->sync_packet_next.data)
     {
@@ -245,42 +266,27 @@ rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stam
       session->sync_packet_next.data_len = RTCP_SYNC_PACKET_LEN;
     }
 
-  session->sync_packet_next.data[0] = type;
-  session->sync_packet_next.data[1] = 0xd4;
+  session->sync_packet_next.data[0] = type; // 0x90 with stream start marker (M=1)
+  session->sync_packet_next.data[1] = 0xd7; // PT 215 Time announce
 
-  // AirPlay 1/RAOP:
-  // These values are used by iTunes/Apple Music, and according to
-  // shairport-sync's rtp.c they tell the speaker to add a 11025 sample latency.
-  // rtp.c says pure AirPlay uses 0x04, which doesn't add the latency. However,
-  // testing with my own AirPlay receiver, I couldn't confirm that 0x04 doesn't
-  // add a latency. Safest bet is to use the same as iTunes/Apple Music.
-  // AirPlay 2:
-  // Values don't seem to be used, instead the latency is communicated via
-  // latencyMin in the SETUP stream request.
   session->sync_packet_next.data[2] = 0x00;
-  session->sync_packet_next.data[3] = 0x07;
-
-  timespec_to_ntp(&cur_stamp.ts, &cur_ts);
+  session->sync_packet_next.data[3] = 0x06;
 
   cur_pos = htobe32(cur_stamp.pos);
   memcpy(session->sync_packet_next.data + 4, &cur_pos, 4);
 
-  cur_ts.sec = htobe32(cur_ts.sec);
-  cur_ts.frac = htobe32(cur_ts.frac);
-  memcpy(session->sync_packet_next.data + 8, &cur_ts.sec, 4);
-  memcpy(session->sync_packet_next.data + 12, &cur_ts.frac, 4);
+  cur_ns = cur_stamp.ts.tv_sec;
+  cur_ns *= 1000000000;
+  cur_ns += cur_stamp.ts.tv_nsec;
+  cur_ns = htobe64(cur_ns);
+  memcpy(session->sync_packet_next.data + 8, &cur_ns, 8);
 
   rtptime = htobe32(session->pos);
   memcpy(session->sync_packet_next.data + 16, &rtptime, 4);
 
-/*  DPRINTF(E_DBG, L_PLAYER, "SYNC PACKET cur_ts:%ld.%ld, cur_pos:%u, rtptime:%u, type:0x%x, sync_counter:%d\n",
-    cur_stamp.ts.tv_sec, cur_stamp.ts.tv_nsec,
-    cur_stamp.pos,
-    session->pos,
-    session->sync_packet_next.data[0],
-    session->sync_counter
-    );
-*/
+  clock_id = htobe64(session->clock_id);
+  memcpy(session->sync_packet_next.data + 20, &clock_id, 8);
+
   return &session->sync_packet_next;
 }
 
