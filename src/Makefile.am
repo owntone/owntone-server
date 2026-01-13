@@ -131,6 +131,7 @@ owntone_SOURCES = main.c \
 	$(MPD_SRC) \
 	listener.c listener.h \
 	commands.c commands.h \
+	ptpd.c ptpd.h \
 	outputs/plist_wrap.h \
 	$(LIBWEBSOCKETS_SRC) \
 	$(GPERF_SRC) \
