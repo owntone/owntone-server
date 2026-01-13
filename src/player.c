@@ -869,7 +869,8 @@ session_update_read(int nsamples)
   // Did we just complete our first read? Then set the start timestamp
   if (pb_session.start_ts.tv_sec == 0)
     {
-      clock_gettime_with_res(CLOCK_MONOTONIC, &pb_session.start_ts, &player_timer_res);
+      // TODO raop/airplay ntp uses CLOCK_MONOTONIC, so this is just for testing PTP
+      clock_gettime_with_res(CLOCK_REALTIME, &pb_session.start_ts, &player_timer_res);
       pb_session.pts = pb_session.start_ts;
     }
 

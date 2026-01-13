@@ -1887,7 +1887,7 @@ master_session_make(struct media_quality *quality, bool encrypt)
 
   CHECK_NULL(L_RAOP, rms = calloc(1, sizeof(struct raop_master_session)));
 
-  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0);
+  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0, 0);
   if (!rms->rtp_session)
     {
       outputs_quality_unsubscribe(quality);
