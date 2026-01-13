@@ -54,6 +54,13 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h> // getifaddrs
 
+#if defined(__linux__)
+# include <sys/ioctl.h>
+# include <net/if.h>
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+# include <net/if_dl.h>
+#endif
+
 #include <event2/http.h> // evhttp_bind
 
 #include <unistr.h>
@@ -319,6 +326,59 @@ net_if_get(char *ifname, size_t ifname_len, const char *addr)
   freeifaddrs(ifaddrs);
 
   return (ifname[0] != 0) ? 0 : -1;
+}
+
+int
+net_mac_get(uint8_t *mac, size_t mac_size, const char *ifname)
+{
+#define MAC_LENGTH 6
+  if (mac_size < MAC_LENGTH || !ifname)
+    return -1;
+
+#if defined(__linux__)
+  struct ifreq ifr;
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+  if (sockfd < 0)
+    return -1;
+
+  strncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);
+  ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
+  if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) < 0)
+    {
+      close(sockfd);
+      return -1;
+    }
+
+  memcpy(mac, ifr.ifr_hwaddr.sa_data, MAC_LENGTH);
+  close(sockfd);
+  return 0;
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+  struct ifaddrs *ifap, *ifaptr;
+  struct sockaddr_dl *sdl;
+
+  if (getifaddrs(&ifap) != 0)
+    return -1;
+
+  for (ifaptr = ifap; ifaptr != NULL; ifaptr = ifaptr->ifa_next)
+    {
+      if (strcmp(ifaptr->ifa_name, ifname) == 0 && ifaptr->ifa_addr->sa_family == AF_LINK)
+	{
+	  sdl = (struct sockaddr_dl *)ifaptr->ifa_addr;
+          memcpy(mac, LLADDR(sdl), MAC_LENGTH);
+          freeifaddrs(ifap);
+          return 0;
+        }
+    }
+
+  freeifaddrs(ifap);
+  return -1;
+#else
+  return -1;
+#endif
+
+#undef MAC_LENGTH
 }
 
 static int

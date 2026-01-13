@@ -38,6 +38,9 @@ net_port_get(short unsigned *port, union net_sockaddr *naddr);
 int
 net_if_get(char *ifname, size_t ifname_len, const char *addr);
 
+int
+net_mac_get(uint8_t *mac, size_t mac_size, const char *ifname);
+
 // Returns the socket fd from socket(), -1 on error
 int
 net_connect(const char *addr, unsigned short port, int type, const char *log_service_name);
@@ -71,6 +74,8 @@ net_is_http_or_https(const char *url);
 #define be16toh(x) OSSwapBigToHostInt16(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define be32toh(x) OSSwapBigToHostInt32(x)
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
 #endif
 
 // Samples to bytes, bytes to samples
