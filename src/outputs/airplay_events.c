@@ -512,8 +512,6 @@ airplay_events_init(void)
   CHECK_NULL(L_AIRPLAY, evbase = event_base_new());
   CHECK_NULL(L_AIRPLAY, cmdbase = commands_base_new(evbase, NULL));
 
-  DPRINTF(E_INFO, L_AIRPLAY, "AirPlay events thread init\n");
-
   ret = pthread_create(&thread_id, NULL, airplay_events, NULL);
   if (ret < 0)
     {
