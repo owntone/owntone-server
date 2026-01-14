@@ -592,64 +592,61 @@ query_params_set(struct query_params *qp, int *sort_headers, struct httpd_reques
   user_agent_filter(qp, hreq);
 }
 
+#define NMETA_MAX 128
 static int
 parse_meta(const struct dmap_field ***out_meta, const char *param)
 {
-  const struct dmap_field **meta;
-  char *ptr;
+  const struct dmap_field *meta[NMETA_MAX];
+  const struct dmap_field *dfield;
+  size_t out_size;
+  char *saveptr;
   char *field;
-  char *metastr;
+  char *param_copy;
+  bool is_duplicate;
   int nmeta;
   int i;
-  int n;
 
-  CHECK_NULL(L_DAAP, metastr = strdup(param));
-
-  nmeta = 1;
-  ptr = metastr;
-  while ((ptr = strchr(ptr + 1, ',')) && (strlen(ptr) > 1))
-    nmeta++;
-
-  DPRINTF(E_DBG, L_DAAP, "Asking for %d meta tags\n", nmeta);
-
-  CHECK_NULL(L_DAAP, meta = calloc(nmeta, sizeof(const struct dmap_field *)));
-
-  field = strtok_r(metastr, ",", &ptr);
-  for (i = 0; field != NULL && i < nmeta; i++)
+  CHECK_NULL(L_DAAP, param_copy = strdup(param));
+  field = strtok_r(param_copy, ",", &saveptr);
+  nmeta = 0;
+  for (; field && nmeta < NMETA_MAX; field = strtok_r(NULL, ",", &saveptr))
     {
-      for (n = 0; (n < i) && (strcmp(field, meta[n]->desc) != 0); n++);
-
-      if (n == i)
+      dfield = dmap_find_field_wrapper(field);
+      if (!dfield)
 	{
-	  meta[i] = dmap_find_field_wrapper(field, strlen(field));
-
-	  if (!meta[i])
-	    {
-	      DPRINTF(E_WARN, L_DAAP, "Could not find requested meta field '%s'\n", field);
-
-	      i--;
-	      nmeta--;
-	    }
-	}
-      else
-	{
-	  DPRINTF(E_WARN, L_DAAP, "Parser will ignore duplicate occurrence of meta field '%s'\n", field);
-
-	  i--;
-	  nmeta--;
+	  DPRINTF(E_DBG, L_DAAP, "Could not find requested meta field '%s' in '%s'\n", field, param);
+	  continue;
 	}
 
-      field = strtok_r(NULL, ",", &ptr);
+      is_duplicate = false;
+      for (i = 0; i < nmeta && !is_duplicate; i++)
+	is_duplicate = (dfield == meta[i]);
+      if (is_duplicate)
+	{
+	  DPRINTF(E_SPAM, L_DAAP, "Parser will ignore duplicate occurrence of meta field '%s'\n", field);
+	  continue;
+	}
+
+      meta[nmeta] = dfield;
+      nmeta++;
     }
 
-  free(metastr);
+  if (nmeta == 0)
+    {
+      printf("No known metadata fields found in input '%s'\n", param);
+      goto out;
+    }
 
-  DPRINTF(E_DBG, L_DAAP, "Found %d meta tags\n", nmeta);
+  // meta is a list of pointers to dmf entries, here we copy it to the heap
+  out_size = nmeta * sizeof(struct dmap_field *);
+  CHECK_NULL(L_DAAP, *out_meta = malloc(out_size));
+  memcpy(*out_meta, meta, out_size);
 
-  *out_meta = meta;
-
+ out:
+  free(param_copy);
   return nmeta;
 }
+#undef NMETA_MAX
 
 static void
 daap_reply_send(struct httpd_request *hreq, enum daap_reply_result result)
