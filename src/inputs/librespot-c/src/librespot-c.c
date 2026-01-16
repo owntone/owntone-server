@@ -392,6 +392,9 @@ incoming_tcp_cb(int fd, short what, void *arg)
 	goto error;
     }
 
+  // Reset the disconnect timer
+  event_add(conn->idle_ev, &sp_idle_tv);
+
   msg_clear(&msg);
   return;
 
