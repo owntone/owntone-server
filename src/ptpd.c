@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <pthread.h>
+#include <inttypes.h>
 #include <assert.h>
 
 #include <event2/event.h>
@@ -43,15 +44,17 @@
 #define PTPD_MAX_SLAVES 10
 
 #define PTPD_MSGTYPE_SYNC 0x00
-#define PTPD_MSGTYPE_DELAY_REQ 0x01 // Not implemented
+#define PTPD_MSGTYPE_DELAY_REQ 0x01
 #define PTPD_MSGTYPE_PDELAY_REQ 0x02
 #define PTPD_MSGTYPE_PDELAY_RESP 0x03
 #define PTPD_MSGTYPE_FOLLOW_UP 0x08
-#define PTPD_MSGTYPE_DELAY_RESP 0x09 // Not implemented
+#define PTPD_MSGTYPE_DELAY_RESP 0x09
 #define PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP 0x0A
 #define PTPD_MSGTYPE_ANNOUNCE 0x0B
 #define PTPD_MSGTYPE_SIGNALING 0x0C // Not implemented
 #define PTPD_MSGTYPE_MANAGEMENT 0x0D // Not implemented
+
+#define PTP_PORT_ID_SIZE 10
 
 // Just value chosen to not conflict with EV_xxx values
 #define PTPD_EVFLAG_NEW_SLAVE 0x99
@@ -67,7 +70,7 @@ struct ptp_header
   uint16_t flags;
   int64_t correctionField; // int64 or uint64?
   uint32_t reserved2;
-  uint8_t sourcePortIdentity[10];
+  uint8_t sourcePortIdentity[PTP_PORT_ID_SIZE];
   uint16_t sequenceId;
   uint8_t controlField;
   uint8_t logMessageInterval;
@@ -81,7 +84,6 @@ struct ptp_timestamp
   uint32_t nanoseconds;
 } __attribute__((packed));
 
-// Announce Message
 struct ptp_announce_message
 {
   struct ptp_header header;
@@ -91,39 +93,48 @@ struct ptp_announce_message
   uint8_t grandmasterPriority1;
   uint32_t grandmasterClockQuality;
   uint8_t grandmasterPriority2;
-  uint8_t grandmasterIdentity[8];
+  uint64_t grandmasterIdentity;
   uint16_t stepsRemoved;
   uint8_t timeSource;
 } __attribute__((packed));
 
-// Sync Message
 struct ptp_sync_message
 {
   struct ptp_header header;
   struct ptp_timestamp originTimestamp;
 } __attribute__((packed));
 
-// Follow Up Message
 struct ptp_follow_up_message
 {
   struct ptp_header header;
   struct ptp_timestamp preciseOriginTimestamp;
 } __attribute__((packed));
 
-// Pdelay Response Message
+struct ptp_delay_req_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp originTimestamp;
+} __attribute__((packed)) DelayReqMessage;
+
+struct ptp_delay_resp_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp receiveTimestamp;
+  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
+} __attribute__((packed)) DelayRespMessage;
+
 struct ptp_pdelay_resp_message
 {
   struct ptp_header header;
   struct ptp_timestamp requestReceiptTimestamp;
-  uint8_t requestingPortIdentity[10];
+  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
 } __attribute__((packed));
 
-// Pdelay Response Follow Up Message
 struct ptp_pdelay_resp_follow_up_message
 {
   struct ptp_header header;
   struct ptp_timestamp responseOriginTimestamp;
-  uint8_t requestingPortIdentity[10];
+  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
 } __attribute__((packed));
 
 
@@ -172,19 +183,51 @@ static struct timeval ptpd_send_timer_tv = { .tv_sec = 1, .tv_usec = 0 };
 
 /* ================================= Helpers  =============================== */
 
-static void
-current_time_get(struct ptp_timestamp *ts)
+static inline struct ptp_timestamp
+ptp_timestamp_betoh(struct ptp_timestamp *in)
+{
+  struct ptp_timestamp out;
+
+  out.seconds_hi = be16toh(in->seconds_hi);
+  out.seconds_low = be32toh(in->seconds_low);
+  out.nanoseconds = be32toh(in->nanoseconds);
+  return out;
+}
+
+static inline struct ptp_timestamp
+ptp_timestamp_htobe(struct ptp_timestamp *in)
+{
+  struct ptp_timestamp out;
+
+  out.seconds_hi = htobe16(in->seconds_hi);
+  out.seconds_low = htobe32(in->seconds_low);
+  out.nanoseconds = htobe32(in->nanoseconds);
+  return out;
+}
+
+static inline struct ptp_timestamp
+current_time_get(void)
 {
   struct timespec now;
+  struct ptp_timestamp out;
+
   clock_gettime(CLOCK_REALTIME, &now);
+  out.seconds_hi = ((uint64_t)now.tv_sec) >> 32;
+  out.seconds_low = (uint32_t)now.tv_sec;
+  out.nanoseconds = (uint32_t)now.tv_nsec;
+  return out;
+}
 
-  ts->seconds_hi = ((uint64_t)now.tv_sec) >> 32;
-  ts->seconds_low = (uint32_t)now.tv_sec;
-  ts->nanoseconds = (uint32_t)now.tv_nsec;
+static void
+source_port_id_htobe(uint8_t *out, uint8_t *in)
+{
+  uint64_t be64;
+  uint64_t clock_id;
 
-  ts->seconds_hi = htons(ts->seconds_hi);
-  ts->seconds_low = htonl(ts->seconds_low);
-  ts->nanoseconds = htonl(ts->nanoseconds);
+  memcpy(&clock_id, in, sizeof(clock_id));
+  be64 = htobe64(clock_id);
+  memcpy(out, &be64, sizeof(be64));
+  memcpy(out + sizeof(be64), in + sizeof(be64), PTP_PORT_ID_SIZE - sizeof(be64)); // The last two bytes
 }
 
 static void
@@ -194,6 +237,80 @@ port_set(union net_sockaddr *naddr, unsigned short port)
     naddr->sin6.sin6_port = htons(port);
   else if (naddr->sa.sa_family == AF_INET)
     naddr->sin.sin_port = htons(port);
+}
+
+static void
+log_received(const char *name, uint64_t clock_id, struct ptp_timestamp *ts)
+{
+  uint64_t tv_sec;
+  uint32_t tv_nsec;
+
+  tv_sec = ts->seconds_hi;
+  tv_sec = (tv_sec << 32);
+  tv_sec += ts->seconds_low;
+  tv_nsec = ts->nanoseconds;
+
+  DPRINTF(E_DBG, L_AIRPLAY, "Received %s from clock %" PRIx64 " with timestamp %" PRIu64 ".%" PRIu32 "\n", name, clock_id, tv_sec, tv_nsec);
+}
+
+static void
+log_sent(uint8_t *msg, uint16_t port)
+{
+  const char *name;
+  struct ptp_timestamp bets = { 0 };
+  struct ptp_timestamp ts;
+  uint64_t tv_sec;
+  uint32_t tv_nsec;
+  uint64_t clock_id;
+  uint64_t be64;
+
+  switch(msg[0] & 0x0F)
+    {
+      case PTPD_MSGTYPE_SYNC:
+	name = "PTPD_MSGTYPE_SYNC";
+	bets = ((struct ptp_sync_message *)msg)->originTimestamp;
+	break;
+      case PTPD_MSGTYPE_DELAY_REQ:
+	name = "PTPD_MSGTYPE_DELAY_REQ";
+	bets = ((struct ptp_delay_req_message *)msg)->originTimestamp;
+	break;
+      case PTPD_MSGTYPE_PDELAY_REQ:
+	name = "PTPD_MSGTYPE_PDELAY_REQ";
+	break;
+      case PTPD_MSGTYPE_PDELAY_RESP:
+	name = "PTPD_MSGTYPE_PDELAY_RESP";
+	bets = ((struct ptp_pdelay_resp_message *)msg)->requestReceiptTimestamp;
+	break;
+      case PTPD_MSGTYPE_FOLLOW_UP:
+	name = "PTPD_MSGTYPE_FOLLOW_UP";
+	bets = ((struct ptp_follow_up_message *)msg)->preciseOriginTimestamp;
+	break;
+      case PTPD_MSGTYPE_DELAY_RESP:
+	name = "PTPD_MSGTYPE_DELAY_RESP";
+	bets = ((struct ptp_delay_resp_message *)msg)->receiveTimestamp;
+	break;
+      case PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP:
+	name = "PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP";
+	bets = ((struct ptp_pdelay_resp_follow_up_message *)msg)->responseOriginTimestamp;
+	break;
+      case PTPD_MSGTYPE_ANNOUNCE:
+	name = "PTPD_MSGTYPE_ANNOUNCE";
+	bets = ((struct ptp_announce_message *)msg)->originTimestamp;
+	break;
+      default:
+	name = "unknown";
+    }
+
+  ts = ptp_timestamp_betoh(&bets);
+  tv_sec = ts.seconds_hi;
+  tv_sec = (tv_sec << 32);
+  tv_sec += ts.seconds_low;
+  tv_nsec = ts.nanoseconds;
+
+  memcpy(&be64, ((struct ptp_header *)msg)->sourcePortIdentity, sizeof(be64));
+  clock_id = be64toh(be64);
+
+  DPRINTF(E_DBG, L_AIRPLAY, "Sent %s to port %hu, clock_id=%" PRIx64 ", ts=%" PRIu64 ".%" PRIu32 "\n", name, port, clock_id, tv_sec, tv_nsec);
 }
 
 
@@ -207,9 +324,9 @@ header_init(struct ptp_header *hdr, uint8_t type, uint16_t msg_len, uint64_t clo
   memset(hdr, 0, sizeof(struct ptp_header));
   hdr->messageType = type | 0x10; // 0x10 -> TranSpec = 1 which is expected by nqptp
   hdr->versionPTP = 0x02; // PTPv2
-  hdr->messageLength = htons(msg_len);
+  hdr->messageLength = htobe16(msg_len);
   hdr->domainNumber = PTPD_DOMAIN;
-  hdr->flags = htons(0x0200); // Two-step flag for Sync
+  hdr->flags = htobe16(0x0200); // Two-step flag for Sync
   hdr->correctionField = 0;
 
   // Source port identity: 8 bytes clock ID + 2 bytes port number
@@ -218,30 +335,49 @@ header_init(struct ptp_header *hdr, uint8_t type, uint16_t msg_len, uint64_t clo
   hdr->sourcePortIdentity[8] = 0x00;
   hdr->sourcePortIdentity[9] = 0x01; // Port 1
 
-  hdr->sequenceId = htons(sequence_id);
+  hdr->sequenceId = htobe16(sequence_id);
   hdr->controlField = 0x00;
   hdr->logMessageInterval = log_interval;
 }
 
 static void
+header_read(struct ptp_header *hdr, uint64_t *clock_id_ptr, uint8_t *req)
+{
+  struct ptp_header *in = (struct ptp_header *)req;
+  uint64_t be64;
+  uint64_t clock_id;
+
+  memcpy(hdr, in, sizeof(struct ptp_header));
+
+  hdr->messageLength = be16toh(in->messageLength);
+  hdr->flags = be16toh(in->flags);
+  hdr->correctionField = be64toh(in->correctionField);
+  hdr->sequenceId = be16toh(in->sequenceId);
+
+  memcpy(&be64, in->sourcePortIdentity, sizeof(be64));
+  clock_id = be64toh(be64);
+  memcpy(hdr->sourcePortIdentity, &clock_id, sizeof(clock_id));
+
+  if (clock_id_ptr)
+    *clock_id_ptr = clock_id;
+}
+
+static void
 msg_announce_make(struct ptp_announce_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  uint64_t be64;
-
   header_init(&msg->header, PTPD_MSGTYPE_ANNOUNCE, sizeof(struct ptp_announce_message), clock_id, sequence_id, 1);
 
-  msg->originTimestamp = ts;
+  msg->originTimestamp = ptp_timestamp_htobe(&ts);
 
-  msg->currentUtcOffset = htons(37); // Current UTC offset TODO check if this correct?
+  msg->currentUtcOffset = 0; // Claude suggests htobe16(37)?
   msg->reserved = 0;
   msg->grandmasterPriority1 = 128;
 
-  // Clock quality: class=6 (GPS), accuracy=0x21 (100ns), variance=0xFFFF
-  msg->grandmasterClockQuality = htonl(0x06210000) | htons(0xFFFF);
+  // Clock quality: class=6 (GPS), accuracy=0x21 (100ns), variance=0xFFFF (not sure why we are setting a high variance?)
+  msg->grandmasterClockQuality = htobe32(0x06210000 | 0xFFFF);
   msg->grandmasterPriority2 = 128;
 
-  be64 = htobe64(clock_id);
-  memcpy(msg->grandmasterIdentity, &be64, sizeof(be64));
+  msg->grandmasterIdentity = htobe64(clock_id);
 
   msg->stepsRemoved = 0;
   msg->timeSource = 0x20; // GPS
@@ -252,40 +388,50 @@ msg_sync_make(struct ptp_sync_message *msg, uint64_t clock_id, uint16_t sequence
 {
   header_init(&msg->header, PTPD_MSGTYPE_SYNC, sizeof(struct ptp_sync_message), clock_id, sequence_id, 0);
 
-  msg->originTimestamp = ts;
+  msg->originTimestamp = ptp_timestamp_htobe(&ts);
 }
 
 static void
-msg_sync_followup_make(struct ptp_follow_up_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
+msg_sync_follow_up_make(struct ptp_follow_up_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
   header_init(&msg->header, PTPD_MSGTYPE_FOLLOW_UP, sizeof(struct ptp_follow_up_message), clock_id, sequence_id, 0);
 
   msg->header.flags = 0; // Clear two-step flag
-  msg->preciseOriginTimestamp = ts;
+  msg->preciseOriginTimestamp = ptp_timestamp_htobe(&ts);
 }
 
 static void
-msg_pdelay_response_make(struct ptp_pdelay_resp_message *res,
-  uint64_t clock_id, uint16_t sequence_id, uint8_t *source_port_id, size_t source_port_id_len, struct ptp_timestamp ts)
+msg_delay_resp_make(struct ptp_delay_resp_message *msg,
+ uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&res->header, PTPD_MSGTYPE_PDELAY_RESP, sizeof(struct ptp_pdelay_resp_message), clock_id, ntohs(sequence_id), 0x7F);
+  header_init(&msg->header, PTPD_MSGTYPE_DELAY_RESP, sizeof(struct ptp_delay_resp_message), clock_id, sequence_id, 0);
 
-  res->requestReceiptTimestamp = ts;
+  msg->header.flags = 0; // No flags for Delay_Resp
+  msg->receiveTimestamp = ptp_timestamp_htobe(&ts);
 
-  assert(source_port_id_len == sizeof(res->requestingPortIdentity));
-  memcpy(res->requestingPortIdentity, source_port_id, source_port_id_len);
+  source_port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
 }
 
 static void
-msg_pdelay_followup_response_make(struct ptp_pdelay_resp_follow_up_message *res,
-  uint64_t clock_id, uint16_t sequence_id, uint8_t *source_port_id, size_t source_port_id_len, struct ptp_timestamp ts)
+msg_pdelay_resp_make(struct ptp_pdelay_resp_message *msg,
+ uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&res->header, PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP, sizeof(struct ptp_pdelay_resp_follow_up_message), clock_id, ntohs(sequence_id), 0x7F);
+  header_init(&msg->header, PTPD_MSGTYPE_PDELAY_RESP, sizeof(struct ptp_pdelay_resp_message), clock_id, sequence_id, 0x7F);
 
-  res->responseOriginTimestamp = ts;
+  msg->requestReceiptTimestamp = ptp_timestamp_htobe(&ts);
 
-  assert(source_port_id_len == sizeof(res->requestingPortIdentity));
-  memcpy(res->requestingPortIdentity, source_port_id, source_port_id_len);
+  source_port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
+}
+
+static void
+msg_pdelay_resp_follow_up_make(struct ptp_pdelay_resp_follow_up_message *msg,
+ uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
+{
+  header_init(&msg->header, PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP, sizeof(struct ptp_pdelay_resp_follow_up_message), clock_id, sequence_id, 0x7F);
+
+  msg->responseOriginTimestamp = ptp_timestamp_htobe(&ts);
+
+  source_port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
 }
 
 
@@ -443,7 +589,7 @@ slaves_msg_send(struct ptpd_state *state, void *msg, size_t msg_len, struct ptpd
       else if (len != msg_len)
 	DPRINTF(E_LOG, L_AIRPLAY, "Incomplete send of msg %02x to %s port %d\n", msg_bin[0], slave->str_addr, svc->port);
       else
-	DPRINTF(E_DBG, L_AIRPLAY, "Sent PTP msg %02x to %s port %d\n", msg_bin[0], slave->str_addr, svc->port); // TOOD remove or SPAM level
+	log_sent(msg_bin, svc->port);
     }
 
   pthread_mutex_unlock(&state->mutex);
@@ -458,7 +604,7 @@ announce_send(struct ptpd_state *state)
   struct ptp_announce_message annnounce;
   struct ptp_timestamp ts;
 
-  current_time_get(&ts);
+  ts = current_time_get();
 
   msg_announce_make(&annnounce, state->clock_id, state->announce_seq, ts);
   slaves_msg_send(state, &annnounce, sizeof(annnounce), &state->general_svc);
@@ -473,24 +619,142 @@ sync_send(struct ptpd_state *state)
   struct ptp_follow_up_message followup;
   struct ptp_timestamp ts;
 
-  current_time_get(&ts);
+  ts = current_time_get();
 
   msg_sync_make(&sync, state->clock_id, state->sync_seq, ts);
   slaves_msg_send(state, &sync, sizeof(sync), &state->event_svc);
 
   // Send Follow Up with precise timestamp after a small delay
   usleep(100);
-  msg_sync_followup_make(&followup, state->clock_id, state->sync_seq, ts);
+  msg_sync_follow_up_make(&followup, state->clock_id, state->sync_seq, ts);
   slaves_msg_send(state, &followup, sizeof(followup), &state->general_svc);
 
   state->sync_seq++;
 }
 
 static void
-pdelay_req_respond(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union net_sockaddr *peer_addr, socklen_t peer_addr_len)
+sync_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union net_sockaddr *peer_addr, socklen_t peer_addr_len)
 {
-  struct ptp_header *hdr = (struct ptp_header *)req;
-  struct ptp_pdelay_resp_message res;
+  struct ptp_sync_message *in = (struct ptp_sync_message *)req;
+  struct ptp_sync_message sync = { 0 };
+  uint64_t clock_id;
+
+  if (req_len < sizeof(struct ptp_sync_message))
+    return;
+
+  header_read(&sync.header, &clock_id, req);
+  sync.originTimestamp = ptp_timestamp_betoh(&in->originTimestamp);
+
+  log_received("Sync", clock_id, &sync.originTimestamp);
+}
+
+static void
+follow_up_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union net_sockaddr *peer_addr, socklen_t peer_addr_len)
+{
+  struct ptp_follow_up_message *in = (struct ptp_follow_up_message *)req;
+  struct ptp_follow_up_message follow_up = { 0 };
+  uint64_t clock_id;
+
+  if (req_len < sizeof(struct ptp_follow_up_message))
+    return;
+
+  header_read(&follow_up.header, &clock_id, req);
+  follow_up.preciseOriginTimestamp = ptp_timestamp_betoh(&in->preciseOriginTimestamp);
+
+  log_received("Follow Up", clock_id, &follow_up.preciseOriginTimestamp);
+}
+
+static void
+delay_req_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union net_sockaddr *peer_addr, socklen_t peer_addr_len)
+{
+  struct ptp_delay_req_message *in = (struct ptp_delay_req_message *)req;
+  struct ptp_delay_req_message delay_req = { 0 };
+  uint64_t clock_id;
+  struct ptp_delay_resp_message	delay_resp;
+  struct ptp_timestamp ts;
+  ssize_t len;
+
+  if (req_len < sizeof(struct ptp_delay_req_message))
+    return;
+
+  header_read(&delay_req.header, &clock_id, req);
+  delay_req.originTimestamp = ptp_timestamp_betoh(&in->originTimestamp);
+
+  log_received("Delay Req", clock_id, &delay_req.originTimestamp);
+
+  ts = current_time_get();
+  msg_delay_resp_make(&delay_resp, state->clock_id, delay_req.header.sequenceId, &delay_req.header, ts);
+
+  port_set(peer_addr, PTPD_GENERAL_PORT);
+  len = sendto(state->general_svc.fd, &delay_resp, sizeof(delay_resp), 0, &peer_addr->sa, peer_addr_len);
+  if (len != sizeof(delay_resp))
+    DPRINTF(E_LOG, L_AIRPLAY, "Incomplete send of struct ptp_pdelay_resp_follow_up_message\n");
+
+  log_sent((uint8_t *)&delay_resp, PTPD_GENERAL_PORT);
+}
+
+static void
+announce_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union net_sockaddr *peer_addr, socklen_t peer_addr_len)
+{
+  struct ptp_announce_message *in = (struct ptp_announce_message *)req;
+  struct ptp_announce_message announce = { 0 };
+  uint64_t clock_id;
+
+  if (req_len < sizeof(struct ptp_announce_message))
+    return;
+
+  memcpy(&announce, req, sizeof(struct ptp_announce_message));
+
+  header_read(&announce.header, &clock_id, req);
+
+  announce.grandmasterIdentity = be64toh(in->grandmasterIdentity);
+  announce.grandmasterClockQuality = be32toh(in->grandmasterClockQuality);
+  announce.stepsRemoved = be16toh(in->stepsRemoved);
+  announce.currentUtcOffset = be16toh(in->currentUtcOffset);
+
+  uint8_t clock_class = (announce.grandmasterClockQuality >> 24) & 0xFF;
+  uint8_t clock_accuracy = (announce.grandmasterClockQuality >> 16) & 0xFF;
+//  uint16_t offset_scaled_log_variance = announce.grandmasterClockQuality & 0xFFFF;
+
+  const char *time_source_str;
+  switch (announce.timeSource) {
+    case 0x10: time_source_str = "ATOMIC_CLOCK"; break;
+    case 0x20: time_source_str = "GPS"; break;
+    case 0x30: time_source_str = "TERRESTRIAL_RADIO"; break;
+    case 0x40: time_source_str = "PTP"; break;
+    case 0x50: time_source_str = "NTP"; break;
+    case 0x60: time_source_str = "HAND_SET"; break;
+    case 0x90: time_source_str = "OTHER"; break;
+    case 0xA0: time_source_str = "INTERNAL_OSCILLATOR"; break;
+    default: time_source_str = "UNKNOWN"; break;
+  }
+
+  // Determine clock class description
+  const char *clock_class_desc;
+  if (clock_class == 6) clock_class_desc = "Primary reference (GPS sync)";
+  else if (clock_class == 7) clock_class_desc = "Primary reference";
+  else if (clock_class >= 13 && clock_class <= 58) clock_class_desc = "Application-specific";
+  else if (clock_class >= 187 && clock_class <= 193) clock_class_desc = "Degraded";
+  else if (clock_class == 248) clock_class_desc = "Default";
+  else if (clock_class == 255) clock_class_desc = "Slave-only";
+  else clock_class_desc = "Reserved";
+
+  DPRINTF(E_DBG, L_AIRPLAY, "Recevied Announce message from %" PRIx64 ", gm %" PRIx64 ", p1=%u p2=%u, src=%s, class=%u (%s), acc=0x%02X\n",
+    clock_id, announce.grandmasterIdentity, announce.grandmasterPriority1, announce.grandmasterPriority2, time_source_str, clock_class, clock_class_desc, clock_accuracy);
+
+/*
+    printf("  Offset Scaled Log Variance: 0x%04X\n", offset_scaled_log_variance);
+    printf("  Steps Removed: %u\n", steps_removed);
+    printf("  Time Source: 0x%02X (%s)\n", time_source, time_source_str);
+    printf("  UTC Offset: %d seconds\n", utc_offset);
+*/
+}
+
+static void
+pdelay_req_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union net_sockaddr *peer_addr, socklen_t peer_addr_len)
+{
+  struct ptp_header header;
+  struct ptp_pdelay_resp_message resp;
   struct ptp_pdelay_resp_follow_up_message followup;
   struct ptp_timestamp ts;
   ssize_t len;
@@ -498,24 +762,27 @@ pdelay_req_respond(struct ptpd_state *state, uint8_t *req, ssize_t req_len, unio
   if (req_len < sizeof(struct ptp_header))
     return;
 
-  current_time_get(&ts);
-  msg_pdelay_response_make(&res, state->clock_id, hdr->sequenceId, hdr->sourcePortIdentity, sizeof(hdr->sourcePortIdentity), ts);
+  header_read(&header, NULL, req);
+
+  ts = current_time_get();
+  msg_pdelay_resp_make(&resp, state->clock_id, header.sequenceId, &header, ts);
 
   port_set(peer_addr, PTPD_EVENT_PORT);
-  len = sendto(state->event_svc.fd, &res, sizeof(res), 0, &peer_addr->sa, peer_addr_len);
-  if (len != sizeof(res))
+  len = sendto(state->event_svc.fd, &resp, sizeof(resp), 0, &peer_addr->sa, peer_addr_len);
+  if (len != sizeof(resp))
     DPRINTF(E_LOG, L_AIRPLAY, "Incomplete send of struct ptp_pdelay_resp_message\n");
 
-  current_time_get(&ts);
-  msg_pdelay_followup_response_make(&followup, state->clock_id, hdr->sequenceId, hdr->sourcePortIdentity, sizeof(hdr->sourcePortIdentity), ts);
+  log_sent((uint8_t *)&resp, PTPD_EVENT_PORT);
+
+  ts = current_time_get();
+  msg_pdelay_resp_follow_up_make(&followup, state->clock_id, header.sequenceId, &header, ts);
     
   port_set(peer_addr, PTPD_GENERAL_PORT);
   len = sendto(state->general_svc.fd, &followup, sizeof(followup), 0, &peer_addr->sa, peer_addr_len);
   if (len != sizeof(followup))
     DPRINTF(E_LOG, L_AIRPLAY, "Incomplete send of struct ptp_pdelay_resp_follow_up_message\n");
 
-  // TODO remove or set to SPAM
-  DPRINTF(E_DBG, L_AIRPLAY, "Responded to pdelay_req message\n");
+  log_sent((uint8_t *)&followup, PTPD_GENERAL_PORT);
 }
 
 // Scheduled for callback each second
@@ -561,8 +828,20 @@ ptpd_respond_cb(int fd, short what, void *arg)
 
   switch (msg_type)
     {
+      case PTPD_MSGTYPE_ANNOUNCE:
+	announce_handle(state, req, len, &peer_addr, peer_addrlen);
+	break;
+      case PTPD_MSGTYPE_SYNC:
+	sync_handle(state, req, len, &peer_addr, peer_addrlen);
+	break;
+      case PTPD_MSGTYPE_FOLLOW_UP:
+	follow_up_handle(state, req, len, &peer_addr, peer_addrlen);
+	break;
+      case PTPD_MSGTYPE_DELAY_REQ:
+	delay_req_handle(state, req, len, &peer_addr, peer_addrlen);
+	break;
       case PTPD_MSGTYPE_PDELAY_REQ:
-	pdelay_req_respond(state, req, len, &peer_addr, peer_addrlen);
+	pdelay_req_handle(state, req, len, &peer_addr, peer_addrlen);
 	break;
       default:
 	DPRINTF(E_DBG, L_AIRPLAY, "Service %s received unhandled message type: %02x\n", svc_name, msg_type);
