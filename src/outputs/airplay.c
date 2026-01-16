@@ -3011,25 +3011,11 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
 
   DPRINTF(E_DBG, L_AIRPLAY, "Negotiated UDP streaming session; ports d=%u c=%u t=%u e=%u\n", rs->data_port, rs->control_port, rs->timing_port, rs->events_port);
 
-  rs->ptpd_slave_id = ptpd_slave_add(&rs->naddr);
-  if (rs->ptpd_slave_id < 0)
-    {
-      DPRINTF(E_WARN, L_AIRPLAY, "Could not add speaker '%s' as PTP peer\n", rs->devname);
-      goto error;
-    }
-
   rs->server_fd = net_connect(rs->address, rs->data_port, SOCK_DGRAM, "AirPlay data");
   if (rs->server_fd < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not connect to data port of '%s'\n", rs->devname);
       goto error;
-    }
-
-  // Reverse connection, used to receive playback events from device
-  ret = airplay_events_listen(rs->devname, rs->address, rs->events_port, rs->shared_secret, rs->shared_secret_len);
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
     }
 
   rs->state = AIRPLAY_STATE_SETUP;
@@ -3108,6 +3094,20 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
   if (rs->events_port == 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "SETUP reply is missing event port\n");
+      goto error;
+    }
+
+  // Reverse connection, used to receive playback events from device
+  ret = airplay_events_listen(rs->devname, rs->address, rs->events_port, rs->shared_secret, rs->shared_secret_len);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
+    }
+
+  rs->ptpd_slave_id = ptpd_slave_add(&rs->naddr);
+  if (rs->ptpd_slave_id < 0)
+    {
+      DPRINTF(E_WARN, L_AIRPLAY, "Could not add speaker '%s' as PTP peer\n", rs->devname);
       goto error;
     }
 
