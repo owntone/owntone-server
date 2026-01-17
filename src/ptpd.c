@@ -43,21 +43,26 @@
 #define PTPD_ANNOUNCE_INTERVAL 2 // seconds
 #define PTPD_MAX_SLAVES 10
 
-#define PTPD_MSGTYPE_SYNC 0x00
-#define PTPD_MSGTYPE_DELAY_REQ 0x01
-#define PTPD_MSGTYPE_PDELAY_REQ 0x02
-#define PTPD_MSGTYPE_PDELAY_RESP 0x03
-#define PTPD_MSGTYPE_FOLLOW_UP 0x08
-#define PTPD_MSGTYPE_DELAY_RESP 0x09
-#define PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP 0x0A
-#define PTPD_MSGTYPE_ANNOUNCE 0x0B
-#define PTPD_MSGTYPE_SIGNALING 0x0C // Not implemented
-#define PTPD_MSGTYPE_MANAGEMENT 0x0D // Not implemented
-
-#define PTP_PORT_ID_SIZE 10
-
 // Just value chosen to not conflict with EV_xxx values
 #define PTPD_EVFLAG_NEW_SLAVE 0x99
+
+#define PTPD_LOG_TRAFFIC 1
+
+
+/* ========================= PTP message definitions ======================== */
+
+#define PTP_MSGTYPE_SYNC 0x00
+#define PTP_MSGTYPE_DELAY_REQ 0x01
+#define PTP_MSGTYPE_PDELAY_REQ 0x02
+#define PTP_MSGTYPE_PDELAY_RESP 0x03
+#define PTP_MSGTYPE_FOLLOW_UP 0x08
+#define PTP_MSGTYPE_DELAY_RESP 0x09
+#define PTP_MSGTYPE_PDELAY_RESP_FOLLOW_UP 0x0A
+#define PTP_MSGTYPE_ANNOUNCE 0x0B
+#define PTP_MSGTYPE_SIGNALING 0x0C // Not implemented
+#define PTP_MSGTYPE_MANAGEMENT 0x0D // Not implemented
+
+#define PTP_PORT_ID_SIZE 10
 
 // PTP Header (34 bytes)
 struct ptp_header
@@ -84,6 +89,60 @@ struct ptp_timestamp
   uint32_t nanoseconds;
 } __attribute__((packed));
 
+// Message 0x00
+struct ptp_sync_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp originTimestamp;
+} __attribute__((packed));
+
+// Message 0x01
+struct ptp_delay_req_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp originTimestamp;
+} __attribute__((packed));
+
+// Message 0x02
+struct ptp_pdelay_req_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp originTimestamp;
+  uint8_t reserved[10];
+} __attribute__((packed));
+
+// Message 0x03
+struct ptp_pdelay_resp_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp requestReceiptTimestamp;
+  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
+} __attribute__((packed));
+
+// Message 0x08
+struct ptp_follow_up_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp preciseOriginTimestamp;
+} __attribute__((packed));
+
+// Message 0x09
+struct ptp_delay_resp_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp receiveTimestamp;
+  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
+} __attribute__((packed));
+
+// Message 0x0A
+struct ptp_pdelay_resp_follow_up_message
+{
+  struct ptp_header header;
+  struct ptp_timestamp responseOriginTimestamp;
+  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
+} __attribute__((packed));
+
+// Message 0x0B
 struct ptp_announce_message
 {
   struct ptp_header header;
@@ -98,45 +157,8 @@ struct ptp_announce_message
   uint8_t timeSource;
 } __attribute__((packed));
 
-struct ptp_sync_message
-{
-  struct ptp_header header;
-  struct ptp_timestamp originTimestamp;
-} __attribute__((packed));
 
-struct ptp_follow_up_message
-{
-  struct ptp_header header;
-  struct ptp_timestamp preciseOriginTimestamp;
-} __attribute__((packed));
-
-struct ptp_delay_req_message
-{
-  struct ptp_header header;
-  struct ptp_timestamp originTimestamp;
-} __attribute__((packed)) DelayReqMessage;
-
-struct ptp_delay_resp_message
-{
-  struct ptp_header header;
-  struct ptp_timestamp receiveTimestamp;
-  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
-} __attribute__((packed)) DelayRespMessage;
-
-struct ptp_pdelay_resp_message
-{
-  struct ptp_header header;
-  struct ptp_timestamp requestReceiptTimestamp;
-  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
-} __attribute__((packed));
-
-struct ptp_pdelay_resp_follow_up_message
-{
-  struct ptp_header header;
-  struct ptp_timestamp responseOriginTimestamp;
-  uint8_t requestingPortIdentity[PTP_PORT_ID_SIZE];
-} __attribute__((packed));
-
+/* ========================= ptpd structs and globals  ====================== */
 
 struct ptpd_service
 {
@@ -180,6 +202,7 @@ struct ptpd_state
 
 static struct ptpd_state ptpd;
 static struct timeval ptpd_send_timer_tv = { .tv_sec = 1, .tv_usec = 0 };
+
 
 /* ================================= Helpers  =============================== */
 
@@ -239,6 +262,7 @@ port_set(union net_sockaddr *naddr, unsigned short port)
     naddr->sin.sin_port = htons(port);
 }
 
+#if PTPD_LOG_TRAFFIC
 static void
 log_received(const char *name, uint64_t clock_id, struct ptp_timestamp *ts)
 {
@@ -266,35 +290,36 @@ log_sent(uint8_t *msg, uint16_t port)
 
   switch(msg[0] & 0x0F)
     {
-      case PTPD_MSGTYPE_SYNC:
-	name = "PTPD_MSGTYPE_SYNC";
+      case PTP_MSGTYPE_SYNC:
+	name = "PTP_MSGTYPE_SYNC";
 	bets = ((struct ptp_sync_message *)msg)->originTimestamp;
 	break;
-      case PTPD_MSGTYPE_DELAY_REQ:
-	name = "PTPD_MSGTYPE_DELAY_REQ";
+      case PTP_MSGTYPE_DELAY_REQ:
+	name = "PTP_MSGTYPE_DELAY_REQ";
 	bets = ((struct ptp_delay_req_message *)msg)->originTimestamp;
 	break;
-      case PTPD_MSGTYPE_PDELAY_REQ:
-	name = "PTPD_MSGTYPE_PDELAY_REQ";
+      case PTP_MSGTYPE_PDELAY_REQ:
+	name = "PTP_MSGTYPE_PDELAY_REQ";
+	bets = ((struct ptp_pdelay_req_message *)msg)->originTimestamp;
 	break;
-      case PTPD_MSGTYPE_PDELAY_RESP:
-	name = "PTPD_MSGTYPE_PDELAY_RESP";
+      case PTP_MSGTYPE_PDELAY_RESP:
+	name = "PTP_MSGTYPE_PDELAY_RESP";
 	bets = ((struct ptp_pdelay_resp_message *)msg)->requestReceiptTimestamp;
 	break;
-      case PTPD_MSGTYPE_FOLLOW_UP:
-	name = "PTPD_MSGTYPE_FOLLOW_UP";
+      case PTP_MSGTYPE_FOLLOW_UP:
+	name = "PTP_MSGTYPE_FOLLOW_UP";
 	bets = ((struct ptp_follow_up_message *)msg)->preciseOriginTimestamp;
 	break;
-      case PTPD_MSGTYPE_DELAY_RESP:
-	name = "PTPD_MSGTYPE_DELAY_RESP";
+      case PTP_MSGTYPE_DELAY_RESP:
+	name = "PTP_MSGTYPE_DELAY_RESP";
 	bets = ((struct ptp_delay_resp_message *)msg)->receiveTimestamp;
 	break;
-      case PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP:
-	name = "PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP";
+      case PTP_MSGTYPE_PDELAY_RESP_FOLLOW_UP:
+	name = "PTP_MSGTYPE_PDELAY_RESP_FOLLOW_UP";
 	bets = ((struct ptp_pdelay_resp_follow_up_message *)msg)->responseOriginTimestamp;
 	break;
-      case PTPD_MSGTYPE_ANNOUNCE:
-	name = "PTPD_MSGTYPE_ANNOUNCE";
+      case PTP_MSGTYPE_ANNOUNCE:
+	name = "PTP_MSGTYPE_ANNOUNCE";
 	bets = ((struct ptp_announce_message *)msg)->originTimestamp;
 	break;
       default:
@@ -312,6 +337,19 @@ log_sent(uint8_t *msg, uint16_t port)
 
   DPRINTF(E_DBG, L_AIRPLAY, "Sent %s to port %hu, clock_id=%" PRIx64 ", ts=%" PRIu64 ".%" PRIu32 "\n", name, port, clock_id, tv_sec, tv_nsec);
 }
+#else
+static void
+log_received(const char *name, uint64_t clock_id, struct ptp_timestamp *ts)
+{
+  return;
+}
+
+static void
+log_sent(uint8_t *msg, uint16_t port)
+{
+  return;
+}
+#endif
 
 
 /* =========================== Message construction ========================= */
@@ -365,7 +403,7 @@ header_read(struct ptp_header *hdr, uint64_t *clock_id_ptr, uint8_t *req)
 static void
 msg_announce_make(struct ptp_announce_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTPD_MSGTYPE_ANNOUNCE, sizeof(struct ptp_announce_message), clock_id, sequence_id, 1);
+  header_init(&msg->header, PTP_MSGTYPE_ANNOUNCE, sizeof(struct ptp_announce_message), clock_id, sequence_id, 1);
 
   msg->originTimestamp = ptp_timestamp_htobe(&ts);
 
@@ -386,7 +424,7 @@ msg_announce_make(struct ptp_announce_message *msg, uint64_t clock_id, uint16_t 
 static void
 msg_sync_make(struct ptp_sync_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTPD_MSGTYPE_SYNC, sizeof(struct ptp_sync_message), clock_id, sequence_id, 0);
+  header_init(&msg->header, PTP_MSGTYPE_SYNC, sizeof(struct ptp_sync_message), clock_id, sequence_id, 0);
 
   msg->originTimestamp = ptp_timestamp_htobe(&ts);
 }
@@ -394,7 +432,7 @@ msg_sync_make(struct ptp_sync_message *msg, uint64_t clock_id, uint16_t sequence
 static void
 msg_sync_follow_up_make(struct ptp_follow_up_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTPD_MSGTYPE_FOLLOW_UP, sizeof(struct ptp_follow_up_message), clock_id, sequence_id, 0);
+  header_init(&msg->header, PTP_MSGTYPE_FOLLOW_UP, sizeof(struct ptp_follow_up_message), clock_id, sequence_id, 0);
 
   msg->header.flags = 0; // Clear two-step flag
   msg->preciseOriginTimestamp = ptp_timestamp_htobe(&ts);
@@ -404,7 +442,7 @@ static void
 msg_delay_resp_make(struct ptp_delay_resp_message *msg,
  uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTPD_MSGTYPE_DELAY_RESP, sizeof(struct ptp_delay_resp_message), clock_id, sequence_id, 0);
+  header_init(&msg->header, PTP_MSGTYPE_DELAY_RESP, sizeof(struct ptp_delay_resp_message), clock_id, sequence_id, 0);
 
   msg->header.flags = 0; // No flags for Delay_Resp
   msg->receiveTimestamp = ptp_timestamp_htobe(&ts);
@@ -416,7 +454,7 @@ static void
 msg_pdelay_resp_make(struct ptp_pdelay_resp_message *msg,
  uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTPD_MSGTYPE_PDELAY_RESP, sizeof(struct ptp_pdelay_resp_message), clock_id, sequence_id, 0x7F);
+  header_init(&msg->header, PTP_MSGTYPE_PDELAY_RESP, sizeof(struct ptp_pdelay_resp_message), clock_id, sequence_id, 0x7F);
 
   msg->requestReceiptTimestamp = ptp_timestamp_htobe(&ts);
 
@@ -427,7 +465,7 @@ static void
 msg_pdelay_resp_follow_up_make(struct ptp_pdelay_resp_follow_up_message *msg,
  uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTPD_MSGTYPE_PDELAY_RESP_FOLLOW_UP, sizeof(struct ptp_pdelay_resp_follow_up_message), clock_id, sequence_id, 0x7F);
+  header_init(&msg->header, PTP_MSGTYPE_PDELAY_RESP_FOLLOW_UP, sizeof(struct ptp_pdelay_resp_follow_up_message), clock_id, sequence_id, 0x7F);
 
   msg->responseOriginTimestamp = ptp_timestamp_htobe(&ts);
 
@@ -828,19 +866,19 @@ ptpd_respond_cb(int fd, short what, void *arg)
 
   switch (msg_type)
     {
-      case PTPD_MSGTYPE_ANNOUNCE:
+      case PTP_MSGTYPE_ANNOUNCE:
 	announce_handle(state, req, len, &peer_addr, peer_addrlen);
 	break;
-      case PTPD_MSGTYPE_SYNC:
+      case PTP_MSGTYPE_SYNC:
 	sync_handle(state, req, len, &peer_addr, peer_addrlen);
 	break;
-      case PTPD_MSGTYPE_FOLLOW_UP:
+      case PTP_MSGTYPE_FOLLOW_UP:
 	follow_up_handle(state, req, len, &peer_addr, peer_addrlen);
 	break;
-      case PTPD_MSGTYPE_DELAY_REQ:
+      case PTP_MSGTYPE_DELAY_REQ:
 	delay_req_handle(state, req, len, &peer_addr, peer_addrlen);
 	break;
-      case PTPD_MSGTYPE_PDELAY_REQ:
+      case PTP_MSGTYPE_PDELAY_REQ:
 	pdelay_req_handle(state, req, len, &peer_addr, peer_addrlen);
 	break;
       default:
