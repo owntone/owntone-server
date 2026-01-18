@@ -2935,13 +2935,6 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
       goto error;
     }
 
-  // Reverse connection, used to receive playback events from device
-  ret = airplay_events_listen(rs->devname, rs->address, rs->events_port, rs->shared_secret, rs->shared_secret_len);
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
-    }
-
   rs->state = AIRPLAY_STATE_SETUP;
 
   plist_free(response);
@@ -3019,6 +3012,14 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
     {
       DPRINTF(E_LOG, L_AIRPLAY, "SETUP reply is missing event port\n");
       goto error;
+    }
+
+  // Reverse connection, used to receive playback events from device. Must be
+  // made now or some devices will return 500 to the following RECORD
+  ret = airplay_events_listen(rs->devname, rs->address, rs->events_port, rs->shared_secret, rs->shared_secret_len);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
     }
 
   plist_free(response);
@@ -3430,9 +3431,9 @@ static struct airplay_seq_request airplay_seq_request[][7] =
     // proceed_on_rtsp_not_ok is true because a device may reply with 401 Unauthorized
     // and a WWW-Authenticate header, and then we may need re-run with password auth
     { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (session)", EVRTSP_REQ_SETUP, payload_make_setup_session, response_handler_setup_session, "application/x-apple-binary-plist", NULL, true },
+    { AIRPLAY_SEQ_START_PLAYBACK, "RECORD", EVRTSP_REQ_RECORD, payload_make_record, response_handler_record, NULL, NULL, false },
     { AIRPLAY_SEQ_START_PLAYBACK, "SETPEERS", EVRTSP_REQ_SETPEERS, payload_make_setpeers, NULL, "/peer-list-changed", NULL, false },
     { AIRPLAY_SEQ_START_PLAYBACK, "SETUP (stream)", EVRTSP_REQ_SETUP, payload_make_setup_stream, response_handler_setup_stream, "application/x-apple-binary-plist", NULL, false },
-    { AIRPLAY_SEQ_START_PLAYBACK, "RECORD", EVRTSP_REQ_RECORD, payload_make_record, response_handler_record, NULL, NULL, false },
     // Some devices (e.g. Sonos Symfonisk) don't register the volume if it isn't last
     { AIRPLAY_SEQ_START_PLAYBACK, "SET_PARAMETER (volume)", EVRTSP_REQ_SET_PARAMETER, payload_make_set_volume, response_handler_volume_start, "text/parameters", NULL, true },
   },
