@@ -371,7 +371,7 @@
       "spotify": {
         "authorize": "Authorize API access",
         "grant-access": "Grant access to the Spotify API.",
-        "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",
+        "no-support": "OwnTone was built without support for Spotify.",
         "reauthorize": "Please reauthorize API access to grant OwnTone the following additional access rights: {scopes}.",
         "requirements": "You must have a Spotify premium account. Access to the Spotify API enables scanning of your Spotify library. Required scopes are: {scopes}.",
         "title": "Spotify",
