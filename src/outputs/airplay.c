@@ -267,6 +267,8 @@ struct airplay_session
   char *address;
   int family;
 
+  char *v6_address;
+
   union net_sockaddr naddr;
 
   int volume;
@@ -1229,6 +1231,7 @@ session_free(struct airplay_session *rs)
   pair_verify_free(rs->pair_verify_ctx);
   pair_cipher_free(rs->control_cipher_ctx);
 
+  free(rs->v6_address);
   free(rs->local_address);
   free(rs->realm);
   free(rs->nonce);
@@ -1579,6 +1582,8 @@ session_make(struct output_device *rd, int callback_id)
       if (ret < 0)
 	goto error;
     }
+
+  rs->v6_address = strdup(rd->v6_address);
 
   rs->master_session = master_session_make(&rd->quality);
   if (!rs->master_session)
@@ -3016,10 +3021,10 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
 
   // Reverse connection, used to receive playback events from device. Must be
   // made now or some devices will return 500 to the following RECORD
-  ret = airplay_events_listen(rs->devname, rs->address, rs->events_port, rs->shared_secret, rs->shared_secret_len);
+  ret = airplay_events_listen(rs->devname, rs->v6_address, rs->events_port, rs->shared_secret, rs->shared_secret_len);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
+      DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' at %s events port %u, proceeding anyway\n", rs->devname, rs->v6_address, rs->events_port);
     }
 
   plist_free(response);
