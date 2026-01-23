@@ -39,15 +39,23 @@
 #define PTPD_GENERAL_PORT 320
 #define PTPD_DOMAIN 0
 
-#define PTPD_SYNC_INTERVAL 1 // seconds
-#define PTPD_ANNOUNCE_INTERVAL 2 // seconds
+// The log2 of the announce message interval in seconds. The ATV uses -2, which
+// would be 0.25 sec, my amp uses 0, so 1 sec, as does nqptp.
+// See nqptp-ptp-definitions.h.
+#define PTPD_ANNOUNCE_LOGMESSAGEINT 0
+#define PTPD_ANNOUNCE_INTERVAL_MS 1000
+// Same for SYNC and FOLLOW UP. Both ATV, amp and nqptp use -3, so 0.125 sec.
+#define PTPD_SYNC_LOGMESSAGEINT -3
+#define PTPD_SYNC_INTERVAL_MS 125
+
 #define PTPD_MAX_SLAVES 10
 
 // Just value chosen to not conflict with EV_xxx values
 #define PTPD_EVFLAG_NEW_SLAVE 0x99
 
-#define PTPD_LOG_TRAFFIC 1
-
+// Debugging
+#define PTPD_LOG_RECEIVED 1
+#define PTPD_LOG_SENT 0
 
 /* ========================= PTP message definitions ======================== */
 
@@ -78,7 +86,7 @@ struct ptp_header
   uint8_t sourcePortIdentity[PTP_PORT_ID_SIZE];
   uint16_t sequenceId;
   uint8_t controlField;
-  uint8_t logMessageInterval;
+  int8_t logMessageInterval;
 } __attribute__((packed));
 
 // Timestamp structure (10 bytes)
@@ -186,8 +194,8 @@ struct ptpd_state
   struct ptpd_service event_svc;
   struct ptpd_service general_svc;
 
-  struct event *send_timer;
-  uint32_t send_timer_count;
+  struct event *send_announce_timer;
+  struct event *send_sync_timer;
 
   uint16_t sync_seq;
   uint16_t announce_seq;
@@ -201,8 +209,16 @@ struct ptpd_state
 };
 
 static struct ptpd_state ptpd;
-static struct timeval ptpd_send_timer_tv = { .tv_sec = 1, .tv_usec = 0 };
-
+static struct timeval ptpd_send_announce_tv =
+{
+  .tv_sec = PTPD_ANNOUNCE_INTERVAL_MS / 1000,
+  .tv_usec = (PTPD_ANNOUNCE_INTERVAL_MS % 1000) * 1000
+};
+static struct timeval ptpd_send_sync_tv =
+{
+  .tv_sec = PTPD_SYNC_INTERVAL_MS / 1000,
+  .tv_usec = (PTPD_SYNC_INTERVAL_MS % 1000) * 1000
+};
 
 /* ================================= Helpers  =============================== */
 
@@ -234,7 +250,7 @@ current_time_get(void)
   struct timespec now;
   struct ptp_timestamp out;
 
-  clock_gettime(CLOCK_REALTIME, &now);
+  clock_gettime(CLOCK_MONOTONIC, &now);
   out.seconds_hi = ((uint64_t)now.tv_sec) >> 32;
   out.seconds_low = (uint32_t)now.tv_sec;
   out.nanoseconds = (uint32_t)now.tv_nsec;
@@ -262,9 +278,9 @@ port_set(union net_sockaddr *naddr, unsigned short port)
     naddr->sin.sin_port = htons(port);
 }
 
-#if PTPD_LOG_TRAFFIC
+#if PTPD_LOG_RECEIVED
 static void
-log_received(const char *name, uint64_t clock_id, struct ptp_timestamp *ts)
+log_received(const char *name, struct ptp_header *header, uint64_t clock_id, struct ptp_timestamp *ts)
 {
   uint64_t tv_sec;
   uint32_t tv_nsec;
@@ -274,9 +290,19 @@ log_received(const char *name, uint64_t clock_id, struct ptp_timestamp *ts)
   tv_sec += ts->seconds_low;
   tv_nsec = ts->nanoseconds;
 
-  DPRINTF(E_DBG, L_AIRPLAY, "Received %s from clock %" PRIx64 " with timestamp %" PRIu64 ".%" PRIu32 "\n", name, clock_id, tv_sec, tv_nsec);
-}
+  int8_t logint = header->logMessageInterval;
 
+  DPRINTF(E_DBG, L_AIRPLAY, "Received %s from clock %" PRIx64 ", logint=%" PRIi8 " with timestamp %" PRIu64 ".%" PRIu32 "\n", name, clock_id, logint, tv_sec, tv_nsec);
+}
+#else
+static void
+log_received(const char *name, uint64_t clock_id, struct ptp_timestamp *ts)
+{
+  return;
+}
+#endif
+
+#if PTPD_LOG_SENT
 static void
 log_sent(uint8_t *msg, uint16_t port)
 {
@@ -339,12 +365,6 @@ log_sent(uint8_t *msg, uint16_t port)
 }
 #else
 static void
-log_received(const char *name, uint64_t clock_id, struct ptp_timestamp *ts)
-{
-  return;
-}
-
-static void
 log_sent(uint8_t *msg, uint16_t port)
 {
   return;
@@ -403,7 +423,7 @@ header_read(struct ptp_header *hdr, uint64_t *clock_id_ptr, uint8_t *req)
 static void
 msg_announce_make(struct ptp_announce_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_ANNOUNCE, sizeof(struct ptp_announce_message), clock_id, sequence_id, 1);
+  header_init(&msg->header, PTP_MSGTYPE_ANNOUNCE, sizeof(struct ptp_announce_message), clock_id, sequence_id, PTPD_ANNOUNCE_LOGMESSAGEINT);
 
   msg->originTimestamp = ptp_timestamp_htobe(&ts);
 
@@ -411,8 +431,8 @@ msg_announce_make(struct ptp_announce_message *msg, uint64_t clock_id, uint16_t 
   msg->reserved = 0;
   msg->grandmasterPriority1 = 128;
 
-  // Clock quality: class=6 (GPS), accuracy=0x21 (100ns), variance=0xFFFF (not sure why we are setting a high variance?)
-  msg->grandmasterClockQuality = htobe32(0x06210000 | 0xFFFF);
+  // Clock quality: class=6 (GPS), accuracy=0x21 (100ns), variance=0x436A (same as used by Apple)
+  msg->grandmasterClockQuality = htobe32(0x06210000 | 0x436A);
   msg->grandmasterPriority2 = 128;
 
   msg->grandmasterIdentity = htobe64(clock_id);
@@ -424,7 +444,7 @@ msg_announce_make(struct ptp_announce_message *msg, uint64_t clock_id, uint16_t 
 static void
 msg_sync_make(struct ptp_sync_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_SYNC, sizeof(struct ptp_sync_message), clock_id, sequence_id, 0);
+  header_init(&msg->header, PTP_MSGTYPE_SYNC, sizeof(struct ptp_sync_message), clock_id, sequence_id, PTPD_SYNC_LOGMESSAGEINT);
 
   msg->originTimestamp = ptp_timestamp_htobe(&ts);
 }
@@ -432,7 +452,7 @@ msg_sync_make(struct ptp_sync_message *msg, uint64_t clock_id, uint16_t sequence
 static void
 msg_sync_follow_up_make(struct ptp_follow_up_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_FOLLOW_UP, sizeof(struct ptp_follow_up_message), clock_id, sequence_id, 0);
+  header_init(&msg->header, PTP_MSGTYPE_FOLLOW_UP, sizeof(struct ptp_follow_up_message), clock_id, sequence_id, PTPD_SYNC_LOGMESSAGEINT);
 
   msg->header.flags = 0; // Clear two-step flag
   msg->preciseOriginTimestamp = ptp_timestamp_htobe(&ts);
@@ -442,7 +462,7 @@ static void
 msg_delay_resp_make(struct ptp_delay_resp_message *msg,
  uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_DELAY_RESP, sizeof(struct ptp_delay_resp_message), clock_id, sequence_id, 0);
+  header_init(&msg->header, PTP_MSGTYPE_DELAY_RESP, sizeof(struct ptp_delay_resp_message), clock_id, sequence_id, 0x7F);
 
   msg->header.flags = 0; // No flags for Delay_Resp
   msg->receiveTimestamp = ptp_timestamp_htobe(&ts);
@@ -655,11 +675,13 @@ sync_send(struct ptpd_state *state)
 {
   struct ptp_sync_message sync;
   struct ptp_follow_up_message followup;
-  struct ptp_timestamp ts;
+  struct ptp_timestamp ts = { 0 };
 
+  // Two-step PTP seems to be a Sync with a 0 ts and then a Follow-Up with the
+  // ts of Sync
+  msg_sync_make(&sync, state->clock_id, state->sync_seq, ts);
   ts = current_time_get();
 
-  msg_sync_make(&sync, state->clock_id, state->sync_seq, ts);
   slaves_msg_send(state, &sync, sizeof(sync), &state->event_svc);
 
   // Send Follow Up with precise timestamp after a small delay
@@ -683,7 +705,7 @@ sync_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union net_s
   header_read(&sync.header, &clock_id, req);
   sync.originTimestamp = ptp_timestamp_betoh(&in->originTimestamp);
 
-  log_received("Sync", clock_id, &sync.originTimestamp);
+  log_received("Sync", &sync.header, clock_id, &sync.originTimestamp);
 }
 
 static void
@@ -699,7 +721,7 @@ follow_up_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union 
   header_read(&follow_up.header, &clock_id, req);
   follow_up.preciseOriginTimestamp = ptp_timestamp_betoh(&in->preciseOriginTimestamp);
 
-  log_received("Follow Up", clock_id, &follow_up.preciseOriginTimestamp);
+  log_received("Follow Up", &follow_up.header, clock_id, &follow_up.preciseOriginTimestamp);
 }
 
 static void
@@ -718,7 +740,7 @@ delay_req_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union 
   header_read(&delay_req.header, &clock_id, req);
   delay_req.originTimestamp = ptp_timestamp_betoh(&in->originTimestamp);
 
-  log_received("Delay Req", clock_id, &delay_req.originTimestamp);
+  log_received("Delay Req", &delay_req.header, clock_id, &delay_req.originTimestamp);
 
   ts = current_time_get();
   msg_delay_resp_make(&delay_resp, state->clock_id, delay_req.header.sequenceId, &delay_req.header, ts);
@@ -777,8 +799,10 @@ announce_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union n
   else if (clock_class == 255) clock_class_desc = "Slave-only";
   else clock_class_desc = "Reserved";
 
-  DPRINTF(E_DBG, L_AIRPLAY, "Recevied Announce message from %" PRIx64 ", gm %" PRIx64 ", p1=%u p2=%u, src=%s, class=%u (%s), acc=0x%02X\n",
-    clock_id, announce.grandmasterIdentity, announce.grandmasterPriority1, announce.grandmasterPriority2, time_source_str, clock_class, clock_class_desc, clock_accuracy);
+  int8_t logint = announce.header.logMessageInterval;
+
+  DPRINTF(E_DBG, L_AIRPLAY, "Recevied Announce message from %" PRIx64 ", gm %" PRIx64 ", p1=%u p2=%u, src=%s, class=%u (%s), acc=0x%02X, logint=%" PRIi8 "\n",
+    clock_id, announce.grandmasterIdentity, announce.grandmasterPriority1, announce.grandmasterPriority2, time_source_str, clock_class, clock_class_desc, clock_accuracy, logint);
 
 /*
     printf("  Offset Scaled Log Variance: 0x%04X\n", offset_scaled_log_variance);
@@ -823,24 +847,30 @@ pdelay_req_handle(struct ptpd_state *state, uint8_t *req, ssize_t req_len, union
   log_sent((uint8_t *)&followup, PTPD_GENERAL_PORT);
 }
 
-// Scheduled for callback each second
 static void
-ptpd_send_cb(int fd, short what, void *arg)
+ptpd_send_announce_cb(int fd, short what, void *arg)
 {
   struct ptpd_state *state = arg;
 
   if (state->num_slaves == 0)
     return; // Don't reschedule
 
-  if (what == PTPD_EVFLAG_NEW_SLAVE || state->send_timer_count % PTPD_ANNOUNCE_INTERVAL == 0)
-    announce_send(state);
+  announce_send(state);
 
-  if (what == PTPD_EVFLAG_NEW_SLAVE || state->send_timer_count % PTPD_SYNC_INTERVAL == 0)
-    sync_send(state);
+  event_add(state->send_announce_timer, &ptpd_send_announce_tv);
+}
 
-  state->send_timer_count++;
+static void
+ptpd_send_sync_cb(int fd, short what, void *arg)
+{
+  struct ptpd_state *state = arg;
 
-  event_add(state->send_timer, &ptpd_send_timer_tv);
+  if (state->num_slaves == 0)
+    return; // Don't reschedule
+
+  sync_send(state);
+
+  event_add(state->send_sync_timer, &ptpd_send_sync_tv);
 }
 
 static void
@@ -944,7 +974,8 @@ run(void *arg)
   if (ret < 0)
     goto stop;
 
-  state->send_timer = evtimer_new(state->evbase, ptpd_send_cb, state);
+  state->send_announce_timer = evtimer_new(state->evbase, ptpd_send_announce_cb, state);
+  state->send_sync_timer = evtimer_new(state->evbase, ptpd_send_sync_cb, state);
 
   state->is_running = true;
 
@@ -954,8 +985,10 @@ run(void *arg)
     DPRINTF(E_LOG, L_AIRPLAY, "ptpd event loop terminated ahead of time!\n");
 
  stop:
-  if (state->send_timer)
-    event_free(state->send_timer);
+  if (state->send_announce_timer)
+    event_free(state->send_announce_timer);
+  if (state->send_sync_timer)
+    event_free(state->send_sync_timer);
   service_stop(&state->general_svc);
   service_stop(&state->event_svc);
   pthread_exit(NULL);
@@ -986,8 +1019,12 @@ ptpd_slave_add(union net_sockaddr *naddr)
   if (slave_id < 0)
     return -1;
 
-  // Send announce and sync immediately to the new slave
-  event_active(ptpd.send_timer, PTPD_EVFLAG_NEW_SLAVE, 0);
+  // Send announce immediately
+  event_active(ptpd.send_announce_timer, 0, 0);
+
+  // Start sending SYNC's if not already running
+  if (!event_pending(ptpd.send_sync_timer, EV_TIMEOUT, NULL))
+    event_add(ptpd.send_sync_timer, &ptpd_send_sync_tv);
 
   return slave_id;
 }
@@ -1034,11 +1071,16 @@ ptpd_init(uint64_t clock_id_seed)
 
   CHECK_NULL(L_AIRPLAY, ptpd.evbase = event_base_new());
 
-  // The clock id should be created from the mac address, but since we don't yet
-  // know which interface we will be using, that isn't possible. nqptp says to
-  // read section 7.5.2.2.2 IEEE EUI-64 clockIdentity values, NOTE 2, I should
-  // do that one day.
-  ptpd.clock_id = clock_id_seed | 0xFFFE000000;
+  // From IEEE EUI-64 clockIdentity values: "The most significant 3 octets of
+  // the clockIdentity shall be an OUI. The least significant two bits of the
+  // most significant octet of the OUI shall both be 0. The least significant
+  // bit of the most significant octet of the OUI is used to distinguish
+  // clockIdentity values specified by this subclause from those specified in
+  // 7.5.2.2.3 [Non-IEEE EUI-64 clockIdentity values]".
+  // If we had the MAC address at this point we, could make a valid EUI-48 based
+  // clocked from mac[0..2] + 0xFFFE + mac[3..5]. However, since we don't, we
+  // create a non-EUI-64 clock ID from 0xFFFF + 6 byte seed, ref 7.5.2.2.3.
+  ptpd.clock_id = clock_id_seed | 0xFFFF000000000000;
 
   ret = pthread_create(&ptpd.tid, NULL, run, &ptpd);
   if (ret < 0)
