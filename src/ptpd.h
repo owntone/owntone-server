@@ -1,19 +1,14 @@
 #ifndef __PTPD_H__
 #define __PTPD_H__
 
-#include "misc.h"
-
-struct ptpd_slave;
-
 uint64_t
 ptpd_clock_id_get(void);
 
-// Returns slave id or negative on error
 int
-ptpd_slave_add(union net_sockaddr *naddr);
+ptpd_slave_add(uint32_t *slave_id, const char *addr);
 
 void
-ptpd_slave_remove(int slave_id);
+ptpd_slave_remove(uint32_t slave_id);
 
 // Binds priviliged ports 319 and 320, so must be called before the server drops
 // priviliges
