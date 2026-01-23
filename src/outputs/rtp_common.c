@@ -72,7 +72,8 @@ rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_ns
   CHECK_NULL(L_PLAYER, session = calloc(1, sizeof(struct rtp_session)));
 
   // Random SSRC ID, RTP time start and sequence start
-  gcry_randomize(&session->ssrc_id, sizeof(session->ssrc_id), GCRY_STRONG_RANDOM);
+//  gcry_randomize(&session->ssrc_id, sizeof(session->ssrc_id), GCRY_STRONG_RANDOM);
+  session->ssrc_id = 0; // Possibly always zero for PTP and buffered?
   gcry_randomize(&session->pos, sizeof(session->pos), GCRY_STRONG_RANDOM);
   gcry_randomize(&session->seqnum, sizeof(session->seqnum), GCRY_STRONG_RANDOM);
 
@@ -156,7 +157,7 @@ rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, ch
   //   |           synchronization source (SSRC) identifier            |
   //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   pkt->header[0] = 0x80; // Version = 2, P, X and CC are 0
-  pkt->header[1] = (marker_bit << 7) | payload_type; // M and payload type
+  pkt->header[1] = payload_type;
 
   seq = htobe16(session->seqnum);
   memcpy(pkt->header + 2, &seq, 2);

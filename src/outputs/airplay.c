@@ -2037,6 +2037,16 @@ packets_resend(struct airplay_session *rs, uint16_t seqnum, int len)
 	pkt_missing = true;
     }
 
+  // Seems iOS returns 80 d6 00 01 bd 0d 00 00 over control when packet not in buffer? And also
+  // resends over control, which my amp doesn't understand, since it keeps asking. Resend over control (bd0d=seqnum 48397):
+  // 0x000000: 80 d6 00 ee 80 60 bd 0d b4 04 4e c0 00 00 00 00 .....`....N.....
+  // 0x000010: 99 cf 26 e3 fa a0 ed da 57 50 82 c8 be 1b 81 9e ..&.....WP......
+  // 0x000020: a4 a5 c5 3c 07 83 71 21 e2 91 89 6a 81 bb b0 d3 ...<..q!...j....
+  // 0x000030: f4 0e 5c 7f 84 14 1f 0d e6 63 83 26 7d b3 95 24 ..\......c.&}..$
+  // 0x000040: 0d 52 11 ef a5 fb 6f 9d 86 8e 69 28 79 0e 73 5b .R....o...i(y.s[
+  // 0x000050: 46 1f 04 2d 6b 7e 7f 1d 1e a6 46 04 7b f8 e3 80 F..-k~....F.{...
+  // 0x000060: 85 ff 11 4f f2 b5 de f7 cf 0f 7e 4b 55 e5 7b 25 ...O......~KU.{%
+  // 0x000070: 13 9a 5f c3 4e f4 9d d1 f5 cb...
   if (pkt_missing)
     DPRINTF(E_WARN, L_AIRPLAY, "Device '%s' retransmit request for seqnum %" PRIu16 " (len %d) is outside buffer range (next seqnum %" PRIu16 ", len %zu)\n",
       rs->devname, seqnum, len, rtp_session->seqnum, rtp_session->pktbuf_len);
@@ -2065,7 +2075,7 @@ packets_send(struct airplay_master_session *rms)
       // Device just joined
       if (rs->state == AIRPLAY_STATE_CONNECTED)
 	{
-	  pkt->header[1] = (1 << 7) | AIRPLAY_RTP_PAYLOADTYPE;
+	  pkt->header[1] = AIRPLAY_RTP_PAYLOADTYPE;
 	  packet_send(rs, pkt);
 	}
       else if (rs->state == AIRPLAY_STATE_STREAMING)
@@ -2232,8 +2242,7 @@ timing_svc_cb(int fd, short what, void *arg)
   ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
-      net_address_get(address, sizeof(address), &peer_addr);
-      DPRINTF(E_LOG, L_AIRPLAY, "Error reading timing request from %s: %s\n", address, strerror(errno));
+      DPRINTF(E_LOG, L_AIRPLAY, "Error reading timing request: %s\n", strerror(errno));
       return;
     }
 
@@ -2660,7 +2669,8 @@ payload_make_setup_session(struct evrtsp_request *req, struct airplay_session *r
   timingpeerinfo = plist_new_dict();
   wplist_dict_add_string(timingpeerinfo, "ID", airplay_ptp_clock_uuid); // iOS sends a UUID, but where does it come from?
   wplist_dict_add_uint(timingpeerinfo, "DeviceType", 0);
-  wplist_dict_add_bool(timingpeerinfo, "SupportsClockPortMatchingOverride", true); // TODO ???
+  wplist_dict_add_int(timingpeerinfo, "ClockID", (int64_t)ptpd_clock_id_get()); // ClockID in plist is signed, so e.g. 0xf842885f71750008 -> -557733460333756408
+  wplist_dict_add_bool(timingpeerinfo, "SupportsClockPortMatchingOverride", false); // iOS says true, no idea what it means
   plist_dict_set_item(timingpeerinfo, "Addresses", addresses);
 
   timingpeerlist = plist_new_array();
@@ -3045,7 +3055,11 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
 {
   plist_t response;
   plist_t item;
+  plist_t peer_addresses;
+  plist_t peer_address;
   uint64_t uintval;
+  const char *ptr;
+  int i;
   int ret;
 
   if (req->response_code == RTSP_UNAUTHORIZED)
@@ -3084,13 +3098,6 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
       rs->events_port = uintval;
     }
 
-  item = plist_dict_get_item(response, "timingPort");
-  if (item)
-    {
-      plist_get_uint_val(item, &uintval);
-      rs->timing_port = uintval;
-    }
-
   if (rs->events_port == 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "SETUP reply is missing event port\n");
@@ -3104,11 +3111,35 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
       DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
     }
 
-  rs->ptpd_slave_id = ptpd_slave_add(&rs->naddr);
+  // For PTP
+  item = plist_dict_get_item(response, "timingPeerInfo");
+  if (item && (peer_addresses = plist_dict_get_item(item, "Addresses")))
+    {
+      // Walk through addresses to get one from the right family
+      for (i = 0; (peer_address = plist_array_get_item(peer_addresses, i)); i++)
+	{
+	  ptr = plist_get_string_ptr(peer_address, NULL);
+	  if (!ptr)
+	    continue;
+
+	  rs->ptpd_slave_id = ptpd_slave_add(ptr);
+	  if (rs->ptpd_slave_id >= 0)
+	    break; // Just add the first good address, currently not sure what to do if we get more
+	}
+    }
+
   if (rs->ptpd_slave_id < 0)
     {
       DPRINTF(E_WARN, L_AIRPLAY, "Could not add speaker '%s' as PTP peer\n", rs->devname);
       goto error;
+    }
+
+  // Not used for PTP
+  item = plist_dict_get_item(response, "timingPort");
+  if (item)
+    {
+      plist_get_uint_val(item, &uintval);
+      rs->timing_port = uintval;
     }
 
   plist_free(response);
