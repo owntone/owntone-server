@@ -349,6 +349,8 @@ static struct raop_session *raop_sessions;
 /* Don't encode ALAC with ffmpeg */
 static bool raop_uncompressed_alac;
 
+extern bool airplay_cfg_exclusive_mode;
+
 // Forwards
 static int
 raop_device_start(struct output_device *rd, int callback_id);
@@ -4234,6 +4236,12 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   if (devcfg && cfg_getbool(devcfg, "permanent") && (port < 0))
     {
       DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' disappeared, but set as permanent in config\n", device_name);
+
+      return;
+    }
+  if (airplay_cfg_exclusive_mode && !(devcfg && cfg_getbool(devcfg, "exclusive")))
+    {
+      DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' ignored, other speaker(s) set as exclusive\n", device_name);
 
       return;
     }
