@@ -490,6 +490,12 @@ fifo_init(void)
   if (!path)
     return -1;
 
+  if (outputs_exclusive_mode_get() && !(cfg_fifo && cfg_getbool(cfg_fifo, "exclusive")))
+    {
+      DPRINTF(E_INFO, L_FIFO, "fifo output ignored, other speaker(s) set as exclusive\n");
+      return -1;
+    }
+
   nickname = cfg_getstr(cfg_fifo, "nickname");
 
   memset(&buffer, 0, sizeof(struct fifo_buffer));
@@ -519,6 +525,7 @@ fifo_deinit(void)
 struct output_definition output_fifo =
 {
   .name = "fifo",
+  .cfg_name = "fifo",
   .type = OUTPUT_TYPE_FIFO,
   .priority = 98,
   .disabled = 0,

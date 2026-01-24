@@ -147,6 +147,8 @@ static cfg_opt_t sec_audio[] =
     CFG_INT("offset", 0, CFGF_DEPRECATED),
     CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
     CFG_INT("adjust_period_seconds", 100, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -157,6 +159,8 @@ static cfg_opt_t sec_alsa[] =
     CFG_STR("mixer", NULL, CFGF_NONE),
     CFG_STR("mixer_device", NULL, CFGF_NONE),
     CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -179,7 +183,7 @@ static cfg_opt_t sec_airplay[] =
     CFG_STR("password", NULL, CFGF_NONE),
     CFG_BOOL("raop_disable", cfg_false, CFGF_NONE),
     CFG_STR("nickname", NULL, CFGF_NONE),
-    // Hidden option since it is edge-casy and only works for Airplay
+    // Hidden options
     CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
@@ -191,6 +195,8 @@ static cfg_opt_t sec_chromecast[] =
     CFG_BOOL("exclude", cfg_false, CFGF_NONE),
     CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
     CFG_STR("nickname", NULL, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -199,6 +205,8 @@ static cfg_opt_t sec_fifo[] =
   {
     CFG_STR("nickname", "fifo", CFGF_NONE),
     CFG_STR("path", NULL, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -207,6 +215,8 @@ static cfg_opt_t sec_rcp[] =
   {
     CFG_BOOL("exclude", cfg_false, CFGF_NONE),
     CFG_BOOL("clear_on_close", cfg_false, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -260,6 +270,8 @@ static cfg_opt_t sec_streaming[] =
     CFG_INT("sample_rate", 44100, CFGF_NONE),
     CFG_INT("bit_rate", 192, CFGF_NONE),
     CFG_INT("icy_metaint", 16384, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 

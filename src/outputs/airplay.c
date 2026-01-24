@@ -465,9 +465,6 @@ static struct airplay_session *airplay_sessions;
 /* Our own device ID */
 static uint64_t airplay_device_id;
 
-/* Did the user configure some speakers as exclusive (not static, shared with raop.c) */
-bool airplay_cfg_exclusive_mode;
-
 // Forwards
 static int
 airplay_device_start(struct output_device *rd, int callback_id);
@@ -3757,7 +3754,7 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
       DPRINTF(E_INFO, L_AIRPLAY, "AirPlay device '%s' disappeared, but set as permanent in config\n", name);
       return;
     }
-  if (airplay_cfg_exclusive_mode && !(devcfg && cfg_getbool(devcfg, "exclusive")))
+  if (outputs_exclusive_mode_get() && !(devcfg && cfg_getbool(devcfg, "exclusive")))
     {
       DPRINTF(E_INFO, L_AIRPLAY, "AirPlay device '%s' ignored, other speaker(s) set as exclusive\n", name);
       return;
@@ -4071,9 +4068,6 @@ airplay_init(void)
 
   CHECK_NULL(L_AIRPLAY, keep_alive_timer = evtimer_new(evbase_player, airplay_keep_alive_timer_cb, NULL));
 
-  for (i = 0; i < cfg_size(cfg, "airplay") && !airplay_cfg_exclusive_mode; i++)
-    airplay_cfg_exclusive_mode = cfg_getbool(cfg_getnsec(cfg, "airplay", i), "exclusive");
-
   timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
   ret = service_start(&airplay_timing_svc, timing_svc_cb, timing_port, "AirPlay timing");
   if (ret < 0)
@@ -4140,6 +4134,7 @@ airplay_deinit(void)
 struct output_definition output_airplay =
 {
   .name = "AirPlay 2",
+  .cfg_name = "airplay",
   .type = OUTPUT_TYPE_AIRPLAY,
 #ifdef PREFER_AIRPLAY2
   .priority = 1,

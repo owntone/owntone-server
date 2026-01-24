@@ -997,6 +997,7 @@ pulse_deinit(void)
 struct output_definition output_pulse =
 {
   .name = "Pulseaudio",
+  .cfg_name = "audio",
   .type = OUTPUT_TYPE_PULSE,
   .priority = 3,
   .disabled = 0,

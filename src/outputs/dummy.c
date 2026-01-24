@@ -262,6 +262,7 @@ dummy_deinit(void)
 struct output_definition output_dummy =
 {
   .name = "dummy",
+  .cfg_name = "audio",
   .type = OUTPUT_TYPE_DUMMY,
   .priority = 99,
   .disabled = 0,

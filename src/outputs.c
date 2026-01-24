@@ -117,6 +117,8 @@ static struct output_device *outputs_device_list;
 static int outputs_master_volume;
 static uint64_t outputs_buffer_duration_ms;
 
+static bool outputs_exclusive_mode;
+
 static struct outputs_callback_register outputs_cb_register[OUTPUTS_MAX_CALLBACKS];
 static struct event *outputs_deferredev;
 static struct timeval outputs_stop_timeout = { OUTPUTS_STOP_TIMEOUT, 0 };
@@ -620,6 +622,12 @@ uint64_t
 outputs_buffer_duration_ms_get(void)
 {
   return outputs_buffer_duration_ms;
+}
+
+bool
+outputs_exclusive_mode_get(void)
+{
+  return outputs_exclusive_mode;
 }
 
 /* ----------------------- Called by backend modules ------------------------ */
@@ -1310,6 +1318,7 @@ outputs_init(void)
   int no_output;
   int ret;
   int i;
+  int j;
 
   outputs_master_volume = -1;
 
@@ -1337,6 +1346,13 @@ outputs_init(void)
       if (outputs[i]->disabled)
 	{
 	  continue;
+	}
+
+      // Check if the user has configured "exclusive" for any output type speaker
+      if (outputs[i]->cfg_name)
+	{
+	  for (j = 0; j < cfg_size(cfg, outputs[i]->cfg_name) && !outputs_exclusive_mode; j++)
+	    outputs_exclusive_mode = cfg_getbool(cfg_getnsec(cfg, outputs[i]->cfg_name, j), "exclusive");
 	}
 
       if (!outputs[i]->init)

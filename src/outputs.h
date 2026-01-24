@@ -199,6 +199,9 @@ struct output_definition
   // Name of the output
   const char *name;
 
+  // The output's config section name in the config file
+  const char *cfg_name;
+
   // Type of output
   enum output_types type;
 
@@ -275,6 +278,9 @@ outputs_device_get(uint64_t device_id);
 
 uint64_t
 outputs_buffer_duration_ms_get(void);
+
+bool
+outputs_exclusive_mode_get(void);
 
 /* ----------------------- Called by backend modules ------------------------ */
 

@@ -349,8 +349,6 @@ static struct raop_session *raop_sessions;
 /* Don't encode ALAC with ffmpeg */
 static bool raop_uncompressed_alac;
 
-extern bool airplay_cfg_exclusive_mode;
-
 // Forwards
 static int
 raop_device_start(struct output_device *rd, int callback_id);
@@ -4239,7 +4237,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
       return;
     }
-  if (airplay_cfg_exclusive_mode && !(devcfg && cfg_getbool(devcfg, "exclusive")))
+  if (outputs_exclusive_mode_get() && !(devcfg && cfg_getbool(devcfg, "exclusive")))
     {
       DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' ignored, other speaker(s) set as exclusive\n", device_name);
 
@@ -4760,6 +4758,7 @@ raop_deinit(void)
 struct output_definition output_raop =
 {
   .name = "AirPlay 1",
+  .cfg_name = "airplay",
   .type = OUTPUT_TYPE_RAOP,
 #ifdef PREFER_AIRPLAY2
   .priority = 2,

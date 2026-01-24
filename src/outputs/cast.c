@@ -1763,6 +1763,11 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
       DPRINTF(E_LOG, L_CAST, "Excluding Chromecast device '%s' as set in config\n", name);
       return;
     }
+  if (outputs_exclusive_mode_get() && !(devcfg && cfg_getbool(devcfg, "exclusive")))
+    {
+      DPRINTF(E_INFO, L_CAST, "Chromecast device '%s' ignored, other speaker(s) set as exclusive\n", name);
+      return;
+    }
   if (devcfg && cfg_getstr(devcfg, "nickname"))
     {
       name = cfg_getstr(devcfg, "nickname");
@@ -2443,6 +2448,7 @@ cast_deinit(void)
 struct output_definition output_cast =
 {
   .name = "Chromecast",
+  .cfg_name = "chromecast",
   .type = OUTPUT_TYPE_CAST,
   .priority = 2,
   .disabled = 0,

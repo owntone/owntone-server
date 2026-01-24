@@ -1366,6 +1366,12 @@ alsa_device_add(cfg_t* cfg_audio, int id)
   int offset_ms;
   int ret;
 
+  if (outputs_exclusive_mode_get() && !(cfg_audio && cfg_getbool(cfg_audio, "exclusive")))
+    {
+      DPRINTF(E_INFO, L_LAUDIO, "ALSA device ignored, other speaker(s) set as exclusive\n");
+      return;
+    }
+
   CHECK_NULL(L_LAUDIO, device = calloc(1, sizeof(struct output_device)));
   CHECK_NULL(L_LAUDIO, ae = calloc(1, sizeof(struct alsa_extra)));
 
@@ -1458,6 +1464,7 @@ alsa_deinit(void)
 struct output_definition output_alsa =
 {
   .name = "ALSA",
+  .cfg_name = "alsa",
   .type = OUTPUT_TYPE_ALSA,
   .priority = 3,
   .disabled = 0,
