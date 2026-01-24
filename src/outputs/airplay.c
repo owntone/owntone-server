@@ -1583,6 +1583,12 @@ session_make(struct output_device *rd, int callback_id)
 	goto error;
     }
 
+  if (!rd->v6_address)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "No v6 address for %s, test can't be executed\n", rd->name);
+      goto error;
+    }
+
   rs->v6_address = strdup(rd->v6_address);
 
   rs->master_session = master_session_make(&rd->quality);
