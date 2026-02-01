@@ -284,8 +284,31 @@ net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr)
   return 0;
 }
 
+// Maybe use getaddrinfo instead?
 int
-net_port_get(short unsigned *port, union net_sockaddr *naddr)
+net_sockaddr_get(union net_sockaddr *naddr, const char *addr, unsigned short port)
+{
+  memset(naddr, 0, sizeof(union net_sockaddr));
+
+  if (inet_pton(AF_INET, addr, &naddr->sin.sin_addr) == 1)
+    {
+      naddr->sin.sin_family = AF_INET;
+      naddr->sin.sin_port = htons(port);
+      return 0;
+    }
+
+  if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6") && inet_pton(AF_INET6, addr, &naddr->sin6.sin6_addr) == 1)
+    {
+      naddr->sin6.sin6_family = AF_INET6;
+      naddr->sin6.sin6_port = htons(port);
+      return 0;
+    }
+
+  return -1;
+}
+
+int
+net_port_get(unsigned short *port, union net_sockaddr *naddr)
 {
   if (naddr->sa.sa_family == AF_INET6)
      *port = ntohs(naddr->sin6.sin6_port);
@@ -521,7 +544,7 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
 // with the port number. SOCK_STREAM type services are set to use non-blocking
 // sockets.
 static int
-net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool reuseport)
+net_bind_impl(unsigned short *port, int type, const char *log_service_name, bool reuseport)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
@@ -640,13 +663,13 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
 }
 
 int
-net_bind(short unsigned *port, int type, const char *log_service_name)
+net_bind(unsigned short *port, int type, const char *log_service_name)
 {
   return net_bind_impl(port, type, log_service_name, false);
 }
 
 int
-net_bind_with_reuseport(short unsigned *port, int type, const char *log_service_name)
+net_bind_with_reuseport(unsigned short *port, int type, const char *log_service_name)
 {
   return net_bind_impl(port, type, log_service_name, true);
 }
