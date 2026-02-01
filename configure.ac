@@ -205,6 +205,8 @@ PKG_CHECK_EXISTS([libplist],
 
 dnl AC_SEARCH_LIBS does not find plist_get_unix_date_val() on MacOS
 OWNTONE_CHECK_DECLS([plist_get_unix_date_val], [plist/plist.h])
+dnl Only in libplist 2.3+
+OWNTONE_CHECK_DECLS([plist_new_int], [plist/plist.h])
 
 AM_PATH_LIBGCRYPT([1:1.7.0])
 OWNTONE_FUNC_REQUIRE([OWNTONE], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
