@@ -1320,7 +1320,7 @@ outputs_init(void)
   // shorter delay would seem desirable, some Airplay devices ignore the values
   // we give and stick to 2.25 seconds.
   outputs_buffer_duration_ms = cfg_getint(cfg_getsec(cfg, "general"), "start_buffer_ms");
-  if (outputs_buffer_duration_ms != 2250)
+  if (outputs_buffer_duration_ms != 2000)
     DPRINTF(E_WARN, L_PLAYER, "Output buffer duration is configured to a non-standard value %" PRIu64 "\n", outputs_buffer_duration_ms);
 
   CHECK_NULL(L_PLAYER, outputs_deferredev = evtimer_new(evbase_player, deferred_cb, NULL));
