@@ -34,7 +34,6 @@
 #include "misc.h"
 #include "logger.h"
 
-
 #define PTPD_EVENT_PORT 319
 #define PTPD_GENERAL_PORT 320
 #define PTPD_DOMAIN 0
@@ -504,12 +503,19 @@ slave_clear(struct ptpd_slave *slave)
 
 // Called by e.g. player thread
 static int
-slave_add(struct ptpd_state *state, union net_sockaddr *naddr)
+slave_add(struct ptpd_state *state, const char *addr)
 {
   struct ptpd_slave *slave;
-  char str_addr[64];
+  union net_sockaddr naddr;
   uint16_t slave_id;
   int ret;
+
+  ret = net_sockaddr_get(&naddr, addr, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_DBG, L_AIRPLAY, "Ignoring PTP peer address %s\n", addr);
+      return -1;
+    }
 
   pthread_mutex_lock(&state->mutex);
 
@@ -528,15 +534,13 @@ slave_add(struct ptpd_state *state, union net_sockaddr *naddr)
   slave = &state->slaves[state->num_slaves];
   memset(slave, 0, sizeof(struct ptpd_slave));
 
-  slave->naddr_len = (naddr->sa.sa_family == AF_INET6) ? sizeof(naddr->sin6) : sizeof(naddr->sin);
-  memcpy(&slave->naddr, naddr, slave->naddr_len);
+  slave->naddr_len = (naddr.sa.sa_family == AF_INET6) ? sizeof(naddr.sin6) : sizeof(naddr.sin);
+  memcpy(&slave->naddr, &naddr, slave->naddr_len);
+
+  slave->str_addr = strdup(addr);
   slave->is_active = true;
   slave->last_seen = time(NULL);
   slave->id = slave_id;
-
-  ret = net_address_get(str_addr, sizeof(str_addr), naddr);
-  if (ret == 0)
-    slave->str_addr = strdup(str_addr);
 
   state->num_slaves++;
   state->last_slave_id = slave_id;
@@ -1005,7 +1009,7 @@ ptpd_clock_id_get(void)
 
 // TODO uses mutex where the other thread does send i/o, so risk of blocking player thread!
 int
-ptpd_slave_add(union net_sockaddr *naddr)
+ptpd_slave_add(const char *addr)
 {
   int slave_id;
 
@@ -1015,7 +1019,7 @@ ptpd_slave_add(union net_sockaddr *naddr)
   // Now is a good time to kill non-working slaves
   slaves_prune(&ptpd);
 
-  slave_id = slave_add(&ptpd, naddr);
+  slave_id = slave_add(&ptpd, addr);
   if (slave_id < 0)
     return -1;
 

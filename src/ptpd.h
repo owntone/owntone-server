@@ -10,7 +10,7 @@ ptpd_clock_id_get(void);
 
 // Returns slave id or negative on error
 int
-ptpd_slave_add(union net_sockaddr *naddr);
+ptpd_slave_add(const char *addr);
 
 void
 ptpd_slave_remove(int slave_id);

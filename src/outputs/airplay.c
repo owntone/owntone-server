@@ -2065,7 +2065,7 @@ packets_send(struct airplay_master_session *rms)
       // Device just joined
       if (rs->state == AIRPLAY_STATE_CONNECTED)
 	{
-	  pkt->header[1] = (1 << 7) | AIRPLAY_RTP_PAYLOADTYPE;
+	  pkt->header[1] = AIRPLAY_RTP_PAYLOADTYPE;
 	  packet_send(rs, pkt);
 	}
       else if (rs->state == AIRPLAY_STATE_STREAMING)
@@ -2660,7 +2660,8 @@ payload_make_setup_session(struct evrtsp_request *req, struct airplay_session *r
   timingpeerinfo = plist_new_dict();
   wplist_dict_add_string(timingpeerinfo, "ID", airplay_ptp_clock_uuid); // iOS sends a UUID, but where does it come from?
   wplist_dict_add_uint(timingpeerinfo, "DeviceType", 0);
-  wplist_dict_add_bool(timingpeerinfo, "SupportsClockPortMatchingOverride", true); // TODO ???
+  wplist_dict_add_int(timingpeerinfo, "ClockID", (int64_t)ptpd_clock_id_get()); // ClockID in plist is signed, so e.g. 0xf842885f71750008 -> -557733460333756408
+  wplist_dict_add_bool(timingpeerinfo, "SupportsClockPortMatchingOverride", false); // iOS says true, no idea what it means
   plist_dict_set_item(timingpeerinfo, "Addresses", addresses);
 
   timingpeerlist = plist_new_array();
@@ -3045,7 +3046,11 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
 {
   plist_t response;
   plist_t item;
+  plist_t peer_addresses;
+  plist_t peer_address;
   uint64_t uintval;
+  const char *ptr;
+  int i;
   int ret;
 
   if (req->response_code == RTSP_UNAUTHORIZED)
@@ -3084,13 +3089,6 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
       rs->events_port = uintval;
     }
 
-  item = plist_dict_get_item(response, "timingPort");
-  if (item)
-    {
-      plist_get_uint_val(item, &uintval);
-      rs->timing_port = uintval;
-    }
-
   if (rs->events_port == 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "SETUP reply is missing event port\n");
@@ -3104,11 +3102,35 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
       DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
     }
 
-  rs->ptpd_slave_id = ptpd_slave_add(&rs->naddr);
+  // For PTP
+  item = plist_dict_get_item(response, "timingPeerInfo");
+  if (item && (peer_addresses = plist_dict_get_item(item, "Addresses")))
+    {
+      // Walk through addresses to get one from the right family
+      for (i = 0; (peer_address = plist_array_get_item(peer_addresses, i)); i++)
+	{
+	  ptr = plist_get_string_ptr(peer_address, NULL);
+	  if (!ptr)
+	    continue;
+
+	  rs->ptpd_slave_id = ptpd_slave_add(ptr);
+	  if (rs->ptpd_slave_id >= 0)
+	    break; // Just add the first good address, currently not sure what to do if we get more
+	}
+    }
+
   if (rs->ptpd_slave_id < 0)
     {
       DPRINTF(E_WARN, L_AIRPLAY, "Could not add speaker '%s' as PTP peer\n", rs->devname);
       goto error;
+    }
+
+  // Not used for PTP
+  item = plist_dict_get_item(response, "timingPort");
+  if (item)
+    {
+      plist_get_uint_val(item, &uintval);
+      rs->timing_port = uintval;
     }
 
   plist_free(response);
