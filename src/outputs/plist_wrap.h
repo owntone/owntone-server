@@ -13,6 +13,13 @@ wplist_dict_add_uint(plist_t node, const char *key, uint64_t val)
 }
 
 static void
+wplist_dict_add_int(plist_t node, const char *key, int64_t val)
+{
+  plist_t add = plist_new_int(val);
+  plist_dict_set_item(node, key, add);
+}
+
+static void
 wplist_dict_add_string(plist_t node, const char *key, const char *val)
 {
   plist_t add = plist_new_string(val);
