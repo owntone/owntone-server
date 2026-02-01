@@ -33,7 +33,10 @@ int
 net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr);
 
 int
-net_port_get(short unsigned *port, union net_sockaddr *naddr);
+net_sockaddr_get(union net_sockaddr *naddr, const char *addr, unsigned short port);
+
+int
+net_port_get(unsigned short *port, union net_sockaddr *naddr);
 
 int
 net_if_get(char *ifname, size_t ifname_len, const char *addr);
@@ -47,10 +50,10 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
 
 // Returns the socket fd from socket(), -1 on error
 int
-net_bind(short unsigned *port, int type, const char *log_service_name);
+net_bind(unsigned short *port, int type, const char *log_service_name);
 
 int
-net_bind_with_reuseport(short unsigned *port, int type, const char *log_service_name);
+net_bind_with_reuseport(unsigned short *port, int type, const char *log_service_name);
 
 // To avoid polluting namespace too much we don't include event2/http.h here
 struct evhttp;
