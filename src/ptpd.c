@@ -41,11 +41,15 @@
 // The log2 of the announce message interval in seconds. The ATV uses -2, which
 // would be 0.25 sec, my amp uses 0, so 1 sec, as does nqptp.
 // See nqptp-ptp-definitions.h.
-#define PTPD_ANNOUNCE_LOGMESSAGEINT 0
-#define PTPD_ANNOUNCE_INTERVAL_MS 1000
-// Same for SYNC and FOLLOW UP. Both ATV, amp and nqptp use -3, so 0.125 sec.
-#define PTPD_SYNC_LOGMESSAGEINT -3
-#define PTPD_SYNC_INTERVAL_MS 125
+#define PTPD_LOGMESSAGEINT_ANNOUNCE 0
+#define PTPD_INTERVAL_MS_ANNOUNCE 1000
+// Both iOS, ATV, amp and nqptp use -3, so 0.125 sec.
+#define PTPD_LOGMESSAGEINT_SYNC -3
+#define PTPD_INTERVAL_MS_SYNC 125
+// Used by iOS
+#define PTPD_LOGMESSAGEINT_SIGNALING -128
+#define PTPD_INTERVAL_MS_SIGNALING 1000
+#define PTPD_LOGMESSAGEINT_DELAY_RESP -3
 
 #define PTPD_MAX_SLAVES 10
 
@@ -53,11 +57,12 @@
 #define PTPD_EVFLAG_NEW_SLAVE 0x99
 
 // Debugging
-#define PTPD_LOG_RECEIVED 1
+#define PTPD_LOG_RECEIVED 0
 #define PTPD_LOG_SENT 0
 
-/* ========================= PTP message definitions ======================== */
+/* ============================= PTP definitions ============================ */
 
+// TODO enum?
 #define PTP_MSGTYPE_SYNC 0x00
 #define PTP_MSGTYPE_DELAY_REQ 0x01
 #define PTP_MSGTYPE_PDELAY_REQ 0x02
@@ -66,10 +71,47 @@
 #define PTP_MSGTYPE_DELAY_RESP 0x09
 #define PTP_MSGTYPE_PDELAY_RESP_FOLLOW_UP 0x0A
 #define PTP_MSGTYPE_ANNOUNCE 0x0B
-#define PTP_MSGTYPE_SIGNALING 0x0C // Not implemented
+#define PTP_MSGTYPE_SIGNALING 0x0C
 #define PTP_MSGTYPE_MANAGEMENT 0x0D // Not implemented
 
 #define PTP_PORT_ID_SIZE 10
+
+#define PTP_TLV_ORG_EXTENSION 0x0003
+#define PTP_TLV_PATH_TRACE 0x0008
+
+// From Wireshark, doesn't seem to be in IEEE1588-2008, maybe from v1?
+enum ptp_flag
+{
+  PTP_FLAG_SECURITY = (1 << 15),
+  PTP_FLAG_PROFILE_SPECIFIC1 = (1 << 14),
+  PTP_FLAG_PROFILE_SPECIFIC2 = (1 << 13),
+  PTP_FLAG_UNICAST = (1 << 10),
+  PTP_FLAG_TWO_STEP = (1 << 9),
+  PTP_FLAG_ALTERNATE_MASTER = (1 << 8),
+  PTP_FLAG_SYNCRONIZATION_UNCERTAIN = (1 << 6),
+  PTP_FLAG_FREQUENCY_TRACEABLE = (1 << 5),
+  PTP_FLAG_TIME_TRACEABLE = (1 << 4),
+  PTP_FLAG_TIMESCALE = (1 << 3),
+  PTP_FLAG_UTC_UNREASONABLE = (1 << 2),
+  PTP_FLAG_LI_59 = (1 << 1),
+  PTP_FLAG_LI_61 = (1 << 0),
+};
+
+// Not used currently
+struct ptp_scaled_ns
+{
+  uint16_t ns_hi;
+  uint64_t ns_lo;
+  uint16_t ns_frac;
+} __attribute__((packed));
+
+// Timestamp structure (10 bytes)
+struct ptp_timestamp
+{
+  uint16_t seconds_hi;
+  uint32_t seconds_low;
+  uint32_t nanoseconds;
+} __attribute__((packed));
 
 // PTP Header (34 bytes)
 struct ptp_header
@@ -86,14 +128,6 @@ struct ptp_header
   uint16_t sequenceId;
   uint8_t controlField;
   int8_t logMessageInterval;
-} __attribute__((packed));
-
-// Timestamp structure (10 bytes)
-struct ptp_timestamp
-{
-  uint16_t seconds_hi;
-  uint32_t seconds_low;
-  uint32_t nanoseconds;
 } __attribute__((packed));
 
 // Message 0x00
@@ -131,6 +165,8 @@ struct ptp_follow_up_message
 {
   struct ptp_header header;
   struct ptp_timestamp preciseOriginTimestamp;
+  uint8_t tlv_apple1[32];
+  uint8_t tlv_apple2[20];
 } __attribute__((packed));
 
 // Message 0x09
@@ -162,8 +198,17 @@ struct ptp_announce_message
   uint64_t grandmasterIdentity;
   uint16_t stepsRemoved;
   uint8_t timeSource;
+  uint8_t tlv_path_trace[12]; // Apple speciality
 } __attribute__((packed));
 
+// Message 0x0C
+struct ptp_signaling_message
+{
+  struct ptp_header header;
+  uint8_t targetPortIdentity[PTP_PORT_ID_SIZE];
+  uint8_t tlv_apple1[26];
+  uint8_t tlv_apple2[36];
+} __attribute__((packed));
 
 /* ========================= ptpd structs and globals  ====================== */
 
@@ -194,10 +239,12 @@ struct ptpd_state
   struct ptpd_service general_svc;
 
   struct event *send_announce_timer;
+  struct event *send_signaling_timer;
   struct event *send_sync_timer;
 
-  uint16_t sync_seq;
   uint16_t announce_seq;
+  uint16_t signaling_seq;
+  uint16_t sync_seq;
 
   uint64_t clock_id;
   
@@ -210,13 +257,18 @@ struct ptpd_state
 static struct ptpd_state ptpd;
 static struct timeval ptpd_send_announce_tv =
 {
-  .tv_sec = PTPD_ANNOUNCE_INTERVAL_MS / 1000,
-  .tv_usec = (PTPD_ANNOUNCE_INTERVAL_MS % 1000) * 1000
+  .tv_sec = PTPD_INTERVAL_MS_ANNOUNCE / 1000,
+  .tv_usec = (PTPD_INTERVAL_MS_ANNOUNCE % 1000) * 1000
+};
+static struct timeval ptpd_send_signaling_tv =
+{
+  .tv_sec = PTPD_INTERVAL_MS_SIGNALING / 1000,
+  .tv_usec = (PTPD_INTERVAL_MS_SIGNALING % 1000) * 1000
 };
 static struct timeval ptpd_send_sync_tv =
 {
-  .tv_sec = PTPD_SYNC_INTERVAL_MS / 1000,
-  .tv_usec = (PTPD_SYNC_INTERVAL_MS % 1000) * 1000
+  .tv_sec = PTPD_INTERVAL_MS_SYNC / 1000,
+  .tv_usec = (PTPD_INTERVAL_MS_SYNC % 1000) * 1000
 };
 
 /* ================================= Helpers  =============================== */
@@ -257,7 +309,7 @@ current_time_get(void)
 }
 
 static void
-source_port_id_htobe(uint8_t *out, uint8_t *in)
+port_id_htobe(uint8_t *out, uint8_t *in)
 {
   uint64_t be64;
   uint64_t clock_id;
@@ -374,7 +426,7 @@ log_sent(uint8_t *msg, uint16_t port)
 /* =========================== Message construction ========================= */
 
 static void
-header_init(struct ptp_header *hdr, uint8_t type, uint16_t msg_len, uint64_t clock_id, uint16_t sequence_id, int8_t log_interval)
+header_init(struct ptp_header *hdr, uint8_t type, uint16_t msg_len, uint64_t clock_id, uint16_t sequence_id, int8_t log_interval, uint16_t flags)
 {
   uint64_t be64;
 
@@ -383,14 +435,15 @@ header_init(struct ptp_header *hdr, uint8_t type, uint16_t msg_len, uint64_t clo
   hdr->versionPTP = 0x02; // PTPv2
   hdr->messageLength = htobe16(msg_len);
   hdr->domainNumber = PTPD_DOMAIN;
-  hdr->flags = htobe16(0x0200); // Two-step flag for Sync
+  hdr->flags = htobe16(flags);
   hdr->correctionField = 0;
 
   // Source port identity: 8 bytes clock ID + 2 bytes port number
   be64 = htobe64(clock_id);
   memcpy(hdr->sourcePortIdentity, &be64, sizeof(be64));
-  hdr->sourcePortIdentity[8] = 0x00;
-  hdr->sourcePortIdentity[9] = 0x01; // Port 1
+  // Same as iOS
+  hdr->sourcePortIdentity[8] = 0x80;
+  hdr->sourcePortIdentity[9] = 0x05;
 
   hdr->sequenceId = htobe16(sequence_id);
   hdr->controlField = 0x00;
@@ -420,13 +473,35 @@ header_read(struct ptp_header *hdr, uint64_t *clock_id_ptr, uint8_t *req)
 }
 
 static void
+msg_tlv_write(uint8_t *tlv_dst, size_t tlv_dst_size, uint16_t type, uint16_t length, void *data)
+{
+  uint16_t be16;
+
+  assert(tlv_dst_size == 2 * sizeof(be16) + length);
+
+  be16 = htobe16(type);
+  memcpy(tlv_dst, &be16, sizeof(be16));
+  tlv_dst += sizeof(be16);
+
+  be16 = htobe16(length);
+  memcpy(tlv_dst, &be16, sizeof(be16));
+  tlv_dst += sizeof(be16);
+
+  memcpy(tlv_dst, data, length);
+}
+
+static void
 msg_announce_make(struct ptp_announce_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_ANNOUNCE, sizeof(struct ptp_announce_message), clock_id, sequence_id, PTPD_ANNOUNCE_LOGMESSAGEINT);
+  uint64_t be64_clock_id = htobe64(clock_id);
+  // iOS sets flags to 0x0408 -> UNICAST and TIMESCALE
+  uint16_t flags = PTP_FLAG_UNICAST | PTP_FLAG_TIMESCALE;
+
+  header_init(&msg->header, PTP_MSGTYPE_ANNOUNCE, sizeof(struct ptp_announce_message), clock_id, sequence_id, PTPD_LOGMESSAGEINT_ANNOUNCE, flags);
 
   msg->originTimestamp = ptp_timestamp_htobe(&ts);
 
-  msg->currentUtcOffset = 0; // Claude suggests htobe16(37)?
+  msg->currentUtcOffset = 0;
   msg->reserved = 0;
   msg->grandmasterPriority1 = 128;
 
@@ -434,16 +509,54 @@ msg_announce_make(struct ptp_announce_message *msg, uint64_t clock_id, uint16_t 
   msg->grandmasterClockQuality = htobe32(0x06210000 | 0x436A);
   msg->grandmasterPriority2 = 128;
 
-  msg->grandmasterIdentity = htobe64(clock_id);
+  msg->grandmasterIdentity = be64_clock_id;
 
   msg->stepsRemoved = 0;
   msg->timeSource = 0x20; // GPS
+
+  // iOS adding the clock ID again as TLV, wtf?
+  msg_tlv_write(msg->tlv_path_trace, sizeof(msg->tlv_path_trace), PTP_TLV_PATH_TRACE, sizeof(be64_clock_id), &be64_clock_id);
+}
+
+static void
+msg_signaling_make(struct ptp_signaling_message *msg, uint64_t clock_id, uint16_t sequence_id, uint8_t *target_port_id)
+{
+  uint8_t apple_val1[sizeof(msg->tlv_apple1) - 4] = { 0 }; // 22 bytes
+  uint8_t apple_val2[sizeof(msg->tlv_apple2) - 4] = { 0 }; // 32 bytes
+  // iOS sets flags to 0x0408 -> UNICAST and TIMESCALE
+  uint16_t flags = PTP_FLAG_UNICAST | PTP_FLAG_TIMESCALE;
+
+  header_init(&msg->header, PTP_MSGTYPE_SIGNALING, sizeof(struct ptp_signaling_message), clock_id, sequence_id, PTPD_LOGMESSAGEINT_SIGNALING, flags);
+
+  msg->header.controlField = 0x05; // Other Message
+
+  if (target_port_id)
+    port_id_htobe(msg->targetPortIdentity, target_port_id);
+  else
+    memset(msg->targetPortIdentity, 0, sizeof(msg->targetPortIdentity));
+
+  // TLV 1
+  // Some fixed value, no clue what it means
+  apple_val1[0] = 0x00; apple_val1[1] = 0x0d; apple_val1[2] = 0x93; // Apple Org ID
+  apple_val1[3] = 0x00; apple_val1[4] = 0x00; apple_val1[5] = 0x01; // Org sub type, i.e. TLV type defined by Apple
+  apple_val1[8] = 0x03; apple_val1[9] = 0x01;
+  msg_tlv_write(msg->tlv_apple1, sizeof(msg->tlv_apple1), PTP_TLV_ORG_EXTENSION, sizeof(apple_val1), apple_val1);
+
+  // TLV 2
+  // Some fixed value, no clue what it means
+  apple_val2[0] = 0x00; apple_val2[1] = 0x0d; apple_val2[2] = 0x93; // Apple Org ID
+  apple_val2[3] = 0x00; apple_val2[4] = 0x00; apple_val2[5] = 0x05; // Org sub type, i.e. TLV type defined by Apple
+  apple_val2[8] = 0x03; apple_val2[9] = 0x01;
+  msg_tlv_write(msg->tlv_apple2, sizeof(msg->tlv_apple2), PTP_TLV_ORG_EXTENSION, sizeof(apple_val2), apple_val2);
 }
 
 static void
 msg_sync_make(struct ptp_sync_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_SYNC, sizeof(struct ptp_sync_message), clock_id, sequence_id, PTPD_SYNC_LOGMESSAGEINT);
+  // iOS sets flags to 0x0608 -> UNICAST and TIMESCALE and TWO_STEP
+  uint16_t flags = PTP_FLAG_UNICAST | PTP_FLAG_TIMESCALE | PTP_FLAG_TWO_STEP;
+
+  header_init(&msg->header, PTP_MSGTYPE_SYNC, sizeof(struct ptp_sync_message), clock_id, sequence_id, PTPD_LOGMESSAGEINT_SYNC, flags);
 
   msg->originTimestamp = ptp_timestamp_htobe(&ts);
 }
@@ -451,44 +564,85 @@ msg_sync_make(struct ptp_sync_message *msg, uint64_t clock_id, uint16_t sequence
 static void
 msg_sync_follow_up_make(struct ptp_follow_up_message *msg, uint64_t clock_id, uint16_t sequence_id, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_FOLLOW_UP, sizeof(struct ptp_follow_up_message), clock_id, sequence_id, PTPD_SYNC_LOGMESSAGEINT);
+  uint8_t apple_val1[sizeof(msg->tlv_apple1) - 4] = { 0 };
+  uint8_t apple_val2[sizeof(msg->tlv_apple2) - 4] = { 0 };
+  uint64_t be64_clock_id = htobe64(clock_id);
+  // iOS sets flags to 0x0408 -> UNICAST and TIMESCALE
+  uint16_t flags = PTP_FLAG_UNICAST | PTP_FLAG_TIMESCALE;
 
-  msg->header.flags = 0; // Clear two-step flag
+  header_init(&msg->header, PTP_MSGTYPE_FOLLOW_UP, sizeof(struct ptp_follow_up_message), clock_id, sequence_id, PTPD_LOGMESSAGEINT_SYNC, flags);
+
   msg->preciseOriginTimestamp = ptp_timestamp_htobe(&ts);
+
+  // TLV 1
+  // iOS sets pos 6->9 (4 bytes) all zeros, Wireshark says it's "cumulativeScaledRateOffset"
+  // iOS sets pos 10->11 (2 bytes) all zeros, Wireshark says it's "gmTimeBaseIndicator",
+  // which is index identifying the grandmaster's time source.
+
+  // iOS sets pos 12->23 (12 bytes), Wireshark says it's "lastGmPhaseChange"
+  // Claude says it "contains information about the last discontinuous change
+  // in the phase (time offset) of the Grandmaster clock" and is struct ptp_scaled_ns.
+  // iOS example: 0x0000 0000fff117f85390 fadc -> 281410,954351504 (excl. ns_frac)
+  // but clock is 145864, so that's strange? Zero here since we don't know better.
+
+  // iOS sets pos 24->27 (4 bytes), Wireshark says it's "scaledLastGmFreqChange"
+  // Positive val means GM is running faster than true time (how would it know?)
+  // by (scaledLastGmFreqChange / 2^41) nanoseconds per second. Example:
+  // 0xf9a33395 = -106744939 -> -106,744,939 / 2,199,023,255,552 = 0.000048 ns/s
+  // We set zero because we have no idea if our rate is off from true time and
+  // frankly don't care.
+  apple_val1[0] = 0x00; apple_val1[1] = 0x80; apple_val1[2] = 0xc2; // IEEE 802.1 Chair
+  apple_val1[3] = 0x00; apple_val1[4] = 0x00; apple_val1[5] = 0x01; // Follow_Up information TLV
+  msg_tlv_write(msg->tlv_apple1, sizeof(msg->tlv_apple1), PTP_TLV_ORG_EXTENSION, sizeof(apple_val1), apple_val1);
+
+  // TLV 2
+  // Apple TLV with clock ID, who knows why
+  apple_val2[0] = 0x00; apple_val2[1] = 0x0d; apple_val2[2] = 0x93; // Apple Org ID
+  apple_val2[3] = 0x00; apple_val2[4] = 0x00; apple_val2[5] = 0x04; // Org sub type, i.e. TLV type defined by Apple
+  memcpy(apple_val2 + 6, &be64_clock_id, sizeof(be64_clock_id));
+  msg_tlv_write(msg->tlv_apple2, sizeof(msg->tlv_apple2), PTP_TLV_ORG_EXTENSION, sizeof(apple_val2), apple_val2);
 }
 
 static void
 msg_delay_resp_make(struct ptp_delay_resp_message *msg,
  uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_DELAY_RESP, sizeof(struct ptp_delay_resp_message), clock_id, sequence_id, 0x7F);
+  // iOS sets flags to 0x0608 -> UNICAST and TIMESCALE and TWO_STEP
+  uint16_t flags = PTP_FLAG_UNICAST | PTP_FLAG_TIMESCALE | PTP_FLAG_TWO_STEP;
 
-  msg->header.flags = 0; // No flags for Delay_Resp
+  header_init(&msg->header, PTP_MSGTYPE_DELAY_RESP, sizeof(struct ptp_delay_resp_message), clock_id, sequence_id, PTPD_LOGMESSAGEINT_DELAY_RESP, flags);
+
   msg->receiveTimestamp = ptp_timestamp_htobe(&ts);
 
-  source_port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
+  port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
 }
 
+// Haven't seen these messages from iOS, so the implementation is a guess
 static void
 msg_pdelay_resp_make(struct ptp_pdelay_resp_message *msg,
  uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_PDELAY_RESP, sizeof(struct ptp_pdelay_resp_message), clock_id, sequence_id, 0x7F);
+  uint16_t flags = PTP_FLAG_UNICAST | PTP_FLAG_TIMESCALE | PTP_FLAG_TWO_STEP;
+
+  header_init(&msg->header, PTP_MSGTYPE_PDELAY_RESP, sizeof(struct ptp_pdelay_resp_message), clock_id, sequence_id, PTPD_LOGMESSAGEINT_SYNC, flags);
 
   msg->requestReceiptTimestamp = ptp_timestamp_htobe(&ts);
 
-  source_port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
+  port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
 }
 
+// Haven't seen these messages from iOS, so the implementation is a guess
 static void
 msg_pdelay_resp_follow_up_make(struct ptp_pdelay_resp_follow_up_message *msg,
  uint64_t clock_id, uint16_t sequence_id, struct ptp_header *req_header, struct ptp_timestamp ts)
 {
-  header_init(&msg->header, PTP_MSGTYPE_PDELAY_RESP_FOLLOW_UP, sizeof(struct ptp_pdelay_resp_follow_up_message), clock_id, sequence_id, 0x7F);
+  uint16_t flags = PTP_FLAG_UNICAST | PTP_FLAG_TIMESCALE;
+
+  header_init(&msg->header, PTP_MSGTYPE_PDELAY_RESP_FOLLOW_UP, sizeof(struct ptp_pdelay_resp_follow_up_message), clock_id, sequence_id, PTPD_LOGMESSAGEINT_SYNC, flags);
 
   msg->responseOriginTimestamp = ptp_timestamp_htobe(&ts);
 
-  source_port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
+  port_id_htobe(msg->requestingPortIdentity, req_header->sourcePortIdentity);
 }
 
 
@@ -664,14 +818,25 @@ static void
 announce_send(struct ptpd_state *state)
 {
   struct ptp_announce_message annnounce;
-  struct ptp_timestamp ts;
+  struct ptp_timestamp ts = { 0 };
 
-  ts = current_time_get();
-
+  // iOS just sends 0 as originTimestamp, we do the same
   msg_announce_make(&annnounce, state->clock_id, state->announce_seq, ts);
   slaves_msg_send(state, &annnounce, sizeof(annnounce), &state->general_svc);
 
   state->announce_seq++;
+}
+
+static void
+signaling_send(struct ptpd_state *state)
+{
+  struct ptp_signaling_message signaling;
+
+  // TODO iOS sets targetPortIdentity, we probably also should
+  msg_signaling_make(&signaling, state->clock_id, state->signaling_seq, NULL);
+  slaves_msg_send(state, &signaling, sizeof(signaling), &state->general_svc);
+
+  state->signaling_seq++;
 }
 
 static void
@@ -865,6 +1030,19 @@ ptpd_send_announce_cb(int fd, short what, void *arg)
 }
 
 static void
+ptpd_send_signaling_cb(int fd, short what, void *arg)
+{
+  struct ptpd_state *state = arg;
+
+  if (state->num_slaves == 0)
+    return; // Don't reschedule
+
+  signaling_send(state);
+
+  event_add(state->send_signaling_timer, &ptpd_send_signaling_tv);
+}
+
+static void
 ptpd_send_sync_cb(int fd, short what, void *arg)
 {
   struct ptpd_state *state = arg;
@@ -979,6 +1157,7 @@ run(void *arg)
     goto stop;
 
   state->send_announce_timer = evtimer_new(state->evbase, ptpd_send_announce_cb, state);
+  state->send_signaling_timer = evtimer_new(state->evbase, ptpd_send_signaling_cb, state);
   state->send_sync_timer = evtimer_new(state->evbase, ptpd_send_sync_cb, state);
 
   state->is_running = true;
@@ -991,6 +1170,8 @@ run(void *arg)
  stop:
   if (state->send_announce_timer)
     event_free(state->send_announce_timer);
+  if (state->send_signaling_timer)
+    event_free(state->send_signaling_timer);
   if (state->send_sync_timer)
     event_free(state->send_sync_timer);
   service_stop(&state->general_svc);
@@ -1023,10 +1204,12 @@ ptpd_slave_add(const char *addr)
   if (slave_id < 0)
     return -1;
 
-  // Send announce immediately
+  // Trigger announce and signaling immediately
   event_active(ptpd.send_announce_timer, 0, 0);
+  event_active(ptpd.send_signaling_timer, 0, 0);
 
-  // Start sending SYNC's if not already running
+  // We should send sync's at specific interval, so if already running don't
+  // disturb the rhythm. I.e. only trigger if not running already.
   if (!event_pending(ptpd.send_sync_timer, EV_TIMEOUT, NULL))
     event_add(ptpd.send_sync_timer, &ptpd_send_sync_tv);
 
