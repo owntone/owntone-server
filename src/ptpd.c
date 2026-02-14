@@ -347,7 +347,7 @@ log_received(const char *name, struct ptp_header *header, uint64_t clock_id, str
 }
 #else
 static void
-log_received(const char *name, uint64_t clock_id, struct ptp_timestamp *ts)
+log_received(const char *name, struct ptp_header *header, uint64_t clock_id, struct ptp_timestamp *ts)
 {
   return;
 }
