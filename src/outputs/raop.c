@@ -2964,7 +2964,7 @@ packets_send(struct raop_master_session *rms)
       return -1;
     }
 
-  pkt = rtp_packet_next(rms->rtp_session, len, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE, 0);
+  pkt = rtp_packet_next(rms->rtp_session, len, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE);
 
   evbuffer_remove(rms->encoded_buffer, pkt->payload, pkt->payload_len);
 
@@ -2983,12 +2983,12 @@ packets_send(struct raop_master_session *rms)
       // Device just joined
       if (rs->state == RAOP_STATE_CONNECTED)
 	{
-	  pkt->header[1] = 0xe0;
+	  pkt->header[1] |= RTP_MARKER_BIT; // Set marker bit, value becomes 0xe0
 	  packet_send(rs, pkt);
+	  pkt->header[1] &= ~RTP_MARKER_BIT; // Clear marker bit
 	}
       else if (rs->state == RAOP_STATE_STREAMING)
 	{
-	  pkt->header[1] = 0x60;
 	  packet_send(rs, pkt);
 	}
     }
