@@ -205,6 +205,7 @@ struct airplay_extra
   uint16_t wanted_metadata;
   bool supports_auth_setup;
   bool supports_pairing_transient;
+  bool use_ptp;
 };
 
 struct airplay_master_session
@@ -224,7 +225,9 @@ struct airplay_master_session
   size_t rawbuf_size;
   uint32_t samples_per_packet;
 
+  // Session characteristics
   struct media_quality quality;
+  bool use_ptp;
 
   // Number of samples that we tell the output to buffer (this will mean that
   // the position that we send in the sync packages are offset by this amount
@@ -286,7 +289,6 @@ struct airplay_session
   unsigned short data_port;
   unsigned short control_port;
   unsigned short events_port;
-  unsigned short timing_port; // ATV4 has this set to 0, but it is not used by us anyway
 
   /* Pairing, see pair.h */
   enum pair_type pair_type;
@@ -304,7 +306,7 @@ struct airplay_session
   struct airplay_service *timing_svc;
   struct airplay_service *control_svc;
 
-  int ptpd_slave_id;
+  uint32_t ptpd_slave_id;
 
   struct airplay_session *next;
 };
@@ -1138,7 +1140,7 @@ master_session_cleanup(struct airplay_master_session *rms)
 }
 
 static struct airplay_master_session *
-master_session_make(struct media_quality *quality)
+master_session_make(struct media_quality *quality, bool use_ptp)
 {
   struct airplay_master_session *rms;
   uint64_t buffer_duration_ms;
@@ -1149,7 +1151,7 @@ master_session_make(struct media_quality *quality)
   // First check if we already have a suitable session
   for (rms = airplay_master_sessions; rms; rms = rms->next)
     {
-      if (quality_is_equal(quality, &rms->rtp_session->quality))
+      if (quality_is_equal(quality, &rms->rtp_session->quality) && use_ptp == rms->use_ptp)
 	return rms;
     }
 
@@ -1163,7 +1165,7 @@ master_session_make(struct media_quality *quality)
 
   CHECK_NULL(L_AIRPLAY, rms = calloc(1, sizeof(struct airplay_master_session)));
 
-  clock_id = ptpd_clock_id_get();
+  clock_id = use_ptp ? ptpd_clock_id_get() : 0;
 
   rms->rtp_session = rtp_session_new(quality, AIRPLAY_PACKET_BUFFER_SIZE, 0, clock_id);
   if (!rms->rtp_session)
@@ -1194,6 +1196,7 @@ master_session_make(struct media_quality *quality)
     }
 
   rms->quality = *quality;
+  rms->use_ptp = use_ptp;
   rms->samples_per_packet = AIRPLAY_SAMPLES_PER_PACKET;
   rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
   rms->output_buffer_samples = (buffer_duration_ms - AIRPLAY_AUDIO_LATENCY_MS) * quality->sample_rate / 1000;
@@ -1581,7 +1584,6 @@ session_make(struct output_device *rd, int callback_id)
 
   re = rd->extra_device_info;
 
-
   CHECK_NULL(L_AIRPLAY, rs = calloc(1, sizeof(struct airplay_session)));
   CHECK_NULL(L_AIRPLAY, rs->deferredev = evtimer_new(evbase_player, deferred_session_failure_cb, rs));
 
@@ -1616,7 +1618,7 @@ session_make(struct output_device *rd, int callback_id)
 	goto error;
     }
 
-  rs->master_session = master_session_make(&rd->quality);
+  rs->master_session = master_session_make(&rd->quality, re->use_ptp);
   if (!rs->master_session)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not attach a master session for device '%s'\n", rd->name);
@@ -2027,6 +2029,19 @@ packets_resend(struct airplay_session *rs, uint16_t seqnum, int len)
   DPRINTF(E_DBG, L_AIRPLAY, "Got retransmit request from '%s': seqnum %" PRIu16 " (len %d), next RTP session seqnum %" PRIu16 " (len %zu)\n",
     rs->devname, seqnum, len, rtp_session->seqnum, rtp_session->pktbuf_len);
 
+  // Seems iOS returns 80 d6 00 01 bd 0d 00 00 over control when the packet is
+  // not in buffer. And also  resends over control, which my amp doesn't
+  // understand, since it keeps asking.
+  // Example of resend over control (bd0d=seqnum 48397):
+  // 0x000000: 80 d6 00 ee 80 60 bd 0d b4 04 4e c0 00 00 00 00 .....`....N.....
+  // 0x000010: 99 cf 26 e3 fa a0 ed da 57 50 82 c8 be 1b 81 9e ..&.....WP......
+  // 0x000020: a4 a5 c5 3c 07 83 71 21 e2 91 89 6a 81 bb b0 d3 ...<..q!...j....
+  // 0x000030: f4 0e 5c 7f 84 14 1f 0d e6 63 83 26 7d b3 95 24 ..\......c.&}..$
+  // 0x000040: 0d 52 11 ef a5 fb 6f 9d 86 8e 69 28 79 0e 73 5b .R....o...i(y.s[
+  // 0x000050: 46 1f 04 2d 6b 7e 7f 1d 1e a6 46 04 7b f8 e3 80 F..-k~....F.{...
+  // 0x000060: 85 ff 11 4f f2 b5 de f7 cf 0f 7e 4b 55 e5 7b 25 ...O......~KU.{%
+  // 0x000070: 13 9a 5f c3 4e f4 9d d1 f5 cb...
+
   // Note that seqnum may wrap around, so we don't use it for counting
   for (i = 0, s = seqnum; i < len; i++, s++)
     {
@@ -2037,16 +2052,6 @@ packets_resend(struct airplay_session *rs, uint16_t seqnum, int len)
 	pkt_missing = true;
     }
 
-  // Seems iOS returns 80 d6 00 01 bd 0d 00 00 over control when packet not in buffer? And also
-  // resends over control, which my amp doesn't understand, since it keeps asking. Resend over control (bd0d=seqnum 48397):
-  // 0x000000: 80 d6 00 ee 80 60 bd 0d b4 04 4e c0 00 00 00 00 .....`....N.....
-  // 0x000010: 99 cf 26 e3 fa a0 ed da 57 50 82 c8 be 1b 81 9e ..&.....WP......
-  // 0x000020: a4 a5 c5 3c 07 83 71 21 e2 91 89 6a 81 bb b0 d3 ...<..q!...j....
-  // 0x000030: f4 0e 5c 7f 84 14 1f 0d e6 63 83 26 7d b3 95 24 ..\......c.&}..$
-  // 0x000040: 0d 52 11 ef a5 fb 6f 9d 86 8e 69 28 79 0e 73 5b .R....o...i(y.s[
-  // 0x000050: 46 1f 04 2d 6b 7e 7f 1d 1e a6 46 04 7b f8 e3 80 F..-k~....F.{...
-  // 0x000060: 85 ff 11 4f f2 b5 de f7 cf 0f 7e 4b 55 e5 7b 25 ...O......~KU.{%
-  // 0x000070: 13 9a 5f c3 4e f4 9d d1 f5 cb...
   if (pkt_missing)
     DPRINTF(E_WARN, L_AIRPLAY, "Device '%s' retransmit request for seqnum %" PRIu16 " (len %d) is outside buffer range (next seqnum %" PRIu16 ", len %zu)\n",
       rs->devname, seqnum, len, rtp_session->seqnum, rtp_session->pktbuf_len);
@@ -2063,7 +2068,7 @@ packets_send(struct airplay_master_session *rms)
   if (len < 0)
     return -1;
 
-  pkt = rtp_packet_next(rms->rtp_session, len, rms->samples_per_packet, AIRPLAY_RTP_PAYLOADTYPE, 0);
+  pkt = rtp_packet_next(rms->rtp_session, len, rms->samples_per_packet, AIRPLAY_RTP_PAYLOADTYPE);
 
   evbuffer_remove(rms->encoded_buffer, pkt->payload, pkt->payload_len);
 
@@ -2075,12 +2080,12 @@ packets_send(struct airplay_master_session *rms)
       // Device just joined
       if (rs->state == AIRPLAY_STATE_CONNECTED)
 	{
-	  pkt->header[1] = AIRPLAY_RTP_PAYLOADTYPE;
+	  pkt->header[1] |= RTP_MARKER_BIT; // Set marker bit, value becomes 0xe0
 	  packet_send(rs, pkt);
+	  pkt->header[1] &= ~RTP_MARKER_BIT; // Clear marker bit
 	}
       else if (rs->state == AIRPLAY_STATE_STREAMING)
 	{
-	  pkt->header[1] = AIRPLAY_RTP_PAYLOADTYPE;
 	  packet_send(rs, pkt);
 	}
     }
@@ -2142,7 +2147,7 @@ packets_sync_send(struct airplay_master_session *rms)
   is_sync_time = rtp_sync_is_time(rms->rtp_session);
 
   // Just used for logging, the clock shouldn't be too far from rms->cur_stamp.ts
-  clock_gettime(CLOCK_REALTIME, &ts);
+  clock_gettime(CLOCK_MONOTONIC, &ts);
 
   for (rs = airplay_sessions; rs; rs = rs->next)
     {
@@ -2160,8 +2165,9 @@ packets_sync_send(struct airplay_master_session *rms)
 	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, cur_stamp, 0x90);
 	  control_packet_send(rs, sync_pkt);
 
-	  DPRINTF(E_DBG, L_AIRPLAY, "Start sync packet sent to '%s': offset=%d, cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
-	    rs->devname, rs->offset_samples, cur_stamp.pos, (long)cur_stamp.ts.tv_sec, (long)cur_stamp.ts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec, rms->rtp_session->pos);
+	  DPRINTF(E_DBG, L_AIRPLAY, "Start sync packet sent to '%s': offset=%d, cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 ", timing=%s\n",
+	    rs->devname, rs->offset_samples, cur_stamp.pos, (long)cur_stamp.ts.tv_sec, (long)cur_stamp.ts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec,
+	    rms->rtp_session->pos, rms->use_ptp ? "PTP" : "NTP");
 	}
       else if (is_sync_time && rs->state == AIRPLAY_STATE_STREAMING)
 	{
@@ -2647,7 +2653,35 @@ payload_make_setpeers(struct evrtsp_request *req, struct airplay_session *rs, vo
 }
 
 static int
-payload_make_setup_session(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
+payload_make_setup_session_ntp(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
+{
+  plist_t root;
+  char device_id_colon[24];
+  uint8_t *data;
+  size_t len;
+  int ret;
+
+  device_id_colon_make(device_id_colon, sizeof(device_id_colon), airplay_device_id);
+
+  root = plist_new_dict();
+  wplist_dict_add_string(root, "deviceID", device_id_colon);
+  wplist_dict_add_string(root, "sessionUUID", rs->session_uuid);
+  wplist_dict_add_uint(root, "timingPort", rs->timing_svc->port);
+  wplist_dict_add_string(root, "timingProtocol", "NTP"); // If set to "None" then an ATV4 will not respond to stream SETUP request
+
+  ret = wplist_to_bin(&data, &len, root);
+  plist_free(root);
+
+  if (ret < 0)
+    return -1;
+
+  evbuffer_add(req->output_buffer, data, len);
+
+  return 0;
+}
+
+static int
+payload_make_setup_session_ptp(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
 {
   plist_t root;
   plist_t addresses;
@@ -2689,15 +2723,6 @@ payload_make_setup_session(struct evrtsp_request *req, struct airplay_session *r
   plist_dict_set_item(root, "timingPeerInfo", timingpeerinfo);
   plist_dict_set_item(root, "timingPeerList", timingpeerlist);
 
-  // groupUUID
-  // groupContainsGroupLeader
-
-  char *json;
-  uint32_t json_len;
-  plist_to_json(root, &json, &json_len, 1);
-
-  DPRINTF(E_LOG, L_AIRPLAY, "plist is %s\n", json);
-
   ret = wplist_to_bin(&data, &len, root);
   plist_free(root);
 
@@ -2707,6 +2732,15 @@ payload_make_setup_session(struct evrtsp_request *req, struct airplay_session *r
   evbuffer_add(req->output_buffer, data, len);
 
   return 0;
+}
+
+static int
+payload_make_setup_session(struct evrtsp_request *req, struct airplay_session *rs, void *arg)
+{
+  if (!rs->master_session->use_ptp)
+    return payload_make_setup_session_ntp(req, rs, arg);
+
+  return payload_make_setup_session_ptp(req, rs, arg);
 }
 
 /*
@@ -3019,7 +3053,7 @@ response_handler_setup_stream(struct evrtsp_request *req, struct airplay_session
       goto error;
     }
 
-  DPRINTF(E_DBG, L_AIRPLAY, "Negotiated UDP streaming session; ports d=%u c=%u t=%u e=%u\n", rs->data_port, rs->control_port, rs->timing_port, rs->events_port);
+  DPRINTF(E_DBG, L_AIRPLAY, "Negotiated UDP streaming session; ports d=%u c=%u e=%u\n", rs->data_port, rs->control_port, rs->events_port);
 
   rs->server_fd = net_connect(rs->address, rs->data_port, SOCK_DGRAM, "AirPlay data");
   if (rs->server_fd < 0)
@@ -3050,16 +3084,41 @@ response_handler_volume_start(struct evrtsp_request *req, struct airplay_session
   return AIRPLAY_SEQ_CONTINUE;
 }
 
+static int
+handle_timingpeerinfo(uint32_t *slave_id, plist_t response)
+{
+  plist_t item;
+  plist_t peer_addresses;
+  plist_t peer_address;
+  const char *ptr;
+  int ret;
+  int i;
+
+  item = plist_dict_get_item(response, "timingPeerInfo");
+  if (item && (peer_addresses = plist_dict_get_item(item, "Addresses")))
+    {
+      // Walk through addresses to get one from the right family
+      for (i = 0; (peer_address = plist_array_get_item(peer_addresses, i)); i++)
+	{
+	  ptr = plist_get_string_ptr(peer_address, NULL);
+	  if (!ptr)
+	    continue;
+
+	  ret = ptpd_slave_add(slave_id, ptr);
+	  if (ret == 0)
+	    return 0; // Just add the first good address, currently not sure what to do if we get more
+	}
+    }
+
+  return -1;
+}
+
 static enum airplay_seq_type
 response_handler_setup_session(struct evrtsp_request *req, struct airplay_session *rs)
 {
   plist_t response;
   plist_t item;
-  plist_t peer_addresses;
-  plist_t peer_address;
   uint64_t uintval;
-  const char *ptr;
-  int i;
   int ret;
 
   if (req->response_code == RTSP_UNAUTHORIZED)
@@ -3111,35 +3170,14 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
       DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", rs->devname, rs->events_port);
     }
 
-  // For PTP
-  item = plist_dict_get_item(response, "timingPeerInfo");
-  if (item && (peer_addresses = plist_dict_get_item(item, "Addresses")))
+  if (rs->master_session->use_ptp)
     {
-      // Walk through addresses to get one from the right family
-      for (i = 0; (peer_address = plist_array_get_item(peer_addresses, i)); i++)
+      ret = handle_timingpeerinfo(&rs->ptpd_slave_id, response);
+      if (ret < 0)
 	{
-	  ptr = plist_get_string_ptr(peer_address, NULL);
-	  if (!ptr)
-	    continue;
-
-	  rs->ptpd_slave_id = ptpd_slave_add(ptr);
-	  if (rs->ptpd_slave_id >= 0)
-	    break; // Just add the first good address, currently not sure what to do if we get more
+	  DPRINTF(E_WARN, L_AIRPLAY, "Could not add speaker '%s' as PTP peer\n", rs->devname);
+	  goto error;
 	}
-    }
-
-  if (rs->ptpd_slave_id < 0)
-    {
-      DPRINTF(E_WARN, L_AIRPLAY, "Could not add speaker '%s' as PTP peer\n", rs->devname);
-      goto error;
-    }
-
-  // Not used for PTP
-  item = plist_dict_get_item(response, "timingPort");
-  if (item)
-    {
-      plist_get_uint_val(item, &uintval);
-      rs->timing_port = uintval;
     }
 
   plist_free(response);
@@ -3947,6 +3985,8 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
     re->wanted_metadata |= AIRPLAY_MD_WANTS_TEXT;
   if (keyval_get(&features_kv, "Authentication_8"))
     re->supports_auth_setup = 1;
+  if (keyval_get(&features_kv, "SupportsPTP") && !(devcfg && cfg_getbool(devcfg, "ptp_disable")))
+    re->use_ptp = 1;
 
   if (keyval_get(&features_kv, "SupportsSystemPairing") || keyval_get(&features_kv, "SupportsCoreUtilsPairingAndEncryption"))
     re->supports_pairing_transient = 1;
@@ -4216,7 +4256,7 @@ airplay_init(void)
       goto out_stop_control;
     }
 
-  // libhash is just an input to make the clock id unique
+  // libhash is just a seed to make the clock id unique
   ret = ptpd_init(libhash);
   if (ret < 0)
     {

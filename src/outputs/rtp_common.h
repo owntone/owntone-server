@@ -5,6 +5,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#define RTP_MARKER_BIT (1 << 7)
+
 struct rtcp_timestamp
 {
   uint32_t pos;
@@ -104,13 +106,13 @@ struct rtp_session
   int sync_counter;
   struct rtp_packet sync_packet_next;
 
-  // For PTP
-  uint64_t clock_id;
+  // In addition to being the clock ID, non-zero means this is a PTP session
+  uint64_t ptp_clock_id;
 };
 
 
 struct rtp_session *
-rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples, uint64_t clock_id);
+rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples, uint64_t ptp_clock_id);
 
 void
 rtp_session_free(struct rtp_session *session);
@@ -125,12 +127,11 @@ rtp_session_flush(struct rtp_session *session);
  * @in  session       RTP session
  * @in  payload_len   Length of payload the packet needs to hold
  * @in  samples       Number of samples in packet
- * @in  payload_type  RTP payload type
- * @in  marker_bit    Marker bit, see RFC3551
+ * @in  payload_type  RTP payload type | marker bit, see RFC3551
  * @return            Pointer to the next packet in the packet buffer
  */
 struct rtp_packet *
-rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char payload_type, char marker_bit);
+rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char payload_type);
 
 /* Call this after finalizing a packet, i.e. writing the payload and possibly
  * sending. Registers the packet as final, i.e. it can now be retrieved with

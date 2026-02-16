@@ -37,8 +37,9 @@
 #include "misc.h"
 #include "rtp_common.h"
 
-#define RTP_HEADER_LEN        12
-#define RTCP_SYNC_PACKET_LEN  28
+#define RTP_HEADER_LEN            12
+#define RTCP_SYNC_PACKET_PTP_LEN  28
+#define RTCP_SYNC_PACKET_NTP_LEN  20
 
 // NTP timestamp definitions
 #define FRAC             4294967296. // 2^32 as a double
@@ -65,19 +66,20 @@ ntp_to_timespec(struct ntp_timestamp *ns, struct timespec *ts)
 }
 */
 struct rtp_session *
-rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples, uint64_t clock_id)
+rtp_session_new(struct media_quality *quality, int pktbuf_size, int sync_each_nsamples, uint64_t ptp_clock_id)
 {
   struct rtp_session *session;
 
   CHECK_NULL(L_PLAYER, session = calloc(1, sizeof(struct rtp_session)));
 
-  // Random SSRC ID, RTP time start and sequence start
-//  gcry_randomize(&session->ssrc_id, sizeof(session->ssrc_id), GCRY_STRONG_RANDOM);
-  session->ssrc_id = 0; // Possibly always zero for PTP and buffered?
   gcry_randomize(&session->pos, sizeof(session->pos), GCRY_STRONG_RANDOM);
   gcry_randomize(&session->seqnum, sizeof(session->seqnum), GCRY_STRONG_RANDOM);
 
-  session->clock_id = clock_id;
+  // ssrc_id is zero if it's a ptp session
+  if (ptp_clock_id)
+    session->ptp_clock_id = ptp_clock_id;
+  else
+    gcry_randomize(&session->ssrc_id, sizeof(session->ssrc_id), GCRY_STRONG_RANDOM);
 
   if (quality)
     session->quality = *quality;
@@ -116,7 +118,7 @@ rtp_session_flush(struct rtp_session *session)
 // We don't want the caller to malloc payload for every packet, so instead we
 // will get him a packet from the ring buffer, thus in most cases reusing memory
 struct rtp_packet *
-rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char payload_type, char marker_bit)
+rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char payload_type)
 {
   struct rtp_packet *pkt;
   uint16_t seq;
@@ -157,7 +159,7 @@ rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, ch
   //   |           synchronization source (SSRC) identifier            |
   //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   pkt->header[0] = 0x80; // Version = 2, P, X and CC are 0
-  pkt->header[1] = payload_type;
+  pkt->header[1] = payload_type; // M and payload type
 
   seq = htobe16(session->seqnum);
   memcpy(pkt->header + 2, &seq, 2);
@@ -243,7 +245,7 @@ rtp_sync_is_time(struct rtp_session *session)
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //   |V=2|P|M|   -   |       PT      |               ?               |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |          rtptime of first packet minus latency of 77075       |
+//   |          rtptime of first packet minus latency of 77175       |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //   |                          Wall clock time                      |
 //   |                                                               |
@@ -253,42 +255,106 @@ rtp_sync_is_time(struct rtp_session *session)
 //   |                            Clock ID                           |
 //   |                                                               |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-struct rtp_packet *
-rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, char type)
+static void
+sync_packet_ptp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t pos, char type, uint64_t ptp_clock_id)
 {
   uint32_t cur_pos;
   uint64_t cur_ns;
   uint32_t rtptime;
   uint64_t clock_id;
 
-  if (!session->sync_packet_next.data)
-    {
-      CHECK_NULL(L_PLAYER, session->sync_packet_next.data = malloc(RTCP_SYNC_PACKET_LEN));
-      session->sync_packet_next.data_len = RTCP_SYNC_PACKET_LEN;
-    }
+  data[0] = type; // 0x90 with stream start marker (M=1)
+  data[1] = 0xd7; // PT 215 Time announce
 
-  session->sync_packet_next.data[0] = type; // 0x90 with stream start marker (M=1)
-  session->sync_packet_next.data[1] = 0xd7; // PT 215 Time announce
-
-  session->sync_packet_next.data[2] = 0x00;
-  session->sync_packet_next.data[3] = 0x06;
+  data[2] = 0x00;
+  data[3] = 0x06;
 
   cur_pos = htobe32(cur_stamp.pos);
-  memcpy(session->sync_packet_next.data + 4, &cur_pos, 4);
+  memcpy(data + 4, &cur_pos, 4);
 
   cur_ns = cur_stamp.ts.tv_sec;
   cur_ns *= 1000000000;
   cur_ns += cur_stamp.ts.tv_nsec;
   cur_ns = htobe64(cur_ns);
-  memcpy(session->sync_packet_next.data + 8, &cur_ns, 8);
+  memcpy(data + 8, &cur_ns, 8);
 
-  rtptime = htobe32(session->pos);
-  memcpy(session->sync_packet_next.data + 16, &rtptime, 4);
+  rtptime = htobe32(pos);
+  memcpy(data + 16, &rtptime, 4);
 
-  clock_id = htobe64(session->clock_id);
-  memcpy(session->sync_packet_next.data + 20, &clock_id, 8);
+  clock_id = htobe64(ptp_clock_id);
+  memcpy(data + 20, &clock_id, 8);
+}
 
-  return &session->sync_packet_next;
+// Example first raw packet, Apple Music, AirPlay 1 (20 bytes)
+// 90d40007 3e93bbf3 83b08f19 ba24ea9b 3e95147b
+//
+//    0                   1                   2                   3
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |V=2|P|M|   -   |       PT      |               ?               |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |          rtptime of first packet minus latency of 88200       |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                          Wall clock time                      |
+//   |                                                               |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |                     rtptime of first packet                   |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+static void
+sync_packet_ntp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t pos, char type)
+{
+  struct ntp_timestamp cur_ts;
+  uint32_t rtptime;
+  uint32_t cur_pos;
+
+  data[0] = type;
+  data[1] = 0xd4;
+
+  // AirPlay 1/RAOP:
+  // These values are used by iTunes/Apple Music, and according to
+  // shairport-sync's rtp.c they tell the speaker to add a 11025 sample latency.
+  // rtp.c says pure AirPlay uses 0x04, which doesn't add the latency. However,
+  // testing with my own AirPlay receiver, I couldn't confirm that 0x04 doesn't
+  // add a latency. Safest bet is to use the same as iTunes/Apple Music.
+  // AirPlay 2:
+  // Values don't seem to be used, instead the latency is communicated via
+  // latencyMin in the SETUP stream request.
+  data[2] = 0x00;
+  data[3] = 0x07;
+
+  timespec_to_ntp(&cur_stamp.ts, &cur_ts);
+
+  cur_pos = htobe32(cur_stamp.pos);
+  memcpy(data + 4, &cur_pos, 4);
+
+  cur_ts.sec = htobe32(cur_ts.sec);
+  cur_ts.frac = htobe32(cur_ts.frac);
+  memcpy(data + 8, &cur_ts.sec, 4);
+  memcpy(data + 12, &cur_ts.frac, 4);
+
+  rtptime = htobe32(pos + 11025); // Latency matching the above 0x07
+  memcpy(data + 16, &rtptime, 4);
+}
+
+struct rtp_packet *
+rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, char type)
+{
+  struct rtp_packet *pkt = &session->sync_packet_next;
+
+  // One-off allocation of some permanent space for the packet data
+  if (!pkt->data)
+    {
+      pkt->data_size = session->ptp_clock_id ? RTCP_SYNC_PACKET_PTP_LEN : RTCP_SYNC_PACKET_NTP_LEN;
+      pkt->data_len = pkt->data_size;
+      CHECK_NULL(L_PLAYER, pkt->data = malloc(pkt->data_size));
+    }
+
+  if (session->ptp_clock_id)
+    sync_packet_ptp_make(pkt->data, cur_stamp, session->pos, type, session->ptp_clock_id);
+  else
+    sync_packet_ntp_make(pkt->data, cur_stamp, session->pos, type);
+
+  return pkt;
 }
 
 int

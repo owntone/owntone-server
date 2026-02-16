@@ -968,7 +968,7 @@ packet_make(struct cast_master_session *cms)
     return -1;
 
   // For audio it is always a complete frame, so marker bit is 1 (like Chromium does)
-  pkt = rtp_packet_next(cms->rtp_session, CAST_HEADER_SIZE + len, cms->samples_per_packet, CAST_RTP_PAYLOADTYPE_AUDIO, 1);
+  pkt = rtp_packet_next(cms->rtp_session, CAST_HEADER_SIZE + len, cms->samples_per_packet, CAST_RTP_PAYLOADTYPE_AUDIO | RTP_MARKER_BIT);
 
   // Creates Cast header + adds payload
   ret = packet_prepare(pkt, cast_encoded_data);
@@ -1861,7 +1861,7 @@ master_session_make(struct media_quality *quality)
 
   CHECK_NULL(L_CAST, cms = calloc(1, sizeof(struct cast_master_session)));
 
-  CHECK_NULL(L_CAST, cms->rtp_session = rtp_session_new(quality, CAST_PACKET_BUFFER_SIZE, 0));
+  CHECK_NULL(L_CAST, cms->rtp_session = rtp_session_new(quality, CAST_PACKET_BUFFER_SIZE, 0, 0));
   // Change the SSRC to be in the interval [CAST_SSRC_AUDIO_MIN, CAST_SSRC_AUDIO_MAX]
   cms->rtp_session->ssrc_id = ((cms->rtp_session->ssrc_id + CAST_SSRC_AUDIO_MIN) % CAST_SSRC_AUDIO_MAX) + CAST_SSRC_AUDIO_MIN;
 
@@ -1874,7 +1874,7 @@ master_session_make(struct media_quality *quality)
   CHECK_NULL(L_CAST, cms->rawbuf = malloc(cms->rawbuf_size));
   CHECK_NULL(L_CAST, cms->evbuf = evbuffer_new());
 
-  CHECK_NULL(L_CAST, cms->rtp_artwork = rtp_session_new(NULL, CAST_PACKET_ARTWORK_SIZE, 0));
+  CHECK_NULL(L_CAST, cms->rtp_artwork = rtp_session_new(NULL, CAST_PACKET_ARTWORK_SIZE, 0, 0));
   // Change the SSRC to be in the interval [CAST_SSRC_VIDEO_MIN, CAST_SSRC_VIDEO_MAX]
   cms->rtp_artwork->ssrc_id = ((cms->rtp_artwork->ssrc_id + CAST_SSRC_VIDEO_MIN) % CAST_SSRC_VIDEO_MAX) + CAST_SSRC_VIDEO_MIN;
 
@@ -2347,7 +2347,7 @@ cast_metadata_send(struct output_metadata *metadata)
 	continue;
 
       // Marker bit is 1 because we send a complete frame
-      pkt = rtp_packet_next(cs->master_session->rtp_artwork, CAST_HEADER_SIZE + artwork_size, 1, CAST_RTP_PAYLOADTYPE_VIDEO, 1);
+      pkt = rtp_packet_next(cs->master_session->rtp_artwork, CAST_HEADER_SIZE + artwork_size, 1, CAST_RTP_PAYLOADTYPE_VIDEO | RTP_MARKER_BIT);
       if (!pkt)
 	continue;
 
