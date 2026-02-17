@@ -371,7 +371,7 @@
       "spotify": {
         "authorize": "授权 API 访问",
         "grant-access": "授予对 Spotify API 的访问权限",
-        "no-support": "OwnTone的构建没有来自 Spotify 官方的支持，也未安装 libspotify",
+        "no-support": "OwnTone在开发时未支持Spotify",
         "reauthorize": "请重新授权 API 访问权限，以授予 OwnTone 以下附加访问权限：{scopes}",
         "requirements": "您必须拥有 Spotify付费帐户。访问 Spotify API 可以扫描您的 Spotify库。所需范围是：{scopes}",
         "title": "Spotify",
