@@ -30,11 +30,13 @@
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@intlify/unplugin-vue-i18n": "^11.0.7",
     "@vitejs/plugin-vue": "^6.0.4",
     "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.8.0",
+    "globals": "^17.3.0",
     "prettier": "^3.8.1",
     "sass": "~1.94.3",
     "vite": "^7.3.1"
