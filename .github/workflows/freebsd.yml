@@ -35,7 +35,7 @@ jobs:
 
         run: |
           autoreconf -vif
-          export CFLAGS="${ARCH} -g -I/usr/local/include -I/usr/include"
+          export CFLAGS="-g -I/usr/local/include -I/usr/include"
           export LDFLAGS="-L/usr/local/lib -L/usr/lib"
           ./configure --disable-install-system
           gmake
