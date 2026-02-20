@@ -41,6 +41,7 @@
 #include <uninorm.h>
 #include <unistd.h>
 
+#include <gcrypt.h>
 #include <event2/event.h>
 
 #include "httpd_internal.h"
@@ -226,10 +227,13 @@ daap_session_add(bool is_remote, int request_session_id)
 
       s->id = request_session_id;
     }
-  else
+  else do
     {
-      while ( (s->id = rand() + 100) && daap_session_get(s->id) );
+      gcry_randomize(&s->id, sizeof(s->id), GCRY_STRONG_RANDOM);
+      if (s->id < 100)
+	s->id += 100;
     }
+  while (daap_session_get(s->id) != NULL);
 
   s->mtime = time(NULL);
 
