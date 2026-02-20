@@ -89,7 +89,7 @@ enum daap_reply_result
 };
 
 struct daap_session {
-  int id;
+  uint32_t id;
   time_t mtime;
   bool is_remote;
 
@@ -166,7 +166,7 @@ daap_session_remove(struct daap_session *s)
 }
 
 static struct daap_session *
-daap_session_get(int id)
+daap_session_get(uint32_t id)
 {
   struct daap_session *s;
 
@@ -200,7 +200,7 @@ daap_session_cleanup(void)
 
       if ((difftime(now, s->mtime) > DAAP_SESSION_TIMEOUT) || (count > DAAP_SESSION_MAX))
 	{
-	  DPRINTF(E_LOG, L_DAAP, "Cleaning up DAAP session (id %d)\n", s->id);
+	  DPRINTF(E_LOG, L_DAAP, "Cleaning up DAAP session (id %" PRIu32 ")\n", s->id);
 
 	  daap_session_remove(s);
 	}
@@ -208,7 +208,7 @@ daap_session_cleanup(void)
 }
 
 static struct daap_session *
-daap_session_add(bool is_remote, int request_session_id)
+daap_session_add(bool is_remote, uint32_t request_session_id)
 {
   struct daap_session *s;
 
@@ -686,10 +686,17 @@ daap_reply_send(struct httpd_request *hreq, enum daap_reply_result result)
     }
 }
 
+// The request is authorized if one of these conditions is met:
+//
+// a) the client's address is in 'trusted_networks'
+// b) the client has a pairing-guid we know about (Remotes)
+// c) the client has a session id we know about
+// d) the client has valid password for httpd_basic_auth (iTunes/Apple Music)
 static int
 daap_request_authorize(struct httpd_request *hreq)
 {
-  struct daap_session *session = hreq->extra_data;
+  struct daap_session *session;
+  struct pairing_info pi = { 0 };
   const char *param;
   char *passwd;
   int ret;
@@ -697,50 +704,56 @@ daap_request_authorize(struct httpd_request *hreq)
   if (httpd_request_is_trusted(hreq))
     return 0;
 
-  // Regular DAAP clients like iTunes will login with /login, and we will reply
-  // with httpd_basic_auth() if a library password is set. Remote clients will
-  // also call /login, but they should not get a httpd_basic_auth(), instead
-  // daap_reply_login() will take care of auth.
-  if (session->is_remote && (strcmp(hreq->path, "/login") == 0))
-    return 0;
-
-  param = httpd_query_value_find(hreq->query, "session-id");
+  param = httpd_query_value_find(hreq->query, "pairing-guid");
   if (param)
     {
-      if (session->id == 0)
+      if (strlen(param) < 3)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s', DAAP session not found: '%s'\n", hreq->peer_address, hreq->uri);
-
-	  httpd_send_error(hreq, HTTP_UNAUTHORIZED, "Unauthorized");;
-	  return -1;
+	  DPRINTF(E_LOG, L_DAAP, "Request from %s with invalid pairing-guid: %s\n", hreq->peer_address, param);
+	  goto unauthorized;
 	}
 
+      pi.guid = strdup(param + 2); /* Skip leading 0X */
+
+      ret = db_pairing_fetch_byguid(&pi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Request from %s with invalid pairing-guid: %s\n", hreq->peer_address, param);
+	  free_pi(&pi, 1);
+	  goto unauthorized;
+	}
+
+      DPRINTF(E_INFO, L_DAAP, "Remote '%s' (%s) logging in with GUID %s\n", pi.name, hreq->peer_address, pi.guid);
+      free_pi(&pi, 1);
+      return 0;
+    }
+
+  session = hreq->extra_data;
+  if (session && session->id != 0)
+    {
       session->mtime = time(NULL);
       return 0;
     }
 
   passwd = cfg_getstr(cfg_getsec(cfg, "library"), "password");
   if (!passwd)
-    return 0;
-
-  // If no valid session then we may need to authenticate
-  if ((strcmp(hreq->path, "/server-info") == 0)
-      || (strcmp(hreq->path, "/logout") == 0)
-      || (strcmp(hreq->path, "/content-codes") == 0)
-      || (strncmp(hreq->path, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
-    return 0; // No authentication
-
-  DPRINTF(E_DBG, L_DAAP, "Checking authentication for library\n");
-
-  // We don't care about the username
-  ret = httpd_basic_auth(hreq, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
-  if (ret != 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Unsuccessful library authorization attempt from '%s'\n", hreq->peer_address);
-      return -1;
+      DPRINTF(E_LOG, L_DAAP, "Unauthorized request from '%s'\n", hreq->peer_address);
+      goto unauthorized;
     }
 
-  return 0;
+  ret = httpd_basic_auth(hreq, NULL, passwd, cfg_getstr(cfg_getsec(cfg, "library"), "name"));
+  if (ret == 0)
+    {
+      return 0;
+    }
+
+  // httpd_basic_auth sent a response, so we just exit
+  return -1;
+
+ unauthorized:
+  httpd_send_error(hreq, HTTP_UNAUTHORIZED, "Unauthorized");;
+  return -1;
 }
 
 
@@ -886,68 +899,34 @@ daap_reply_content_codes(struct httpd_request *hreq)
   return DAAP_REPLY_OK;
 }
 
+// We don't check credentials here, that's done by daap_request_authorize()
 static enum daap_reply_result
 daap_reply_login(struct httpd_request *hreq)
 {
-  struct daap_session *adhoc = hreq->extra_data;
+  struct daap_session *dummy = hreq->extra_data;
   struct daap_session *session;
-  struct pairing_info pi;
   const char *param;
-  int request_session_id;
+  uint32_t request_session_id = 0;
   int ret;
 
-  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 32));
-
-  param = httpd_query_value_find(hreq->query, "pairing-guid");
-  if (param && !httpd_request_is_trusted(hreq))
-    {
-      if (strlen(param) < 3)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Login attempt from %s with invalid pairing-guid: %s\n", hreq->peer_address, param);
-	  return DAAP_REPLY_FORBIDDEN;
-	}
-
-      memset(&pi, 0, sizeof(struct pairing_info));
-      pi.guid = strdup(param + 2); /* Skip leading 0X */
-
-      ret = db_pairing_fetch_byguid(&pi);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Login attempt from %s with invalid pairing-guid: %s\n", hreq->peer_address, param);
-	  free_pi(&pi, 1);
-	  return DAAP_REPLY_FORBIDDEN;
-	}
-
-      DPRINTF(E_INFO, L_DAAP, "Remote '%s' (%s) logging in with GUID %s\n", pi.name, hreq->peer_address, pi.guid);
-      free_pi(&pi, 1);
-    }
-  else
-    {
-      if (hreq->user_agent)
-        DPRINTF(E_INFO, L_DAAP, "Client '%s' logging in from %s\n", hreq->user_agent, hreq->peer_address);
-      else
-        DPRINTF(E_INFO, L_DAAP, "Client (unknown user-agent) logging in from %s\n", hreq->peer_address);
-    }
+  DPRINTF(E_INFO, L_DAAP, "Client '%s' logging in from %s\n", hreq->user_agent ? hreq->user_agent : "(no user-agent)", hreq->peer_address);
 
   param = httpd_query_value_find(hreq->query, "request-session-id");
   if (param)
     {
-      ret = safe_atoi32(param, &request_session_id);
+      ret = safe_atou32(param, &request_session_id);
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Login request where request-session-id is not an integer\n");
-	  request_session_id = 0;
-	}
+	DPRINTF(E_LOG, L_DAAP, "Login request where request-session-id is not an integer\n");
     }
-  else
-    request_session_id = 0;
 
-  session = daap_session_add(adhoc->is_remote, request_session_id);
+  session = daap_session_add(dummy->is_remote, request_session_id);
   if (!session)
     {
       dmap_error_make(hreq->out_body, "mlog", "Could not start session");
       return DAAP_REPLY_ERROR;
     }
+
+  CHECK_ERR(L_DAAP, evbuffer_expand(hreq->out_body, 32));
 
   dmap_add_container(hreq->out_body, "mlog", 24);
   dmap_add_int(hreq->out_body, "mstt", 200);          /* 12 */
@@ -2221,7 +2200,7 @@ daap_request(struct httpd_request *hreq)
   struct timespec end;
   struct daap_session session;
   const char *param;
-  int32_t id;
+  uint32_t id;
   int ret;
   int msec;
 
@@ -2236,14 +2215,14 @@ daap_request(struct httpd_request *hreq)
   param = httpd_query_value_find(hreq->query, "session-id");
   if (param)
     {
-      ret = safe_atoi32(param, &id);
+      ret = safe_atou32(param, &id);
       if (ret < 0)
 	DPRINTF(E_LOG, L_DAAP, "Ignoring non-numeric session id in DAAP request: '%s'\n", hreq->uri);
       else
 	hreq->extra_data = daap_session_get(id);
     }
 
-  // Create an ad-hoc session, which is a way of passing is_remote to the handler, even though no real session exists
+  // Create a dummy session to pass is_remote to the handler
   if (!hreq->extra_data)
     {
       memset(&session, 0, sizeof(struct daap_session));
@@ -2251,10 +2230,11 @@ daap_request(struct httpd_request *hreq)
       hreq->extra_data = &session;
     }
 
-  ret = daap_request_authorize(hreq);
-  if (ret < 0)
+  if (strcmp(hreq->path, "/server-info") != 0 && strcmp(hreq->path, "/content-codes") != 0)
     {
-      return;
+      ret = daap_request_authorize(hreq);
+      if (ret < 0)
+	return; // daap_request_authorize will have sent a response
     }
 
   // Set reply headers
@@ -2292,7 +2272,7 @@ daap_request(struct httpd_request *hreq)
 }
 
 int
-daap_session_is_valid(int id)
+daap_session_is_valid(uint32_t id)
 {
   struct daap_session *session;
 

@@ -597,7 +597,7 @@ static int
 dacp_request_authorize(struct httpd_request *hreq)
 {
   const char *param;
-  int32_t id;
+  uint32_t id;
   int ret;
 
   if (httpd_request_is_trusted(hreq))
@@ -610,7 +610,7 @@ dacp_request_authorize(struct httpd_request *hreq)
       goto invalid;
     }
 
-  ret = safe_atoi32(param, &id);
+  ret = safe_atou32(param, &id);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Invalid session-id specified in request: '%s'\n", param);
