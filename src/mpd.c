@@ -3133,7 +3133,7 @@ mpd_command_password(struct mpd_command_output *out, struct mpd_command_input *i
 
   required_password = cfg_getstr(cfg_getsec(cfg, "library"), "password");
   password_is_required = required_password && required_password[0] != '\0';
-  if (password_is_required && strcmp(supplied_password, required_password) != 0)
+  if (password_is_required && constant_time_strcmp(supplied_password, required_password) != 0)
     RETURN_ERROR(ACK_ERROR_PASSWORD, "Wrong password. Authentication failed.");
 
   ctx->authenticated = true;
