@@ -1152,6 +1152,30 @@ atrim(const char *str)
   return result;
 }
 
+int
+constant_time_strcmp(const char *a, const char *b)
+{
+  size_t len_a = strlen(a);
+  size_t len_b = strlen(b);
+  size_t max_len;
+  volatile int result = 0;
+  volatile char ca;
+  volatile char cb;
+  size_t i;
+
+  // Always compare full length to prevent timing leak
+  max_len = MAX(len_a, len_b);
+  for (i = 0; i < max_len; i++)
+    {
+      ca = (i < len_a) ? a[i] : 0;
+      cb = (i < len_b) ? b[i] : 0;
+      result |= ca ^ cb;
+    }
+
+  result |= len_a ^ len_b;
+  return result;
+}
+
 void
 swap_pointers(char **a, char **b)
 {

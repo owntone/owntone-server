@@ -141,6 +141,10 @@ trim(char *str);
 char *
 atrim(const char *str);
 
+// Safe against timing attacks (for comparing passwords)
+int
+constant_time_strcmp(const char *a, const char *b);
+
 void
 swap_pointers(char **a, char **b);
 
