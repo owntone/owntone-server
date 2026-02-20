@@ -1,13 +1,16 @@
 OwnTone is maintained by:
 
  - Espen Jürgensen <espenjurgensen@gmail.com>
- - Christian Meffert <christian.meffert@googlemail.com>
+ - Alain Nussbaumer <alain.nussbaumer@alleluia.ch>
 
 Up until version 27.4 it was called forked-daapd.
 
 forked-daapd up until 0.19 was written by Julien BLACHE <jb@jblache.org>. It was
 build on mt-daapd (Firefly Media Server), which was originally written by Ron
 Pedde <ron@pedde.com> and a handful of contributors.
+
+Honourable mention to Christian Meffert <christian.meffert@googlemail.com> for
+many significant contributions.
 
 For a complete list of contributers, please see:
 https://github.com/owntone/owntone-server/graphs/contributors
