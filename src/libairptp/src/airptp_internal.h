@@ -73,7 +73,7 @@ struct airptp_service
 struct airptp_peer
 {
   uint32_t id;
-  union net_sockaddr naddr;
+  union utils_net_sockaddr naddr;
   socklen_t naddr_len;
   bool is_active;
   uint64_t last_seen;
@@ -126,12 +126,12 @@ struct airptp_handle
 };
 
 void
-hexdump(const char *msg, void *data, size_t data_len);
+airptp_hexdump(const char *msg, void *data, size_t data_len);
 
 void
-logmsg(const char *fmt, ...);
+airptp_logmsg(const char *fmt, ...);
 
 void
-thread_name_set(const char *name);
+airptp_thread_name_set(const char *name);
 
 #endif // __AIRPTP_INTERNAL_H__

@@ -20,7 +20,7 @@
 
 #define ARRAY_SIZE(x) ((unsigned int)(sizeof(x) / sizeof((x)[0])))
 
-union net_sockaddr
+union utils_net_sockaddr
 {
   struct sockaddr_in sin;
   struct sockaddr_in6 sin6;
@@ -29,15 +29,15 @@ union net_sockaddr
 };
 
 int
-net_bind(const char *node, unsigned short port);
+utils_net_bind(const char *node, unsigned short port);
 
 int
-net_sockaddr_get(union net_sockaddr *naddr, const char *addr, unsigned short port);
+utils_net_sockaddr_get(union utils_net_sockaddr *naddr, const char *addr, unsigned short port);
 
 int
-net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr);
+utils_net_address_get(char *addr, size_t addr_len, union utils_net_sockaddr *naddr);
 
 uint32_t
-djb_hash(const void *data, size_t len);
+utils_djb_hash(const void *data, size_t len);
 
 #endif // __AIRPTP_UTILS_H__

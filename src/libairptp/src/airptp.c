@@ -37,7 +37,7 @@ SOFTWARE.
 #include "airptp_internal.h"
 #include "ptp_definitions.h"
 #include "daemon.h"
-#include "msg_handle.h"
+#include "ptp_msg_handle.h"
 
 
 /* -------------------------------- Globals --------------------------------- */
@@ -49,7 +49,7 @@ struct airptp_callbacks __thread airptp_cb;
 const char __thread *airptp_errmsg;
 
 void
-hexdump(const char *msg, void *data, size_t data_len)
+airptp_hexdump(const char *msg, void *data, size_t data_len)
 {
   if (!airptp_cb.hexdump)
     return;
@@ -58,7 +58,7 @@ hexdump(const char *msg, void *data, size_t data_len)
 }
 
 void
-logmsg(const char *fmt, ...)
+airptp_logmsg(const char *fmt, ...)
 {
   va_list ap;
   char content[2048];
@@ -78,7 +78,7 @@ logmsg(const char *fmt, ...)
 }
 
 void
-thread_name_set(const char *name)
+airptp_thread_name_set(const char *name)
 {
   if (!airptp_cb.thread_name_set)
     return;
@@ -107,11 +107,11 @@ airptp_daemon_bind(void)
   int fd_general = -1;
   int ret __attribute__((unused));
 
-  fd_event = net_bind(NULL, airptp_event_port);
+  fd_event = utils_net_bind(NULL, airptp_event_port);
   if (fd_event < 0)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to event port (usually 319)");
 
-  fd_general = net_bind(NULL, airptp_general_port);
+  fd_general = utils_net_bind(NULL, airptp_general_port);
   if (fd_general < 0)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to general port (usually 320)");
 
@@ -227,13 +227,13 @@ airptp_peer_add(uint32_t *peer_id, const char *addr, struct airptp_handle *hdl)
   if (hdl->state != AIRPTP_STATE_RUNNING)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Can't add peer, no airptp daemon");
 
-  if (net_sockaddr_get(&peer.naddr, addr, 0) < 0)
+  if (utils_net_sockaddr_get(&peer.naddr, addr, 0) < 0)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Can't add peer, address is invalid");
 
-  peer.id = djb_hash(addr, strlen(addr));
+  peer.id = utils_djb_hash(addr, strlen(addr));
   peer.naddr_len = (peer.naddr.sa.sa_family == AF_INET6) ? sizeof(peer.naddr.sin6) : sizeof(peer.naddr.sin);
 
-  ret = msg_peer_add_send(&peer, hdl, airptp_general_port);
+  ret = ptp_msg_peer_add_send(&peer, hdl, airptp_general_port);
   if (ret < 0)
     RETURN_ERROR(AIRPTP_ERR_NOCONNECTION, "Can't add peer, connection to airptp daemon broken");
 
@@ -252,7 +252,7 @@ airptp_peer_remove(uint32_t peer_id, struct airptp_handle *hdl)
 
   peer.id = peer_id;
 
-  msg_peer_del_send(&peer, hdl, airptp_general_port);
+  ptp_msg_peer_del_send(&peer, hdl, airptp_general_port);
 }
 
 int
