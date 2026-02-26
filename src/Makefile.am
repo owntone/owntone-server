@@ -150,6 +150,8 @@ EXTRA_DIST = \
 	$(GPERF_FILES) \
 	$(LEXER_SRC:.l=.h)
 
+SUBDIRS = libairptp
+
 # gperf construction rules
 %_hash.h: %.gperf
 	$(AM_V_GEN)$(GPERF) --output-file=$@ $<
