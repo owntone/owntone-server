@@ -1,7 +1,3 @@
-if COND_SPOTIFY
-LIBRESPOTC_SUBDIR=src/inputs/librespot-c
-endif
-
 ACLOCAL_AMFLAGS = -I m4
 
 RPM_SPEC_FILE = owntone.spec
@@ -16,7 +12,7 @@ endif
 
 BUILT_SOURCES = $(CONF_FILE) $(SYSTEMD_SERVICE_FILE) $(SYSTEMD_TSERVICE_FILE)
 
-SUBDIRS = $(LIBRESPOTC_SUBDIR) sqlext src htdocs
+SUBDIRS = sqlext src htdocs
 
 dist_man_MANS = owntone.8
 

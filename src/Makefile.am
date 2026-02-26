@@ -5,6 +5,7 @@ if COND_SPOTIFY
 SPOTIFY_SRC = \
 	library/spotify_webapi.c library/spotify_webapi.h \
 	inputs/spotify.c inputs/spotify.h inputs/spotify_librespotc.c
+LIBRESPOTC_SUBDIR=inputs/librespot-c
 endif
 
 if COND_LASTFM
@@ -150,7 +151,7 @@ EXTRA_DIST = \
 	$(GPERF_FILES) \
 	$(LEXER_SRC:.l=.h)
 
-SUBDIRS = libairptp
+SUBDIRS = $(LIBRESPOTC_SUBDIR) libairptp
 
 # gperf construction rules
 %_hash.h: %.gperf
