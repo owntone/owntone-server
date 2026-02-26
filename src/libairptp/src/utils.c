@@ -43,7 +43,7 @@ SOFTWARE.
 extern struct airptp_callbacks __thread airptp_cb;
 
 int
-net_bind(const char *node, unsigned short port)
+utils_net_bind(const char *node, unsigned short port)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
@@ -115,9 +115,9 @@ net_bind(const char *node, unsigned short port)
 }
 
 int
-net_sockaddr_get(union net_sockaddr *naddr, const char *addr, unsigned short port)
+utils_net_sockaddr_get(union utils_net_sockaddr *naddr, const char *addr, unsigned short port)
 {
-  memset(naddr, 0, sizeof(union net_sockaddr));
+  memset(naddr, 0, sizeof(union utils_net_sockaddr));
 
   if (inet_pton(AF_INET, addr, &naddr->sin.sin_addr) == 1)
     {
@@ -137,7 +137,7 @@ net_sockaddr_get(union net_sockaddr *naddr, const char *addr, unsigned short por
 }
 
 int
-net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr)
+utils_net_address_get(char *addr, size_t addr_len, union utils_net_sockaddr *naddr)
 {
   const char *s = NULL;
 
@@ -155,7 +155,7 @@ net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr)
 }
 
 uint32_t
-djb_hash(const void *data, size_t len)
+utils_djb_hash(const void *data, size_t len)
 {
   const unsigned char *bytes = data;
   uint32_t hash = 5381;
