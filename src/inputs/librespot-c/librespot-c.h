@@ -6,7 +6,7 @@
 #include <pthread.h>
 
 #define LIBRESPOT_C_VERSION_MAJOR 0
-#define LIBRESPOT_C_VERSION_MINOR 7
+#define LIBRESPOT_C_VERSION_MINOR 8
 
 
 struct sp_session;
@@ -56,7 +56,7 @@ struct sp_callbacks
   void (*tcp_disconnect)(int fd);
 
   // Optional - set name of thread
-  void (*thread_name_set)(pthread_t thread);
+  void (*thread_name_set)(void);
 
   // Debugging
   void (*hexdump)(const char *msg, uint8_t *data, size_t data_len);

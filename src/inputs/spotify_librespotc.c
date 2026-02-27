@@ -238,7 +238,7 @@ tcp_disconnect(int fd)
 }
 
 static void
-thread_name_set(pthread_t thread)
+thread_name_set(void)
 {
   thread_setname("spotify");
 }

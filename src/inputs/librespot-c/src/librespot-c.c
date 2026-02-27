@@ -856,6 +856,9 @@ credentials_get(void *arg, int *retval)
 static void *
 librespotc(void *arg)
 {
+  if (sp_cb.thread_name_set)
+    sp_cb.thread_name_set();
+
   event_base_dispatch(sp_evbase);
 
   pthread_exit(NULL);
@@ -1055,9 +1058,6 @@ librespotc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
   ret = pthread_create(&sp_tid, NULL, librespotc, NULL);
   if (ret < 0)
     RETURN_ERROR(SP_ERR_OOM, "Could not start thread");
-
-  if (sp_cb.thread_name_set)
-    sp_cb.thread_name_set(sp_tid);
 
   sp_initialized = true;
   return 0;
