@@ -477,7 +477,10 @@ static struct airplay_session *airplay_sessions;
 static uint64_t airplay_device_id;
 static const char *airplay_client_name;
 static const char *airplay_user_agent;
+
+/* Precision Time Protocol */
 static char airplay_ptp_clock_uuid[37];
+static bool airplay_ptp_is_disabled;
 
 // Forwards
 static int
@@ -3985,7 +3988,7 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
     extra->wanted_metadata |= AIRPLAY_MD_WANTS_TEXT;
   if (keyval_get(&features_kv, "Authentication_8"))
     extra->supports_auth_setup = 1;
-  if (keyval_get(&features_kv, "SupportsPTP") && !(devcfg && cfg_getbool(devcfg, "ptp_disable")))
+  if (keyval_get(&features_kv, "SupportsPTP") && !(devcfg && cfg_getbool(devcfg, "ptp_disable")) && !airplay_ptp_is_disabled)
     extra->use_ptp = 1;
 
   if (keyval_get(&features_kv, "SupportsSystemPairing") || keyval_get(&features_kv, "SupportsCoreUtilsPairingAndEncryption"))
@@ -4262,6 +4265,7 @@ airplay_init(void)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "AirPlay PTP daemon unavailable, only NTP will be available\n");
+      airplay_ptp_is_disabled = true;
     }
 
   ret = mdns_browse("_airplay._tcp", airplay_device_cb, MDNS_CONNECTION_TEST);
