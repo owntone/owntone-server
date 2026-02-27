@@ -169,11 +169,11 @@ system_info_from_uname(SystemInfo *system_info)
 // Returns true if format of a is preferred over b (and is valid). According to
 // librespot comment most podcasts are 96 kbit.
 static bool
-format_is_preferred(AudioFile *a, AudioFile *b, enum sp_bitrates bitrate_preferred)
+format_is_preferred(Spotify__Metadata__AudioFile *a, Spotify__Metadata__AudioFile *b, enum sp_bitrates bitrate_preferred)
 {
-  if (a->format != AUDIO_FILE__FORMAT__OGG_VORBIS_96 &&
-      a->format != AUDIO_FILE__FORMAT__OGG_VORBIS_160 &&
-      a->format != AUDIO_FILE__FORMAT__OGG_VORBIS_320)
+  if (a->format != SPOTIFY__METADATA__AUDIO_FILE__FORMAT__OGG_VORBIS_96 &&
+      a->format != SPOTIFY__METADATA__AUDIO_FILE__FORMAT__OGG_VORBIS_160 &&
+      a->format != SPOTIFY__METADATA__AUDIO_FILE__FORMAT__OGG_VORBIS_320)
     return false;
 
   if (!b)
@@ -184,9 +184,9 @@ format_is_preferred(AudioFile *a, AudioFile *b, enum sp_bitrates bitrate_preferr
       case SP_BITRATE_96:
 	return (a->format < b->format); // Prefer lowest
       case SP_BITRATE_160:
-	if (b->format == AUDIO_FILE__FORMAT__OGG_VORBIS_160)
+	if (b->format == SPOTIFY__METADATA__AUDIO_FILE__FORMAT__OGG_VORBIS_160)
 	  return false;
-	else if (a->format == AUDIO_FILE__FORMAT__OGG_VORBIS_160)
+	else if (a->format == SPOTIFY__METADATA__AUDIO_FILE__FORMAT__OGG_VORBIS_160)
 	  return true;
 	else
 	  return (a->format < b->format); // Prefer lowest
@@ -200,10 +200,10 @@ format_is_preferred(AudioFile *a, AudioFile *b, enum sp_bitrates bitrate_preferr
 }
 
 int
-file_select(uint8_t *out, size_t out_len, Track *track, enum sp_bitrates bitrate_preferred)
+file_select(uint8_t *out, size_t out_len, Spotify__Metadata__Track *track, enum sp_bitrates bitrate_preferred)
 {
-  AudioFile *selected = NULL;
-  AudioFile *file;
+  Spotify__Metadata__AudioFile *selected = NULL;
+  Spotify__Metadata__AudioFile *file;
   int i;
 
   for (i = 0; i < track->n_file; i++)
@@ -461,7 +461,7 @@ mercury_free(struct sp_mercury *mercury, int content_only)
       free(mercury->parts[i].data);
 
       if (mercury->parts[i].track)
-	track__free_unpacked(mercury->parts[i].track, NULL);
+	spotify__metadata__track__free_unpacked(mercury->parts[i].track, NULL);
     }
 
   if (content_only)
@@ -546,7 +546,7 @@ mercury_parse(struct sp_mercury *mercury, uint8_t *payload, size_t payload_len)
       memcpy(mercury->parts[i].data, ptr, mercury->parts[i].len);
       ptr += mercury->parts[i].len; // 5: length += mercury->parts[i].len
 
-      mercury->parts[i].track = track__unpack(NULL, mercury->parts[i].len, mercury->parts[i].data);
+      mercury->parts[i].track = spotify__metadata__track__unpack(NULL, mercury->parts[i].len, mercury->parts[i].data);
     }
 
   header__free_unpacked(header, NULL);
@@ -1056,14 +1056,14 @@ handle_metadata_get(struct sp_message *msg, struct sp_session *session)
 {
   struct http_response *hres = &msg->payload.hres;
   struct sp_channel *channel = session->now_streaming_channel;
-  Track *response = NULL;
+  Spotify__Metadata__Track *response = NULL;
   int ret;
 
   if (hres->code != HTTP_OK)
     goto fallback;
 
   // Also works for Episode response
-  response = track__unpack(NULL, hres->body_len, hres->body);
+  response = spotify__metadata__track__unpack(NULL, hres->body_len, hres->body);
   if (!response)
     goto fallback;
 
@@ -1071,13 +1071,13 @@ handle_metadata_get(struct sp_message *msg, struct sp_session *session)
   if (ret < 0)
     goto fallback;
 
-  track__free_unpacked(response, NULL);
+  spotify__metadata__track__free_unpacked(response, NULL);
   return SP_OK_DONE;
 
  fallback:
   sp_cb.logmsg("Couldn't find file id in metadata response, will request extended metadata\n");
 
-  track__free_unpacked(response, NULL);
+  spotify__metadata__track__free_unpacked(response, NULL);
   return SP_OK_DONE;
 }
 
@@ -1093,7 +1093,7 @@ handle_extended_metadata_get(struct sp_message *msg, struct sp_session *session)
   struct sp_channel *channel = session->now_streaming_channel;
   Spotify__Extendedmetadata__BatchedExtensionResponse *response = NULL;
   Spotify__Extendedmetadata__EntityExtensionData *entity_extension_data = NULL;
-  Track *track = NULL;
+  Spotify__Metadata__Track *track = NULL;
   int i, j;
   int ret;
 
@@ -1128,7 +1128,7 @@ handle_extended_metadata_get(struct sp_message *msg, struct sp_session *session)
   // .Episode. If we get something else we will fail later anyway.
 
   // This also works for episodes
-  track = track__unpack(NULL, entity_extension_data->extension_data->value.len, entity_extension_data->extension_data->value.data);
+  track = spotify__metadata__track__unpack(NULL, entity_extension_data->extension_data->value.len, entity_extension_data->extension_data->value.data);
   if (!track)
     RETURN_ERROR(SP_ERR_INVALID, "Could not parse track data in extended metadata response");
 
@@ -1137,12 +1137,12 @@ handle_extended_metadata_get(struct sp_message *msg, struct sp_session *session)
     RETURN_ERROR(SP_ERR_INVALID, "Could not find track data in extended metadata response");
 
   spotify__extendedmetadata__batched_extension_response__free_unpacked(response, NULL);
-  track__free_unpacked(track, NULL);
+  spotify__metadata__track__free_unpacked(track, NULL);
   return SP_OK_DONE;
 
  error:
   spotify__extendedmetadata__batched_extension_response__free_unpacked(response, NULL);
-  track__free_unpacked(track, NULL);
+  spotify__metadata__track__free_unpacked(track, NULL);
   return ret;
 }
 

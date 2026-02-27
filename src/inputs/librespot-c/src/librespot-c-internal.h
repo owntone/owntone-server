@@ -296,7 +296,7 @@ struct sp_mercury
       uint8_t *data;
       size_t len;
 
-      Track *track;
+      Spotify__Metadata__Track *track;
     } parts[SP_MERCURY_MAX_PARTS];
 };
 
