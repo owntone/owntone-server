@@ -281,7 +281,7 @@ OWNTONE_MODULES_CHECK([OWNTONE], [LIBAV],
 
 AC_CHECK_SIZEOF([void *])
 
-OWNTONE_VAR_PREPEND([OWNTONE_LIBS], [libairptp/libairptp.a])
+OWNTONE_VAR_PREPEND([OWNTONE_LIBS], [libairptp/src/libairptp.a])
 
 dnl --- Begin configuring the options ---
 dnl ALSA
