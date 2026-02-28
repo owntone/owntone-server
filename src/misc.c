@@ -608,7 +608,13 @@ net_bind_impl(unsigned short *port, int type, const char *log_service_name, bool
       if (ret < 0)
 	continue;
 
-      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+      // For tcp, SO_REUSE_ADDR means the server can restart quickly. For udp,
+      // the setting would mean that multiple sockets could bind to the same
+      // port, but only one would get the messages.
+      if (type == SOCK_STREAM)
+	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+      else
+	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &no, sizeof(no));
       if (ret < 0)
 	continue;
 
