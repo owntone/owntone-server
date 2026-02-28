@@ -149,6 +149,7 @@ nav:
       - Desktop: control-clients/desktop.md
       - Browser: control-clients/web.md
       - API and CLI: control-clients/cli-api.md
+      - Smartwatch: control-clients/smartwatch.md
     - Audio Outputs:
       - AirPlay: audio-outputs/airplay.md
       - Chromecast: audio-outputs/chromecast.md
