@@ -85,10 +85,6 @@ utils_net_bind(const char *node, unsigned short port)
       if (ret < 0)
 	continue;
 
-      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-      if (ret < 0)
-	continue;
-
       // We want to make sure the socket is dual stack
       ret = (ptr->ai_family == AF_INET6) ? setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no)) : 0;
       if (ret < 0)

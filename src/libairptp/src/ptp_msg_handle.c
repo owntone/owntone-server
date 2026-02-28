@@ -887,9 +887,8 @@ peers_msg_send(struct airptp_daemon *daemon, void *msg, size_t msg_len, struct a
   for (int i = 0; i < daemon->num_peers; i++)
     {
       peer = &daemon->peers[i];
-      if (peer->last_seen + AIRPTP_STALE_SECS < now)
-	peer->is_active = false; // Mark for removal
 
+      peer->is_active = (peer->last_seen + AIRPTP_STALE_SECS > now);
       if (!peer->is_active)
 	continue;
 
