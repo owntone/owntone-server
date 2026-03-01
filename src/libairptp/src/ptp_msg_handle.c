@@ -33,7 +33,7 @@ SOFTWARE.
 
 #include "airptp_internal.h"
 #include "ptp_definitions.h"
-#include "daemon.h" // TODO get rid of?
+#include "daemon.h"
 
 // Debugging
 #define AIRPTP_LOG_RECEIVED 0
@@ -72,7 +72,7 @@ static struct ptp_tlv_org_map ptp_tlv_orgs[] =
 };
 
 
-/* ================================= Helpers  =============================== */
+/* --------------------------------- Helpers -------------------------------- */
 
 static inline struct ptp_timestamp
 ptp_timestamp_betoh(struct ptp_timestamp *in)
@@ -227,7 +227,7 @@ log_sent(uint8_t *msg, uint16_t port)
 #endif
 
 
-/* =========================== Message construction ========================= */
+/* --------------------------- Message construction ------------------------- */
 
 static void
 header_init(struct ptp_header *hdr, uint8_t type, uint16_t msg_len, uint64_t clock_id, uint16_t sequence_id, int8_t log_interval, uint16_t flags)
@@ -511,7 +511,7 @@ msg_peer_del_make(struct ptp_peer_signaling_message *msg, struct airptp_peer *pe
 }
 
 
-/* ======================== Incoming message handling ======================= */
+/* ------------------------ Incoming message handling ----------------------- */
 
 static void
 sync_handle(struct airptp_daemon *daemon, uint8_t *req, ssize_t req_len, union utils_net_sockaddr *peer_addr, socklen_t peer_addr_len)
@@ -845,7 +845,7 @@ management_handle(struct airptp_daemon *daemon, uint8_t *req, ssize_t req_len, u
 }
 
 
-/* ============================= Message sending ============================ */
+/* ----------------------------- Message sending ---------------------------- */
 
 static int
 localhost_msg_send(void *msg, size_t msg_len, unsigned short port)
@@ -973,7 +973,8 @@ ptp_msg_peer_del_send(struct airptp_peer *peer, struct airptp_handle *hdl, unsig
   return localhost_msg_send(&msg, sizeof(msg), port);
 }
 
-/* ============================= Message handler ============================ */
+
+/* ----------------------------- Message handler ---------------------------- */
 
 void
 ptp_msg_handle(struct airptp_daemon *daemon, uint8_t *msg, size_t msg_len, union utils_net_sockaddr *peer_addr, socklen_t peer_addrlen)

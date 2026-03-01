@@ -47,7 +47,6 @@ enum airptp_error
   AIRPTP_ERR_INTERNAL = -5,
 };
 
-// TODO maybe not needed
 enum airptp_state
 {
   AIRPTP_STATE_NONE = 0,
@@ -90,9 +89,7 @@ struct airptp_daemon
   pthread_t tid;
   struct event_base *evbase;
 
-  pthread_mutex_t lock;
-  pthread_cond_t cond;
-
+  int start_pipe[2];
   int exit_pipe[2];
   struct event *start_stop_ev;
 

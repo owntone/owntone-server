@@ -39,7 +39,7 @@ void
 airptp_peer_remove(uint32_t peer_id, struct airptp_handle *hdl);
 
 // Frees ressources (incl. stops daemon if relevant)
-int
+void
 airptp_end(struct airptp_handle *hdl);
 
 // exit_cb?

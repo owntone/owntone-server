@@ -194,7 +194,7 @@ airptp_daemon_find(void)
 
   now = time(NULL);
   if (daemon_info->ts + AIRPTP_STALE_SECS < now)
-    RETURN_ERROR(AIRPTP_ERR_NOTFOUND, "No airptp daemon found (share mem is stale)");
+    RETURN_ERROR(AIRPTP_ERR_NOTFOUND, "No airptp daemon found (shared mem is stale)");
 
   hdl = calloc(1, sizeof(struct airptp_handle));
   if (!hdl)
@@ -250,28 +250,28 @@ airptp_peer_remove(uint32_t peer_id, struct airptp_handle *hdl)
 {
   struct airptp_peer peer = { 0 };
 
+  if (hdl->state != AIRPTP_STATE_RUNNING)
+    return;
+
   peer.id = peer_id;
 
   ptp_msg_peer_del_send(&peer, hdl, airptp_general_port);
 }
 
-int
+void
 airptp_end(struct airptp_handle *hdl)
 {
-  int ret = 0;
-
   if (!hdl)
-    return 0;
+    return;
 
-  if (hdl->is_daemon) {
-    ret = daemon_stop(&hdl->daemon);
-    if (ret < 0)
-      goto error; // errmsg will be set by daemon_stop
-  }
+  if (hdl->is_daemon)
+    daemon_stop(&hdl->daemon);
+  if (hdl->daemon.event_svc.fd >= 0)
+    close(hdl->daemon.event_svc.fd);
+  if (hdl->daemon.general_svc.fd >= 0)
+    close(hdl->daemon.general_svc.fd);
 
- error:
   free(hdl);
-  return (ret == 0) ? 0 : -1;
 }
 
 int

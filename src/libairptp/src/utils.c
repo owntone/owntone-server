@@ -80,7 +80,7 @@ utils_net_bind(const char *node, unsigned short port)
       if (ret < 0)
 	continue;
 
-      // TODO libevent sets this, we do the same?
+      // libevent sets this, we do the same
       ret = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
       if (ret < 0)
 	continue;
