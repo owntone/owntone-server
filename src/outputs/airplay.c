@@ -205,6 +205,7 @@ struct airplay_extra
   uint16_t wanted_metadata;
   bool supports_auth_setup;
   bool supports_pairing_transient;
+  bool supports_encryption;
   bool use_ptp;
 };
 
@@ -254,6 +255,7 @@ struct airplay_session
   uint16_t wanted_metadata;
   bool req_has_auth;
   bool supports_auth_setup;
+  bool supports_encryption;
 
   struct event *deferredev;
 
@@ -1608,6 +1610,7 @@ session_make(struct output_device *device, int callback_id)
 
   session->supports_auth_setup = extra->supports_auth_setup;
   session->wanted_metadata = extra->wanted_metadata;
+  session->supports_encryption = extra->supports_encryption;
 
   session->next_seq = AIRPLAY_SEQ_CONTINUE;
   session->timing_svc = &airplay_timing_svc;
@@ -1950,20 +1953,31 @@ packet_encrypt(uint8_t **out, size_t *out_len, struct rtp_packet *pkt, struct ai
 static int
 packet_send(struct airplay_session *session, struct rtp_packet *pkt)
 {
-  uint8_t *encrypted;
-  size_t encrypted_len;
+  uint8_t *buf;
+  size_t buf_len;
+  ssize_t sent;
   int ret;
 
   if (!session)
     return -1;
 
-  ret = packet_encrypt(&encrypted, &encrypted_len, pkt, session);
-  if (ret < 0)
-    return -1;
+  if (session->supports_encryption)
+    {
+      ret = packet_encrypt(&buf, &buf_len, pkt, session);
+      if (ret < 0)
+	return -1;
 
-  ret = send(session->server_fd, encrypted, encrypted_len, 0);
-  free(encrypted);
-  if (ret < 0)
+      sent = send(session->server_fd, buf, buf_len, 0);
+      free(buf);
+    }
+  else
+    {
+      buf = pkt->data;
+      buf_len = pkt->data_len;
+      sent = send(session->server_fd, buf, buf_len, 0);
+    }
+
+  if (sent < 0)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Send error for '%s': %s\n", session->devname, strerror(errno));
 
@@ -1972,7 +1986,7 @@ packet_send(struct airplay_session *session, struct rtp_packet *pkt)
       deferred_session_failure(session);
       return -1;
     }
-  else if (ret != encrypted_len)
+  else if (sent != buf_len)
     {
       DPRINTF(E_WARN, L_AIRPLAY, "Partial send (%d) for '%s'\n", ret, session->devname);
       return -1;
@@ -3995,6 +4009,7 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
   if (keyval_get(&features_kv, "SupportsPTP") && !(devcfg && cfg_getbool(devcfg, "ptp_disable")) && !airplay_ptp_is_disabled)
     extra->use_ptp = 1;
 
+  extra->supports_encryption = (keyval_get(&features_kv, "SupportsCoreUtilsPairingAndEncryption") != NULL);
   if (keyval_get(&features_kv, "SupportsSystemPairing") || keyval_get(&features_kv, "SupportsCoreUtilsPairingAndEncryption"))
     extra->supports_pairing_transient = 1;
   else if (keyval_get(&features_kv, "SupportsHKPairingAndAccessControl"))
