@@ -1239,7 +1239,8 @@ session_free(struct airplay_session *session)
   if (session->server_fd >= 0)
     close(session->server_fd);
 
-  ptpd_slave_remove(session->ptpd_slave_id);
+  if (session->ptpd_slave_id > 0)
+    ptpd_slave_remove(session->ptpd_slave_id);
 
   chacha_close(session->packet_cipher_hd);
 
@@ -2632,6 +2633,9 @@ payload_make_setpeers(struct evrtsp_request *req, struct airplay_session *sessio
   uint8_t *data;
   size_t len;
   int ret;
+
+  if (!session->master_session->use_ptp)
+    return 1; // Skip to next request
 
   plist_t root;
 
