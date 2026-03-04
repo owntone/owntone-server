@@ -1988,7 +1988,7 @@ packet_send(struct airplay_session *session, struct rtp_packet *pkt)
     }
   else if (sent != buf_len)
     {
-      DPRINTF(E_WARN, L_AIRPLAY, "Partial send (%d) for '%s'\n", ret, session->devname);
+      DPRINTF(E_WARN, L_AIRPLAY, "Partial send (%zd) for '%s'\n", sent, session->devname);
       return -1;
     }
 
