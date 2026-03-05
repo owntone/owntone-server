@@ -3091,29 +3091,53 @@ response_handler_volume_start(struct evrtsp_request *req, struct airplay_session
 }
 
 static int
-handle_timingpeerinfo(uint32_t *slave_id, plist_t response)
+handle_timingpeerinfo(uint32_t *slave_id, plist_t response, const char *local_v4_address, const char *local_v6_address)
 {
+  int family = local_v6_address ? AF_INET6 : AF_INET;
   plist_t item;
   plist_t peer_addresses;
   plist_t peer_address;
   const char *ptr;
+  union net_sockaddr naddr;
+  char peer_straddress[128];
+  char ifname[32];
   int ret;
   int i;
 
   item = plist_dict_get_item(response, "timingPeerInfo");
-  if (item && (peer_addresses = plist_dict_get_item(item, "Addresses")))
-    {
-      // Walk through addresses to get one from the right family
-      for (i = 0; (peer_address = plist_array_get_item(peer_addresses, i)); i++)
-	{
-	  ptr = plist_get_string_ptr(peer_address, NULL);
-	  if (!ptr)
-	    continue;
+  if (!item)
+    return -1;
 
-	  ret = ptpd_slave_add(slave_id, ptr);
-	  if (ret == 0)
-	    return 0; // Just add the first good address, currently not sure what to do if we get more
-	}
+  peer_addresses = plist_dict_get_item(item, "Addresses");
+  if (!peer_addresses)
+    return -1;
+
+  // Walk through addresses to get one from the right family
+  for (i = 0; (peer_address = plist_array_get_item(peer_addresses, i)); i++)
+    {
+      ptr = plist_get_string_ptr(peer_address, NULL);
+      if (!ptr)
+	continue;
+
+      DPRINTF(E_SPAM, L_AIRPLAY, "Checking timing peer '%s'\n", ptr);
+
+      // If address is ipv6 and ipv6 is not enabled, this will return -1
+      ret = net_sockaddr_get(&naddr, ptr, 0);
+      if (ret < 0 || naddr.sa.sa_family != family)
+	continue;
+
+      // Append %ifname to ipv6 because libairptpd needs it to send if the address is link-local (fe80)
+      if (family == AF_INET6 && net_if_get(ifname, sizeof(ifname), local_v6_address) == 0)
+	snprintf(peer_straddress, sizeof(peer_straddress), "%s%%%s", ptr, ifname);
+      else if (family == AF_INET)
+	snprintf(peer_straddress, sizeof(peer_straddress), "%s", ptr);
+      else
+	continue;
+
+      // Just add the first good address
+      ret = ptpd_slave_add(slave_id, peer_straddress);
+      if (ret == 0)
+	return 0;
     }
 
   return -1;
@@ -3126,7 +3150,6 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
   plist_t item;
   uint64_t uintval;
   int ret;
-
   if (req->response_code == RTSP_UNAUTHORIZED)
     {
       if (session->req_has_auth)
@@ -3178,7 +3201,7 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
 
   if (session->master_session->use_ptp)
     {
-      ret = handle_timingpeerinfo(&session->ptpd_slave_id, response);
+      ret = handle_timingpeerinfo(&session->ptpd_slave_id, response, session->local_v4_address, session->local_v6_address);
       if (ret < 0)
 	{
 	  DPRINTF(E_WARN, L_AIRPLAY, "Could not add speaker '%s' as PTP peer\n", session->devname);
