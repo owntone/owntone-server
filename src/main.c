@@ -713,7 +713,7 @@ main(int argc, char **argv)
   DPRINTF(E_DBG, L_MAIN, "Initialized with gcrypt %s\n", gcry_version);
 
   /* ptpd binds to priviliged ports 319 and 320 (if they are available) */
-  ptpd_bind();
+  ptpd_find_or_bind();
 
   /* Block signals for all threads except the main one */
   sigemptyset(&sigs);

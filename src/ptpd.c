@@ -70,8 +70,12 @@ ptpd_slave_remove(uint32_t slave_id)
 
 // Thread: main (root priviliges may be required for binding)
 int
-ptpd_bind(void)
+ptpd_find_or_bind(void)
 {
+  struct airptp_callbacks cb = { .logmsg = logmsg, .hexdump = hexdump, .thread_name_set = thread_setname };
+
+  airptp_callbacks_register(&cb);
+
   // Check if the host has an instance of airptp running we can use, otherwise
   // try to bind  ourselves
   ptpd_hdl = airptp_daemon_find();
@@ -93,12 +97,9 @@ ptpd_bind(void)
 int
 ptpd_init(uint64_t clock_id_seed)
 {
-  struct airptp_callbacks cb = { .logmsg = logmsg, .hexdump = hexdump, .thread_name_set = thread_setname };
-
   if (!ptpd_hdl)
     return -1;
 
-  airptp_callbacks_register(&cb);
   if (airptp_use_shared_daemon)
     return 0;
 
