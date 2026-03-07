@@ -173,11 +173,11 @@ static void
 peer_last_seen_update(struct airptp_daemon *daemon, union utils_net_sockaddr *peer_addr, socklen_t peer_addrlen)
 {
   int peer_family = peer_addr->sa.sa_family;
-  void *peer_sin_addr = &peer_addr->sin.sin_addr;
-  void *peer_sin6_addr = &peer_addr->sin6.sin6_addr;
+  struct in_addr *peer_sin_addr = &peer_addr->sin.sin_addr;
+  struct in6_addr *peer_sin6_addr = &peer_addr->sin6.sin6_addr;
   int list_family;
-  void *list_sin_addr;
-  void *list_sin6_addr;
+  struct in_addr *list_sin_addr;
+  struct in6_addr *list_sin6_addr;
   int cmp;
   int i;
 
