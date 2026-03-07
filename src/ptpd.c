@@ -25,7 +25,7 @@
 #include "logger.h"
 
 static struct airptp_handle *ptpd_hdl;
-static bool airptp_use_shared_daemon = false;
+static bool airptp_spawn_daemon = false;
 
 static void
 logmsg(const char *fmt, ...)
@@ -79,16 +79,15 @@ ptpd_find_or_bind(void)
   // Check if the host has an instance of airptp running we can use, otherwise
   // try to bind  ourselves
   ptpd_hdl = airptp_daemon_find();
-  if (!ptpd_hdl)
-    {
-      DPRINTF(E_INFO, L_AIRPLAY, "Creating own ptp daemon\n");
-      ptpd_hdl = airptp_daemon_bind();
-    }
-  else
+  if (ptpd_hdl)
     {
       DPRINTF(E_INFO, L_AIRPLAY, "Using host's ptp daemon\n");
-      airptp_use_shared_daemon = true;
+      return 0;
     }
+
+  DPRINTF(E_INFO, L_AIRPLAY, "Creating own ptp daemon\n");
+  airptp_spawn_daemon = true;
+  ptpd_hdl = airptp_daemon_bind();
 
   return ptpd_hdl ? 0 : -1;
 }
@@ -97,13 +96,17 @@ ptpd_find_or_bind(void)
 int
 ptpd_init(uint64_t clock_id_seed)
 {
+  struct airptp_callbacks cb = { .logmsg = logmsg, .hexdump = hexdump, .thread_name_set = thread_setname };
+
+  airptp_callbacks_register(&cb);
+
+  if (airptp_spawn_daemon)
+    return airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
+
   if (!ptpd_hdl)
-    return -1;
+    ptpd_hdl = airptp_daemon_find();
 
-  if (airptp_use_shared_daemon)
-    return 0;
-
-  return airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
+  return ptpd_hdl ? 0 : -1;
 }
 
 // Thread: main (normal priviliges)
