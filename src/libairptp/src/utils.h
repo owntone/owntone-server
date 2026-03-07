@@ -1,6 +1,10 @@
 #ifndef __AIRPTP_UTILS_H__
 #define __AIRPTP_UTILS_H__
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 
