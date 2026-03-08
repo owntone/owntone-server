@@ -292,6 +292,7 @@ static void sql_append_dmap_clause(struct daap_result *result, struct ast *a)
   bool is_equal = (a->type == DAAP_T_EQUAL);
   char escape_char;
   char *key;
+  long long int intval;
 
   if (!k || k->type != DAAP_T_KEY || !(key = (char *)k->data))
     {
@@ -360,7 +361,8 @@ static void sql_append_dmap_clause(struct daap_result *result, struct ast *a)
       return;
     }
 
-  sql_append(result, "%s", (char *)v->data);
+  intval = strtoll((char *)v->data, NULL, 10);
+  sql_append(result, "%lld", intval);
 }
 
 /* Creates the parsing result from the AST */
