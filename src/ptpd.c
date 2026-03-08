@@ -25,7 +25,7 @@
 #include "logger.h"
 
 static struct airptp_handle *ptpd_hdl;
-static bool airptp_spawn_daemon = false;
+static bool airptp_create_own_service = false;
 
 static void
 logmsg(const char *fmt, ...)
@@ -85,8 +85,8 @@ ptpd_find_or_bind(void)
       return 0;
     }
 
-  DPRINTF(E_INFO, L_AIRPLAY, "Creating own ptp daemon\n");
-  airptp_spawn_daemon = true;
+  DPRINTF(E_INFO, L_AIRPLAY, "Creating own ptp service\n");
+  airptp_create_own_service = true;
   ptpd_hdl = airptp_daemon_bind();
 
   return ptpd_hdl ? 0 : -1;
@@ -100,7 +100,7 @@ ptpd_init(uint64_t clock_id_seed)
 
   airptp_callbacks_register(&cb);
 
-  if (airptp_spawn_daemon)
+  if (airptp_create_own_service)
     return airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
 
   if (!ptpd_hdl)
