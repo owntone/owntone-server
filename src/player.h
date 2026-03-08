@@ -127,7 +127,7 @@ void
 player_speaker_resurrect(void *arg);
 
 int
-player_speaker_authorize(uint64_t id, const char *pin);
+player_speaker_authorize(uint64_t id, const char *pin, const char *password);
 
 int
 player_speaker_format_set(uint64_t id, enum media_format format);

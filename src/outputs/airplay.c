@@ -3951,7 +3951,7 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
 
   device->id = id;
   device->name = nickname ? strdup(nickname) : strdup(name);
-  device->password = password;
+  device->password = safe_strdup(password);
   device->type = OUTPUT_TYPE_AIRPLAY;
   device->type_name = outputs_name(device->type);
   device->extra_device_info = extra;
@@ -4162,18 +4162,28 @@ airplay_device_free_extra(struct output_device *device)
 }
 
 static int
-airplay_device_authorize(struct output_device *device, const char *pin, int callback_id)
+airplay_device_authorize(struct output_device *device, const char *pin, const char *password, int callback_id)
 {
   struct airplay_session *session;
 
-  // Make a session so we can communicate with the device
-  session = session_make(device, callback_id);
-  if (!session)
-    return -1;
+  if (password)
+    {
+      free(device->password);
+      device->password = strdup(password);
+    }
 
-  sequence_start(AIRPLAY_SEQ_PAIR_SETUP, session, (void *)pin, "device_authorize");
+  if (pin)
+    {
+      // Make a session so we can communicate with the device
+      session = session_make(device, callback_id);
+      if (!session)
+	return -1;
 
-  return 1;
+      sequence_start(AIRPLAY_SEQ_PAIR_SETUP, session, (void *)pin, "device_authorize");
+      return 1;
+    }
+
+  return 0;
 }
 
 static void

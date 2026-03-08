@@ -118,7 +118,7 @@ struct output_device
   unsigned resurrect:1;
 
   // Credentials if relevant
-  const char *password;
+  char *password;
   char *auth_key;
 
   // Device volume
@@ -248,7 +248,7 @@ struct output_definition
   int (*device_quality_set)(struct output_device *device, struct media_quality *quality, int callback_id);
 
   // Authorize the server to use the device
-  int (*device_authorize)(struct output_device *device, const char *pin, int callback_id);
+  int (*device_authorize)(struct output_device *device, const char *pin, const char *password, int callback_id);
 
   // Change the call back associated with a device
   void (*device_cb_set)(struct output_device *device, int callback_id);
@@ -350,7 +350,7 @@ int
 outputs_device_quality_set(struct output_device *device, struct media_quality *quality, output_status_cb cb);
 
 int
-outputs_device_authorize(struct output_device *device, const char *pin, output_status_cb cb);
+outputs_device_authorize(struct output_device *device, const char *pin, const char *password, output_status_cb cb);
 
 void
 outputs_device_cb_set(struct output_device *device, output_status_cb cb);

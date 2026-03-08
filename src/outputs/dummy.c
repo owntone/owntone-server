@@ -189,7 +189,7 @@ dummy_device_volume_set(struct output_device *device, int callback_id)
 }
 
 static int
-dummy_device_authorize(struct output_device *device, const char *pin, int callback_id)
+dummy_device_authorize(struct output_device *device, const char *pin, const char *password, int callback_id)
 {
   struct dummy_session *ds;
 

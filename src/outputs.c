@@ -779,6 +779,7 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   struct output_device *device;
   char *keep_name;
   int keep_offset_ms;
+  char *keep_password;
   int ret;
 
   for (device = outputs_device_list; device; device = device->next)
@@ -810,7 +811,10 @@ outputs_device_add(struct output_device *add, bool new_deselect)
       device->stop_timer = evtimer_new(evbase_player, stop_timer_cb, device);
 
       keep_name = strdup(device->name);
-      keep_offset_ms = device->offset_ms; // For legacy local audio and Chromecast where offset could come from config file
+
+      // In case the output module loaded values from the config file
+      keep_offset_ms = device->offset_ms;
+      keep_password = safe_strdup(device->password);
 
       ret = db_speaker_get(device, device->id);
       if (ret < 0)
@@ -824,6 +828,12 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 
       if (keep_offset_ms != 0)
 	device->offset_ms = keep_offset_ms;
+
+      if (keep_password)
+	{
+	  free(device->password);
+	  device->password = keep_password;
+	}
 
       if (new_deselect)
 	device->selected = 0;
@@ -861,7 +871,6 @@ outputs_device_add(struct output_device *add, bool new_deselect)
       add->name = NULL;
 
       device->has_password = add->has_password;
-      device->password = add->password;
 
       outputs_device_free(add);
     }
@@ -1063,7 +1072,7 @@ outputs_device_quality_set(struct output_device *device, struct media_quality *q
 }
 
 int
-outputs_device_authorize(struct output_device *device, const char *pin, output_status_cb cb)
+outputs_device_authorize(struct output_device *device, const char *pin, const char *password, output_status_cb cb)
 {
   int ret;
 
@@ -1073,7 +1082,7 @@ outputs_device_authorize(struct output_device *device, const char *pin, output_s
   if (device->session)
     return 0; // We are already connected to the device - no auth required
 
-  ret = outputs[device->type]->device_authorize(device, pin, callback_add(device, cb));
+  ret = outputs[device->type]->device_authorize(device, pin, password, callback_add(device, cb));
 
   return device_state_update(device, ret); // If ret < 0 then we couldn't reach the speaker
 }
@@ -1110,6 +1119,7 @@ outputs_device_free(struct output_device *device)
 
   free(device->name);
   free(device->auth_key);
+  free(device->password);
   free(device->v4_address);
   free(device->v6_address);
 

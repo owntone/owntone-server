@@ -160,6 +160,7 @@ struct speaker_attr_param
   int metadata_fd;
 
   const char *pin;
+  const char *password;
 };
 
 struct speaker_get_param
@@ -1485,7 +1486,7 @@ device_auth_kickoff(void *arg, int *retval)
     }
 
   // We're async, so we don't care about return values or callbacks with result
-  outputs_device_authorize(device, cmdarg->auth.pin, NULL);
+  outputs_device_authorize(device, cmdarg->auth.pin, NULL, NULL);
 
   *retval = 0;
   return COMMAND_END;
@@ -3022,7 +3023,7 @@ speaker_authorize(void *arg, int *retval)
   if (!device)
     return COMMAND_END;
 
-  *retval = outputs_device_authorize(device, param->pin, device_activate_cb);
+  *retval = outputs_device_authorize(device, param->pin, param->password, device_activate_cb);
 
   if (*retval > 0)
     return COMMAND_PENDING; // async
@@ -3640,12 +3641,13 @@ player_speaker_resurrect(void *arg)
 }
 
 int
-player_speaker_authorize(uint64_t id, const char *pin)
+player_speaker_authorize(uint64_t id, const char *pin, const char *password)
 {
   struct speaker_attr_param param;
 
   param.spk_id = id;
   param.pin = pin;
+  param.password = password;
 
   return commands_exec_sync(cmdbase, speaker_authorize, speaker_generic_bh, &param);
 }

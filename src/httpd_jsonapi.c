@@ -1700,6 +1700,7 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
   int volume;
   int offset_ms;
   const char *pin;
+  const char *password;
   const char *format;
   int ret;
 
@@ -1736,10 +1737,17 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
   if (jparse_contains_key(request, "pin", json_type_string))
     {
       pin = jparse_str_from_obj(request, "pin");
-      ret = pin ? player_speaker_authorize(output_id, pin) : 0;
+      ret = pin ? player_speaker_authorize(output_id, pin, NULL) : 0;
       if (ret < 0)
 	goto error;
+    }
 
+  if (jparse_contains_key(request, "password", json_type_string))
+    {
+      password = jparse_str_from_obj(request, "password");
+      ret = password ? player_speaker_authorize(output_id, NULL, password) : 0;
+      if (ret < 0)
+	goto error;
     }
 
   if (jparse_contains_key(request, "format", json_type_string))

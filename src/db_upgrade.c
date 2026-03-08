@@ -1284,6 +1284,25 @@ static const struct db_upgrade_query db_upgrade_v2203_queries[] =
   };
 
 
+/* ---------------------------- 22.03 -> 22.04 ------------------------------ */
+
+#define U_v2204_ALTER_SPEAKERS_ADD_PASSWORD \
+  "ALTER TABLE speakers ADD COLUMN password VARCHAR(255) DEFAULT NULL;"
+
+#define U_v2204_SCVER_MAJOR                    \
+  "UPDATE admin SET value = '22' WHERE key = 'schema_version_major';"
+#define U_v2204_SCVER_MINOR                    \
+  "UPDATE admin SET value = '04' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2204_queries[] =
+  {
+    { U_v2204_ALTER_SPEAKERS_ADD_PASSWORD, "alter table speakers add column password" },
+
+    { U_v2204_SCVER_MAJOR,    "set schema_version_major to 22" },
+    { U_v2204_SCVER_MINOR,    "set schema_version_minor to 04" },
+  };
+
+
 /* -------------------------- Main upgrade handler -------------------------- */
 
 int
@@ -1512,6 +1531,13 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 2202:
       ret = db_generic_upgrade(hdl, db_upgrade_v2203_queries, ARRAY_SIZE(db_upgrade_v2203_queries));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 2203:
+      ret = db_generic_upgrade(hdl, db_upgrade_v2204_queries, ARRAY_SIZE(db_upgrade_v2204_queries));
       if (ret < 0)
 	return -1;
 

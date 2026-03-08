@@ -4133,25 +4133,35 @@ raop_pair_setup(struct raop_session *rs, const char *pin)
 }
 
 static int
-raop_device_authorize(struct output_device *device, const char *pin, int callback_id)
+raop_device_authorize(struct output_device *device, const char *pin, const char *password, int callback_id)
 {
   struct raop_session *rs;
   int ret;
 
-  // Make a session so we can communicate with the device
-  rs = session_make(device, callback_id, true);
-  if (!rs)
-    return -1;
-
-  ret = raop_pair_setup(rs, pin);
-  if (ret < 0)
+  if (password)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not send verification setup request to '%s' (address %s)\n", device->name, rs->address);
-      session_cleanup(rs);
-      return -1;
+      free(device->password);
+      device->password = strdup(password);
     }
 
-  return 1;
+  if (pin)
+    {
+      // Make a session so we can communicate with the device
+      rs = session_make(device, callback_id, true);
+      if (!rs)
+	return -1;
+
+      ret = raop_pair_setup(rs, pin);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Could not send verification setup request to '%s' (address %s)\n", device->name, rs->address);
+	  session_cleanup(rs);
+	  return -1;
+	}
+      return 1;
+    }
+
+  return 0;
 }
 
 
@@ -4197,7 +4207,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   cfg_opt_t *cfgopt;
   const char *p;
   const char *device_name;
-  char *password;
+  const char *password = NULL;
   char *s;
   char *token;
   char *ptr;
@@ -4253,12 +4263,18 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     {
       device_name = cfg_getstr(devcfg, "nickname");
     }
+  if (devcfg && cfg_getstr(devcfg, "password"))
+    {
+      password = cfg_getstr(devcfg, "password");
+    }
+
 
   CHECK_NULL(L_RAOP, rd = calloc(1, sizeof(struct output_device)));
   CHECK_NULL(L_RAOP, re = calloc(1, sizeof(struct raop_extra)));
 
   rd->id = id;
   rd->name = strdup(device_name);
+  rd->password = safe_strdup(password);
   rd->type = OUTPUT_TYPE_RAOP;
   rd->type_name = outputs_name(rd->type);
   rd->extra_device_info = re;
@@ -4308,36 +4324,12 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       goto free_rd;
     }
 
-  // Password protection
-  password = NULL;
   p = keyval_get(txt, "pw");
-  if (!p)
+  if (p && (strcasecmp(p, "false") != 0))
     {
-      rd->has_password = 0;
+      DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' is password-protected\n", device_name);
+      rd->has_password = 1;
     }
-  else if (*p == '\0')
-    {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay '%s': pw has no value\n", device_name);
-
-      goto free_rd;
-    }
-  else
-    {
-      rd->has_password = (strcasecmp(p, "false") != 0);
-    }
-
-  if (rd->has_password)
-    {
-      DPRINTF(E_LOG, L_RAOP, "AirPlay device '%s' is password-protected\n", device_name);
-
-      if (devcfg)
-	password = cfg_getstr(devcfg, "password");
-
-      if (!password)
-	DPRINTF(E_LOG, L_RAOP, "No password given in config for AirPlay device '%s'\n", device_name);
-    }
-
-  rd->password = password;
 
   // Device verification
   p = keyval_get(txt, "sf");
