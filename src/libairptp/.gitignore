@@ -2,6 +2,7 @@
 *.swp
 Makefile.in
 Makefile
+*.service
 *.o
 *.lo
 *.a

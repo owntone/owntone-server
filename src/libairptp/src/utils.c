@@ -113,23 +113,24 @@ utils_net_bind(const char *node, unsigned short port)
 int
 utils_net_sockaddr_get(union utils_net_sockaddr *naddr, const char *addr, unsigned short port)
 {
-  memset(naddr, 0, sizeof(union utils_net_sockaddr));
+  struct addrinfo hints = { 0 };
+  struct addrinfo *servinfo;
+  char strport[8];
+  int ret;
 
-  if (inet_pton(AF_INET, addr, &naddr->sin.sin_addr) == 1)
-    {
-      naddr->sin.sin_family = AF_INET;
-      naddr->sin.sin_port = htons(port);
-      return 0;
-    }
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_DGRAM;
 
-  if (inet_pton(AF_INET6, addr, &naddr->sin6.sin6_addr) == 1)
-    {
-      naddr->sin6.sin6_family = AF_INET6;
-      naddr->sin6.sin6_port = htons(port);
-      return 0;
-    }
+  snprintf(strport, sizeof(strport), "%hu", port);
+  ret = getaddrinfo(addr, strport, &hints, &servinfo);
+  if (ret < 0)
+    goto error;
 
-  return -1;
+  memcpy(naddr, servinfo->ai_addr, servinfo->ai_addrlen);
+
+ error:
+  freeaddrinfo(servinfo);
+  return (ret < 0) ? -1 : 0;
 }
 
 int
@@ -148,6 +149,31 @@ utils_net_address_get(char *addr, size_t addr_len, union utils_net_sockaddr *nad
     return -1;
 
   return 0;
+}
+
+bool
+utils_net_address_is_same(union utils_net_sockaddr *a, union utils_net_sockaddr *b)
+{
+  int a_family = a->sa.sa_family;
+  int b_family = b->sa.sa_family;
+  struct in_addr *a_sin_addr = &a->sin.sin_addr;
+  struct in_addr *b_sin_addr = &b->sin.sin_addr;
+  struct in6_addr *a_sin6_addr = &a->sin6.sin6_addr;
+  struct in6_addr *b_sin6_addr = &b->sin6.sin6_addr;
+  int cmp;
+
+  if (a_family == AF_INET && b_family == AF_INET)
+    cmp = memcmp(a_sin_addr, b_sin_addr, sizeof(struct in_addr));
+  else if (a_family == AF_INET6 && b_family == AF_INET6)
+    cmp = memcmp(a_sin6_addr, b_sin6_addr, sizeof(struct in6_addr));
+  else if (a_family == AF_INET && IN6_IS_ADDR_V4MAPPED(b_sin6_addr))
+    cmp = memcmp(a_sin_addr, ((uint8_t *)b_sin6_addr) + 12, sizeof(struct in_addr));
+  else if (b_family == AF_INET && IN6_IS_ADDR_V4MAPPED(a_sin6_addr))
+    cmp = memcmp(b_sin_addr, ((uint8_t *)a_sin6_addr) + 12, sizeof(struct in_addr));
+  else
+    cmp = 1;
+
+  return (cmp == 0);
 }
 
 uint32_t

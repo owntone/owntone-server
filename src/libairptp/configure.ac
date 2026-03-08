@@ -11,6 +11,8 @@ AC_PROG_CC
 AM_PROG_AR
 AC_PROG_RANLIB
 
+PKG_PROG_PKG_CONFIG()
+
 AM_CPPFLAGS="-Wall"
 AC_SUBST([AM_CPPFLAGS])
 
@@ -23,21 +25,25 @@ PKG_CHECK_MODULES([LIBEVENT], [libevent libevent_pthreads])
 
 AC_CONFIG_FILES([Makefile src/Makefile])
 
-AC_ARG_ENABLE([daemon],
-  [AS_HELP_STRING([--enable-daemon], [build airptpd daemon (default: no)])],
-  [enable_daemon=$enableval],
-  [enable_daemon=no])
+AC_ARG_ENABLE([daemon], [AS_HELP_STRING([--enable-daemon], [build airptpd daemon (default: no)])])
 AM_CONDITIONAL([BUILD_DAEMON], [test "x$enable_daemon" = "xyes"])
 AM_COND_IF([BUILD_DAEMON],
   [AC_CHECK_HEADER([sys/signalfd.h], [AC_CHECK_FUNCS([signalfd])])]
   [AC_CHECK_HEADER([sys/event.h], [AC_CHECK_FUNCS([kqueue])])]
   [AC_CONFIG_FILES([daemon/Makefile])])
 
-AC_ARG_ENABLE([tests],
-  [AS_HELP_STRING([--enable-tests], [configure tests for make check (default: no)])],
-  [enable_tests=$enableval],
-  [enable_tests=no])
+AC_ARG_ENABLE([tests], [AS_HELP_STRING([--enable-tests], [configure tests for make check (default: no)])])
 AM_CONDITIONAL([BUILD_TESTS], [test "x$enable_tests" = "xyes"])
 AM_COND_IF([BUILD_TESTS], [AC_CONFIG_FILES([tests/Makefile])])
+
+AC_ARG_ENABLE([install_systemd], [AS_HELP_STRING([--enable-install-systemd], [install systemd service file (default: no)])])
+AM_CONDITIONAL([INSTALL_SYSTEMD], [test "x$enable_install_systemd" = "xyes"])
+AM_COND_IF([INSTALL_SYSTEMD], [AC_CONFIG_FILES([daemon/airptpd.service])])
+
+AC_ARG_WITH([systemddir],
+	[AS_HELP_STRING([--with-systemddir=DIR], [directory for systemd service files (default=LIBDIR/systemd/system)])],
+	[[test x"$withval" = xyes && withval=]], [[withval=]])
+SYSTEMD_DIR=${withval:-$libdir/systemd/system}
+AC_SUBST([SYSTEMD_DIR])
 
 AC_OUTPUT

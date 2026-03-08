@@ -1,6 +1,10 @@
 #ifndef __AIRPTP_UTILS_H__
 #define __AIRPTP_UTILS_H__
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 
@@ -36,6 +40,9 @@ utils_net_sockaddr_get(union utils_net_sockaddr *naddr, const char *addr, unsign
 
 int
 utils_net_address_get(char *addr, size_t addr_len, union utils_net_sockaddr *naddr);
+
+bool
+utils_net_address_is_same(union utils_net_sockaddr *a, union utils_net_sockaddr *b);
 
 uint32_t
 utils_djb_hash(const void *data, size_t len);

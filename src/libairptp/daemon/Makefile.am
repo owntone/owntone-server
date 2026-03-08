@@ -1,3 +1,8 @@
+if INSTALL_SYSTEMD
+systemddir = $(SYSTEMD_DIR)
+systemd_DATA = airptpd.service
+endif
+
 sbin_PROGRAMS = airptpd
 
 DAEMON_CFLAGS = $(CFLAGS) $(LIBEVENT_CFLAGS)

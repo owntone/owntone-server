@@ -65,7 +65,6 @@ main(int argc, char * argv[])
   int ret;
 
   airptp_callbacks_register(&cb);
-  airptp_ports_override(30319, 30320);
 
   hdl = airptp_daemon_find();
   if (!hdl)
@@ -80,6 +79,18 @@ main(int argc, char * argv[])
 
   uint32_t peer_id;
   ret = airptp_peer_add(&peer_id, "192.168.1.10", hdl);
+  if (ret < 0)
+    goto error;
+
+  printf("client.c added peer_id=%" PRIu32 "\n", peer_id);
+
+  ret = airptp_peer_add(&peer_id, "fe80::521e:2dff:fe51:419%eth0", hdl);
+  if (ret < 0)
+    goto error;
+
+  printf("client.c added peer_id=%" PRIu32 "\n", peer_id);
+
+  ret = airptp_peer_add(&peer_id, "::ffff:192.168.1.10", hdl);
   if (ret < 0)
     goto error;
 

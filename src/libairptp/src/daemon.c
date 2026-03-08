@@ -172,36 +172,14 @@ peers_prune(struct airptp_daemon *daemon)
 static void
 peer_last_seen_update(struct airptp_daemon *daemon, union utils_net_sockaddr *peer_addr, socklen_t peer_addrlen)
 {
-  int peer_family = peer_addr->sa.sa_family;
-  void *peer_sin_addr = &peer_addr->sin.sin_addr;
-  void *peer_sin6_addr = &peer_addr->sin6.sin6_addr;
-  int list_family;
-  void *list_sin_addr;
-  void *list_sin6_addr;
-  int cmp;
   int i;
 
-  for (i = 0, cmp = 1; i < daemon->num_peers; i++)
-    {
-      list_family = daemon->peers[i].naddr.sa.sa_family;
-      list_sin_addr = &daemon->peers[i].naddr.sin.sin_addr;
-      list_sin6_addr = &daemon->peers[i].naddr.sin6.sin6_addr;
-
-      if (peer_family == AF_INET && list_family == AF_INET)
-	cmp = memcmp(peer_sin_addr, list_sin_addr, sizeof(struct in_addr));
-      else if (peer_family == AF_INET6 && list_family == AF_INET6)
-	cmp = memcmp(peer_sin6_addr, list_sin6_addr, sizeof(struct in6_addr));
-      else if (peer_family == AF_INET && IN6_IS_ADDR_V4MAPPED(list_sin6_addr))
-	cmp = memcmp(peer_sin_addr, list_sin6_addr + 12, sizeof(struct in_addr));
-      else if (list_family == AF_INET && IN6_IS_ADDR_V4MAPPED(peer_sin6_addr))
-	cmp = memcmp(list_sin_addr, peer_sin6_addr + 12, sizeof(struct in_addr));
-
-      if (cmp != 0)
-	continue;
-
+  for (i = 0; i < daemon->num_peers; i++) {
+    if (utils_net_address_is_same(peer_addr, &daemon->peers[i].naddr)) {
       daemon->peers[i].last_seen = time(NULL);
       break;
     }
+  }
 }
 
 static bool
@@ -209,11 +187,10 @@ peer_exists(struct airptp_daemon *daemon, struct airptp_peer *peer)
 {
   int i;
 
-  for (i = 0; i < daemon->num_peers; i++)
-    {
-      if (peer->id == daemon->peers[i].id)
-	return true;
-    }
+  for (i = 0; i < daemon->num_peers; i++) {
+    if (peer->id == daemon->peers[i].id)
+      return true;
+  }
 
   return false;
 }
@@ -222,6 +199,7 @@ int
 daemon_peer_add(struct airptp_daemon *daemon, struct airptp_peer *peer)
 {
   char straddr[64];
+  uint32_t scope_id;
 
   // Clean up dead peers
   peers_prune(daemon);
@@ -252,7 +230,8 @@ daemon_peer_add(struct airptp_daemon *daemon, struct airptp_peer *peer)
   if (!event_pending(daemon->send_sync_timer, EV_TIMEOUT, NULL))
     event_add(daemon->send_sync_timer, &daemon_send_sync_tv);
 
-  airptp_logmsg("Added peer id %u, address %s, num_peers %d", peer->id, straddr, daemon->num_peers);
+  scope_id = (peer->naddr.sa.sa_family == AF_INET6) ? peer->naddr.sin6.sin6_scope_id : 0;
+  airptp_logmsg("Added peer id %u, address %s, scope id %u, num_peers %d", peer->id, straddr, scope_id, daemon->num_peers);
   return 0;
 }
 
@@ -284,7 +263,7 @@ daemon_peer_del(struct airptp_daemon *daemon, struct airptp_peer *peer)
   }
 
   daemon->num_peers--;
-  airptp_logmsg("Removed peer id %u, num_peers %d", peer->id, daemon->num_peers);
+  airptp_logmsg("Removed peer id %u, num_peers %d", peer_id, daemon->num_peers);
   return 0;
 }
 
