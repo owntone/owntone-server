@@ -3,7 +3,7 @@
 [Unit]
 Description=DAAP/DACP (iTunes), RSP, MPD server, with AirPlay and Remote - %I
 Documentation=man:owntone(8)
-Requires=network.target local-fs.target avahi-daemon.socket
+Requires=network.target local-fs.target avahi-daemon.socket airptpd.service
 After=network.target sound.target remote-fs.target pulseaudio.service
 
 [Service]
