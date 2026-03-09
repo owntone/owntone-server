@@ -121,6 +121,7 @@ static char *default_meta_group = "dmap.itemname,dmap.persistentid,daap.songalbu
 
 /* DAAP session tracking */
 static struct daap_session *daap_sessions;
+static pthread_mutex_t daap_session_lck;
 
 /* Update requests */
 static int current_rev;
@@ -137,7 +138,7 @@ daap_session_free(struct daap_session *s)
 }
 
 static void
-daap_session_remove(struct daap_session *s)
+daap_session_remove_locked(struct daap_session *s)
 {
   struct daap_session *ptr;
   struct daap_session *prev;
@@ -166,7 +167,7 @@ daap_session_remove(struct daap_session *s)
 }
 
 static struct daap_session *
-daap_session_get(uint32_t id)
+daap_session_get_locked(uint32_t id)
 {
   struct daap_session *s;
 
@@ -179,11 +180,66 @@ daap_session_get(uint32_t id)
   return NULL;
 }
 
+static bool
+daap_session_copy(struct daap_session *dst, uint32_t id)
+{
+  struct daap_session *s;
+  bool is_found = false;
+
+  CHECK_ERR(L_DAAP, pthread_mutex_lock(&daap_session_lck));
+
+  s = daap_session_get_locked(id);
+  if (s)
+    {
+      *dst = *s;
+      dst->next = NULL;
+      is_found = true;
+    }
+
+  CHECK_ERR(L_DAAP, pthread_mutex_unlock(&daap_session_lck));
+
+  return is_found;
+}
+
+static bool
+daap_session_touch(uint32_t id)
+{
+  struct daap_session *s;
+  bool is_found = false;
+
+  CHECK_ERR(L_DAAP, pthread_mutex_lock(&daap_session_lck));
+
+  s = daap_session_get_locked(id);
+  if (s)
+    {
+      s->mtime = time(NULL);
+      is_found = true;
+    }
+
+  CHECK_ERR(L_DAAP, pthread_mutex_unlock(&daap_session_lck));
+
+  return is_found;
+}
+
+static void
+daap_session_remove(uint32_t id)
+{
+  struct daap_session *s;
+
+  CHECK_ERR(L_DAAP, pthread_mutex_lock(&daap_session_lck));
+
+  s = daap_session_get_locked(id);
+  if (s)
+    daap_session_remove_locked(s);
+
+  CHECK_ERR(L_DAAP, pthread_mutex_unlock(&daap_session_lck));
+}
+
 /* Removes stale sessions and also drops the oldest sessions if DAAP_SESSION_MAX
  * will otherwise be exceeded
  */
 static void
-daap_session_cleanup(void)
+daap_session_cleanup_locked(void)
 {
   struct daap_session *s;
   struct daap_session *next;
@@ -202,27 +258,30 @@ daap_session_cleanup(void)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Cleaning up DAAP session (id %" PRIu32 ")\n", s->id);
 
-	  daap_session_remove(s);
+	  daap_session_remove_locked(s);
 	}
     }
 }
 
-static struct daap_session *
-daap_session_add(bool is_remote, uint32_t request_session_id)
+static int
+daap_session_add(uint32_t *session_id, bool is_remote, uint32_t request_session_id)
 {
   struct daap_session *s;
 
-  daap_session_cleanup();
-
   CHECK_NULL(L_DAAP, s = calloc(1, sizeof(struct daap_session)));
+
+  CHECK_ERR(L_DAAP, pthread_mutex_lock(&daap_session_lck));
+
+  daap_session_cleanup_locked();
 
   if (request_session_id)
     {
-      if (daap_session_get(request_session_id))
+      if (daap_session_get_locked(request_session_id))
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Session id requested in login (%d) is not available\n", request_session_id);
+	  CHECK_ERR(L_DAAP, pthread_mutex_unlock(&daap_session_lck));
 	  free(s);
-	  return NULL;
+	  return -1;
 	}
 
       s->id = request_session_id;
@@ -233,7 +292,7 @@ daap_session_add(bool is_remote, uint32_t request_session_id)
       if (s->id < 100)
 	s->id += 100;
     }
-  while (daap_session_get(s->id) != NULL);
+  while (daap_session_get_locked(s->id) != NULL);
 
   s->mtime = time(NULL);
 
@@ -244,7 +303,11 @@ daap_session_add(bool is_remote, uint32_t request_session_id)
 
   daap_sessions = s;
 
-  return s;
+  *session_id = s->id;
+
+  CHECK_ERR(L_DAAP, pthread_mutex_unlock(&daap_session_lck));
+
+  return 0;
 }
 
 /* ---------------------- UPDATE REQUESTS HANDLERS -------------------------- */
@@ -731,8 +794,11 @@ daap_request_authorize(struct httpd_request *hreq)
   session = hreq->extra_data;
   if (session && session->id != 0)
     {
-      session->mtime = time(NULL);
-      return 0;
+      if (daap_session_touch(session->id))
+	{
+	  session->mtime = time(NULL);
+	  return 0;
+	}
     }
 
   passwd = cfg_getstr(cfg_getsec(cfg, "library"), "password");
@@ -904,8 +970,8 @@ static enum daap_reply_result
 daap_reply_login(struct httpd_request *hreq)
 {
   struct daap_session *dummy = hreq->extra_data;
-  struct daap_session *session;
   const char *param;
+  uint32_t session_id;
   uint32_t request_session_id = 0;
   int ret;
 
@@ -919,8 +985,8 @@ daap_reply_login(struct httpd_request *hreq)
 	DPRINTF(E_LOG, L_DAAP, "Login request where request-session-id is not an integer\n");
     }
 
-  session = daap_session_add(dummy->is_remote, request_session_id);
-  if (!session)
+  ret = daap_session_add(&session_id, dummy->is_remote, request_session_id);
+  if (ret < 0)
     {
       dmap_error_make(hreq->out_body, "mlog", "Could not start session");
       return DAAP_REPLY_ERROR;
@@ -930,7 +996,7 @@ daap_reply_login(struct httpd_request *hreq)
 
   dmap_add_container(hreq->out_body, "mlog", 24);
   dmap_add_int(hreq->out_body, "mstt", 200);          /* 12 */
-  dmap_add_int(hreq->out_body, "mlid", session->id);  /* 12 */
+  dmap_add_int(hreq->out_body, "mlid", session_id);   /* 12 */
 
   return DAAP_REPLY_OK;
 }
@@ -938,12 +1004,14 @@ daap_reply_login(struct httpd_request *hreq)
 static enum daap_reply_result
 daap_reply_logout(struct httpd_request *hreq)
 {
-  if (!hreq->extra_data)
+  struct daap_session *session = hreq->extra_data;
+
+  if (!session || session->id == 0)
     return DAAP_REPLY_FORBIDDEN;
 
-  daap_session_remove(hreq->extra_data);
+  daap_session_remove(session->id);
 
-  hreq->extra_data = NULL;
+  memset(session, 0, sizeof(struct daap_session));
 
   return DAAP_REPLY_LOGOUT;
 }
@@ -2213,22 +2281,20 @@ daap_request(struct httpd_request *hreq)
 
   // Check if we have a session and point hreq->extra_data to it
   param = httpd_query_value_find(hreq->query, "session-id");
+  memset(&session, 0, sizeof(struct daap_session));
+  session.is_remote = (httpd_query_value_find(hreq->query, "pairing-guid") != NULL);
+
   if (param)
     {
       ret = safe_atou32(param, &id);
       if (ret < 0)
 	DPRINTF(E_LOG, L_DAAP, "Ignoring non-numeric session id in DAAP request: '%s'\n", hreq->uri);
       else
-	hreq->extra_data = daap_session_get(id);
+	daap_session_copy(&session, id);
     }
 
-  // Create a dummy session to pass is_remote to the handler
-  if (!hreq->extra_data)
-    {
-      memset(&session, 0, sizeof(struct daap_session));
-      session.is_remote = (httpd_query_value_find(hreq->query, "pairing-guid") != NULL);
-      hreq->extra_data = &session;
-    }
+  // Handlers only need a request-local session snapshot
+  hreq->extra_data = &session;
 
   if (strcmp(hreq->path, "/server-info") != 0 && strcmp(hreq->path, "/content-codes") != 0)
     {
@@ -2274,14 +2340,7 @@ daap_request(struct httpd_request *hreq)
 int
 daap_session_is_valid(uint32_t id)
 {
-  struct daap_session *session;
-
-  session = daap_session_get(id);
-
-  if (session)
-    session->mtime = time(NULL);
-
-  return session ? 1 : 0;
+  return daap_session_touch(id) ? 1 : 0;
 }
 
 // Thread: Cache
@@ -2335,6 +2394,7 @@ daap_init(void)
 {
   srand((unsigned)time(NULL));
   current_rev = 2;
+  CHECK_ERR(L_DAAP, mutex_init(&daap_session_lck));
 
   return 0;
 }
@@ -2345,11 +2405,14 @@ daap_deinit(void)
   struct daap_session *s;
   struct daap_update_request *ur;
 
+  CHECK_ERR(L_DAAP, pthread_mutex_lock(&daap_session_lck));
   for (s = daap_sessions; daap_sessions; s = daap_sessions)
     {
       daap_sessions = s->next;
       daap_session_free(s);
     }
+  CHECK_ERR(L_DAAP, pthread_mutex_unlock(&daap_session_lck));
+  CHECK_ERR(L_DAAP, pthread_mutex_destroy(&daap_session_lck));
 
   for (ur = update_requests; update_requests; ur = update_requests)
     {
