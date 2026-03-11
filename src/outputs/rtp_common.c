@@ -250,7 +250,7 @@ rtp_sync_is_time(struct rtp_session *session)
 //   |                          Wall clock time                      |
 //   |                                                               |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |                     rtptime of first packet                   |
+//   |               rtptime of earliest packet to play (?)          |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //   |                            Clock ID                           |
 //   |                                                               |
@@ -278,7 +278,12 @@ sync_packet_ptp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t po
   cur_ns = htobe64(cur_ns);
   memcpy(data + 8, &cur_ns, 8);
 
-  rtptime = htobe32(pos);
+  // My best understanding of rtptime is that it is the earliest packet the
+  // device should start playing. Why Apple has 77175 isn't completely clear to
+  // me, but seems to be related to AIRPLAY_AUDIO_LATENCY_MS. Note that the
+  // rtptime sent here will not be the rtptime of the first packet (contrary to
+  // the ntp sync, see below).
+  rtptime = htobe32(pos - 11025);
   memcpy(data + 16, &rtptime, 4);
 
   clock_id = htobe64(ptp_clock_id);
@@ -332,7 +337,9 @@ sync_packet_ntp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t po
   memcpy(data + 8, &cur_ts.sec, 4);
   memcpy(data + 12, &cur_ts.frac, 4);
 
-  rtptime = htobe32(pos + 11025); // Latency matching the above 0x07
+  // This rtptime must match the start rtptime communicated to the device via
+  // RTSP, otherwise some devices will fail e.g. Eufy Genie
+  rtptime = htobe32(pos);
   memcpy(data + 16, &rtptime, 4);
 }
 
