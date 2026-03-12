@@ -409,6 +409,7 @@ spotify {
 	# it will only appear in one album when browsing (in which album is
 	# random).
 #	album_override = false
+#	initscan_disable = false
 }
 
 # RCP/Roku Soundbridge output settings
