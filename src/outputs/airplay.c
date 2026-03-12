@@ -4321,7 +4321,6 @@ airplay_deinit(void)
 {
   struct airplay_session *session;
 
-  ptpd_deinit();
   airplay_events_deinit();
   service_stop(&airplay_control_svc);
   service_stop(&airplay_timing_svc);
@@ -4334,6 +4333,9 @@ airplay_deinit(void)
 
       session_free(session);
     }
+
+  // After freeing sessions, since that's where the active ptp peers get removed
+  ptpd_deinit();
 }
 
 struct output_definition output_airplay =
