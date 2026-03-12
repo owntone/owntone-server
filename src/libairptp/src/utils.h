@@ -24,6 +24,14 @@
 
 #define ARRAY_SIZE(x) ((unsigned int)(sizeof(x) / sizeof((x)[0])))
 
+#define UTILS_NET_SOCKET_INIT {-1, -1}
+
+struct utils_net_socket
+{
+  int fd4;
+  int fd6;
+};
+
 union utils_net_sockaddr
 {
   struct sockaddr_in sin;
@@ -33,7 +41,7 @@ union utils_net_sockaddr
 };
 
 int
-utils_net_bind(const char *node, unsigned short port);
+utils_net_bind(struct utils_net_socket *sock, const char *node, unsigned short port);
 
 int
 utils_net_sockaddr_get(union utils_net_sockaddr *naddr, const char *addr, unsigned short port);
@@ -43,6 +51,12 @@ utils_net_address_get(char *addr, size_t addr_len, union utils_net_sockaddr *nad
 
 bool
 utils_net_address_is_same(union utils_net_sockaddr *a, union utils_net_sockaddr *b);
+
+ssize_t
+utils_net_sendto(struct utils_net_socket *sock, const void *buf, size_t len, union utils_net_sockaddr *addr);
+
+void
+utils_net_socket_close(struct utils_net_socket *sock);
 
 uint32_t
 utils_djb_hash(const void *data, size_t len);

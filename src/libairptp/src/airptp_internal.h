@@ -60,13 +60,18 @@ struct airptp_shm_struct
   uint16_t version_minor;
   uint64_t clock_id;
   time_t ts;
+  uint16_t event_port;
+  uint16_t general_port;
+  bool ipv4_enabled;
+  bool ipv6_enabled;
 };
 
 struct airptp_service
 {
-  int fd;
+  struct utils_net_socket socket;
   unsigned short port;
-  struct event *ev;
+  struct event *ev4;
+  struct event *ev6;
 };
 
 struct airptp_peer
@@ -118,6 +123,8 @@ struct airptp_handle
   enum airptp_state state;
 
   struct airptp_daemon daemon;
+
+  struct airptp_shm_struct daemon_info;
 
   uint64_t clock_id;
 };

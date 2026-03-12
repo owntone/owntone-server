@@ -27,6 +27,7 @@ SOFTWARE.
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <errno.h>
 
 // For shm_open
@@ -77,7 +78,7 @@ daemon_shm_destroy(struct airptp_shm_struct *shm, int fd)
 }
 
 static int
-daemon_shm_create(struct airptp_shm_struct **shm, uint64_t clock_id)
+daemon_shm_create(struct airptp_shm_struct **shm, uint64_t clock_id, struct airptp_service *event_svc, struct airptp_service *general_svc)
 {
   struct airptp_shm_struct *info = MAP_FAILED;
   int fd;
@@ -101,6 +102,10 @@ daemon_shm_create(struct airptp_shm_struct **shm, uint64_t clock_id)
   info->version_minor = AIRPTP_SHM_STRUCTS_VERSION_MINOR;
   info->clock_id = clock_id;
   info->ts = time(NULL);
+  info->event_port = event_svc->port;
+  info->general_port = general_svc->port;
+  info->ipv4_enabled = (event_svc->socket.fd4 >= 0 && general_svc->socket.fd4 >= 0);
+  info->ipv6_enabled = (event_svc->socket.fd6 >= 0 && general_svc->socket.fd6 >= 0);
 
   *shm = info;
 
@@ -114,20 +119,34 @@ daemon_shm_create(struct airptp_shm_struct **shm, uint64_t clock_id)
 static void
 service_stop(struct airptp_service *svc)
 {
-  if (svc->ev)
-    event_free(svc->ev);
+  if (svc->ev4)
+    event_free(svc->ev4);
+  if (svc->ev6)
+    event_free(svc->ev6);
 
-  svc->ev = NULL;
+  svc->ev4 = NULL;
+  svc->ev6 = NULL;
 }
 
 static int
 service_start(struct airptp_service *svc, event_callback_fn cb, struct airptp_daemon *daemon)
 {
-  svc->ev = event_new(daemon->evbase, svc->fd, EV_READ | EV_PERSIST, cb, daemon);
-  if (!svc->ev)
-    goto error;
+  if (svc->socket.fd4 >= 0) {
+    svc->ev4 = event_new(daemon->evbase, svc->socket.fd4, EV_READ | EV_PERSIST, cb, daemon);
+    if (!svc->ev4)
+      goto error;
 
-  event_add(svc->ev, NULL);
+    event_add(svc->ev4, NULL);
+  }
+
+  if (svc->socket.fd6 >= 0) {
+    svc->ev6 = event_new(daemon->evbase, svc->socket.fd6, EV_READ | EV_PERSIST, cb, daemon);
+    if (!svc->ev6)
+      goto error;
+
+    event_add(svc->ev6, NULL);
+  }
+
   return 0;
 
  error:
@@ -156,7 +175,7 @@ peers_prune(struct airptp_daemon *daemon)
       peer = &daemon->peers[i];
       if (!peer->is_active)
 	{
-	  airptp_logmsg("Removing inactive peer with id %d", peer->id);
+	  airptp_logmsg("Removing inactive peer with id %" PRIu32, peer->id);
 	  peer_clear(peer);
 	  n_pruned++;
 	  continue;
@@ -231,7 +250,7 @@ daemon_peer_add(struct airptp_daemon *daemon, struct airptp_peer *peer)
     event_add(daemon->send_sync_timer, &daemon_send_sync_tv);
 
   scope_id = (peer->naddr.sa.sa_family == AF_INET6) ? peer->naddr.sin6.sin6_scope_id : 0;
-  airptp_logmsg("Added peer id %u, address %s, scope id %u, num_peers %d", peer->id, straddr, scope_id, daemon->num_peers);
+  airptp_logmsg("Added peer id %" PRIu32 ", address %s, scope id %u, num_peers %d", peer->id, straddr, scope_id, daemon->num_peers);
   return 0;
 }
 
@@ -263,7 +282,7 @@ daemon_peer_del(struct airptp_daemon *daemon, struct airptp_peer *peer)
   }
 
   daemon->num_peers--;
-  airptp_logmsg("Removed peer id %u, num_peers %d", peer_id, daemon->num_peers);
+  airptp_logmsg("Removed peer id %" PRIu32 ", num_peers %d", peer_id, daemon->num_peers);
   return 0;
 }
 
@@ -313,7 +332,6 @@ static void
 incoming_cb(int fd, short what, void *arg)
 {
   struct airptp_daemon *daemon = arg;
-  const char *svc_name = (fd == daemon->event_svc.fd) ? "PTP EVENT" : "PTP GENERAL";
   union utils_net_sockaddr peer_addr;
   socklen_t peer_addrlen = sizeof(peer_addr);
   uint8_t req[1024];
@@ -327,7 +345,7 @@ incoming_cb(int fd, short what, void *arg)
   if (len <= 0 || peer_addr.sa.sa_family == AF_UNSPEC)
     {
       if (len < 0)
-	airptp_logmsg("Service %s read error: %s", svc_name, strerror(errno));
+	airptp_logmsg("Service read error: %s", strerror(errno));
       return;
     }
 
@@ -430,7 +448,7 @@ run(void *arg)
     RETURN_ERROR(AIRPTP_ERR_INTERNAL, "Error creating ptp timers");
 
   if (daemon->is_shared) {
-    shm_fd = daemon_shm_create(&daemon->info, daemon->clock_id);
+    shm_fd = daemon_shm_create(&daemon->info, daemon->clock_id, &daemon->event_svc, &daemon->general_svc);
     if (shm_fd < 0)
       RETURN_ERROR(AIRPTP_ERR_INTERNAL, "Error creating shared memory");
 

@@ -567,7 +567,7 @@ delay_msg_handle(struct airptp_daemon *daemon, uint8_t *req, ssize_t req_len, un
   msg_delay_resp_make(&delay_resp, daemon->clock_id, delay_req.header.sequenceId, &delay_req.header, ts);
 
   port_set(peer_addr, daemon->general_svc.port);
-  len = sendto(daemon->general_svc.fd, &delay_resp, sizeof(delay_resp), 0, &peer_addr->sa, peer_addr_len);
+  len = utils_net_sendto(&daemon->general_svc.socket, &delay_resp, sizeof(delay_resp), peer_addr);
   if (len != sizeof(delay_resp))
     airptp_logmsg("Incomplete send of struct ptp_pdelay_resp_follow_up_message");
 
@@ -656,7 +656,7 @@ pdelay_msg_handle(struct airptp_daemon *daemon, uint8_t *req, ssize_t req_len, u
   msg_pdelay_resp_make(&resp, daemon->clock_id, header.sequenceId, &header, ts);
 
   port_set(peer_addr, daemon->event_svc.port);
-  len = sendto(daemon->event_svc.fd, &resp, sizeof(resp), 0, &peer_addr->sa, peer_addr_len);
+  len = utils_net_sendto(&daemon->event_svc.socket, &resp, sizeof(resp), peer_addr);
   if (len != sizeof(resp))
     airptp_logmsg("Incomplete send of struct ptp_pdelay_resp_message");
 
@@ -666,7 +666,7 @@ pdelay_msg_handle(struct airptp_daemon *daemon, uint8_t *req, ssize_t req_len, u
   msg_pdelay_resp_follow_up_make(&followup, daemon->clock_id, header.sequenceId, &header, ts);
 
   port_set(peer_addr, daemon->general_svc.port);
-  len = sendto(daemon->general_svc.fd, &followup, sizeof(followup), 0, &peer_addr->sa, peer_addr_len);
+  len = utils_net_sendto(&daemon->general_svc.socket, &followup, sizeof(followup), peer_addr);
   if (len != sizeof(followup))
     airptp_logmsg("Incomplete send of struct ptp_pdelay_resp_follow_up_message");
 
@@ -857,7 +857,7 @@ localhost_msg_send(void *msg, size_t msg_len, unsigned short port)
   ssize_t len = -1;
 
   snprintf(strport, sizeof(strport), "%hu", port);
-  if (getaddrinfo("localhost", strport, &hints, &info) < 0)
+  if (getaddrinfo("localhost", strport, &hints, &info) != 0)
     goto error;
 
   fd = socket(info->ai_family, SOCK_DGRAM, 0);
@@ -884,29 +884,27 @@ peers_msg_send(struct airptp_daemon *daemon, void *msg, size_t msg_len, struct a
   uint8_t *msg_bin = msg;
   uint64_t now = time(NULL);
 
-  for (int i = 0; i < daemon->num_peers; i++)
-    {
-      peer = &daemon->peers[i];
+  for (int i = 0; i < daemon->num_peers; i++) {
+    peer = &daemon->peers[i];
 
-      peer->is_active = (peer->last_seen + AIRPTP_STALE_SECS > now);
-      if (!peer->is_active)
-	continue;
+    peer->is_active = (peer->last_seen + AIRPTP_STALE_SECS > now);
+    if (!peer->is_active)
+      continue;
 
-      // Copy because we don't want to modify list elements
-      memcpy(&naddr, &peer->naddr, peer->naddr_len);
+    // Copy because we don't want to modify list elements
+    memcpy(&naddr, &peer->naddr, peer->naddr_len);
 
-      port_set(&naddr, svc->port);
-      len = sendto(svc->fd, msg, msg_len, 0, &naddr.sa, peer->naddr_len);
-      if (len < 0)
-	{
-	  airptp_logmsg("Error sending PTP msg %02x", msg_bin[0]);
-	  peer->is_active = false; // Will be removed deferred by peers_prune()
-	}
-      else if (len != msg_len)
-	airptp_logmsg("Incomplete send of msg %02x", msg_bin[0]);
-      else
-	log_sent(msg_bin, svc->port);
+    port_set(&naddr, svc->port);
+    len = utils_net_sendto(&svc->socket, msg, msg_len, &naddr);
+    if (len < 0) {
+      airptp_logmsg("Error sending PTP msg %02x: %s", msg_bin[0], strerror(errno));
+      peer->is_active = false; // Will be removed deferred by peers_prune()
     }
+    else if (len != msg_len)
+      airptp_logmsg("Incomplete send of msg %02x", msg_bin[0]);
+    else
+      log_sent(msg_bin, svc->port);
+  }
 }
 
 void

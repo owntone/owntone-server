@@ -61,6 +61,9 @@ static struct event *sig_event;
 static int main_exit;
 static bool run_background = true;
 
+static int ptp_event_port;
+static int ptp_general_port;
+
 static void
 version(void)
 {
@@ -76,6 +79,8 @@ usage(char *program)
   printf("Options:\n");
   printf("  -f              Run in foreground\n");
   printf("  -v              Increase verbosity\n");
+  printf("  -E              Port for PTP event messages (default 319)\n");
+  printf("  -G              Port for PTP general messages (default 320)\n");
   printf("  -V              Display version information\n");
   printf("\n");
 }
@@ -240,11 +245,13 @@ main(int argc, char **argv)
     { "foreground",    0, NULL, 'f' },
     { "version",       0, NULL, 'V' },
     { "verbose",       0, NULL, 'v' },
+    { "eventport",     1, NULL, 'E' },
+    { "generalport",   1, NULL, 'G' },
 
     { NULL,            0, NULL, 0   }
   };
 
-  while ((option = getopt_long(argc, argv, "fvV", option_map, NULL)) != -1) {
+  while ((option = getopt_long(argc, argv, "fvVE:G:", option_map, NULL)) != -1) {
     switch (option) {
       case 'f':
         run_background = false;
@@ -259,6 +266,14 @@ main(int argc, char **argv)
         return EXIT_SUCCESS;
         break;
 
+      case 'E':
+        ptp_event_port = atoi(optarg);
+        break;
+
+      case 'G':
+        ptp_general_port = atoi(optarg);
+        break;
+
       default:
         usage(argv[0]);
         return EXIT_FAILURE;
@@ -270,6 +285,13 @@ main(int argc, char **argv)
     openlog(PACKAGE_NAME, 0, LOG_DAEMON);
   } else if (be_verbose) {
     airptp_callbacks_register(&logs_cb);
+  }
+
+  if (ptp_event_port > 0 && ptp_general_port > 0) {
+    airptp_ports_override(ptp_event_port, ptp_general_port);
+  } else if (ptp_event_port > 0 || ptp_general_port > 0) {
+    logerror("Event and general port arguments (-E and -G) must be used together\n");
+    goto error;
   }
 
   ptpd_hdl = airptp_daemon_bind();

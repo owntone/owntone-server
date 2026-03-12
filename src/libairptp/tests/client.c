@@ -56,12 +56,12 @@ logmsg(const char *fmt, ...) {
 }
 
 
-// TODO catch signals and end
 int
 main(int argc, char * argv[])
 {
   struct airptp_handle *hdl;
   struct airptp_callbacks cb = { .hexdump = hexdump, .logmsg = logmsg, };
+  uint32_t peer_id;
   int ret;
 
   airptp_callbacks_register(&cb);
@@ -77,7 +77,6 @@ main(int argc, char * argv[])
 
   printf("client.c found clock_id=%" PRIx64 "\n", clock_id);
 
-  uint32_t peer_id;
   ret = airptp_peer_add(&peer_id, "192.168.1.10", hdl);
   if (ret < 0)
     goto error;

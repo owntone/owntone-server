@@ -103,27 +103,33 @@ struct airptp_handle *
 airptp_daemon_bind(void)
 {
   struct airptp_handle *hdl = NULL;
-  int fd_event = -1;
-  int fd_general = -1;
-  int ret __attribute__((unused));
+  struct utils_net_socket event_socket = UTILS_NET_SOCKET_INIT;
+  struct utils_net_socket general_socket = UTILS_NET_SOCKET_INIT;
+  int ret;
 
-  fd_event = utils_net_bind(NULL, airptp_event_port);
-  if (fd_event < 0)
+  ret = utils_net_bind(&event_socket, NULL, airptp_event_port);
+  if (ret < 0)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to event port (usually 319)");
 
-  fd_general = utils_net_bind(NULL, airptp_general_port);
-  if (fd_general < 0)
+  if (event_socket.fd4 < 0 || event_socket.fd6 < 0)
+    airptp_logmsg("Couldn't bind port %hu for %s", airptp_event_port, (event_socket.fd6 < 0) ? "ipv6" : "ipv4");
+
+  ret = utils_net_bind(&general_socket, NULL, airptp_general_port);
+  if (ret < 0)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to general port (usually 320)");
+
+  if (general_socket.fd4 < 0 || general_socket.fd6 < 0)
+    airptp_logmsg("Couldn't bind port %hu for %s", airptp_general_port, (general_socket.fd6 < 0) ? "ipv6" : "ipv4");
 
   hdl = calloc(1, sizeof(struct airptp_handle));
   if (!hdl)
     RETURN_ERROR(AIRPTP_ERR_OOM, "Out of memory");
 
   hdl->daemon.event_svc.port = airptp_event_port;
-  hdl->daemon.event_svc.fd = fd_event;
+  hdl->daemon.event_svc.socket = event_socket;
 
   hdl->daemon.general_svc.port = airptp_general_port;
-  hdl->daemon.general_svc.fd = fd_general;
+  hdl->daemon.general_svc.socket = general_socket;
 
   hdl->state = AIRPTP_STATE_PORTS_BOUND;
   hdl->is_daemon = true;
@@ -132,10 +138,8 @@ airptp_daemon_bind(void)
 
  error:
   free(hdl);
-  if (fd_event >= 0)
-    close(fd_event);
-  if (fd_general >= 0)
-    close(fd_general);
+  utils_net_socket_close(&event_socket);
+  utils_net_socket_close(&general_socket);
   return NULL;
 }
 
@@ -200,12 +204,15 @@ airptp_daemon_find(void)
   if (!hdl)
     RETURN_ERROR(AIRPTP_ERR_OOM, "Out of memory");
 
-  hdl->clock_id = daemon_info->clock_id;
   hdl->state = AIRPTP_STATE_RUNNING;
   hdl->is_daemon = false;
+  memcpy(&hdl->daemon_info, daemon_info, sizeof(struct airptp_shm_struct));
 
   munmap(daemon_info, sizeof(struct airptp_shm_struct));
   close(fd);
+
+  airptp_event_port = hdl->daemon_info.event_port;
+  airptp_general_port = hdl->daemon_info.general_port;
 
   return hdl;
 
@@ -230,8 +237,19 @@ airptp_peer_add(uint32_t *peer_id, const char *addr, struct airptp_handle *hdl)
   if (utils_net_sockaddr_get(&peer.naddr, addr, 0) < 0)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Can't add peer, address is invalid");
 
+  if (peer.naddr.sa.sa_family == AF_INET) {
+    if (!hdl->daemon_info.ipv4_enabled)
+      RETURN_ERROR(AIRPTP_ERR_INVALID, "Can't add peer with ipv4 address, daemon in ipv6-only mode");
+    peer.naddr_len = sizeof(peer.naddr.sin);
+  } else if (peer.naddr.sa.sa_family == AF_INET6) {
+    if (!hdl->daemon_info.ipv6_enabled)
+      RETURN_ERROR(AIRPTP_ERR_INVALID, "Can't add peer with ipv6 address, daemon in ipv4-only mode");
+    peer.naddr_len = sizeof(peer.naddr.sin6);
+  } else {
+    RETURN_ERROR(AIRPTP_ERR_INVALID, "Can't add peer, invalid address family");
+  }
+
   peer.id = utils_djb_hash(addr, strlen(addr));
-  peer.naddr_len = (peer.naddr.sa.sa_family == AF_INET6) ? sizeof(peer.naddr.sin6) : sizeof(peer.naddr.sin);
 
   ret = ptp_msg_peer_add_send(&peer, hdl, airptp_general_port);
   if (ret < 0)
@@ -264,12 +282,11 @@ airptp_end(struct airptp_handle *hdl)
   if (!hdl)
     return;
 
-  if (hdl->is_daemon)
+  if (hdl->is_daemon) {
     daemon_stop(&hdl->daemon);
-  if (hdl->daemon.event_svc.fd >= 0)
-    close(hdl->daemon.event_svc.fd);
-  if (hdl->daemon.general_svc.fd >= 0)
-    close(hdl->daemon.general_svc.fd);
+    utils_net_socket_close(&hdl->daemon.event_svc.socket);
+    utils_net_socket_close(&hdl->daemon.general_svc.socket);
+  }
 
   free(hdl);
 }

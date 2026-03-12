@@ -42,8 +42,8 @@ SOFTWARE.
 
 extern struct airptp_callbacks __thread airptp_cb;
 
-int
-utils_net_bind(const char *node, unsigned short port)
+static int
+bind_one(const char *node, unsigned short port, int family)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
@@ -51,51 +51,49 @@ utils_net_bind(const char *node, unsigned short port)
   char strport[8];
   int flags;
   int yes = 1;
-  int no = 0;
   int fd = -1;
   int ret;
 
   hints.ai_socktype = SOCK_DGRAM;
-  hints.ai_family = AF_INET6;
+  hints.ai_family = family;
   hints.ai_flags = node ? 0 : AI_PASSIVE;
 
   snprintf(strport, sizeof(strport), "%hu", port);
   ret = getaddrinfo(node, strport, &hints, &servinfo);
-  if (ret < 0)
+  if (ret != 0)
     goto error;
 
-  for (ptr = servinfo; ptr != NULL; ptr = ptr->ai_next)
-    {
-      if (fd >= 0)
-	close(fd);
+  for (ptr = servinfo; ptr != NULL; ptr = ptr->ai_next) {
+    if (fd >= 0)
+      close(fd);
 
-      fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-      if (fd < 0)
-	continue;
+    fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+    if (fd < 0)
+      continue;
 
-      flags = fcntl(fd, F_GETFL, 0);
-      if (flags < 0)
-	continue;
-      ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
-      if (ret < 0)
-	continue;
+    flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0)
+      continue;
+    ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
+    if (ret < 0)
+      continue;
 
-      // libevent sets this, we do the same
-      ret = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
-      if (ret < 0)
-	continue;
+    // We won't be using dual stack for BSD compability. We also don't use
+    // ifdef __linux__ to avoid branching.
+    ret = (ptr->ai_family == AF_INET6) ? setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(yes)) : 0;
+    if (ret < 0)
+      continue;
 
-      // We want to make sure the socket is dual stack
-      ret = (ptr->ai_family == AF_INET6) ? setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no)) : 0;
-      if (ret < 0)
-	continue;
-
-      ret = bind(fd, ptr->ai_addr, ptr->ai_addrlen);
-      if (ret < 0)
-	continue;
-
-      break;
-    }
+    ret = bind(fd, ptr->ai_addr, ptr->ai_addrlen);
+    if (ret < 0)
+      continue;
+/*
+    char straddr[128];
+    utils_net_address_get(straddr, sizeof(straddr), (union utils_net_sockaddr *)ptr->ai_addr);
+    printf("Bound %s (%s) to port %hu\n", straddr, (ptr->ai_family == AF_INET) ? "AF_INET" : "AF_INET6", port);
+*/
+    break;
+  }
 
   freeaddrinfo(servinfo);
 
@@ -111,22 +109,40 @@ utils_net_bind(const char *node, unsigned short port)
 }
 
 int
+utils_net_bind(struct utils_net_socket *sock, const char *node, unsigned short port)
+{
+  sock->fd4 = bind_one(node, port, AF_INET);
+  sock->fd6 = bind_one(node, port, AF_INET6);
+
+  if (sock->fd4 < 0 && sock->fd6 < 0)
+    return -1;
+
+  return 0;
+}
+
+int
 utils_net_sockaddr_get(union utils_net_sockaddr *naddr, const char *addr, unsigned short port)
 {
+  const char *ipv4mapped_prefix = "::ffff:";
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
   char strport[8];
   int ret;
+
+  // Trying to send to an ipv4-mapped address on our ipv6 socket will yield
+  // Network unreachable, so we want to just have a clean ipv4 address
+  if (strncmp(addr, ipv4mapped_prefix, strlen(ipv4mapped_prefix)) == 0)
+    addr += strlen(ipv4mapped_prefix);
 
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_DGRAM;
 
   snprintf(strport, sizeof(strport), "%hu", port);
   ret = getaddrinfo(addr, strport, &hints, &servinfo);
-  if (ret < 0)
+  if (ret != 0)
     goto error;
 
-  memcpy(naddr, servinfo->ai_addr, servinfo->ai_addrlen);
+  memcpy(&naddr->sa, servinfo->ai_addr, servinfo->ai_addrlen);
 
  error:
   freeaddrinfo(servinfo);
@@ -176,17 +192,40 @@ utils_net_address_is_same(union utils_net_sockaddr *a, union utils_net_sockaddr 
   return (cmp == 0);
 }
 
+// In Linux, you just need one socket for sending both ipv4 and ipv6, but BSD
+// and Mac OS think that would be too easy. We have to go with the lowest
+// denominator.
+ssize_t
+utils_net_sendto(struct utils_net_socket *sock, const void *buf, size_t len, union utils_net_sockaddr *addr)
+{
+  if (addr->sa.sa_family == AF_INET6)
+    return sendto(sock->fd6, buf, len, 0, &addr->sa, sizeof(addr->sin6));
+  else
+    return sendto(sock->fd4, buf, len, 0, &addr->sa, sizeof(addr->sin));
+}
+
+void
+utils_net_socket_close(struct utils_net_socket *sock)
+{
+  if (sock->fd4 >= 0)
+    close(sock->fd4);
+  if (sock->fd6 >= 0)
+    close(sock->fd6);
+
+  sock->fd4 = -1;
+  sock->fd6 = -1;
+}
+
 uint32_t
 utils_djb_hash(const void *data, size_t len)
 {
   const unsigned char *bytes = data;
   uint32_t hash = 5381;
 
-  while (len--)
-    {
-      hash = ((hash << 5) + hash) + *bytes;
-      bytes++;
-    }
+  while (len--) {
+    hash = ((hash << 5) + hash) + *bytes;
+    bytes++;
+  }
 
   return hash;
 }
