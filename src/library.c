@@ -826,21 +826,8 @@ initscan()
 
   for (i = 0; sources[i]; i++)
     {
-#ifdef SPOTIFY
-      /* If this source is the Spotify scanner and the spotify initscan is disabled
-       * in config, skip calling its initscan().
-       */
-      if (sources[i]->scan_kind == SCAN_KIND_SPOTIFY)
-        {
-          if (cfg_getbool(cfg_getsec(cfg, "spotify"), "initscan_disable"))
-            {
-              DPRINTF(E_INFO, L_LIB, "Skipping Spotify init scan due to configuration\n");
-              continue;
-            }
-        }
-#endif
       if (!sources[i]->disabled && sources[i]->initscan)
-        sources[i]->initscan();
+	sources[i]->initscan();
     }
 
   if (! (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable")))
