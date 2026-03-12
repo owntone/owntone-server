@@ -409,6 +409,14 @@ spotify {
 	# it will only appear in one album when browsing (in which album is
 	# random).
 #	album_override = false
+
+	# Disable automatic Spotify library scanning on startup
+	# When set to true, OwnTone will skip the Spotify library
+	# scan that imports saved albums/playlists/shows during server
+	# initialization. Token refresh and spotify_relogin() still run
+	# so playback remains available immediately after startup. Manual
+	# or API-triggered rescans continue to work as before.
+	# Default: false
 #	initscan_disable = false
 }
 
