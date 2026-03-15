@@ -2038,8 +2038,14 @@ spotifywebapi_library_initscan(void)
     }
 
   /*
-   * Scan saved tracks from the web api
+   * Scan saved tracks from the web api (can be disabled in config)
    */
+  if (cfg_getbool(cfg_getsec(cfg, "spotify"), "initscan_disable"))
+    {
+      DPRINTF(E_INFO, L_SPOTIFY, "Skipping Spotify library scan on startup as configured\n");
+      return 0;
+    }
+
   scan(SPOTIFY_REQUEST_TYPE_RESCAN);
   return 0;
 }

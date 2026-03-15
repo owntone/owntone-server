@@ -73,6 +73,7 @@ static struct event_base *sp_evbase;
 static struct commands_base *sp_cmdbase;
 
 static struct timeval sp_response_timeout_tv = { SP_AP_TIMEOUT_SECS, 0 };
+static struct timeval sp_idle_tv = { SP_AP_DISCONNECT_SECS, 0 };
 
 #ifdef DEBUG_DISCONNECT
 static int debug_disconnect_counter;
@@ -376,6 +377,8 @@ incoming_tcp_cb(int fd, short what, void *arg)
 	audio_data_received(session);
 
 	event_del(conn->timeout_ev);
+	// Reset idle timer on incoming data to prevent disconnect during playback
+	event_add(conn->idle_ev, &sp_idle_tv);
 	break;
       case SP_OK_DONE: // Got the response we expected, but possibly more to process
 	if (evbuffer_get_length(conn->incoming) > 0)
@@ -383,10 +386,14 @@ incoming_tcp_cb(int fd, short what, void *arg)
 
 	event_del(conn->timeout_ev);
 	event_active(session->continue_ev, 0, 0);
+	// Reset idle timer on incoming messages
+	event_add(conn->idle_ev, &sp_idle_tv);
 	break;
       case SP_OK_OTHER: // Not the response we were waiting for, check for other
 	if (evbuffer_get_length(conn->incoming) > 0)
 	  event_active(conn->response_ev, 0, 0);
+	// Reset idle timer on incoming messages (e.g., ping/pong)
+	event_add(conn->idle_ev, &sp_idle_tv);
 	break;
       default:
 	event_del(conn->timeout_ev);
