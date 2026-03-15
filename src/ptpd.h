@@ -10,10 +10,10 @@ ptpd_slave_add(uint32_t *slave_id, const char *addr);
 void
 ptpd_slave_remove(uint32_t slave_id);
 
-// Binds priviliged ports 319 and 320, so must be called before the server drops
-// priviliges
+// Looks for a shared airptpd daemon. If not found, binds priviliged ports 319
+// and 320, so must be called before the server drops priviliges.
 int
-ptpd_bind(void);
+ptpd_find_or_bind(void);
 
 int
 ptpd_init(uint64_t clock_id_seed);

@@ -26,7 +26,7 @@ AS_IF([[test -z "$GPERF"]],
 		[AM_MISSING_PROG([GPERF], [[gperf]])
 		AC_MSG_NOTICE([[
 
-GNU gperf not found, but it's output appears to be present.
+GNU gperf not found, but its output appears to be present.
 If you modify any .gperf files, you will need to install it.]])],
 		[AC_MSG_ERROR([[GNU gperf required, please install it.]])])
 	])
@@ -281,6 +281,8 @@ OWNTONE_MODULES_CHECK([OWNTONE], [LIBAV],
 
 AC_CHECK_SIZEOF([void *])
 
+OWNTONE_VAR_PREPEND([OWNTONE_LIBS], [libairptp/src/libairptp.a])
+
 dnl --- Begin configuring the options ---
 dnl ALSA
 OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [ALSA support], [alsa], [ALSA],
@@ -405,6 +407,7 @@ dnl --- End options ---
 
 dnl Unconditional since we always want to produce Makefiles for dist targets
 AC_CONFIG_SUBDIRS([
+	src/libairptp
 	src/inputs/librespot-c
 ])
 
