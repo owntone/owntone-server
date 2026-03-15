@@ -14,6 +14,10 @@ modify the following to be unique across all instances:
 * you probably also want to disable local output (set `audio` -> `type =
   "disabled"`).
 
+For full AirPlay 2 compability, you also need to install and run
+[airptpd](https://github.com/owntone/libairptp). The airptpd daemon must be
+running before starting any instance of OwnTone.
+
 Then run `owntone -c /etc/owntone-zone.conf` to run owntone with the new
 zone configuration.
 

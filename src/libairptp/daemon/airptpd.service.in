@@ -1,0 +1,12 @@
+[Unit]
+Description=PTP daemon for OwnTone
+Wants=network-online.target
+After=network.target network-online.target
+
+[Service]
+ExecStart=@prefix@/sbin/airptpd -f
+DynamicUser=yes
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target
