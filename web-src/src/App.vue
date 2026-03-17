@@ -172,6 +172,11 @@ export default {
       window.addEventListener('focus', () => {
         this.handleEvents(events)
       })
+      window.addEventListener('pageshow', (e) => {
+        if (e.persisted) {
+          this.handleEvents(events)
+        }
+      })
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
           this.handleEvents(events)

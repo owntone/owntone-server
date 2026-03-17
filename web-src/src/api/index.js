@@ -4,6 +4,12 @@ import { useNotificationsStore } from '@/stores/notifications'
 
 const { t } = i18n.global
 
+api.interceptors.request.use((config) => {
+  config.headers['Cache-Control'] = 'no-cache'
+  config.headers.Pragma = 'no-cache'
+  return config
+})
+
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
