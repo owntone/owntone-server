@@ -46,16 +46,4 @@ Path to the directory or directories containing the media to index (your library
 
 ## Other settings
 
-### spotify: initscan_disable
-
-When `spotify.initscan_disable` is set to `true`, OwnTone will skip the Spotify
-Web API library scan during server startup. The server will still refresh
-Spotify Web API tokens and attempt to re-authenticate (so playback remains
-available). Manual or API-triggered rescans are unaffected and will populate
-the Spotify library as usual. Default: `false`.
-
-Note: older installed binaries built before this option existed will not
-recognize the setting and may log a configuration parse error. Rebuilding
-and reinstalling the updated binary is required when enabling this option.
-
 See the [template configuration file](https://raw.githubusercontent.com/owntone/owntone-server/refs/heads/master/owntone.conf.in) for a description of all the settings.
