@@ -1092,11 +1092,13 @@ mpd_command_status(struct mpd_command_output *out, struct mpd_command_input *in,
   if (status.status != PLAY_STOPPED)
    {
       evbuffer_add_printf(out->evbuf,
-	  "time: %d:%d\n"
+	  "time: %d:%d\n" // Deprecated
+	  "duration: %#.3f\n"
 	  "elapsed: %#.3f\n"
 	  "bitrate: 128\n"
 	  "audio: 44100:16:2\n",
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
+	  (status.len_ms / 1000.0),
 	  (status.pos_ms / 1000.0));
    }
 
