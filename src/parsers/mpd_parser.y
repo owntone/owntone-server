@@ -285,6 +285,9 @@ static struct mpd_tag_map mpd_tag_map[] =
   { "modified-since",     "f.time_modified",      MPD_TYPE_SPECIAL,    dbmfi_offsetof(time_modified),     },
   { "added-since",        "f.time_added",         MPD_TYPE_SPECIAL,    dbmfi_offsetof(time_added),        },
 
+  { "Last-Modified",      "f.time_modified",      MPD_TYPE_SPECIAL,    dbmfi_offsetof(time_modified),     },
+  { "added",              "f.time_added",         MPD_TYPE_SPECIAL,    dbmfi_offsetof(time_added),        },
+
   // AudioFormat tag
   { "samplerate",         "f.samplerate",         MPD_TYPE_INT,        dbmfi_offsetof(samplerate),        },
   { "bits_per_sample",    "f.bits_per_sample",    MPD_TYPE_INT,        dbmfi_offsetof(bits_per_sample),   },
@@ -755,6 +758,8 @@ filter: filter MPD_T_AND filter                            { $$ = ast_new(MPD_T_
 
 sort: MPD_T_SORT MPD_T_STRTAG                              { $$ = ast_data(MPD_T_SORT, $2); }
 | MPD_T_SORT '-' MPD_T_STRTAG                              { $$ = ast_data(MPD_T_SORT | INVERT_MASK, $3); }
+| MPD_T_SORT MPD_T_INTTAG                                  { $$ = ast_data(MPD_T_SORT, $2); }
+| MPD_T_SORT '-' MPD_T_INTTAG                              { $$ = ast_data(MPD_T_SORT | INVERT_MASK, $3); }
 | %empty                                                   { $$ = NULL; }
 ;
 

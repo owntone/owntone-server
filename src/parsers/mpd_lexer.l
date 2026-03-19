@@ -85,6 +85,8 @@ composer         { yylval->str = strdup(yytext); return MPD_T_STRTAG; }
 composersort     { yylval->str = strdup(yytext); return MPD_T_STRTAG; }
 genre            { yylval->str = strdup(yytext); return MPD_T_STRTAG; }
 file             { yylval->str = strdup(yytext); return MPD_T_STRTAG; }
+last-modified    { yylval->str = strdup(yytext); return MPD_T_STRTAG; }
+added            { yylval->str = strdup(yytext); return MPD_T_STRTAG; }
 
 base             { yylval->str = strdup(yytext); return MPD_T_BASETAG; }
 
