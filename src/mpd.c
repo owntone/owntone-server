@@ -2384,7 +2384,7 @@ mpd_command_albumart(struct mpd_command_output *out, struct mpd_command_input *i
   int id;
 
   virtual_path = prepend_slash(in->argv[1]);
-  id = db_file_id_byvirtualpath(virtual_path);
+  id = db_file_id_byvirtualpath_match(virtual_path);
   free(virtual_path);
   if (id <= 0)
     RETURN_ERROR(ACK_ERROR_ARG, "Invalid path");
