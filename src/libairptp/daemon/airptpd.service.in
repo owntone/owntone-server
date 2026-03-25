@@ -2,6 +2,7 @@
 Description=PTP daemon for OwnTone
 Wants=network-online.target
 After=network.target network-online.target
+Before=owntone.service
 
 [Service]
 ExecStart=@prefix@/sbin/airptpd -f
