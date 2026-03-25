@@ -2,12 +2,15 @@
 
 ## iOS
 
-On iOS, the options are limited because there are no Media Client apps with DAAP
-support and because Apple doesn't allow AirPlay receiver apps. OwnTone also
-can't share music via Home Sharing, which is the protocol Apple uses for sharing
-media between devices.
+"Simple DAAP Client" by magnet-magic.com is currently (March 2026) the only
+known iOS media client app which can stream from your OwnTone library directly
+(i.e., in the same way that desktop iTunes/Apple Music do).
 
-That leaves the following options, which all rely on OwnTone's streaming:
+Apple doesn't allow AirPlay receiver apps, and OwnTone also can't share music
+via Home Sharing, which is the protocol Apple uses for sharing media between
+devices.
+
+Some alternative options, which all rely on OwnTone's streaming:
 
 - listen via the [web interface](web.md)
 - use a [MPD client app](../control-clients/mobile.md#mpd-client-apps) that supports local playback
