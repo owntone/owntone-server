@@ -66,7 +66,7 @@ main(int argc, char * argv[])
   airptp_callbacks_register(&cb);
   airptp_ports_override(30319, 30320);
 
-  hdl = airptp_daemon_bind();
+  hdl = airptp_daemon_bind(NULL);
   if (!hdl)
     goto error;
 

@@ -16,6 +16,13 @@
 #include <netinet/in.h>
 
 #define NET_CONNECT_TIMEOUT_MS 3000
+#define NET_SOCKET_INIT {-1, -1}
+
+struct net_socket
+{
+  int fd4;
+  int fd6;
+};
 
 union net_sockaddr
 {
@@ -48,12 +55,14 @@ net_mac_get(uint8_t *mac, size_t mac_size, const char *ifname);
 int
 net_connect(const char *addr, unsigned short port, int type, const char *log_service_name);
 
-// Returns the socket fd from socket(), -1 on error
-int
-net_bind(unsigned short *port, int type, const char *log_service_name);
+void
+net_socket_close(struct net_socket *socket);
 
 int
-net_bind_with_reuseport(unsigned short *port, int type, const char *log_service_name);
+net_bind(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name);
+
+int
+net_bind_with_reuseport(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name);
 
 // To avoid polluting namespace too much we don't include event2/http.h here
 struct evhttp;

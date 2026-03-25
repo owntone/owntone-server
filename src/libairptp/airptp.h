@@ -29,9 +29,10 @@ void
 airptp_callbacks_register(struct airptp_callbacks *cb);
 
 // Returns a handle if it was possible to bind to port 319 and 320. This
-// normally requires root privilies.
+// normally requires root privilies. If node is non-NULL will bind to that
+// specific address.
 struct airptp_handle *
-airptp_daemon_bind(void);
+airptp_daemon_bind(const char *node);
 
 // Starts a PTP daemon. Ports must have been bound already. Starting the daemon
 // does not require privileges.

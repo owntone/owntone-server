@@ -1481,15 +1481,16 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
 }
 
 static int
-bind_test(short unsigned port)
+bind_test(unsigned short port)
 {
-  int fd;
+  struct net_socket socket = NET_SOCKET_INIT;
+  int ret;
 
-  fd = net_bind(&port, SOCK_STREAM, "httpd init");
-  if (fd < 0)
+  ret = net_bind(&socket, &port, SOCK_STREAM, "httpd init");
+  if (ret < 0)
     return -1;
 
-  close(fd);
+  net_socket_close(&socket);
   return 0;
 }
 
