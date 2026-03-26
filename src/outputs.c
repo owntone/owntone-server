@@ -1315,6 +1315,7 @@ outputs_list(void)
 int
 outputs_init(void)
 {
+  cfg_opt_t *start_buffer_opt;
   int no_output;
   int ret;
   int i;
@@ -1328,8 +1329,9 @@ outputs_init(void)
   // audio latency of 250 ms/11025. See e.g. shairport-sync's rtp.c. While a
   // shorter delay would seem desirable, some Airplay devices ignore the values
   // we give and stick to 2.25 seconds.
-  outputs_buffer_duration_ms = cfg_getint(cfg_getsec(cfg, "general"), "start_buffer_ms");
-  if (outputs_buffer_duration_ms != 2000)
+  start_buffer_opt = cfg_getopt(cfg_getsec(cfg, "general"), "start_buffer_ms");
+  outputs_buffer_duration_ms = cfg_opt_getnint(start_buffer_opt, 0);
+  if (outputs_buffer_duration_ms != start_buffer_opt->def.number)
     DPRINTF(E_WARN, L_PLAYER, "Output buffer duration is configured to a non-standard value %" PRIu64 "\n", outputs_buffer_duration_ms);
 
   CHECK_NULL(L_PLAYER, outputs_deferredev = evtimer_new(evbase_player, deferred_cb, NULL));
