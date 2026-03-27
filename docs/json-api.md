@@ -643,8 +643,11 @@ POST /api/queue/items/add
 | clear           | *(Optional)* If the `clear` parameter is set to `true`, the queue will be cleared before adding the new items.    |
 | shuffle         | *(Optional)* If the `shuffle` parameter is set to `true`, the shuffle mode is activated. If it is set to something else, the shuffle mode is deactivated. To leave the shuffle mode untouched the parameter should be omitted.    |
 | limit           | *(Optional)* Maximum number of tracks to add |
+| top_tracks      | *(Optional)* If set to `true` and `uris` contains Spotify artist URIs, queue the artist's 10 popular tracks instead of all album tracks. |
 
 Either the `uris` or the `expression` parameter must be set. If both are set the `uris` parameter takes precedence and the `expression` parameter will be ignored.
+
+The `top_tracks` parameter only applies to Spotify artist URIs. If it is set together with a non-Spotify artist URI, the request will fail.
 
 **Response**
 
@@ -691,6 +694,26 @@ curl -X POST "http://localhost:3689/api/queue/items/add?uris=library:playlist:68
       "uri": "library:track:10749"
     },
     ...
+  ]
+}
+```
+
+Add the 10 most popular Spotify tracks for an artist:
+
+```shell
+curl -X POST "http://localhost:3689/api/queue/items/add?uris=spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ&top_tracks=true"
+```
+
+```json
+{
+  "version": 833,
+  "count": 10,
+  "items": [
+    {
+      "id": 12122,
+      "position": 0,
+      "title": "..."
+    }
   ]
 }
 ```
