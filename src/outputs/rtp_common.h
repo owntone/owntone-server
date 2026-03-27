@@ -127,11 +127,11 @@ rtp_session_flush(struct rtp_session *session);
  * @in  session       RTP session
  * @in  payload_len   Length of payload the packet needs to hold
  * @in  samples       Number of samples in packet
- * @in  payload_type  RTP payload type | marker bit, see RFC3551
+ * @in  type          RTP payload type | marker bit, see RFC3551
  * @return            Pointer to the next packet in the packet buffer
  */
 struct rtp_packet *
-rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char payload_type);
+rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, uint8_t type);
 
 /* Call this after finalizing a packet, i.e. writing the payload and possibly
  * sending. Registers the packet as final, i.e. it can now be retrieved with
@@ -156,7 +156,7 @@ bool
 rtp_sync_is_time(struct rtp_session *session);
 
 struct rtp_packet *
-rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, char type);
+rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, uint8_t type);
 
 int
 rtcp_packet_parse(struct rtcp_packet *pkt, uint8_t *data, size_t size);

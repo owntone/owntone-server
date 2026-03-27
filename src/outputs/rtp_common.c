@@ -118,7 +118,7 @@ rtp_session_flush(struct rtp_session *session)
 // We don't want the caller to malloc payload for every packet, so instead we
 // will get him a packet from the ring buffer, thus in most cases reusing memory
 struct rtp_packet *
-rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, char payload_type)
+rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, uint8_t type)
 {
   struct rtp_packet *pkt;
   uint16_t seq;
@@ -159,7 +159,7 @@ rtp_packet_next(struct rtp_session *session, size_t payload_len, int samples, ch
   //   |           synchronization source (SSRC) identifier            |
   //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   pkt->header[0] = 0x80; // Version = 2, P, X and CC are 0
-  pkt->header[1] = payload_type; // M and payload type
+  pkt->header[1] = type; // M and payload type
 
   seq = htobe16(session->seqnum);
   memcpy(pkt->header + 2, &seq, 2);
@@ -256,7 +256,7 @@ rtp_sync_is_time(struct rtp_session *session)
 //   |                                                               |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 static void
-sync_packet_ptp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t pos, char type, uint64_t ptp_clock_id)
+sync_packet_ptp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t pos, uint8_t type, uint64_t ptp_clock_id)
 {
   uint32_t cur_pos;
   uint64_t cur_ns;
@@ -306,7 +306,7 @@ sync_packet_ptp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t po
 //   |                     rtptime of first packet                   |
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 static void
-sync_packet_ntp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t pos, char type)
+sync_packet_ntp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t pos, uint8_t type)
 {
   struct ntp_timestamp cur_ts;
   uint32_t rtptime;
@@ -344,7 +344,7 @@ sync_packet_ntp_make(uint8_t *data, struct rtcp_timestamp cur_stamp, uint32_t po
 }
 
 struct rtp_packet *
-rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, char type)
+rtp_sync_packet_next(struct rtp_session *session, struct rtcp_timestamp cur_stamp, uint8_t type)
 {
   struct rtp_packet *pkt = &session->sync_packet_next;
 
