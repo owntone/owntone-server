@@ -2323,7 +2323,7 @@ queue_item_to_json(struct db_queue_item *queue_item, char shuffle)
 }
 
 static int
-queue_tracks_add_byuris(const char *param, char shuffle, uint32_t item_id, int pos, int *total_count, int *new_item_id)
+queue_tracks_add_byuris(const char *param, char shuffle, uint32_t item_id, int pos, bool artist_top_tracks, int *total_count, int *new_item_id)
 {
   char *uris;
   const char *uri;
@@ -2346,10 +2346,32 @@ queue_tracks_add_byuris(const char *param, char shuffle, uint32_t item_id, int p
 
   for (; uri; uri = strtok_r(NULL, ",", &ptr))
     {
-      ret = library_queue_item_add(uri, pos, shuffle, item_id, &count, &new);
+      if (artist_top_tracks)
+        {
+#ifdef SPOTIFY
+          if (strncasecmp(uri, "spotify:artist:", strlen("spotify:artist:")) != 0)
+            {
+              DPRINTF(E_LOG, L_WEB, "Invalid uri '%s' for Spotify artist top tracks\n", uri);
+              goto error;
+            }
+
+          ret = spotifywebapi_library_queue_artist_top_tracks(uri, pos, shuffle, item_id, &count, &new);
+#else
+          DPRINTF(E_LOG, L_WEB, "Spotify artist top tracks requested, but Spotify support is not enabled\n");
+          goto error;
+#endif
+        }
+      else
+        {
+          ret = library_queue_item_add(uri, pos, shuffle, item_id, &count, &new);
+        }
+
       if (ret != LIBRARY_OK)
 	{
-	  DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
+	  if (!artist_top_tracks)
+	    DPRINTF(E_LOG, L_WEB, "Invalid uri '%s'\n", uri);
+	  else
+	    DPRINTF(E_LOG, L_WEB, "Couldn't queue Spotify artist top tracks for uri '%s'\n", uri);
 	  goto error;
 	}
 
@@ -2448,11 +2470,13 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
   const char *param_pos;
   const char *param_uris;
   const char *param_expression;
+  const char *param_top_tracks;
   const char *param;
   struct player_status status;
   int pos;
   int limit;
   bool shuffle;
+  bool artist_top_tracks;
   int total_count = 0;
   int new_item_id = 0;
   int ret = 0;
@@ -2475,10 +2499,19 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
   param_uris = httpd_query_value_find(hreq->query, "uris");
   param_expression = httpd_query_value_find(hreq->query, "expression");
+  param_top_tracks = httpd_query_value_find(hreq->query, "top_tracks");
+  artist_top_tracks = (param_top_tracks && strcmp(param_top_tracks, "true") == 0);
 
   if (!param_uris && !param_expression)
     {
       DPRINTF(E_LOG, L_WEB, "Missing query parameter 'uris' or 'expression'\n");
+
+      return HTTP_BADREQUEST;
+    }
+
+  if (artist_top_tracks && !param_uris)
+    {
+      DPRINTF(E_LOG, L_WEB, "Query parameter 'top_tracks' requires 'uris'\n");
 
       return HTTP_BADREQUEST;
     }
@@ -2503,7 +2536,7 @@ jsonapi_reply_queue_tracks_add(struct httpd_request *hreq)
 
   if (param_uris)
     {
-      ret = queue_tracks_add_byuris(param_uris, status.shuffle, status.item_id, pos, &total_count, &new_item_id);
+      ret = queue_tracks_add_byuris(param_uris, status.shuffle, status.item_id, pos, artist_top_tracks, &total_count, &new_item_id);
     }
   else
     {

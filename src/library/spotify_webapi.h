@@ -62,5 +62,7 @@ void
 spotifywebapi_status_info_get(struct spotifywebapi_status_info *info);
 void
 spotifywebapi_access_token_get(struct spotifywebapi_access_token *info);
+int
+spotifywebapi_library_queue_artist_top_tracks(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id);
 
 #endif /* SRC_SPOTIFY_WEBAPI_H_ */

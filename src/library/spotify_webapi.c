@@ -165,6 +165,7 @@ static const char *spotify_album_tracks_uri    = "https://api.spotify.com/v1/alb
 static const char *spotify_playlists_uri       = "https://api.spotify.com/v1/me/playlists?limit=50";
 static const char *spotify_playlist_tracks_uri = "https://api.spotify.com/v1/playlists/%s/tracks";
 static const char *spotify_artist_albums_uri   = "https://api.spotify.com/v1/artists/%s/albums?include_groups=album,single";
+static const char *spotify_artist_top_tracks_uri = "https://api.spotify.com/v1/artists/%s/top-tracks";
 static const char *spotify_shows_uri           = "https://api.spotify.com/v1/me/shows?limit=50";
 static const char *spotify_shows_episodes_uri  = "https://api.spotify.com/v1/shows/%s/episodes";
 static const char *spotify_episode_uri         = "https://api.spotify.com/v1/episodes/%s";
@@ -1139,6 +1140,27 @@ get_artist_albums_endpoint_uri(const char *uri)
 }
 
 static char *
+get_artist_top_tracks_endpoint_uri(const char *uri)
+{
+  char *endpoint_uri = NULL;
+  char *id = NULL;
+  int ret;
+
+  ret = get_id_from_uri(uri, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from uri '%s'\n", uri);
+      goto out;
+    }
+
+  endpoint_uri = safe_asprintf(spotify_artist_top_tracks_uri, id);
+
+ out:
+  free(id);
+  return endpoint_uri;
+}
+
+static char *
 get_episode_endpoint_uri(const char *uri)
 {
   char *endpoint_uri = NULL;
@@ -1393,6 +1415,105 @@ queue_add_artist(int *count, int *new_item_id, const char *uri, int position, ch
 
  out:
   free(endpoint_uri);
+  return ret;
+}
+
+static int
+queue_add_artist_top_tracks_track(json_object *item, int index, int total, struct db_queue_add_info *queue_add_info)
+{
+  struct spotify_track track;
+  struct db_queue_item queue_item;
+  int ret;
+
+  (void)index;
+  (void)total;
+
+  parse_metadata_track(item, &track, ART_DEFAULT_WIDTH);
+
+  if (!track.uri || !track.is_playable)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Track not available for playback: '%s' - '%s' (%s) (restrictions: %s)\n", track.artist, track.name, track.uri, track.restrictions);
+      return -1;
+    }
+
+  map_track_to_queueitem(&queue_item, &track, NULL);
+
+  ret = db_queue_add_next(queue_add_info, &queue_item);
+
+  free_queue_item(&queue_item, 1);
+
+  return ret;
+}
+
+int
+spotifywebapi_library_queue_artist_top_tracks(const char *uri, int position, char reshuffle, uint32_t item_id, int *count, int *new_item_id)
+{
+  struct db_queue_add_info queue_add_info;
+  char *endpoint_uri = NULL;
+  json_object *response = NULL;
+  json_object *jsontracks = NULL;
+  json_object *jsontrack;
+  int track_count;
+  int i;
+  int ret;
+
+  ret = db_queue_add_start(&queue_add_info, position);
+  if (ret < 0)
+    goto out;
+
+  endpoint_uri = get_artist_top_tracks_endpoint_uri(uri);
+  if (!endpoint_uri)
+    {
+      ret = -1;
+      goto end;
+    }
+
+  endpoint_uri = credentials_query_param_market(endpoint_uri);
+
+  response = request_endpoint_with_token_refresh(endpoint_uri);
+  if (!response)
+    {
+      ret = -1;
+      goto end;
+    }
+
+  if (jparse_array_from_obj(response, "tracks", &jsontracks) < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: missing or empty 'tracks' array for artist top tracks (API endpoint: '%s')\n", endpoint_uri);
+      ret = -1;
+      goto end;
+    }
+
+  track_count = json_object_array_length(jsontracks);
+  for (i = 0; i < track_count; i++)
+    {
+      jsontrack = json_object_array_get_idx(jsontracks, i);
+      if (!jsontrack)
+        {
+          DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: no track at index %d in artist top tracks response (API endpoint: '%s')\n", i, endpoint_uri);
+          continue;
+        }
+
+      ret = queue_add_artist_top_tracks_track(jsontrack, i, track_count, &queue_add_info);
+      if (ret < 0)
+        DPRINTF(E_LOG, L_SPOTIFY, "Couldn't add artist top track at index %d (API endpoint: '%s')\n", i, endpoint_uri);
+    }
+
+  ret = 0;
+
+ end:
+  ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
+  if (ret < 0)
+    goto out;
+
+  if (count)
+    *count = queue_add_info.count;
+  if (new_item_id)
+    *new_item_id = queue_add_info.new_item_id;
+
+ out:
+  free(endpoint_uri);
+  jparse_free(response);
   return ret;
 }
 
