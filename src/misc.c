@@ -1989,7 +1989,7 @@ thread_gettid(void)
 #elif defined(HAVE_PTHREAD_GETTHREADID_NP)
   tid = pthread_getthreadid_np();
 #else //defacto thread id
-  tid = (int)pthread_self();
+  tid = (int)(intptr_t)pthread_self();
 #endif
   return tid;
 }
