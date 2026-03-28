@@ -1,5 +1,4 @@
 <template>
-  <vue-progress-bar class="has-background-primary" />
   <navbar-top />
   <router-view v-slot="{ Component }">
     <component :is="Component" />
@@ -90,17 +89,6 @@ export default {
       update: [this.libraryStore.initialise],
       volume: [this.playerStore.initialise, this.outputsStore.initialise]
     }
-    this.$router.beforeEach(async (to, from, next) => {
-      await this.configurationStore.initialise()
-      this.updateClipping()
-      if (!(to.path === from.path && to.hash)) {
-        this.$Progress.start()
-      }
-      next()
-    })
-    this.$router.afterEach(() => {
-      this.$Progress.finish()
-    })
     this.connect()
   },
   beforeUnmount() {
