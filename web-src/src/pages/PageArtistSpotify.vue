@@ -8,6 +8,13 @@
         :button="{ handler: openDetails, icon: 'dots-horizontal' }"
       />
       <control-button
+        :button="{
+          handler: playTopTracks,
+          icon: 'play',
+          key: 'actions.top-tracks'
+        }"
+      />
+      <control-button
         :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
       />
     </template>
@@ -16,6 +23,7 @@
     </template>
   </content-with-heading>
   <modal-dialog-artist-spotify
+    :buttons="artistButtons"
     :item="artist"
     :show="showDetailsModal"
     @close="showDetailsModal = false"
@@ -52,6 +60,15 @@ export default {
     }
   },
   computed: {
+    artistButtons() {
+      return [
+        {
+          handler: this.playTopTracks,
+          icon: 'play',
+          key: 'actions.top-tracks'
+        }
+      ]
+    },
     heading() {
       return {
         subtitle: [{ count: this.total, key: 'data.albums' }],
@@ -94,6 +111,10 @@ export default {
     },
     openDetails() {
       this.showDetailsModal = true
+    },
+    playTopTracks() {
+      this.showDetailsModal = false
+      queue.playArtistTopTracks(this.artist.uri)
     },
     play() {
       this.showDetailsModal = false

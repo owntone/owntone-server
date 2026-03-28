@@ -1,5 +1,6 @@
 <template>
   <modal-dialog-playable
+    :buttons="buttons"
     :item="playable"
     :show="show"
     @close="$emit('close')"
@@ -12,7 +13,11 @@ import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 export default {
   name: 'ModalDialogArtistSpotify',
   components: { ModalDialogPlayable },
-  props: { item: { required: true, type: Object }, show: Boolean },
+  props: {
+    buttons: { default: () => [], type: Array },
+    item: { required: true, type: Object },
+    show: Boolean
+  },
   emits: ['close'],
   computed: {
     playable() {

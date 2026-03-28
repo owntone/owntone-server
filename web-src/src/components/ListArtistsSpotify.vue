@@ -11,6 +11,7 @@
   />
   <loader-list-item :load="load" />
   <modal-dialog-artist-spotify
+    :buttons="artistButtons"
     :item="selectedItem"
     :show="showDetailsModal"
     @close="showDetailsModal = false"
@@ -21,6 +22,7 @@
 import ListItem from '@/components/ListItem.vue'
 import LoaderListItem from '@/components/LoaderListItem.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
+import queue from '@/api/queue'
 
 export default {
   name: 'ListArtistsSpotify',
@@ -28,6 +30,17 @@ export default {
   props: {
     items: { required: true, type: Object },
     load: { default: null, type: Function }
+  },
+  computed: {
+    artistButtons() {
+      return [
+        {
+          handler: this.playTopTracks,
+          icon: 'play',
+          key: 'actions.top-tracks'
+        }
+      ]
+    }
   },
   data() {
     return { selectedItem: {}, showDetailsModal: false }
@@ -45,6 +58,10 @@ export default {
     openDetails(item) {
       this.selectedItem = item
       this.showDetailsModal = true
+    },
+    playTopTracks() {
+      this.showDetailsModal = false
+      queue.playArtistTopTracks(this.selectedItem.uri)
     }
   }
 }

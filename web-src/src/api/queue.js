@@ -56,6 +56,18 @@ export default {
     }
     return api.post(`${BASE_URL}/items/add`, null, { params })
   },
+  playArtistTopTracks(uri, position) {
+    const params = {
+      clear: 'true',
+      playback: 'start',
+      playback_from_position: position,
+      shuffle: false,
+      top_tracks: 'true',
+      uris: uri
+    }
+
+    return api.post(`${BASE_URL}/items/add`, null, { params })
+  },
   remove(id) {
     return api.delete(`${BASE_URL}/items/${id}`)
   },
