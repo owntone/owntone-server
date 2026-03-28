@@ -25,17 +25,6 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then(({ api, configuration }) => {
-      api.browse
-        .getNewReleases(configuration.webapi_country, 50)
-        .then((response) => {
-          next((vm) => {
-            vm.albums = response.albums.items
-          })
-        })
-    })
-  },
   data() {
     return { albums: [] }
   },
@@ -43,6 +32,14 @@ export default {
     heading() {
       return { title: this.$t('page.spotify.music.new-releases') }
     }
+  },
+  async mounted() {
+    const { api, configuration } = await services.spotify()
+    const response = await api.browse.getNewReleases(
+      configuration.webapi_country,
+      50
+    )
+    this.albums = response.albums.items
   }
 }
 </script>

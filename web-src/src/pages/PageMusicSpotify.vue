@@ -73,9 +73,13 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then(({ api, configuration }) => {
-      Promise.all([
+  data() {
+    return { albums: [], artists: [], playlists: [] }
+  },
+  async mounted() {
+    const { api, configuration } = await services.spotify()
+    const [newReleases, followedArtists, featuredPlaylists] = await Promise.all(
+      [
         api.browse.getNewReleases(configuration.webapi_country, 3),
         api.currentUser.followedArtists(null, 3),
         api.browse.getFeaturedPlaylists(
@@ -84,17 +88,11 @@ export default {
           null,
           3
         )
-      ]).then(([newReleases, followedArtists, featuredPlaylists]) => {
-        next((vm) => {
-          vm.albums = newReleases.albums.items
-          vm.artists = followedArtists?.artists.items
-          vm.playlists = featuredPlaylists.playlists.items
-        })
-      })
-    })
-  },
-  data() {
-    return { albums: [], artists: [], playlists: [] }
+      ]
+    )
+    this.albums = newReleases.albums.items
+    this.artists = followedArtists?.artists.items
+    this.playlists = featuredPlaylists.playlists.items
   }
 }
 </script>

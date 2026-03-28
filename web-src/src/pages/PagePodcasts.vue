@@ -78,19 +78,6 @@ export default {
     ModalDialogAddRss,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.albums('podcast'),
-      library.newPodcastEpisodes(),
-      library.rssCount()
-    ]).then(([albums, episodes, rssCount]) => {
-      next((vm) => {
-        vm.albums = new GroupedList(albums)
-        vm.episodes = new GroupedList(episodes)
-        vm.rssCount = rssCount
-      })
-    })
-  },
   setup() {
     return { libraryStore: useLibraryStore(), uiStore: useUIStore() }
   },
@@ -115,6 +102,16 @@ export default {
       }
       return {}
     }
+  },
+  async mounted() {
+    const [albums, episodes, rssCount] = await Promise.all([
+      library.albums('podcast'),
+      library.newPodcastEpisodes(),
+      library.rssCount()
+    ])
+    this.albums = new GroupedList(albums)
+    this.episodes = new GroupedList(episodes)
+    this.rssCount = rssCount
   },
   methods: {
     markAllAsPlayed() {

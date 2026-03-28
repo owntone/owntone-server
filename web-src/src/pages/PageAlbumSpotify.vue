@@ -41,17 +41,6 @@ export default {
     ModalDialogAlbumSpotify,
     PaneHero
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then(({ api, configuration }) => {
-      api.albums
-        .get(to.params.id, configuration.webapi_country)
-        .then((album) => {
-          next((vm) => {
-            vm.album = album
-          })
-        })
-    })
-  },
   setup() {
     return { servicesStore: useServicesStore() }
   },
@@ -81,6 +70,13 @@ export default {
       }
       return []
     }
+  },
+  async mounted() {
+    const { api, configuration } = await services.spotify()
+    this.album = await api.albums.get(
+      this.$route.params.id,
+      configuration.webapi_country
+    )
   },
   methods: {
     openArtist() {

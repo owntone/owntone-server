@@ -47,19 +47,6 @@ export default {
     ModalDialogGenre,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.genre(to.params.name, to.query.mediaKind),
-      library.genreAlbums(to.params.name, to.query.mediaKind)
-    ]).then(([genre, albums]) => {
-      next((vm) => {
-        vm.genre = genre.items.shift()
-        vm.albums = new GroupedList(albums, {
-          index: { field: 'name_sort', type: String }
-        })
-      })
-    })
-  },
   data() {
     return {
       albums: new GroupedList(),
@@ -85,6 +72,16 @@ export default {
       }
       return {}
     }
+  },
+  async mounted() {
+    const [genre, albums] = await Promise.all([
+      library.genre(this.$route.params.name, this.$route.query.mediaKind),
+      library.genreAlbums(this.$route.params.name, this.$route.query.mediaKind)
+    ])
+    this.genre = genre.items.shift()
+    this.albums = new GroupedList(albums, {
+      index: { field: 'name_sort', type: String }
+    })
   },
   methods: {
     openDetails() {

@@ -68,13 +68,6 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    library.artists('music').then((artists) => {
-      next((vm) => {
-        vm.artistList = new GroupedList(artists)
-      })
-    })
-  },
   setup() {
     return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
@@ -119,6 +112,10 @@ export default {
         title: this.$t('page.artists.title')
       }
     }
+  },
+  async mounted() {
+    const artists = await library.artists('music')
+    this.artistList = new GroupedList(artists)
   }
 }
 </script>

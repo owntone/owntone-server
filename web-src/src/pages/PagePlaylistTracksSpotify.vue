@@ -18,6 +18,7 @@
     </template>
     <template #content>
       <list-tracks-spotify
+        v-if="tracks.length"
         :context-uri="playlist.uri"
         :items="tracks"
         :load="load"
@@ -51,28 +52,6 @@ export default {
     ModalDialogPlaylistSpotify,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then(({ api, configuration }) => {
-      Promise.all([
-        api.playlists.getPlaylist(to.params.id),
-        api.playlists.getPlaylistItems(
-          to.params.id,
-          configuration.webapi_country,
-          null,
-          PAGE_SIZE,
-          0
-        )
-      ]).then(([playlist, tracks]) => {
-        next((vm) => {
-          vm.playlist = playlist
-          vm.tracks = []
-          vm.total = 0
-          vm.offset = 0
-          vm.appendTracks(tracks)
-        })
-      })
-    })
-  },
   data() {
     return {
       offset: 0,
@@ -93,13 +72,27 @@ export default {
       return {}
     }
   },
+  async mounted() {
+    const { api, configuration } = await services.spotify()
+    const [playlist, tracks] = await Promise.all([
+      api.playlists.getPlaylist(this.$route.params.id),
+      api.playlists.getPlaylistItems(
+        this.$route.params.id,
+        configuration.webapi_country,
+        null,
+        PAGE_SIZE,
+        0
+      )
+    ])
+    this.playlist = playlist
+    this.appendTracks(tracks)
+  },
   methods: {
     appendTracks(data) {
       let position = Math.max(
         -1,
         ...this.tracks.map((item) => item.position).filter((item) => item)
       )
-      // Filters out null tracks and adds a position to the playable tracks
       data.items.forEach((item) => {
         const { track } = item
         if (track) {
@@ -113,21 +106,17 @@ export default {
       this.total = data.total
       this.offset += data.limit
     },
-    load({ loaded }) {
-      services.spotify().then(({ api, configuration }) => {
-        api.playlists
-          .getPlaylistItems(
-            this.playlist.id,
-            configuration.webapi_country,
-            null,
-            PAGE_SIZE,
-            this.offset
-          )
-          .then((data) => {
-            this.appendTracks(data)
-            loaded(data.items.length, PAGE_SIZE)
-          })
-      })
+    async load({ loaded }) {
+      const { api, configuration } = await services.spotify()
+      const data = await api.playlists.getPlaylistItems(
+        this.playlist.id,
+        configuration.webapi_country,
+        null,
+        PAGE_SIZE,
+        this.offset
+      )
+      this.appendTracks(data)
+      loaded(data.items.length, PAGE_SIZE)
     },
     play() {
       this.showDetailsModal = false

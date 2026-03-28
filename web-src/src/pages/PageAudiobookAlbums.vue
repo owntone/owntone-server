@@ -31,15 +31,6 @@ export default {
     PaneTitle,
     TabsAudiobooks
   },
-  beforeRouteEnter(to, from, next) {
-    library.albums('audiobook').then((albums) => {
-      next((vm) => {
-        vm.albums = new GroupedList(albums, {
-          index: { field: 'name_sort', type: String }
-        })
-      })
-    })
-  },
   data() {
     return {
       albums: new GroupedList()
@@ -52,6 +43,12 @@ export default {
         title: this.$t('page.audiobooks.albums.title')
       }
     }
+  },
+  async mounted() {
+    const albums = await library.albums('audiobook')
+    this.albums = new GroupedList(albums, {
+      index: { field: 'name_sort', type: String }
+    })
   }
 }
 </script>

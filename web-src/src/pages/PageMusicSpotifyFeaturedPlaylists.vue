@@ -25,17 +25,6 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then(({ api, configuration }) => {
-      api.browse
-        .getFeaturedPlaylists(configuration.webapi_country, null, null, 50)
-        .then((response) => {
-          next((vm) => {
-            vm.playlists = response.playlists.items
-          })
-        })
-    })
-  },
   data() {
     return { playlists: [] }
   },
@@ -43,6 +32,16 @@ export default {
     heading() {
       return { title: this.$t('page.spotify.music.featured-playlists') }
     }
+  },
+  async mounted() {
+    const { api, configuration } = await services.spotify()
+    const response = await api.browse.getFeaturedPlaylists(
+      configuration.webapi_country,
+      null,
+      null,
+      50
+    )
+    this.playlists = response.playlists.items
   }
 }
 </script>

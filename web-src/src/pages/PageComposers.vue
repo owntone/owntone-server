@@ -31,15 +31,6 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    library.composers('music').then((composers) => {
-      next((vm) => {
-        vm.composers = new GroupedList(composers, {
-          index: { field: 'name_sort', type: String }
-        })
-      })
-    })
-  },
   data() {
     return {
       composers: new GroupedList()
@@ -52,6 +43,12 @@ export default {
         title: this.$t('page.composers.title')
       }
     }
+  },
+  async mounted() {
+    const composers = await library.composers('music')
+    this.composers = new GroupedList(composers, {
+      index: { field: 'name_sort', type: String }
+    })
   }
 }
 </script>

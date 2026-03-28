@@ -48,14 +48,6 @@ export default {
     ModalDialogPlayable,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    next(async (vm) => {
-      await vm.fetchData(to)
-    })
-  },
-  beforeRouteUpdate(to, from, next) {
-    this.fetchData(to).then(() => next())
-  },
   setup() {
     return {
       configurationStore: useConfigurationStore()
@@ -93,6 +85,14 @@ export default {
         ]
       }
     }
+  },
+  watch: {
+    $route(to) {
+      this.fetchData(to)
+    }
+  },
+  async mounted() {
+    await this.fetchData(this.$route)
   },
   methods: {
     async fetchData(to) {

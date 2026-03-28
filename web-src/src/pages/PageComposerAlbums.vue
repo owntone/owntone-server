@@ -41,17 +41,6 @@ export default {
     ModalDialogComposer,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.composer(to.params.name),
-      library.composerAlbums(to.params.name)
-    ]).then(([composer, albums]) => {
-      next((vm) => {
-        vm.composer = composer
-        vm.albums = new GroupedList(albums)
-      })
-    })
-  },
   data() {
     return {
       albums: new GroupedList(),
@@ -79,6 +68,14 @@ export default {
       }
       return {}
     }
+  },
+  async mounted() {
+    const [composer, albums] = await Promise.all([
+      library.composer(this.$route.params.name),
+      library.composerAlbums(this.$route.params.name)
+    ])
+    this.composer = composer
+    this.albums = new GroupedList(albums)
   },
   methods: {
     openDetails() {

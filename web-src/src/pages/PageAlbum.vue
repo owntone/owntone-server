@@ -41,23 +41,6 @@ export default {
     ModalDialogAlbum,
     PaneHero
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.album(to.params.id),
-      library.albumTracks(to.params.id)
-    ]).then(([album, tracks]) => {
-      next((vm) => {
-        vm.album = album
-        vm.tracks = new GroupedList(tracks, {
-          criteria: [{ field: 'disc_number', type: Number }],
-          index: { field: 'disc_number', type: Number }
-        })
-        if (vm.tracks.indices.length < 2) {
-          vm.tracks.group()
-        }
-      })
-    })
-  },
   data() {
     return {
       album: {},
@@ -77,6 +60,20 @@ export default {
           { handler: this.openDetails, icon: 'dots-horizontal' }
         ]
       }
+    }
+  },
+  async mounted() {
+    const [album, tracks] = await Promise.all([
+      library.album(this.$route.params.id),
+      library.albumTracks(this.$route.params.id)
+    ])
+    this.album = album
+    this.tracks = new GroupedList(tracks, {
+      criteria: [{ field: 'disc_number', type: Number }],
+      index: { field: 'disc_number', type: Number }
+    })
+    if (this.tracks.indices.length < 2) {
+      this.tracks.group()
     }
   },
   methods: {

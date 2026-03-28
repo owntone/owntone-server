@@ -20,14 +20,6 @@ import { useConfigurationStore } from '@/stores/configuration'
 export default {
   name: 'PagePlaylistFolder',
   components: { ContentWithHeading, ListPlaylists, PaneTitle },
-  beforeRouteEnter(to, from, next) {
-    next(async (vm) => {
-      await vm.fetchData(to.params.id)
-    })
-  },
-  beforeRouteUpdate(to, from, next) {
-    this.fetchData(to.params.id).then(() => next())
-  },
   setup() {
     return {
       configurationStore: useConfigurationStore()
@@ -59,6 +51,14 @@ export default {
         ]
       })
     }
+  },
+  watch: {
+    $route(to) {
+      this.fetchData(to.params.id)
+    }
+  },
+  async mounted() {
+    await this.fetchData(this.$route.params.id)
   },
   methods: {
     async fetchData(id) {

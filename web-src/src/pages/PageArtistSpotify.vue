@@ -12,7 +12,7 @@
       />
     </template>
     <template #content>
-      <list-albums-spotify :items="albums" :load="load" />
+      <list-albums-spotify v-if="albums.length" :items="albums" :load="load" />
     </template>
   </content-with-heading>
   <modal-dialog-artist-spotify
@@ -42,27 +42,6 @@ export default {
     ModalDialogArtistSpotify,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then(({ api, configuration }) => {
-      Promise.all([
-        api.artists.get(to.params.id),
-        api.artists.albums(
-          to.params.id,
-          'album,single',
-          configuration.webapi_country,
-          PAGE_SIZE,
-          0
-        )
-      ]).then(([artist, albums]) => {
-        next((vm) => {
-          vm.artist = artist
-          vm.albums = albums.items
-          vm.total = albums.total
-          vm.offset = albums.limit
-        })
-      })
-    })
-  },
   data() {
     return {
       albums: [],
@@ -80,27 +59,38 @@ export default {
       }
     }
   },
+  async mounted() {
+    const { api, configuration } = await services.spotify()
+    const [artist, albums] = await Promise.all([
+      api.artists.get(this.$route.params.id),
+      api.artists.albums(
+        this.$route.params.id,
+        'album,single',
+        configuration.webapi_country,
+        PAGE_SIZE,
+        0
+      )
+    ])
+    this.artist = artist
+    this.appendAlbums(albums)
+  },
   methods: {
     appendAlbums(data) {
       this.albums = this.albums.concat(data.items)
       this.total = data.total
       this.offset += data.limit
     },
-    load({ loaded }) {
-      services.spotify().then(({ api, configuration }) => {
-        api.artists
-          .albums(
-            this.artist.id,
-            'album,single',
-            configuration.webapi_country,
-            PAGE_SIZE,
-            this.offset
-          )
-          .then((albums) => {
-            this.appendAlbums(albums)
-            loaded(albums.items.length, PAGE_SIZE)
-          })
-      })
+    async load({ loaded }) {
+      const { api, configuration } = await services.spotify()
+      const albums = await api.artists.albums(
+        this.artist.id,
+        'album,single',
+        configuration.webapi_country,
+        PAGE_SIZE,
+        this.offset
+      )
+      this.appendAlbums(albums)
+      loaded(albums.items.length, PAGE_SIZE)
     },
     openDetails() {
       this.showDetailsModal = true

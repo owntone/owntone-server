@@ -22,24 +22,6 @@ import { useSettingsStore } from '@/stores/settings'
 export default {
   name: 'PageMusicRecentlyAdded',
   components: { ContentWithHeading, ListAlbums, PaneTitle, TabsMusic },
-  beforeRouteEnter(to, from, next) {
-    const limit = useSettingsStore().recentlyAddedLimit
-    library
-      .search({
-        expression:
-          'media_kind is music having track_count > 3 order by time_added desc',
-        limit,
-        type: 'album'
-      })
-      .then((data) => {
-        next((vm) => {
-          vm.albums = new GroupedList(data.albums, {
-            criteria: [{ field: 'time_added', order: -1, type: Date }],
-            index: { field: 'time_added', type: Date }
-          })
-        })
-      })
-  },
   setup() {
     return {
       settingsStore: useSettingsStore()
@@ -49,6 +31,19 @@ export default {
     return {
       albums: new GroupedList()
     }
+  },
+  async mounted() {
+    const limit = useSettingsStore().recentlyAddedLimit
+    const data = await library.search({
+      expression:
+        'media_kind is music having track_count > 3 order by time_added desc',
+      limit,
+      type: 'album'
+    })
+    this.albums = new GroupedList(data.albums, {
+      criteria: [{ field: 'time_added', order: -1, type: Date }],
+      index: { field: 'time_added', type: Date }
+    })
   }
 }
 </script>

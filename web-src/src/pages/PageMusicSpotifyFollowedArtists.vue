@@ -25,15 +25,6 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then(({ api }) => {
-      api.currentUser.followedArtists(null, 50).then((response) => {
-        next((vm) => {
-          vm.artists = response.artists.items
-        })
-      })
-    })
-  },
   data() {
     return { artists: [] }
   },
@@ -41,6 +32,11 @@ export default {
     heading() {
       return { title: this.$t('page.spotify.music.followed-artists') }
     }
+  },
+  async mounted() {
+    const { api } = await services.spotify()
+    const response = await api.currentUser.followedArtists(null, 50)
+    this.artists = response.artists.items
   }
 }
 </script>
