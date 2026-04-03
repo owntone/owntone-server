@@ -294,7 +294,7 @@ main(int argc, char **argv)
     goto error;
   }
 
-  ptpd_hdl = airptp_daemon_bind();
+  ptpd_hdl = airptp_daemon_bind(NULL);
   if (!ptpd_hdl) {
     logerror("Error binding: %s\n", airptp_errmsg_get());
     goto error;

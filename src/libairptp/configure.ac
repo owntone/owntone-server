@@ -20,6 +20,7 @@ AC_CHECK_HEADERS([endian.h sys/endian.h libkern/OSByteOrder.h], [found_endian_he
 AS_IF([test "x$found_endian_headers" != "xyes"], [AC_MSG_ERROR([[Missing functions to swap byte order]])])
 
 AC_SEARCH_LIBS([pthread_exit], [pthread], [], [AC_MSG_ERROR([[pthreads library is required]])])
+AC_SEARCH_LIBS([shm_open], [rt], [], [AC_MSG_ERROR([[rt library is required]])])
 
 PKG_CHECK_MODULES([LIBEVENT], [libevent libevent_pthreads])
 

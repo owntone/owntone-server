@@ -70,7 +70,7 @@ main(int argc, char * argv[])
   hdl = airptp_daemon_find();
   if (!hdl) {
     printf("test1.c no running daemon found, will make a private one\n");
-    hdl = airptp_daemon_bind();
+    hdl = airptp_daemon_bind(NULL);
     if (!hdl)
       goto error;
 

@@ -38,8 +38,6 @@ static struct lws_context *websocket_context;
 static bool websocket_is_initialized;
 static pthread_t tid_websocket;
 
-static const char *websocket_interface;
-static int websocket_port;
 static bool websocket_exit = false;
 
 // Lock the event mask of events processed by the writeable callback
@@ -472,13 +470,19 @@ logger_libwebsockets(int level, const char *line)
 int
 websocket_init(void)
 {
+  const char *bind_address = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
+  char *iface = cfg_getstr(cfg_getsec(cfg, "general"), "websocket_interface");
+  int port = cfg_getint(cfg_getsec(cfg, "general"), "websocket_port");
   struct lws_context_creation_info info;
+  char ifname[128];
   int ret;
 
-  websocket_interface = cfg_getstr(cfg_getsec(cfg, "general"), "websocket_interface");
-  websocket_port = cfg_getint(cfg_getsec(cfg, "general"), "websocket_port");
+  if (iface)
+    DPRINTF(E_LOG, L_WEB, "Config option websocket_interface is deprecated, use bind_address instead\n");
+  else if (bind_address && strcmp(bind_address, "::") != 0 && net_if_get(ifname, sizeof(ifname), bind_address) == 0)
+    iface = ifname;
 
-  if (websocket_port <= 0)
+  if (port <= 0)
     {
 #ifdef HAVE_LIBEVENT22
       DPRINTF(E_DBG, L_WEB, "Libwebsocket disabled, using libevent websocket instead. To enable it, set websocket_port in config to a valid port number.\n");
@@ -489,8 +493,8 @@ websocket_init(void)
     }
 
   memset(&info, 0, sizeof(info));
-  info.port = websocket_port;
-  info.iface = websocket_interface;
+  info.port = port;
+  info.iface = iface;
   info.protocols = protocols;
 #ifdef LWS_SERVER_OPTION_IPV6_V6ONLY_MODIFY // Debian Buster's libwebsockets does not have this flag
   if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))

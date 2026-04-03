@@ -510,7 +510,7 @@ net_connect_impl(const char *addr, unsigned short port, int type, const char *lo
 
   snprintf(strport, sizeof(strport), "%hu", port);
   ret = getaddrinfo(addr, strport, &hints, &servinfo);
-  if (ret < 0)
+  if (ret != 0)
     {
       DPRINTF(E_LOG, L_MISC, "Could not get '%s' address info for %s (port %u): %s\n", log_service_name, addr, port, gai_strerror(ret));
       return -1;
@@ -540,18 +540,29 @@ net_connect(const char *addr, unsigned short port, int type, const char *log_ser
   return net_connect_impl(addr, port, type, log_service_name, NET_CONNECT_TIMEOUT_MS, false);
 }
 
+void
+net_socket_close(struct net_socket *socket)
+{
+  if (socket->fd4 >= 0)
+    close(socket->fd4);
+  if (socket->fd6 >= 0)
+    close(socket->fd6);
+
+  socket->fd4 = -1;
+  socket->fd6 = -1;
+}
+
 // If *port is 0 then a random port will be assigned, and *port will be updated
 // with the port number. SOCK_STREAM type services are set to use non-blocking
 // sockets.
 static int
-net_bind_impl(unsigned short *port, int type, const char *log_service_name, bool reuseport)
+bind_one(const char *node, unsigned short *port, int type, int family, const char *log_service_name, bool reuseport)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
   struct addrinfo *ptr;
   union net_sockaddr naddr = { 0 };
   socklen_t naddr_len = sizeof(naddr);
-  const char *cfgaddr;
   char addr[INET6_ADDRSTRLEN];
   char strport[8];
   int flags;
@@ -560,17 +571,15 @@ net_bind_impl(unsigned short *port, int type, const char *log_service_name, bool
   int fd = -1;
   int ret;
 
-  cfgaddr = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
-
   hints.ai_socktype = type;
-  hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_INET6 : AF_INET;
-  hints.ai_flags = cfgaddr ? 0 : AI_PASSIVE;
+  hints.ai_family = family;
+  hints.ai_flags = node ? 0 : AI_PASSIVE;
 
   snprintf(strport, sizeof(strport), "%hu", *port);
-  ret = getaddrinfo(cfgaddr, strport, &hints, &servinfo);
-  if (ret < 0)
+  ret = getaddrinfo(node, strport, &hints, &servinfo);
+  if (ret != 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Failure creating '%s' service, could not resolve '%s' (port %s): %s\n", log_service_name, cfgaddr ? cfgaddr : "(ANY)", strport, gai_strerror(ret));
+      DPRINTF(E_LOG, L_MISC, "Failure creating '%s' service, could not resolve '%s' (port %s): %s\n", log_service_name, node ? node : "(ANY)", strport, gai_strerror(ret));
       return -1;
     }
 
@@ -588,18 +597,12 @@ net_bind_impl(unsigned short *port, int type, const char *log_service_name, bool
       flags = fcntl(fd, F_GETFL, 0);
       if (flags < 0)
 	continue;
-      if (type == SOCK_STREAM)
-	ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_CLOEXEC);
-      else
-	ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
+      ret = fcntl(fd, F_SETFL, (type == SOCK_STREAM) ? flags | O_NONBLOCK | O_CLOEXEC : flags | O_CLOEXEC);
       if (ret < 0)
 	continue;
 
       // Makes us able to attach multiple threads to the same port
-      if (reuseport)
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
-      else
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &no, sizeof(no));
+      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, reuseport ? &yes : &no, sizeof(int));
       if (ret < 0)
 	continue;
 
@@ -611,20 +614,15 @@ net_bind_impl(unsigned short *port, int type, const char *log_service_name, bool
       // For tcp, SO_REUSE_ADDR means the server can restart quickly. For udp,
       // the setting would mean that multiple sockets could bind to the same
       // port, but only one would get the messages.
-      if (type == SOCK_STREAM)
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-      else
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &no, sizeof(no));
+      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (type == SOCK_STREAM) ? &yes : &no, sizeof(int));
       if (ret < 0)
 	continue;
 
-      if (ptr->ai_family == AF_INET6)
-	{
-	  // We want to be sure the service is dual stack
-	  ret = setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no));
-	  if (ret < 0)
-	    continue;
-	}
+      // We don't use dual stack (IPV6_V6ONLY=no) because it doesn't work on
+      // MacOS/BSD. Turn if off explicitly.
+      ret = (ptr->ai_family == AF_INET6) ? setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(no)) : 0;
+      if (ret < 0)
+	continue;
 
       ret = bind(fd, ptr->ai_addr, ptr->ai_addrlen);
       if (ret < 0)
@@ -637,7 +635,7 @@ net_bind_impl(unsigned short *port, int type, const char *log_service_name, bool
 
   if (!ptr)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not create service '%s' with address %s, port %hu: %s\n", log_service_name, cfgaddr ? cfgaddr : "(ANY)", *port, strerror(errno));
+      DPRINTF(E_LOG, L_MISC, "Could not create service '%s' with address %s, port %hu: %s\n", log_service_name, node ? node : "(ANY)", *port, strerror(errno));
       goto error;
     }
 
@@ -668,16 +666,49 @@ net_bind_impl(unsigned short *port, int type, const char *log_service_name, bool
   return -1;
 }
 
-int
-net_bind(unsigned short *port, int type, const char *log_service_name)
+static int
+bind_impl(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name, bool reuseport)
 {
-  return net_bind_impl(port, type, log_service_name, false);
+  const char *bind_address = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
+  bool v6_enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
+
+  // Normally comply with config, except for "::" where we want to listen on
+  // both ipv4 and ipv6 (as the comment in the config file says)
+  if (bind_address && strcmp(bind_address, "::") == 0)
+    bind_address = NULL;
+
+  if (v6_enabled)
+    {
+      socket->fd6 = bind_one(bind_address, port, type, AF_INET6, log_service_name, reuseport);
+      if (socket->fd6 < 0)
+	{
+	  DPRINTF(E_LOG, L_MISC, "Could not bind service '%s' for IPv6, falling back to IPv4\n", log_service_name);
+	  v6_enabled = 0;
+	}
+    }
+
+  socket->fd4 = bind_one(bind_address, port, type, AF_INET, log_service_name, reuseport);
+  if (socket->fd4 < 0)
+    {
+      if (!v6_enabled)
+	return -1;
+
+      DPRINTF(E_LOG, L_MISC, "Could not bind service '%s' for IPv4, listening on IPv6 only\n", log_service_name);
+    }
+
+  return 0;
 }
 
 int
-net_bind_with_reuseport(unsigned short *port, int type, const char *log_service_name)
+net_bind(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name)
 {
-  return net_bind_impl(port, type, log_service_name, true);
+  return bind_impl(socket, port, type, log_service_name, false);
+}
+
+int
+net_bind_with_reuseport(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name)
+{
+  return bind_impl(socket, port, type, log_service_name, true);
 }
 
 int
