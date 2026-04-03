@@ -45,10 +45,7 @@ export default {
     return { servicesStore: useServicesStore() }
   },
   data() {
-    return {
-      album: { artists: [{}], tracks: {} },
-      showDetailsModal: false
-    }
+    return { album: { artists: [{}], tracks: {} }, showDetailsModal: false }
   },
   computed: {
     heading() {

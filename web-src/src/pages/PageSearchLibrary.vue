@@ -73,11 +73,7 @@ export default {
     }
   },
   data() {
-    return {
-      limit: PAGE_SIZE,
-      results: new Map(),
-      types: SEARCH_TYPES
-    }
+    return { limit: PAGE_SIZE, results: new Map(), types: SEARCH_TYPES }
   },
   computed: {
     expanded() {

@@ -48,11 +48,7 @@ export default {
     PaneTitle
   },
   data() {
-    return {
-      playlist: {},
-      showDetailsModal: false,
-      tracks: new GroupedList()
-    }
+    return { playlist: {}, showDetailsModal: false, tracks: new GroupedList() }
   },
   computed: {
     heading() {

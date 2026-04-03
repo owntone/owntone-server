@@ -40,9 +40,7 @@ export default {
   },
   emits: ['close', 'play-count-changed', 'podcast-deleted'],
   data() {
-    return {
-      showRemovePodcastModal: false
-    }
+    return { showRemovePodcastModal: false }
   },
   computed: {
     actions() {

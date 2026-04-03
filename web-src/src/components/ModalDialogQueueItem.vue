@@ -28,9 +28,7 @@ export default {
     return { servicesStore: useServicesStore() }
   },
   data() {
-    return {
-      spotifyTrack: {}
-    }
+    return { spotifyTrack: {} }
   },
   computed: {
     actions() {

@@ -38,11 +38,7 @@ export default {
   props: { show: Boolean },
   emits: ['close'],
   data() {
-    return {
-      disabled: true,
-      loading: false,
-      playlistName: ''
-    }
+    return { disabled: true, loading: false, playlistName: '' }
   },
   computed: {
     actions() {

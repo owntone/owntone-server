@@ -41,10 +41,7 @@ export default {
     return { settingsStore: useSettingsStore() }
   },
   data() {
-    return {
-      selectedItem: {},
-      showDetailsModal: false
-    }
+    return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
     image(item) {

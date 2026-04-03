@@ -29,11 +29,7 @@ export default {
   props: { show: Boolean },
   emits: ['close'],
   data() {
-    return {
-      disabled: true,
-      loading: false,
-      url: ''
-    }
+    return { disabled: true, loading: false, url: '' }
   },
   computed: {
     actions() {

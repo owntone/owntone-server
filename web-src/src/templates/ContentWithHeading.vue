@@ -49,9 +49,7 @@
 export default {
   name: 'ContentWithHeading',
   data() {
-    return {
-      hidden: true
-    }
+    return { hidden: true }
   },
   computed: {
     icon() {

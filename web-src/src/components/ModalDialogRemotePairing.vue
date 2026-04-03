@@ -32,10 +32,7 @@ export default {
     return { remoteStore: useRemotesStore() }
   },
   data() {
-    return {
-      disabled: true,
-      pin: ''
-    }
+    return { disabled: true, pin: '' }
   },
   computed: {
     actions() {

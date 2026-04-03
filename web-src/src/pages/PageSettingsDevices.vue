@@ -118,11 +118,7 @@ export default {
     return { outputsStore: useOutputsStore(), remotesStore: useRemotesStore() }
   },
   data() {
-    return {
-      outputPin: '',
-      remotePairingDisabled: true,
-      remotePin: ''
-    }
+    return { outputPin: '', remotePairingDisabled: true, remotePin: '' }
   },
   methods: {
     onOutputPinChange(pin) {

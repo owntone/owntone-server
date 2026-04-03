@@ -28,9 +28,7 @@ export default {
     }
   },
   data() {
-    return {
-      albums: new GroupedList()
-    }
+    return { albums: new GroupedList() }
   },
   async mounted() {
     const limit = useSettingsStore().recentlyAddedLimit

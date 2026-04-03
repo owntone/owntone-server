@@ -29,9 +29,7 @@ export default {
     PaneTitle
   },
   data() {
-    return {
-      tracks: new GroupedList()
-    }
+    return { tracks: new GroupedList() }
   },
   computed: {
     heading() {

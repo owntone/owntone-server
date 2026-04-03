@@ -42,11 +42,7 @@ export default {
     }
   },
   data() {
-    return {
-      parameters: {},
-      results: new Map(),
-      types: SEARCH_TYPES
-    }
+    return { parameters: {}, results: new Map(), types: SEARCH_TYPES }
   },
   computed: {
     expanded() {

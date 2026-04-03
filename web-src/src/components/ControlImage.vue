@@ -15,10 +15,7 @@ export default {
   },
   emits: ['click'],
   data() {
-    return {
-      font: { family: 'sans-serif', weight: 'bold' },
-      size: 600
-    }
+    return { font: { family: 'sans-serif', weight: 'bold' }, size: 600 }
   },
   computed: {
     source() {
