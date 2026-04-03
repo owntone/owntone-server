@@ -60,7 +60,7 @@ export default {
     }
   },
   async mounted() {
-    const { api, configuration } = await services.spotify()
+    const { api, configuration } = await services.spotify.get()
     const [artist, albums] = await Promise.all([
       api.artists.get(this.$route.params.id),
       api.artists.albums(
@@ -81,7 +81,7 @@ export default {
       this.offset += data.limit
     },
     async load({ loaded }) {
-      const { api, configuration } = await services.spotify()
+      const { api, configuration } = await services.spotify.get()
       const albums = await api.artists.albums(
         this.artist.id,
         'album,single',

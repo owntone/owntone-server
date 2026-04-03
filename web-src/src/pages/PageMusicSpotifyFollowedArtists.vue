@@ -34,7 +34,7 @@ export default {
     }
   },
   async mounted() {
-    const { api } = await services.spotify()
+    const { api } = await services.spotify.get()
     const response = await api.currentUser.followedArtists(null, 50)
     this.artists = response.artists.items
   }

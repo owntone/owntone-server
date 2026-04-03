@@ -73,7 +73,7 @@ export default {
     }
   },
   async mounted() {
-    const { api, configuration } = await services.spotify()
+    const { api, configuration } = await services.spotify.get()
     const [playlist, tracks] = await Promise.all([
       api.playlists.getPlaylist(this.$route.params.id),
       api.playlists.getPlaylistItems(
@@ -107,7 +107,7 @@ export default {
       this.offset += data.limit
     },
     async load({ loaded }) {
-      const { api, configuration } = await services.spotify()
+      const { api, configuration } = await services.spotify.get()
       const data = await api.playlists.getPlaylistItems(
         this.playlist.id,
         configuration.webapi_country,

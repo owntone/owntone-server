@@ -34,7 +34,7 @@ export default {
     }
   },
   async mounted() {
-    const { api, configuration } = await services.spotify()
+    const { api, configuration } = await services.spotify.get()
     const response = await api.browse.getNewReleases(
       configuration.webapi_country,
       50
