@@ -82,10 +82,9 @@ export default {
     podcastDeleted() {
       this.$router.push({ name: 'podcasts' })
     },
-    reloadTracks() {
-      library.podcastEpisodes(this.album.id).then((tracks) => {
-        this.tracks = new GroupedList(tracks)
-      })
+    async reloadTracks() {
+      const tracks = await library.podcastEpisodes(this.album.id)
+      this.tracks = new GroupedList(tracks)
     }
   }
 }

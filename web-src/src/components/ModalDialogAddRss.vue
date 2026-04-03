@@ -49,18 +49,16 @@ export default {
     }
   },
   methods: {
-    add() {
+    async add() {
       this.loading = true
-      library
-        .add(this.url)
-        .then(() => {
-          this.$emit('podcast-added')
-          this.$emit('close')
-        })
-        .finally(() => {
-          this.url = ''
-          this.loading = false
-        })
+      try {
+        await library.add(this.url)
+        this.$emit('podcast-added')
+        this.$emit('close')
+      } finally {
+        this.url = ''
+        this.loading = false
+      }
     },
     cancel() {
       this.$emit('close')

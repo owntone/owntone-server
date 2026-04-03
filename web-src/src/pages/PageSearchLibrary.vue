@@ -115,7 +115,7 @@ export default {
         this.searchStore.add(this.searchStore.query)
       }
     },
-    searchItems(type) {
+    async searchItems(type) {
       const music = type !== 'audiobook' && type !== 'podcast'
       const kind = (music && 'music') || type
       const parameters = {
@@ -130,9 +130,8 @@ export default {
       } else {
         parameters.expression = `(album includes "${this.searchStore.query}" or artist includes "${this.searchStore.query}") and media_kind is ${kind}`
       }
-      library.search(parameters).then((data) => {
-        this.results.set(type, new GroupedList(data[`${parameters.type}s`]))
-      })
+      const data = await library.search(parameters)
+      this.results.set(type, new GroupedList(data[`${parameters.type}s`]))
     },
     searchSpotify() {
       this.$router.push({ name: 'search-spotify' })

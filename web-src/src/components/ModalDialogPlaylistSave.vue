@@ -75,17 +75,15 @@ export default {
       const { validity } = event.target
       this.disabled = validity.patternMismatch || validity.valueMissing
     },
-    save() {
+    async save() {
       this.loading = true
-      queue
-        .saveToPlaylist(this.playlistName)
-        .then(() => {
-          this.$emit('close')
-          this.playlistName = ''
-        })
-        .catch(() => {
-          this.loading = false
-        })
+      try {
+        await queue.saveToPlaylist(this.playlistName)
+        this.$emit('close')
+        this.playlistName = ''
+      } finally {
+        this.loading = false
+      }
     }
   }
 }

@@ -7,9 +7,7 @@ export default {
     const source = context.createMediaElementSource(this.audio)
     source.connect(context.destination)
     this.audio.addEventListener('canplay', () => {
-      context.resume().then(() => {
-        this.audio.play()
-      })
+      context.resume().then(() => this.audio.play())
     })
     this.audio.load()
   },

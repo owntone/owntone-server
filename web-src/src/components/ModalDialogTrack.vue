@@ -91,19 +91,15 @@ export default {
     }
   },
   methods: {
-    markAsNew() {
-      library.updateTrack(this.item.id, { play_count: 'reset' }).then(() => {
-        this.$emit('play-count-changed')
-        this.$emit('close')
-      })
+    async markAsNew() {
+      await library.updateTrack(this.item.id, { play_count: 'reset' })
+      this.$emit('play-count-changed')
+      this.$emit('close')
     },
-    markAsPlayed() {
-      library
-        .updateTrack(this.item.id, { play_count: 'increment' })
-        .then(() => {
-          this.$emit('play-count-changed')
-          this.$emit('close')
-        })
+    async markAsPlayed() {
+      await library.updateTrack(this.item.id, { play_count: 'increment' })
+      this.$emit('play-count-changed')
+      this.$emit('close')
     },
     openAlbum() {
       this.$emit('close')
