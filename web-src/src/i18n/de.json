@@ -361,23 +361,26 @@
       "verification-code": "Verifikationscode"
     },
     "services": {
+      "authorise": "Erlaube den Zugriff auf den Dienst {service}",
+      "authorised": "Zugriff gestattet für {user}",
       "lastfm": {
-        "grant-access": "Melde Dich mit Deinem Last.fm-Benutzernamen und Passwort an, um Scrobbeln zu aktivieren.",
-        "info": "OwnTone wird den Benutzernamen und das Passwort von last.fm nicht speichern, nur den Sitzungs-Schlüssel. Dieser läuft nicht ab.",
-        "no-support": "OwnTone wurde ohne Unterstützung für Last.fm erstellt.",
+        "info": "Aktivieren Sie Last.fm, um Ihre Musikgewohnheiten zu verfolgen. Melden Sie sich mit Ihrem Last.fm-Benutzernamen und Passwort an. Ihr Passwort wird nicht gespeichert: Es wird nur ein Sitzungstoken gespeichert, das niemals abläuft.",
         "title": "Last.fm"
       },
+      "listenbrainz": {
+        "info": "Aktivieren Sie ListenBrainz, um Ihre Musikgewohnheiten zu verfolgen. Geben Sie Ihren ListenBrainz-Benutzertoken ein, den Sie in Ihren Einstellungen auf der ListenBrainz-Website erhalten können.",
+        "title": "ListenBrainz",
+        "token-required": "Der ListenBrainz-Benutzertoken ist erforderlich, um die ListenBrainz-Integration zu aktivieren."
+      },
+      "no-support": "Die Option {service} wird nicht unterstützt.",
       "password": "Passwort",
       "spotify": {
-        "authorize": "Authorisiere API-Zugriff",
-        "grant-access": "Zugriff auf die Spotify API gestatten.",
-        "no-support": "OwnTone wurde ohne Unterstützung für Spotify erstellt.",
         "reauthorize": "Bitte den Zugriff der API durch setzen folgender Zugriffsrechte für OwnTone: {scopes}.",
-        "requirements": "Spotify Premium Abo erforderlich. Zugriff auf die Spotify API ermöglicht scannen der Spotify-Blibliothek. Erforderliche scopes sind: {scopes}.",
-        "title": "Spotify",
-        "user": "Zugriff gestattet für {user}."
+        "info": "Aktivieren Sie Spotify-Zugriff, um Tracks zu hören, die in Ihrem Konto verfügbar sind, über OwnTone. Sie müssen ein Spotify Premium-Konto haben. Erforderliche Zugriffsrechte sind: {scopes}.",
+        "title": "Spotify"
       },
-      "username": "Benutzername"
+      "username": "Benutzername",
+      "user-token": "Benutzertoken"
     },
     "webinterface": {
       "genres": "Genres",
