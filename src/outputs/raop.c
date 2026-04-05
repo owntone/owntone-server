@@ -4643,8 +4643,6 @@ raop_init(void)
   char ebuf[64];
   char *ptr;
   gpg_error_t gc_err;
-  int timing_port;
-  int control_port;
   int ret;
 
   // Generate AES key and IV
@@ -4699,8 +4697,7 @@ raop_init(void)
 
   CHECK_NULL(L_RAOP, keep_alive_timer = evtimer_new(evbase_player, raop_keep_alive_timer_cb, NULL));
 
-  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
-  ret = service_start(&raop_timing_svc, timing_svc_cb, timing_port, "RAOP timing");
+  ret = service_start(&raop_timing_svc, timing_svc_cb, 0, "RAOP timing");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay time synchronization failed to start\n");
@@ -4708,8 +4705,7 @@ raop_init(void)
       goto out_free_timer;
     }
 
-  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
-  ret = service_start(&raop_control_svc, control_svc_cb, control_port, "RAOP control");
+  ret = service_start(&raop_control_svc, control_svc_cb, 0, "RAOP control");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay playback control failed to start\n");
