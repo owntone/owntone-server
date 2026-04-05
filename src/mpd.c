@@ -656,7 +656,7 @@ mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
       (queue_item->virtual_path + 1),
       modified,
       (queue_item->song_length / 1000),
-	  ((float) queue_item->song_length / 1000),
+      ((float) queue_item->song_length / 1000),
       sanitize(queue_item->artist),
       sanitize(queue_item->album_artist),
       sanitize(queue_item->artist_sort),
