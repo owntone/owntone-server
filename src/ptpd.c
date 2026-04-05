@@ -105,9 +105,10 @@ ptpd_init(uint64_t clock_id_seed)
 
   airptp_callbacks_register(&cb);
 
-  if (airptp_create_own_service)
+  if (airptp_create_own_service && ptpd_hdl)
     return airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
 
+  // This is for the sake of cliap which never calls ptpd_find_or_bind()
   if (!ptpd_hdl)
     ptpd_hdl = airptp_daemon_find();
 
