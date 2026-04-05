@@ -323,9 +323,9 @@ audio {
 
 # AirPlay settings common to all devices
 #airplay_shared {
-        # UDP ports used when airplay devices make connections back to
-	# OwnTone (choosing specific ports may be helpful when running
-	# OwnTone behind a firewall)
+	# UDP ports used when Airplay 2 devices make connections to the server.
+	# By default random ports are used, but that can make firewall rules
+	# difficult to make. Airplay 1 devices will always use random ports.
 #       control_port = 0
 #       timing_port = 0
 
