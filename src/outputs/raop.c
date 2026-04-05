@@ -2666,13 +2666,14 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
   float raop_volume;
   int ret;
 
-  device = outputs_device_get(rs->device_id);
+  device = outputs_device_get_for_type(rs->device_id, OUTPUT_TYPE_RAOP);
   if (!device)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not set volume, device with id %" PRIu64 " not in out list\n", rs->device_id);
 
       return -1;
     }
+  outputs_device_bind(device, OUTPUT_TYPE_RAOP);
 
   evbuf = evbuffer_new();
   if (!evbuf)
@@ -3284,12 +3285,13 @@ raop_cb_startup_retry(struct evrtsp_request *req, void *arg)
   struct output_device *device;
   int callback_id = rs->callback_id;
 
-  device = outputs_device_get(rs->device_id);
+  device = outputs_device_get_for_type(rs->device_id, OUTPUT_TYPE_RAOP);
   if (!device)
     {
       session_failure(rs);
       return;
     }
+  outputs_device_bind(device, OUTPUT_TYPE_RAOP);
 
   session_cleanup(rs);
   raop_device_start(device, callback_id);
@@ -3309,12 +3311,13 @@ raop_startup_cancel(struct raop_session *rs)
   struct output_device *device;
   int ret;
 
-  device = outputs_device_get(rs->device_id);
+  device = outputs_device_get_for_type(rs->device_id, OUTPUT_TYPE_RAOP);
   if (!device || !rs->session)
     {
       session_failure(rs);
       return;
     }
+  outputs_device_bind(device, OUTPUT_TYPE_RAOP);
 
   // Some devices don't seem to work with ipv6, so if the error wasn't a hard
   // failure (bad password) we fall back to ipv4 and flag device as bad for ipv6
@@ -3721,9 +3724,10 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 
   if (req->response_code == RTSP_FORBIDDEN)
     {
-      device = outputs_device_get(rs->device_id);
+      device = outputs_device_get_for_type(rs->device_id, OUTPUT_TYPE_RAOP);
       if (!device)
 	goto cleanup;
+      outputs_device_bind(device, OUTPUT_TYPE_RAOP);
 
       device->requires_auth = 1;
 
@@ -3939,9 +3943,10 @@ raop_cb_pair_verify_step2(struct evrtsp_request *req, void *arg)
   ret = raop_pair_response_process(5, req, rs);
   if (ret < 0)
     {
-      device = outputs_device_get(rs->device_id);
+      device = outputs_device_get_for_type(rs->device_id, OUTPUT_TYPE_RAOP);
       if (!device)
 	goto error;
+      outputs_device_bind(device, OUTPUT_TYPE_RAOP);
 
       // Clear auth_key, the device did not accept it
       free(device->auth_key);
@@ -3972,9 +3977,10 @@ raop_cb_pair_verify_step1(struct evrtsp_request *req, void *arg)
   ret = raop_pair_response_process(4, req, rs);
   if (ret < 0)
     {
-      device = outputs_device_get(rs->device_id);
+      device = outputs_device_get_for_type(rs->device_id, OUTPUT_TYPE_RAOP);
       if (!device)
 	goto error;
+      outputs_device_bind(device, OUTPUT_TYPE_RAOP);
 
       // Clear auth_key, the device did not accept it
       free(device->auth_key);
@@ -4002,9 +4008,10 @@ raop_pair_verify(struct raop_session *rs)
   struct output_device *device;
   int ret;
 
-  device = outputs_device_get(rs->device_id);
+  device = outputs_device_get_for_type(rs->device_id, OUTPUT_TYPE_RAOP);
   if (!device)
     goto error;
+  outputs_device_bind(device, OUTPUT_TYPE_RAOP);
 
   rs->pair_verify_ctx = pair_verify_new(PAIR_CLIENT_FRUIT, device->auth_key, NULL, NULL, NULL);
   if (!rs->pair_verify_ctx)
@@ -4049,9 +4056,10 @@ raop_cb_pair_setup_step3(struct evrtsp_request *req, void *arg)
 
   DPRINTF(E_LOG, L_RAOP, "Verification setup stage complete, saving authorization key\n");
 
-  device = outputs_device_get(rs->device_id);
+  device = outputs_device_get_for_type(rs->device_id, OUTPUT_TYPE_RAOP);
   if (!device)
     goto out;
+  outputs_device_bind(device, OUTPUT_TYPE_RAOP);
 
   free(device->auth_key);
   device->auth_key = strdup(authorization_key);
@@ -4581,6 +4589,9 @@ static void
 raop_device_free_extra(struct output_device *device)
 {
   struct raop_extra *re = device->extra_device_info;
+
+  if (!re)
+    return;
 
   free(re);
 }

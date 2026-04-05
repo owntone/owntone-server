@@ -4793,10 +4793,15 @@ db_admin_delete(const char *key)
 int
 db_speaker_save(struct output_device *device)
 {
-#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name, auth_key, format, offset_ms) VALUES (%" PRIi64 ", %d, %d, %Q, %Q, %d, %d);"
+#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name, auth_key, auth_key_raop, auth_key_airplay2, format, offset_ms, protocol) VALUES (%" PRIi64 ", %d, %d, %Q, %Q, %Q, %Q, %d, %d, %d);"
+  const char *auth_key_raop;
+  const char *auth_key_airplay2;
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, device->id, device->selected, device->volume, device->name, device->auth_key, device->selected_format, device->offset_ms);
+  auth_key_raop = device->supports_raop ? ((device->active_type == OUTPUT_TYPE_RAOP) ? device->auth_key : device->raop.auth_key) : device->auth_key_raop;
+  auth_key_airplay2 = device->supports_airplay2 ? ((device->active_type == OUTPUT_TYPE_AIRPLAY) ? device->auth_key : device->airplay2.auth_key) : device->auth_key_airplay2;
+
+  query = sqlite3_mprintf(Q_TMPL, device->id, device->selected, device->volume, device->name, device->auth_key, auth_key_raop, auth_key_airplay2, device->selected_format, device->offset_ms, device->protocol_preference);
 
   return db_query_run(query, 1, 0);
 #undef Q_TMPL
@@ -4805,9 +4810,10 @@ db_speaker_save(struct output_device *device)
 int
 db_speaker_get(struct output_device *device, uint64_t id)
 {
-#define Q_TMPL "SELECT s.selected, s.volume, s.name, s.auth_key, s.format, s.offset_ms FROM speakers s WHERE s.id = %" PRIi64 ";"
+#define Q_TMPL "SELECT s.selected, s.volume, s.name, s.auth_key, s.auth_key_raop, s.auth_key_airplay2, s.format, s.offset_ms, s.protocol FROM speakers s WHERE s.id = %" PRIi64 ";"
   sqlite3_stmt *stmt;
   char *query;
+  char *legacy_auth_key = NULL;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL, id);
@@ -4844,11 +4850,28 @@ db_speaker_get(struct output_device *device, uint64_t id)
   free(device->name);
   device->name = safe_strdup((char *)sqlite3_column_text(stmt, 2));
 
-  free(device->auth_key);
-  device->auth_key = safe_strdup((char *)sqlite3_column_text(stmt, 3));
+  legacy_auth_key = safe_strdup((char *)sqlite3_column_text(stmt, 3));
 
-  device->selected_format = sqlite3_column_int(stmt, 4);
-  device->offset_ms = sqlite3_column_int(stmt, 5);
+  free(device->auth_key_raop);
+  device->auth_key_raop = safe_strdup((char *)sqlite3_column_text(stmt, 4));
+
+  free(device->auth_key_airplay2);
+  device->auth_key_airplay2 = safe_strdup((char *)sqlite3_column_text(stmt, 5));
+
+  if (legacy_auth_key)
+    {
+      if (!device->auth_key_raop)
+	device->auth_key_raop = safe_strdup(legacy_auth_key);
+      if (!device->auth_key_airplay2)
+	device->auth_key_airplay2 = safe_strdup(legacy_auth_key);
+    }
+
+  free(device->auth_key);
+  device->auth_key = NULL;
+
+  device->selected_format = sqlite3_column_int(stmt, 6);
+  device->offset_ms = sqlite3_column_int(stmt, 7);
+  device->protocol_preference = sqlite3_column_int(stmt, 8);
 
 #ifdef DB_PROFILE
   while (db_blocking_step(stmt) == SQLITE_ROW)
@@ -4856,6 +4879,7 @@ db_speaker_get(struct output_device *device, uint64_t id)
 #endif
 
   sqlite3_finalize(stmt);
+  free(legacy_auth_key);
 
   ret = 0;
 

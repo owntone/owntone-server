@@ -7,6 +7,7 @@
 
 #include "db.h"
 #include "misc.h" // for struct media_quality
+#include "outputs.h"
 
 // Maximum number of previously played songs that are remembered
 #define MAX_HISTORY_COUNT 20
@@ -40,11 +41,14 @@ struct player_speaker_info {
 
   enum media_format format;
   uint32_t supported_formats;
+  char protocol[16];
 
   bool selected;
   bool has_password;
   bool requires_auth;
   bool needs_auth_key;
+  bool supports_raop;
+  bool supports_airplay2;
 
   bool prevent_playback;
   bool busy;
@@ -128,6 +132,9 @@ player_speaker_resurrect(void *arg);
 
 int
 player_speaker_authorize(uint64_t id, const char *pin);
+
+int
+player_speaker_protocol_set(uint64_t id, enum output_protocol_preference protocol);
 
 int
 player_speaker_format_set(uint64_t id, enum media_format format);

@@ -154,6 +154,7 @@ struct speaker_attr_param
 
   struct media_quality quality;
   enum media_format format;
+  enum output_protocol_preference protocol;
   int offset_ms;
 
   int audio_fd;
@@ -1417,6 +1418,8 @@ device_remove_family(void *arg, int *retval)
   union player_arg *cmdarg = arg;
   struct output_device *remove;
   struct output_device *device;
+  struct output_device_variant *variant;
+  bool variant_bound;
 
   remove = cmdarg->device;
 
@@ -1431,24 +1434,66 @@ device_remove_family(void *arg, int *retval)
     }
 
   // v{4,6}_port non-zero indicates the address family stopped advertising
-  if (remove->v4_port && device->v4_address)
+  variant = NULL;
+  if (remove->type == OUTPUT_TYPE_RAOP)
+    variant = &device->raop;
+  else if (remove->type == OUTPUT_TYPE_AIRPLAY)
+    variant = &device->airplay2;
+  variant_bound = (variant && device->type == remove->type);
+
+  if (remove->v4_port && variant && variant->v4_address)
+    {
+      free(variant->v4_address);
+      variant->v4_address = NULL;
+      variant->v4_port = 0;
+
+      if (variant_bound)
+	{
+	  free(device->v4_address);
+	  device->v4_address = NULL;
+	  device->v4_port = 0;
+	}
+    }
+  else if (remove->v4_port && !variant && device->v4_address)
     {
       free(device->v4_address);
       device->v4_address = NULL;
       device->v4_port = 0;
     }
 
-  if (remove->v6_port && device->v6_address)
+  if (remove->v6_port && variant && variant->v6_address)
+    {
+      free(variant->v6_address);
+      variant->v6_address = NULL;
+      variant->v6_port = 0;
+
+      if (variant_bound)
+	{
+	  free(device->v6_address);
+	  device->v6_address = NULL;
+	  device->v6_port = 0;
+	}
+    }
+  else if (remove->v6_port && !variant && device->v6_address)
     {
       free(device->v6_address);
       device->v6_address = NULL;
       device->v6_port = 0;
     }
 
-  if (!device->v4_address && !device->v6_address)
+  if (variant)
+    {
+      variant->advertised = (variant->v4_address || variant->v6_address);
+      variant->available = variant->advertised;
+      outputs_device_refresh(device);
+    }
+  else if (!device->v4_address && !device->v6_address)
     {
       device->advertised = 0;
+    }
 
+  if (!device->advertised)
+    {
       // If there is a session we will keep the device in the list until the
       // backend gives us a callback with a failure. Then outputs.c will remove
       // the device. If the output backend never gives a callback (can that
@@ -2553,6 +2598,8 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->offset_ms = device->offset_ms;
 
   spk->supported_formats = device->supported_formats;
+  strncpy(spk->protocol, outputs_protocol_to_string(device->protocol_preference), sizeof(spk->protocol));
+  spk->protocol[sizeof(spk->protocol) - 1] = '\0';
   // Devices supporting more than one format should at least have default_format set
   if (device->selected_format != MEDIA_FORMAT_UNKNOWN)
     spk->format = device->selected_format;
@@ -2567,6 +2614,8 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->has_video = device->has_video;
   spk->requires_auth = device->requires_auth;
   spk->needs_auth_key = (device->requires_auth && device->auth_key == NULL);
+  spk->supports_raop = device->supports_raop;
+  spk->supports_airplay2 = device->supports_airplay2;
   spk->prevent_playback = device->prevent_playback;
   spk->busy = device->busy;
 }
@@ -3027,6 +3076,39 @@ speaker_authorize(void *arg, int *retval)
   if (*retval > 0)
     return COMMAND_PENDING; // async
 
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_protocol_set(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  *retval = -1;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    return COMMAND_END;
+
+  if (!device->supports_raop && !device->supports_airplay2)
+    return COMMAND_END;
+
+  if (param->protocol == OUTPUT_PROTOCOL_RAOP && !device->supports_raop)
+    return COMMAND_END;
+
+  if (param->protocol == OUTPUT_PROTOCOL_AIRPLAY2 && !device->supports_airplay2)
+    return COMMAND_END;
+
+  device->protocol_preference = param->protocol;
+  if (!device->session)
+    outputs_device_refresh(device);
+
+  *retval = db_speaker_save(device);
+  if (*retval < 0)
+    return COMMAND_END;
+
+  *retval = 0;
   return COMMAND_END;
 }
 
@@ -3637,6 +3719,17 @@ player_speaker_resurrect(void *arg)
   param.device_ids = (uint64_t *)arg;
 
   commands_exec_sync(cmdbase, speaker_resurrect, speaker_resurrect_bh, &param);
+}
+
+int
+player_speaker_protocol_set(uint64_t id, enum output_protocol_preference protocol)
+{
+  struct speaker_attr_param param;
+
+  param.spk_id = id;
+  param.protocol = protocol;
+
+  return commands_exec_sync(cmdbase, speaker_protocol_set, speaker_generic_bh, &param);
 }
 
 int

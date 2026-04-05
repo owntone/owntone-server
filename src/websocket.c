@@ -415,9 +415,6 @@ websocket(void *arg)
 {
   thread_setname("websocket");
 
-  listener_add(listener_cb, LISTENER_UPDATE | LISTENER_DATABASE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM | LISTENER_SPEAKER
-               | LISTENER_PLAYER | LISTENER_OPTIONS | LISTENER_VOLUME | LISTENER_QUEUE, NULL);
-
   while(!websocket_exit)
   {
 #if LWS_LIBRARY_VERSION_MAJOR >= 3
@@ -429,8 +426,6 @@ websocket(void *arg)
       lws_callback_on_writable_all_protocol(websocket_context, &protocols[WS_PROTOCOL_NOTIFY]);
 #endif
   }
-
-  listener_remove(listener_cb);
 
   pthread_exit(NULL);
 }
@@ -530,10 +525,21 @@ websocket_init(void)
       return -1;
     }
 
+  ret = listener_add(listener_cb, LISTENER_UPDATE | LISTENER_DATABASE | LISTENER_PAIRING | LISTENER_SPOTIFY | LISTENER_LASTFM | LISTENER_SPEAKER
+                     | LISTENER_PLAYER | LISTENER_OPTIONS | LISTENER_VOLUME | LISTENER_QUEUE, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_WEB, "Could not register websocket listener\n");
+      pthread_mutex_destroy(&websocket_write_event_lock);
+      lws_context_destroy(websocket_context);
+      return -1;
+    }
+
   ret = pthread_create(&tid_websocket, NULL, websocket, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_WEB, "Could not spawn websocket thread (%d): %s\n", ret, strerror(ret));
+      listener_remove(listener_cb);
       pthread_mutex_destroy(&websocket_write_event_lock);
       lws_context_destroy(websocket_context);
       return -1;
@@ -553,6 +559,7 @@ websocket_deinit(void)
     return;
 
   websocket_is_initialized = false;
+  listener_remove(listener_cb);
   websocket_exit = true;
   lws_cancel_service(websocket_context);
   ret = pthread_join(tid_websocket, NULL);

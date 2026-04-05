@@ -614,11 +614,14 @@ device_id_find_byname(uint64_t *id, const char *name)
 
   for (device = outputs_list(); device; device = device->next)
     {
-      if (device->type != OUTPUT_TYPE_AIRPLAY)
-	continue;
+      if (device->supports_airplay2)
+	extra = device->airplay2.extra_device_info;
+      else if (device->type == OUTPUT_TYPE_AIRPLAY)
+	extra = device->extra_device_info;
+      else
+	extra = NULL;
 
-      extra = device->extra_device_info;
-      if (strcmp(name, extra->mdns_name) == 0)
+      if (extra && extra->mdns_name && strcmp(name, extra->mdns_name) == 0)
 	break;
     }
 
@@ -2937,9 +2940,10 @@ payload_make_pair_verify1(struct evrtsp_request *req, struct airplay_session *se
   struct output_device *device;
   char device_id_hex[16 + 1];
 
-  device = outputs_device_get(session->device_id);
+  device = outputs_device_get_for_type(session->device_id, OUTPUT_TYPE_AIRPLAY);
   if (!device)
     return -1;
+  outputs_device_bind(device, OUTPUT_TYPE_AIRPLAY);
 
   snprintf(device_id_hex, sizeof(device_id_hex), "%016" PRIX64, airplay_device_id);
 
@@ -2967,12 +2971,13 @@ start_failure(struct airplay_session *session)
 {
   struct output_device *device;
 
-  device = outputs_device_get(session->device_id);
+  device = outputs_device_get_for_type(session->device_id, OUTPUT_TYPE_AIRPLAY);
   if (!device)
     {
       session_failure(session);
       return;
     }
+  outputs_device_bind(device, OUTPUT_TYPE_AIRPLAY);
 
   // If our key was incorrect, or the device reset its pairings, then this
   // function was called because the encrypted request (SETUP) timed out
@@ -2994,12 +2999,13 @@ start_retry(struct airplay_session *session)
   struct output_device *device;
   int callback_id = session->callback_id;
 
-  device = outputs_device_get(session->device_id);
+  device = outputs_device_get_for_type(session->device_id, OUTPUT_TYPE_AIRPLAY);
   if (!device)
     {
       session_failure(session);
       return;
     }
+  outputs_device_bind(device, OUTPUT_TYPE_AIRPLAY);
 
   // Some devices don't seem to work with ipv6, so if the error wasn't a hard
   // failure (bad password) we fall back to ipv4 and flag device as bad for ipv6
@@ -3277,9 +3283,10 @@ response_handler_info_generic(struct evrtsp_request *req, struct airplay_session
   plist_t item;
   int ret;
 
-  device = outputs_device_get(session->device_id);
+  device = outputs_device_get_for_type(session->device_id, OUTPUT_TYPE_AIRPLAY);
   if (!device)
     return AIRPLAY_SEQ_ABORT;
+  outputs_device_bind(device, OUTPUT_TYPE_AIRPLAY);
 
   ret = session_ids_set(session);
   if (ret < 0)
@@ -3433,9 +3440,10 @@ response_handler_pair_setup1(struct evrtsp_request *req, struct airplay_session 
 
   if (session->pair_type == PAIR_CLIENT_HOMEKIT_TRANSIENT && req->response_code == RTSP_CONNECTION_AUTH_REQUIRED)
     {
-      device = outputs_device_get(session->device_id);
+      device = outputs_device_get_for_type(session->device_id, OUTPUT_TYPE_AIRPLAY);
       if (!device)
 	return AIRPLAY_SEQ_ABORT;
+      outputs_device_bind(device, OUTPUT_TYPE_AIRPLAY);
 
       device->requires_auth = 1; // FIXME might be reset by mdns announcement
       session->pair_type = PAIR_CLIENT_HOMEKIT_NORMAL;
@@ -3502,9 +3510,10 @@ response_handler_pair_setup3(struct evrtsp_request *req, struct airplay_session 
 
   DPRINTF(E_LOG, L_AIRPLAY, "Pair setup stage complete, saving authorization key\n");
 
-  device = outputs_device_get(session->device_id);
+  device = outputs_device_get_for_type(session->device_id, OUTPUT_TYPE_AIRPLAY);
   if (!device)
     return AIRPLAY_SEQ_ABORT;
+  outputs_device_bind(device, OUTPUT_TYPE_AIRPLAY);
 
   free(device->auth_key);
   device->auth_key = strdup(authorization_key);
@@ -3529,9 +3538,10 @@ response_handler_pair_verify1(struct evrtsp_request *req, struct airplay_session
     {
       session->state = AIRPLAY_STATE_AUTH;
 
-      device = outputs_device_get(session->device_id);
+      device = outputs_device_get_for_type(session->device_id, OUTPUT_TYPE_AIRPLAY);
       if (!device)
 	return AIRPLAY_SEQ_ABORT;
+      outputs_device_bind(device, OUTPUT_TYPE_AIRPLAY);
 
       // Clear auth_key, the device did not accept it
       free(device->auth_key);
@@ -3572,9 +3582,10 @@ response_handler_pair_verify2(struct evrtsp_request *req, struct airplay_session
   return AIRPLAY_SEQ_CONTINUE;
 
  error:
-  device = outputs_device_get(session->device_id);
+  device = outputs_device_get_for_type(session->device_id, OUTPUT_TYPE_AIRPLAY);
   if (!device)
     return AIRPLAY_SEQ_ABORT;
+  outputs_device_bind(device, OUTPUT_TYPE_AIRPLAY);
 
   // Clear auth_key, the device did not accept it, or some other unexpected error
   free(device->auth_key);
@@ -4195,6 +4206,9 @@ static void
 airplay_device_free_extra(struct output_device *device)
 {
   struct airplay_extra *extra = device->extra_device_info;
+
+  if (!extra)
+    return;
 
   free(extra->mdns_name);
   free(extra);

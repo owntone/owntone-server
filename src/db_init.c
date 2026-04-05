@@ -153,8 +153,11 @@
   "   volume         INTEGER NOT NULL,"			\
   "   name           VARCHAR(255) DEFAULT NULL,"       \
   "   auth_key       VARCHAR(2048) DEFAULT NULL,"      \
+  "   auth_key_raop  VARCHAR(2048) DEFAULT NULL,"      \
+  "   auth_key_airplay2 VARCHAR(2048) DEFAULT NULL,"   \
   "   format         INTEGER DEFAULT 0,"                \
-  "   offset_ms      INTEGER DEFAULT 0"			\
+  "   offset_ms      INTEGER DEFAULT 0,"		\
+  "   protocol       INTEGER DEFAULT 0"		\
   ");"
 
 #define T_INOTIFY					\
@@ -549,4 +552,3 @@ db_init_tables(sqlite3 *hdl)
 
   return ret;
 }
-

@@ -45,6 +45,7 @@
 struct output_device;
 struct output_metadata;
 enum output_device_state;
+struct output_device_variant;
 
 typedef void (*output_status_cb)(struct output_device *device, enum output_device_state status);
 typedef int (*output_metadata_finalize_cb)(struct output_metadata *metadata);
@@ -69,6 +70,13 @@ enum output_types
 #endif
 };
 
+enum output_protocol_preference
+{
+  OUTPUT_PROTOCOL_DEFAULT = 0,
+  OUTPUT_PROTOCOL_RAOP,
+  OUTPUT_PROTOCOL_AIRPLAY2,
+};
+
 /* Output session state */
 enum output_device_state
 {
@@ -88,6 +96,21 @@ enum output_device_state
 
 /* Linked list of device info used by the player for each device
  */
+struct output_device_variant
+{
+  bool available;
+  bool advertised;
+  bool requires_auth;
+  bool v6_disabled;
+  char *auth_key;
+  char *v4_address;
+  char *v6_address;
+  short v4_port;
+  short v6_port;
+  void *extra_device_info;
+  void *session;
+};
+
 struct output_device
 {
   // Device id
@@ -116,10 +139,17 @@ struct output_device
   unsigned prevent_playback:1;
   unsigned busy:1;
   unsigned resurrect:1;
+  unsigned supports_raop:1;
+  unsigned supports_airplay2:1;
 
   // Credentials if relevant
   const char *password;
   char *auth_key;
+  char *auth_key_raop;
+  char *auth_key_airplay2;
+
+  enum output_protocol_preference protocol_preference;
+  enum output_types active_type;
 
   // Device volume
   int volume;
@@ -146,6 +176,11 @@ struct output_device
   // Only used for streaming
   int audio_fd;
   int metadata_fd;
+
+  // For AirPlay protocol-capable speakers the common backend fields above are
+  // rebound to the selected variant on demand.
+  struct output_device_variant raop;
+  struct output_device_variant airplay2;
 
   struct event *stop_timer;
 
@@ -276,6 +311,15 @@ struct output_definition
 struct output_device *
 outputs_device_get(uint64_t device_id);
 
+struct output_device *
+outputs_device_get_for_type(uint64_t device_id, enum output_types type);
+
+void
+outputs_device_bind(struct output_device *device, enum output_types type);
+
+void
+outputs_device_refresh(struct output_device *device);
+
 uint64_t
 outputs_buffer_duration_ms_get(void);
 
@@ -390,6 +434,12 @@ outputs_metadata_purge(void);
 
 int
 outputs_priority(struct output_device *device);
+
+const char *
+outputs_protocol_to_string(enum output_protocol_preference protocol);
+
+enum output_protocol_preference
+outputs_protocol_from_string(const char *protocol);
 
 const char *
 outputs_name(enum output_types type);

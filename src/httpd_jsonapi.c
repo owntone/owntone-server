@@ -1632,6 +1632,9 @@ speaker_to_json(struct player_speaker_info *spk)
   json_object_object_add(output, "has_password", json_object_new_boolean(spk->has_password));
   json_object_object_add(output, "requires_auth", json_object_new_boolean(spk->requires_auth));
   json_object_object_add(output, "needs_auth_key", json_object_new_boolean(spk->needs_auth_key));
+  json_object_object_add(output, "supports_raop", json_object_new_boolean(spk->supports_raop));
+  json_object_object_add(output, "supports_airplay2", json_object_new_boolean(spk->supports_airplay2));
+  json_object_object_add(output, "protocol", json_object_new_string(spk->protocol));
   json_object_object_add(output, "volume", json_object_new_int(spk->absvol));
   json_object_object_add(output, "offset_ms", json_object_new_int(spk->offset_ms));
   json_object_object_add(output, "format", json_object_new_string(media_format_to_string(spk->format)));
@@ -1699,8 +1702,10 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
   bool selected;
   int volume;
   int offset_ms;
+  enum output_protocol_preference protocol;
   const char *pin;
   const char *format;
+  const char *protocol_str;
   int ret;
 
   ret = safe_atou64(hreq->path_parts[2], &output_id);
@@ -1715,6 +1720,18 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
     {
       DPRINTF(E_LOG, L_WEB, "Failed to parse incoming request\n");
       goto error;
+    }
+
+  if (jparse_contains_key(request, "protocol", json_type_string))
+    {
+      protocol_str = jparse_str_from_obj(request, "protocol");
+      protocol = outputs_protocol_from_string(protocol_str);
+      if (protocol < 0)
+	goto error;
+
+      ret = player_speaker_protocol_set(output_id, protocol);
+      if (ret < 0)
+	goto error;
     }
 
   if (jparse_contains_key(request, "selected", json_type_boolean))

@@ -340,6 +340,9 @@ GET /api/outputs
 | has_password    | boolean  | `true` if output is password protected |
 | requires_auth   | boolean  | `true` if output requires authentication |
 | needs_auth_key  | boolean  | `true` if output requires an authorization key (device verification) |
+| supports_raop   | boolean  | `true` if the output supports AirPlay 1 / RAOP |
+| supports_airplay2 | boolean| `true` if the output supports AirPlay 2 |
+| protocol        | string   | Selected protocol: `default`, `raop` or `airplay2` |
 | volume          | integer  | Volume in percent (0 - 100)               |
 | offset_ms       | integer  | User configured playback offset in ms (positive value means delay) |
 | format          | string   | Stream format                             |
@@ -488,6 +491,7 @@ PUT /api/outputs/{id}
 | --------------- | --------- | ----------------------------------------------------------------------------- |
 | selected        | boolean   | *(Optional)* `true` to enable and `false` to disable the output               |
 | volume          | integer   | *(Optional)* Volume in percent (0 - 100)                                      |
+| protocol        | string    | *(Optional)* Protocol selection: `default`, `raop` or `airplay2`             |
 | pin             | string    | *(Optional)* PIN for device verification                                      |
 | format          | string    | *(Optional)* Stream format                                                    |
 | offset_ms       | integer   | *(Optional)* Playback offset in ms (-2000 - 2000, positive value means delay) |

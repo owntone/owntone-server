@@ -118,6 +118,149 @@ static int outputs_master_volume;
 static uint64_t outputs_buffer_duration_ms;
 
 static bool outputs_exclusive_mode;
+static const char *airplay_type_name = "AirPlay";
+
+
+static bool
+device_has_protocol_variants(struct output_device *device)
+{
+  return device && (device->supports_raop || device->supports_airplay2);
+}
+
+static struct output_device_variant *
+device_variant_get(struct output_device *device, enum output_types type)
+{
+  if (type == OUTPUT_TYPE_RAOP)
+    return &device->raop;
+  if (type == OUTPUT_TYPE_AIRPLAY)
+    return &device->airplay2;
+
+  return NULL;
+}
+
+static enum output_types
+device_type_default_resolve(struct output_device *device)
+{
+  if (!device_has_protocol_variants(device))
+    return device->type;
+
+  if (device->protocol_preference == OUTPUT_PROTOCOL_RAOP && device->supports_raop)
+    return OUTPUT_TYPE_RAOP;
+
+  if (device->protocol_preference == OUTPUT_PROTOCOL_AIRPLAY2 && device->supports_airplay2)
+    return OUTPUT_TYPE_AIRPLAY;
+
+#ifdef PREFER_AIRPLAY2
+  if (device->supports_airplay2)
+    return OUTPUT_TYPE_AIRPLAY;
+  if (device->supports_raop)
+    return OUTPUT_TYPE_RAOP;
+#else
+  if (device->supports_raop)
+    return OUTPUT_TYPE_RAOP;
+  if (device->supports_airplay2)
+    return OUTPUT_TYPE_AIRPLAY;
+#endif
+
+  return device->type;
+}
+
+static enum output_types
+device_type_effective(struct output_device *device)
+{
+  if (!device_has_protocol_variants(device))
+    return device->type;
+
+  if (device->session && (device->active_type == OUTPUT_TYPE_RAOP || device->active_type == OUTPUT_TYPE_AIRPLAY))
+    return device->active_type;
+
+  return device_type_default_resolve(device);
+}
+
+static void
+device_variant_sync(struct output_device *device, enum output_types type)
+{
+  struct output_device_variant *variant;
+
+  if (!device_has_protocol_variants(device))
+    return;
+
+  variant = device_variant_get(device, type);
+  if (!variant)
+    return;
+
+  variant->requires_auth = device->requires_auth;
+  variant->v6_disabled = device->v6_disabled;
+  variant->auth_key = device->auth_key;
+  device->auth_key = NULL;
+  variant->v4_address = device->v4_address;
+  device->v4_address = NULL;
+  variant->v6_address = device->v6_address;
+  device->v6_address = NULL;
+  variant->v4_port = device->v4_port;
+  variant->v6_port = device->v6_port;
+  variant->extra_device_info = device->extra_device_info;
+  device->extra_device_info = NULL;
+  variant->session = device->session;
+  device->session = NULL;
+}
+
+static void
+device_variant_bind(struct output_device *device, enum output_types type)
+{
+  struct output_device_variant *variant;
+  enum output_types bound_type;
+
+  if (!device_has_protocol_variants(device))
+    {
+      device->active_type = device->type;
+      return;
+    }
+
+  bound_type = device->type;
+  if (bound_type == OUTPUT_TYPE_RAOP || bound_type == OUTPUT_TYPE_AIRPLAY)
+    device_variant_sync(device, bound_type);
+
+  variant = device_variant_get(device, type);
+  if (!variant)
+    return;
+
+  device->type = type;
+  device->active_type = type;
+  device->type_name = airplay_type_name;
+  device->requires_auth = variant->requires_auth;
+  device->v6_disabled = variant->v6_disabled;
+  device->auth_key = variant->auth_key;
+  variant->auth_key = NULL;
+  device->v4_address = variant->v4_address;
+  variant->v4_address = NULL;
+  device->v6_address = variant->v6_address;
+  variant->v6_address = NULL;
+  device->v4_port = variant->v4_port;
+  device->v6_port = variant->v6_port;
+  device->extra_device_info = variant->extra_device_info;
+  variant->extra_device_info = NULL;
+  device->session = variant->session;
+  variant->session = NULL;
+}
+
+static void
+device_state_refresh(struct output_device *device)
+{
+  bool has_variant_session;
+
+  if (!device_has_protocol_variants(device))
+    return;
+
+  device->advertised = device->raop.advertised || device->airplay2.advertised;
+  device->supports_raop = device->raop.available;
+  device->supports_airplay2 = device->airplay2.available;
+  has_variant_session = (device->raop.session != NULL || device->airplay2.session != NULL);
+  if (!device->session && !has_variant_session)
+    device->active_type = device_type_default_resolve(device);
+
+  device_variant_bind(device, device_type_effective(device));
+}
 
 static struct outputs_callback_register outputs_cb_register[OUTPUTS_MAX_CALLBACKS];
 static struct event *outputs_deferredev;
@@ -618,6 +761,38 @@ outputs_device_get(uint64_t device_id)
   return NULL;
 }
 
+struct output_device *
+outputs_device_get_for_type(uint64_t device_id, enum output_types type)
+{
+  struct output_device *device;
+
+  (void)type;
+
+  device = outputs_device_get(device_id);
+  if (!device)
+    return NULL;
+
+  return device;
+}
+
+void
+outputs_device_bind(struct output_device *device, enum output_types type)
+{
+  if (!device_has_protocol_variants(device))
+    return;
+
+  device_variant_bind(device, type);
+}
+
+void
+outputs_device_refresh(struct output_device *device)
+{
+  if (!device_has_protocol_variants(device))
+    return;
+
+  device_state_refresh(device);
+}
+
 uint64_t
 outputs_buffer_duration_ms_get(void)
 {
@@ -638,10 +813,18 @@ int
 outputs_device_session_add(uint64_t device_id, void *session)
 {
   struct output_device *device;
+  struct output_device_variant *variant;
 
   device = outputs_device_get(device_id);
   if (!device)
     return -1;
+
+  if (device_has_protocol_variants(device))
+    {
+      variant = device_variant_get(device, device->active_type);
+      if (variant)
+	variant->session = session;
+    }
 
   device->session = session;
   return 0;
@@ -651,10 +834,20 @@ void
 outputs_device_session_remove(uint64_t device_id)
 {
   struct output_device *device;
+  struct output_device_variant *variant;
 
   device = outputs_device_get(device_id);
   if (device)
-    device->session = NULL;
+    {
+      if (device_has_protocol_variants(device))
+	{
+	  variant = device_variant_get(device, device->active_type);
+	  if (variant)
+	    variant->session = NULL;
+	}
+
+      device->session = NULL;
+    }
 
   return;
 }
@@ -779,27 +972,13 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   struct output_device *device;
   char *keep_name;
   int keep_offset_ms;
+  struct output_device_variant *variant;
   int ret;
 
   for (device = outputs_device_list; device; device = device->next)
     {
       if (device->id == add->id)
 	break;
-    }
-
-  // This is relevant for Airplay 1 and 2 where the same device can support both
-  if (device && device->type != add->type)
-    {
-      if (outputs_priority(device) < outputs_priority(add))
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "Ignoring type %s for device '%s', will use type %s\n", add->type_name, add->name, device->type_name);
-	  outputs_device_free(add);
-	  return NULL;
-	}
-
-      // Remove existing device, higher priority device will be added below
-      outputs_device_remove(device);
-      device = NULL;
     }
 
   // New device
@@ -828,32 +1007,95 @@ outputs_device_add(struct output_device *add, bool new_deselect)
       if (new_deselect)
 	device->selected = 0;
 
+      device->active_type = device->type;
+      if (device->type == OUTPUT_TYPE_RAOP)
+	{
+	  device->supports_raop = 1;
+	  device->raop.available = true;
+	  device->raop.advertised = true;
+	  device->raop.requires_auth = device->requires_auth;
+	  device->raop.v6_disabled = device->v6_disabled;
+	  device->raop.auth_key = device->auth_key_raop;
+	  device->auth_key_raop = NULL;
+	  device_variant_bind(device, OUTPUT_TYPE_RAOP);
+	}
+      else if (device->type == OUTPUT_TYPE_AIRPLAY)
+	{
+	  device->supports_airplay2 = 1;
+	  device->airplay2.available = true;
+	  device->airplay2.advertised = true;
+	  device->airplay2.requires_auth = device->requires_auth;
+	  device->airplay2.v6_disabled = device->v6_disabled;
+	  device->airplay2.auth_key = device->auth_key_airplay2;
+	  device->auth_key_airplay2 = NULL;
+	  device_variant_bind(device, OUTPUT_TYPE_AIRPLAY);
+	}
+
       device->next = outputs_device_list;
       outputs_device_list = device;
     }
   // Update to a device already in the list
   else
     {
-      if (add->v4_address)
+      if (add->type == OUTPUT_TYPE_RAOP || add->type == OUTPUT_TYPE_AIRPLAY)
 	{
-	  free(device->v4_address);
+	  variant = device_variant_get(device, add->type);
+	  variant->available = true;
+	  variant->advertised = true;
+	  variant->requires_auth = add->requires_auth;
+	  variant->v6_disabled = add->v6_disabled;
 
-	  device->v4_address = add->v4_address;
-	  device->v4_port = add->v4_port;
+	  if (!variant->auth_key)
+	    {
+	      if (add->type == OUTPUT_TYPE_RAOP && device->auth_key_raop)
+		variant->auth_key = safe_strdup(device->auth_key_raop);
+	      else if (add->type == OUTPUT_TYPE_AIRPLAY && device->auth_key_airplay2)
+		variant->auth_key = safe_strdup(device->auth_key_airplay2);
+	    }
 
-	  // Address is ours now
-	  add->v4_address = NULL;
+	  if (add->v4_address)
+	    {
+	      free(variant->v4_address);
+	      variant->v4_address = add->v4_address;
+	      variant->v4_port = add->v4_port;
+	      add->v4_address = NULL;
+	    }
+
+	  if (add->v6_address)
+	    {
+	      free(variant->v6_address);
+	      variant->v6_address = add->v6_address;
+	      variant->v6_port = add->v6_port;
+	      add->v6_address = NULL;
+	    }
+
+	  if (variant->extra_device_info && outputs[add->type]->device_free_extra)
+	    {
+	      device->extra_device_info = variant->extra_device_info;
+	      variant->extra_device_info = NULL;
+	      outputs[add->type]->device_free_extra(device);
+	      device->extra_device_info = NULL;
+	    }
+	  variant->extra_device_info = add->extra_device_info;
+	  add->extra_device_info = NULL;
 	}
-
-      if (add->v6_address)
+      else
 	{
-	  free(device->v6_address);
+	  if (add->v4_address)
+	    {
+	      free(device->v4_address);
+	      device->v4_address = add->v4_address;
+	      device->v4_port = add->v4_port;
+	      add->v4_address = NULL;
+	    }
 
-	  device->v6_address = add->v6_address;
-	  device->v6_port = add->v6_port;
-
-	  // Address is ours now
-	  add->v6_address = NULL;
+	  if (add->v6_address)
+	    {
+	      free(device->v6_address);
+	      device->v6_address = add->v6_address;
+	      device->v6_port = add->v6_port;
+	      add->v6_address = NULL;
+	    }
 	}
 
       free(device->name);
@@ -863,7 +1105,14 @@ outputs_device_add(struct output_device *add, bool new_deselect)
       device->has_password = add->has_password;
       device->password = add->password;
 
+      device_state_refresh(device);
       outputs_device_free(add);
+    }
+
+  if (device_has_protocol_variants(device))
+    {
+      device->type_name = airplay_type_name;
+      device_state_refresh(device);
     }
 
   device_list_sort();
@@ -899,6 +1148,9 @@ outputs_device_remove(struct output_device *remove)
 
   if (!device)
     return;
+
+  if (device_has_protocol_variants(remove))
+    device_variant_bind(remove, device_type_effective(remove));
 
   // Save device volume
   ret = db_speaker_save(remove);
@@ -949,18 +1201,23 @@ outputs_device_deselect(struct output_device *device)
 int
 outputs_device_start(struct output_device *device, output_status_cb cb, bool only_probe)
 {
+  enum output_types type;
   int ret;
 
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_start || !outputs[device->type]->device_probe)
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_start || !outputs[type]->device_probe)
     return -1;
 
   if (device->session)
     return 0; // Device is already running, nothing to do
 
   if (only_probe)
-    ret = outputs[device->type]->device_probe(device, callback_add(device, cb));
+    ret = outputs[type]->device_probe(device, callback_add(device, cb));
   else
-    ret = outputs[device->type]->device_start(device, callback_add(device, cb));
+    ret = outputs[type]->device_start(device, callback_add(device, cb));
 
   return device_state_update(device, ret);;
 }
@@ -968,15 +1225,20 @@ outputs_device_start(struct output_device *device, output_status_cb cb, bool onl
 int
 outputs_device_stop(struct output_device *device, output_status_cb cb)
 {
+  enum output_types type;
   int ret;
 
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_stop)
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_stop)
     return -1;
 
   if (!device->session)
     return 0; // Device is already stopped, nothing to do
 
-  ret = outputs[device->type]->device_stop(device, callback_add(device, cb));
+  ret = outputs[type]->device_stop(device, callback_add(device, cb));
 
   return device_state_update(device, ret);
 }
@@ -984,13 +1246,19 @@ outputs_device_stop(struct output_device *device, output_status_cb cb)
 int
 outputs_device_stop_delayed(struct output_device *device, output_status_cb cb)
 {
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_stop)
+  enum output_types type;
+
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_stop)
     return -1;
 
   if (!device->session)
     return 0; // Device is already stopped, nothing to do
 
-  outputs[device->type]->device_cb_set(device, callback_add(device, cb));
+  outputs[type]->device_cb_set(device, callback_add(device, cb));
 
   event_add(device->stop_timer, &outputs_stop_timeout);
 
@@ -1000,15 +1268,20 @@ outputs_device_stop_delayed(struct output_device *device, output_status_cb cb)
 int
 outputs_device_flush(struct output_device *device, output_status_cb cb)
 {
+  enum output_types type;
   int ret;
 
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_flush)
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_flush)
     return -1;
 
   if (!device->session)
     return 0; // Nothing to flush
 
-  ret = outputs[device->type]->device_flush(device, callback_add(device, cb));
+  ret = outputs[type]->device_flush(device, callback_add(device, cb));
 
   return ret; // We don't change device state just because of a failed flush
 }
@@ -1027,15 +1300,20 @@ outputs_device_volume_register(struct output_device *device, int absvol, int rel
 int
 outputs_device_volume_set(struct output_device *device, output_status_cb cb)
 {
+  enum output_types type;
   int ret;
 
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_volume_set)
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_volume_set)
     return -1;
 
   if (!device->session)
     return 0; // Device isn't active
 
-  ret = outputs[device->type]->device_volume_set(device, callback_add(device, cb));
+  ret = outputs[type]->device_volume_set(device, callback_add(device, cb));
 
   return ret; // We don't change device state just because of a failed volume change
 }
@@ -1043,21 +1321,32 @@ outputs_device_volume_set(struct output_device *device, output_status_cb cb)
 int
 outputs_device_volume_to_pct(struct output_device *device, const char *volume)
 {
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_volume_to_pct)
+  enum output_types type;
+
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_volume_to_pct)
     return -1;
 
-  return outputs[device->type]->device_volume_to_pct(device, volume);
+  return outputs[type]->device_volume_to_pct(device, volume);
 }
 
 int
 outputs_device_quality_set(struct output_device *device, struct media_quality *quality, output_status_cb cb)
 {
+  enum output_types type;
   int ret;
 
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_quality_set)
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_quality_set)
     return -1;
 
-  ret = outputs[device->type]->device_quality_set(device, quality, callback_add(device, cb));
+  ret = outputs[type]->device_quality_set(device, quality, callback_add(device, cb));
 
   return device_state_update(device, ret);
 }
@@ -1065,15 +1354,20 @@ outputs_device_quality_set(struct output_device *device, struct media_quality *q
 int
 outputs_device_authorize(struct output_device *device, const char *pin, output_status_cb cb)
 {
+  enum output_types type;
   int ret;
 
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_authorize)
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_authorize)
     return -1;
 
   if (device->session)
     return 0; // We are already connected to the device - no auth required
 
-  ret = outputs[device->type]->device_authorize(device, pin, callback_add(device, cb));
+  ret = outputs[type]->device_authorize(device, pin, callback_add(device, cb));
 
   return device_state_update(device, ret); // If ret < 0 then we couldn't reach the speaker
 }
@@ -1081,20 +1375,31 @@ outputs_device_authorize(struct output_device *device, const char *pin, output_s
 void
 outputs_device_cb_set(struct output_device *device, output_status_cb cb)
 {
-  if (outputs[device->type]->disabled || !outputs[device->type]->device_cb_set)
+  enum output_types type;
+
+  type = device_type_effective(device);
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, type);
+
+  if (outputs[type]->disabled || !outputs[type]->device_cb_set)
     return;
 
   if (!device->session)
     return;
 
-  outputs[device->type]->device_cb_set(device, callback_add(device, cb));
+  outputs[type]->device_cb_set(device, callback_add(device, cb));
 }
 
 void
 outputs_device_free(struct output_device *device)
 {
+  struct output_device_variant *variant;
+
   if (!device)
     return;
+
+  if (device_has_protocol_variants(device))
+    device_variant_bind(device, device_type_effective(device));
 
   if (outputs[device->type]->disabled)
     DPRINTF(E_LOG, L_PLAYER, "BUG! Freeing device from a disabled output?\n");
@@ -1102,16 +1407,45 @@ outputs_device_free(struct output_device *device)
   if (device->session)
     DPRINTF(E_LOG, L_PLAYER, "BUG! Freeing device with active session?\n");
 
-  if (outputs[device->type]->device_free_extra)
+  if (device->extra_device_info && outputs[device->type]->device_free_extra)
     outputs[device->type]->device_free_extra(device);
+
+  if (device_has_protocol_variants(device))
+    {
+      variant = &device->raop;
+      if (variant->extra_device_info && outputs[OUTPUT_TYPE_RAOP]->device_free_extra)
+	{
+	  device->extra_device_info = variant->extra_device_info;
+	  variant->extra_device_info = NULL;
+	  outputs[OUTPUT_TYPE_RAOP]->device_free_extra(device);
+	  device->extra_device_info = NULL;
+	}
+
+      variant = &device->airplay2;
+      if (variant->extra_device_info && outputs[OUTPUT_TYPE_AIRPLAY]->device_free_extra)
+	{
+	  device->extra_device_info = variant->extra_device_info;
+	  variant->extra_device_info = NULL;
+	  outputs[OUTPUT_TYPE_AIRPLAY]->device_free_extra(device);
+	  device->extra_device_info = NULL;
+	}
+    }
 
   if (device->stop_timer)
     event_free(device->stop_timer);
 
   free(device->name);
   free(device->auth_key);
+  free(device->auth_key_raop);
+  free(device->auth_key_airplay2);
   free(device->v4_address);
   free(device->v6_address);
+  free(device->raop.auth_key);
+  free(device->raop.v4_address);
+  free(device->raop.v6_address);
+  free(device->airplay2.auth_key);
+  free(device->airplay2.v4_address);
+  free(device->airplay2.v6_address);
 
   free(device);
 }
@@ -1297,13 +1631,41 @@ outputs_metadata_purge(void)
 int
 outputs_priority(struct output_device *device)
 {
-  return outputs[device->type]->priority;
+  return outputs[device_type_default_resolve(device)]->priority;
 }
 
 const char *
 outputs_name(enum output_types type)
 {
   return outputs[type]->name;
+}
+
+const char *
+outputs_protocol_to_string(enum output_protocol_preference protocol)
+{
+  switch (protocol)
+    {
+      case OUTPUT_PROTOCOL_RAOP:
+	return "raop";
+      case OUTPUT_PROTOCOL_AIRPLAY2:
+	return "airplay2";
+      case OUTPUT_PROTOCOL_DEFAULT:
+      default:
+	return "default";
+    }
+}
+
+enum output_protocol_preference
+outputs_protocol_from_string(const char *protocol)
+{
+  if (!protocol || strcmp(protocol, "default") == 0)
+    return OUTPUT_PROTOCOL_DEFAULT;
+  if (strcmp(protocol, "raop") == 0)
+    return OUTPUT_PROTOCOL_RAOP;
+  if (strcmp(protocol, "airplay2") == 0)
+    return OUTPUT_PROTOCOL_AIRPLAY2;
+
+  return -1;
 }
 
 struct output_device *
@@ -1406,4 +1768,3 @@ outputs_deinit(void)
   for (i = 0; i < ARRAY_SIZE(output_buffer.data); i++)
     evbuffer_free(output_buffer.data[i].evbuf);
 }
-
