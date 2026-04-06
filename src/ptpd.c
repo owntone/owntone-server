@@ -106,7 +106,15 @@ ptpd_init(uint64_t clock_id_seed)
   airptp_callbacks_register(&cb);
 
   if (airptp_create_own_service)
-    return airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
+    {
+      if (!ptpd_hdl)
+	{
+	  DPRINTF(E_LOG, L_AIRPLAY, "Can't start own ptp service, daemon handle is missing\n");
+	  return -1;
+	}
+
+      return airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
+    }
 
   if (!ptpd_hdl)
     ptpd_hdl = airptp_daemon_find();

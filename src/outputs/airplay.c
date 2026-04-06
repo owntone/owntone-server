@@ -1594,6 +1594,23 @@ session_make(struct output_device *device, int callback_id)
 
   extra = device->extra_device_info;
 
+  DPRINTF(E_SPAM, L_AIRPLAY,
+	  "session_make for device '%s' (%" PRIu64 "): callback_id=%d type=%d active=%d extra=%p session=%p raop_extra=%p airplay2_extra=%p\n",
+	  device->name, device->id, callback_id, device->type, device->active_type, extra, device->session,
+	  device->raop.extra_device_info, device->airplay2.extra_device_info);
+  if (extra)
+    DPRINTF(E_SPAM, L_AIRPLAY,
+	    "session_make extra for device '%s' (%" PRIu64 "): auth_setup=%d wanted_metadata=%u encryption=%d use_ptp=%d transient_pairing=%d\n",
+	    device->name, device->id, extra->supports_auth_setup, extra->wanted_metadata,
+	    extra->supports_encryption, extra->use_ptp, extra->supports_pairing_transient);
+  else
+    {
+      DPRINTF(E_LOG, L_AIRPLAY,
+	      "Bug! Missing AirPlay device info for device '%s' (%" PRIu64 "), type=%d active=%d\n",
+	      device->name, device->id, device->type, device->active_type);
+      return NULL;
+    }
+
   CHECK_NULL(L_AIRPLAY, session = calloc(1, sizeof(struct airplay_session)));
   CHECK_NULL(L_AIRPLAY, session->deferredev = evtimer_new(evbase_player, deferred_session_failure_cb, session));
 
@@ -4128,6 +4145,10 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
   if (ret < 0)
     goto free_device;
 
+  DPRINTF(E_SPAM, L_AIRPLAY,
+	  "Queued AirPlay add for '%s' (%" PRIu64 "): extra=%p wanted_metadata=%u auth_setup=%d encryption=%d use_ptp=%d family=%d port=%d\n",
+	  device->name, device->id, extra, extra->wanted_metadata, extra->supports_auth_setup, extra->supports_encryption, extra->use_ptp, family, port);
+
   return;
 
  free_device:
@@ -4158,6 +4179,10 @@ airplay_device_start(struct output_device *device, int callback_id)
 {
   struct airplay_session *session;
 
+  DPRINTF(E_SPAM, L_AIRPLAY,
+	  "airplay_device_start for '%s' (%" PRIu64 "): callback_id=%d type=%d active=%d extra=%p session=%p\n",
+	  device->name, device->id, callback_id, device->type, device->active_type, device->extra_device_info, device->session);
+
   session = session_make(device, callback_id);
   if (!session)
     return -1;
@@ -4171,6 +4196,10 @@ static int
 airplay_device_stop(struct output_device *device, int callback_id)
 {
   struct airplay_session *session = device->session;
+
+  DPRINTF(E_SPAM, L_AIRPLAY,
+	  "airplay_device_stop for '%s' (%" PRIu64 "): callback_id=%d type=%d active=%d extra=%p session=%p\n",
+	  device->name, device->id, callback_id, device->type, device->active_type, device->extra_device_info, session);
 
   session->callback_id = callback_id;
 

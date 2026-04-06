@@ -150,6 +150,9 @@ airptp_daemon_start(struct airptp_handle *hdl, uint64_t clock_id_seed, bool is_s
 {
   int ret;
 
+  if (!hdl)
+    RETURN_ERROR(AIRPTP_ERR_INVALID, "Can't start daemon, handle is NULL");
+
   if (!hdl->is_daemon || hdl->state != AIRPTP_STATE_PORTS_BOUND)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Can't start daemon, ports not bound not in daemon mode");
 

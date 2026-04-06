@@ -189,6 +189,12 @@ device_variant_sync(struct output_device *device, enum output_types type)
   if (!variant)
     return;
 
+  DPRINTF(E_SPAM, L_PLAYER,
+	  "Variant sync for device '%s' (%" PRIu64 "): sync_type=%d live(type=%d active=%d session=%p extra=%p v4=%p:%d v6=%p:%d) variant(before session=%p extra=%p v4=%p:%d v6=%p:%d)\n",
+	  device->name, device->id, type, device->type, device->active_type, device->session, device->extra_device_info,
+	  device->v4_address, device->v4_port, device->v6_address, device->v6_port,
+	  variant->session, variant->extra_device_info, variant->v4_address, variant->v4_port, variant->v6_address, variant->v6_port);
+
   variant->requires_auth = device->requires_auth;
   variant->v6_disabled = device->v6_disabled;
   variant->auth_key = device->auth_key;
@@ -203,6 +209,11 @@ device_variant_sync(struct output_device *device, enum output_types type)
   device->extra_device_info = NULL;
   variant->session = device->session;
   device->session = NULL;
+
+  DPRINTF(E_SPAM, L_PLAYER,
+	  "Variant sync done for device '%s' (%" PRIu64 "): sync_type=%d live(after session=%p extra=%p) variant(after session=%p extra=%p v4=%p:%d v6=%p:%d)\n",
+	  device->name, device->id, type, device->session, device->extra_device_info,
+	  variant->session, variant->extra_device_info, variant->v4_address, variant->v4_port, variant->v6_address, variant->v6_port);
 }
 
 static void
@@ -218,12 +229,64 @@ device_variant_bind(struct output_device *device, enum output_types type)
     }
 
   bound_type = device->type;
-  if (bound_type == OUTPUT_TYPE_RAOP || bound_type == OUTPUT_TYPE_AIRPLAY)
-    device_variant_sync(device, bound_type);
+  DPRINTF(E_SPAM, L_PLAYER,
+	  "Variant bind begin for device '%s' (%" PRIu64 "): bound_type=%d target_type=%d active=%d live(session=%p extra=%p) raop(session=%p extra=%p) airplay2(session=%p extra=%p)\n",
+	  device->name, device->id, bound_type, type, device->active_type, device->session, device->extra_device_info,
+	  device->raop.session, device->raop.extra_device_info, device->airplay2.session, device->airplay2.extra_device_info);
 
   variant = device_variant_get(device, type);
   if (!variant)
     return;
+
+  if (bound_type == type)
+    {
+      device->active_type = type;
+      device->type_name = airplay_type_name;
+      device->requires_auth = variant->requires_auth;
+      device->v6_disabled = variant->v6_disabled;
+
+      if (!device->auth_key && variant->auth_key)
+	{
+	  device->auth_key = variant->auth_key;
+	  variant->auth_key = NULL;
+	}
+
+      if (!device->v4_address && variant->v4_address)
+	{
+	  device->v4_address = variant->v4_address;
+	  variant->v4_address = NULL;
+	  device->v4_port = variant->v4_port;
+	}
+
+      if (!device->v6_address && variant->v6_address)
+	{
+	  device->v6_address = variant->v6_address;
+	  variant->v6_address = NULL;
+	  device->v6_port = variant->v6_port;
+	}
+
+      if (!device->extra_device_info && variant->extra_device_info)
+	{
+	  device->extra_device_info = variant->extra_device_info;
+	  variant->extra_device_info = NULL;
+	}
+
+      if (!device->session && variant->session)
+	{
+	  device->session = variant->session;
+	  variant->session = NULL;
+	}
+
+      DPRINTF(E_SPAM, L_PLAYER,
+	      "Variant bind restored for device '%s' (%" PRIu64 "): already bound to type=%d live(session=%p extra=%p v4=%p:%d v6=%p:%d) variant(session=%p extra=%p)\n",
+	      device->name, device->id, type, device->session, device->extra_device_info,
+	      device->v4_address, device->v4_port, device->v6_address, device->v6_port,
+	      variant->session, variant->extra_device_info);
+      return;
+    }
+
+  if (bound_type == OUTPUT_TYPE_RAOP || bound_type == OUTPUT_TYPE_AIRPLAY)
+    device_variant_sync(device, bound_type);
 
   device->type = type;
   device->active_type = type;
@@ -242,6 +305,12 @@ device_variant_bind(struct output_device *device, enum output_types type)
   variant->extra_device_info = NULL;
   device->session = variant->session;
   variant->session = NULL;
+
+  DPRINTF(E_SPAM, L_PLAYER,
+	  "Variant bind done for device '%s' (%" PRIu64 "): target_type=%d active=%d live(session=%p extra=%p v4=%p:%d v6=%p:%d) raop(session=%p extra=%p) airplay2(session=%p extra=%p)\n",
+	  device->name, device->id, type, device->active_type, device->session, device->extra_device_info,
+	  device->v4_address, device->v4_port, device->v6_address, device->v6_port,
+	  device->raop.session, device->raop.extra_device_info, device->airplay2.session, device->airplay2.extra_device_info);
 }
 
 static void
@@ -839,6 +908,11 @@ outputs_device_session_remove(uint64_t device_id)
   device = outputs_device_get(device_id);
   if (device)
     {
+      DPRINTF(E_SPAM, L_PLAYER,
+	      "Session remove for device '%s' (%" PRIu64 "): type=%d active=%d live_session=%p raop_session=%p airplay2_session=%p live_extra=%p raop_extra=%p airplay2_extra=%p\n",
+	      device->name, device->id, device->type, device->active_type, device->session,
+	      device->raop.session, device->airplay2.session,
+	      device->extra_device_info, device->raop.extra_device_info, device->airplay2.extra_device_info);
       if (device_has_protocol_variants(device))
 	{
 	  variant = device_variant_get(device, device->active_type);
@@ -847,6 +921,11 @@ outputs_device_session_remove(uint64_t device_id)
 	}
 
       device->session = NULL;
+
+      DPRINTF(E_SPAM, L_PLAYER,
+	      "Session remove done for device '%s' (%" PRIu64 "): type=%d active=%d live_session=%p raop_session=%p airplay2_session=%p\n",
+	      device->name, device->id, device->type, device->active_type, device->session,
+	      device->raop.session, device->airplay2.session);
     }
 
   return;
@@ -973,6 +1052,7 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   char *keep_name;
   int keep_offset_ms;
   struct output_device_variant *variant;
+  void *keep_extra_device_info;
   int ret;
 
   for (device = outputs_device_list; device; device = device->next)
@@ -1040,6 +1120,11 @@ outputs_device_add(struct output_device *add, bool new_deselect)
       if (add->type == OUTPUT_TYPE_RAOP || add->type == OUTPUT_TYPE_AIRPLAY)
 	{
 	  variant = device_variant_get(device, add->type);
+	  DPRINTF(E_SPAM, L_PLAYER,
+		  "Device update for '%s' (%" PRIu64 "): add_type=%d bound_type=%d active=%d live(extra=%p session=%p) raop(extra=%p session=%p) airplay2(extra=%p session=%p) add(extra=%p)\n",
+		  device->name, device->id, add->type, device->type, device->active_type, device->extra_device_info, device->session,
+		  device->raop.extra_device_info, device->raop.session, device->airplay2.extra_device_info, device->airplay2.session,
+		  add->extra_device_info);
 	  variant->available = true;
 	  variant->advertised = true;
 	  variant->requires_auth = add->requires_auth;
@@ -1071,13 +1156,18 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 
 	  if (variant->extra_device_info && outputs[add->type]->device_free_extra)
 	    {
+	      keep_extra_device_info = device->extra_device_info;
 	      device->extra_device_info = variant->extra_device_info;
 	      variant->extra_device_info = NULL;
 	      outputs[add->type]->device_free_extra(device);
-	      device->extra_device_info = NULL;
+	      device->extra_device_info = keep_extra_device_info;
 	    }
 	  variant->extra_device_info = add->extra_device_info;
 	  add->extra_device_info = NULL;
+	  DPRINTF(E_SPAM, L_PLAYER,
+		  "Device update stored variant for '%s' (%" PRIu64 "): add_type=%d live(extra=%p session=%p) raop(extra=%p session=%p) airplay2(extra=%p session=%p)\n",
+		  device->name, device->id, add->type, device->extra_device_info, device->session,
+		  device->raop.extra_device_info, device->raop.session, device->airplay2.extra_device_info, device->airplay2.session);
 	}
       else
 	{
@@ -1205,6 +1295,11 @@ outputs_device_start(struct output_device *device, output_status_cb cb, bool onl
   int ret;
 
   type = device_type_effective(device);
+  DPRINTF(E_SPAM, L_PLAYER,
+	  "Device start request for '%s' (%" PRIu64 "): only_probe=%d effective_type=%d bound_type=%d active=%d supports(raop=%d airplay2=%d) live(extra=%p session=%p) raop(extra=%p session=%p) airplay2(extra=%p session=%p)\n",
+	  device->name, device->id, only_probe, type, device->type, device->active_type, device->supports_raop, device->supports_airplay2,
+	  device->extra_device_info, device->session,
+	  device->raop.extra_device_info, device->raop.session, device->airplay2.extra_device_info, device->airplay2.session);
   if (device_has_protocol_variants(device))
     device_variant_bind(device, type);
 
@@ -1229,6 +1324,10 @@ outputs_device_stop(struct output_device *device, output_status_cb cb)
   int ret;
 
   type = device_type_effective(device);
+  DPRINTF(E_SPAM, L_PLAYER,
+	  "Device stop request for '%s' (%" PRIu64 "): effective_type=%d bound_type=%d active=%d live(extra=%p session=%p) raop(extra=%p session=%p) airplay2(extra=%p session=%p)\n",
+	  device->name, device->id, type, device->type, device->active_type, device->extra_device_info, device->session,
+	  device->raop.extra_device_info, device->raop.session, device->airplay2.extra_device_info, device->airplay2.session);
   if (device_has_protocol_variants(device))
     device_variant_bind(device, type);
 

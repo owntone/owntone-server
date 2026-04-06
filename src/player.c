@@ -1656,6 +1656,10 @@ device_shutdown_cb(struct output_device *device, enum output_device_state status
     }
 
   DPRINTF(E_DBG, L_PLAYER, "Callback from %s device %s to device_shutdown_cb (status %d)\n", device->type_name, device->name, status);
+  DPRINTF(E_SPAM, L_PLAYER,
+	  "Shutdown callback device '%s' (%" PRIu64 "): type=%d active=%d status=%d live(extra=%p session=%p) raop(extra=%p session=%p) airplay2(extra=%p session=%p)\n",
+	  device->name, device->id, device->type, device->active_type, status, device->extra_device_info, device->session,
+	  device->raop.extra_device_info, device->raop.session, device->airplay2.extra_device_info, device->airplay2.session);
 
  out:
   commands_exec_end(cmdbase, retval);
