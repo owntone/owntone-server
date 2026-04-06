@@ -312,10 +312,16 @@ struct output_device *
 outputs_device_get(uint64_t device_id);
 
 struct output_device *
-outputs_device_get_for_type(uint64_t device_id, enum output_types type);
+outputs_device_get_bound(uint64_t device_id, enum output_types type);
 
 void
 outputs_device_bind(struct output_device *device, enum output_types type);
+
+void
+outputs_device_requires_auth_set(struct output_device *device, bool requires_auth);
+
+void
+outputs_device_v6_disabled_set(struct output_device *device, bool v6_disabled);
 
 void
 outputs_device_refresh(struct output_device *device);

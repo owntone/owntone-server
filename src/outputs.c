@@ -831,15 +831,15 @@ outputs_device_get(uint64_t device_id)
 }
 
 struct output_device *
-outputs_device_get_for_type(uint64_t device_id, enum output_types type)
+outputs_device_get_bound(uint64_t device_id, enum output_types type)
 {
   struct output_device *device;
-
-  (void)type;
 
   device = outputs_device_get(device_id);
   if (!device)
     return NULL;
+
+  outputs_device_bind(device, type);
 
   return device;
 }
@@ -851,6 +851,38 @@ outputs_device_bind(struct output_device *device, enum output_types type)
     return;
 
   device_variant_bind(device, type);
+}
+
+void
+outputs_device_requires_auth_set(struct output_device *device, bool requires_auth)
+{
+  struct output_device_variant *variant;
+
+  device->requires_auth = requires_auth;
+  if (!device_has_protocol_variants(device))
+    return;
+
+  variant = device_variant_get(device, device->active_type);
+  if (!variant)
+    return;
+
+  variant->requires_auth = requires_auth;
+}
+
+void
+outputs_device_v6_disabled_set(struct output_device *device, bool v6_disabled)
+{
+  struct output_device_variant *variant;
+
+  device->v6_disabled = v6_disabled;
+  if (!device_has_protocol_variants(device))
+    return;
+
+  variant = device_variant_get(device, device->active_type);
+  if (!variant)
+    return;
+
+  variant->v6_disabled = v6_disabled;
 }
 
 void
