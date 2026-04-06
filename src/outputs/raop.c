@@ -253,9 +253,10 @@ struct raop_metadata
 
 struct raop_service
 {
-  int fd;
+  struct net_socket socket;
   unsigned short port;
-  struct event *ev;
+  struct event *ev4;
+  struct event *ev6;
 };
 
 typedef void (*evrtsp_req_cb)(struct evrtsp_request *req, void *arg);
@@ -2897,6 +2898,7 @@ static void
 control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 {
   socklen_t addrlen;
+  int fd;
   int ret;
 
   switch (rs->family)
@@ -2904,11 +2906,13 @@ control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
       case AF_INET:
 	rs->naddr.sin.sin_port = htons(rs->control_port);
 	addrlen = sizeof(rs->naddr.sin);
+	fd = rs->control_svc->socket.fd4;
 	break;
 
       case AF_INET6:
 	rs->naddr.sin6.sin6_port = htons(rs->control_port);
 	addrlen = sizeof(rs->naddr.sin6);
+	fd = rs->control_svc->socket.fd6;
 	break;
 
       default:
@@ -2916,7 +2920,7 @@ control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 	return;
     }
 
-  ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->naddr.sa, addrlen);
+  ret = sendto(fd, pkt->data, pkt->data_len, 0, &rs->naddr.sa, addrlen);
   if (ret < 0)
     DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
 }
@@ -3085,37 +3089,51 @@ packets_sync_send(struct raop_master_session *rms)
 static void
 service_stop(struct raop_service *svc)
 {
-  if (svc->ev)
-    event_free(svc->ev);
+  if (svc->ev4)
+    event_free(svc->ev4);
+  if (svc->ev6)
+    event_free(svc->ev6);
 
-  if (svc->fd >= 0)
-    close(svc->fd);
+  svc->ev4 = NULL;
+  svc->ev6 = NULL;
 
-  svc->ev = NULL;
-  svc->fd = -1;
+  net_socket_close(&svc->socket);
+
   svc->port = 0;
 }
 
 static int
 service_start(struct raop_service *svc, event_callback_fn cb, unsigned short port, const char *log_service_name)
 {
+  int ret;
+
   memset(svc, 0, sizeof(struct raop_service));
 
-  svc->fd = net_bind(&port, SOCK_DGRAM, log_service_name);
-  if (svc->fd < 0)
+  svc->socket.fd4 = -1;
+  svc->socket.fd6 = -1;
+
+  ret = net_bind(&svc->socket, &port, SOCK_DGRAM, log_service_name);
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not start '%s' service\n", log_service_name);
       goto error;
     }
 
-  svc->ev = event_new(evbase_player, svc->fd, EV_READ | EV_PERSIST, cb, svc);
-  if (!svc->ev)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not create event for '%s' service\n", log_service_name);
+  if (svc->socket.fd4 >= 0) {
+    svc->ev4 = event_new(evbase_player, svc->socket.fd4, EV_READ | EV_PERSIST, cb, svc);
+    if (!svc->ev4)
       goto error;
-    }
 
-  event_add(svc->ev, NULL);
+    event_add(svc->ev4, NULL);
+  }
+
+  if (svc->socket.fd6 >= 0) {
+    svc->ev6 = event_new(evbase_player, svc->socket.fd6, EV_READ | EV_PERSIST, cb, svc);
+    if (!svc->ev6)
+      goto error;
+
+    event_add(svc->ev6, NULL);
+  }
 
   svc->port = port;
 
@@ -3129,7 +3147,6 @@ service_start(struct raop_service *svc, event_callback_fn cb, unsigned short por
 static void
 timing_svc_cb(int fd, short what, void *arg)
 {
-  struct raop_service *svc;
   union net_sockaddr peer_addr;
   socklen_t peer_addrlen = sizeof(peer_addr);
   uint8_t req[32];
@@ -3137,8 +3154,6 @@ timing_svc_cb(int fd, short what, void *arg)
   struct ntp_stamp recv_stamp;
   struct ntp_stamp xmit_stamp;
   int ret;
-
-  svc = (struct raop_service *)arg;
 
   ret = timing_get_clock_ntp(&recv_stamp);
   if (ret < 0)
@@ -3148,7 +3163,7 @@ timing_svc_cb(int fd, short what, void *arg)
     }
 
   peer_addrlen = sizeof(peer_addr);
-  ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
+  ret = recvfrom(fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading timing request: %s\n", strerror(errno));
@@ -3203,7 +3218,7 @@ timing_svc_cb(int fd, short what, void *arg)
       memcpy(res + 28, &xmit_stamp.frac, 4);
     }
 
-  ret = sendto(svc->fd, res, sizeof(res), 0, &peer_addr.sa, peer_addrlen);
+  ret = sendto(fd, res, sizeof(res), 0, &peer_addr.sa, peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send timing reply: %s\n", strerror(errno));
@@ -3214,7 +3229,6 @@ timing_svc_cb(int fd, short what, void *arg)
 static void
 control_svc_cb(int fd, short what, void *arg)
 {
-  struct raop_service *svc;
   union net_sockaddr peer_addr = { 0 };
   socklen_t peer_addrlen = sizeof(peer_addr);
   char address[INET6_ADDRSTRLEN];
@@ -3224,9 +3238,7 @@ control_svc_cb(int fd, short what, void *arg)
   uint16_t seq_len;
   int ret;
 
-  svc = (struct raop_service *)arg;
-
-  ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
+  ret = recvfrom(fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading control request: %s\n", strerror(errno));
@@ -4631,8 +4643,6 @@ raop_init(void)
   char ebuf[64];
   char *ptr;
   gpg_error_t gc_err;
-  int timing_port;
-  int control_port;
   int ret;
 
   // Generate AES key and IV
@@ -4687,8 +4697,7 @@ raop_init(void)
 
   CHECK_NULL(L_RAOP, keep_alive_timer = evtimer_new(evbase_player, raop_keep_alive_timer_cb, NULL));
 
-  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
-  ret = service_start(&raop_timing_svc, timing_svc_cb, timing_port, "RAOP timing");
+  ret = service_start(&raop_timing_svc, timing_svc_cb, 0, "RAOP timing");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay time synchronization failed to start\n");
@@ -4696,8 +4705,7 @@ raop_init(void)
       goto out_free_timer;
     }
 
-  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
-  ret = service_start(&raop_control_svc, control_svc_cb, control_port, "RAOP control");
+  ret = service_start(&raop_control_svc, control_svc_cb, 0, "RAOP control");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay playback control failed to start\n");

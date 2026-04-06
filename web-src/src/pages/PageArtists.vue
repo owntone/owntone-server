@@ -72,9 +72,7 @@ export default {
     return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
   data() {
-    return {
-      artistList: new GroupedList()
-    }
+    return { artistList: new GroupedList() }
   },
   computed: {
     artists() {

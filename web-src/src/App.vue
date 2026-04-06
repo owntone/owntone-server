@@ -62,10 +62,7 @@ export default {
     }
   },
   data() {
-    return {
-      handlers: {},
-      scheduledHandlers: new Map()
-    }
+    return { handlers: {}, scheduledHandlers: new Map() }
   },
   watch: {
     'uiStore.showBurgerMenu'() {
@@ -78,14 +75,13 @@ export default {
   created() {
     this.handlers = {
       database: [this.libraryStore.initialise],
-      lastfm: [this.servicesStore.initialiseLastfm],
       options: [this.playerStore.initialise],
       outputs: [this.outputsStore.initialise],
       pairing: [this.remotesStore.initialise],
       player: [this.playerStore.initialise],
       queue: [this.queueStore.initialise],
       settings: [this.settingsStore.initialise],
-      spotify: [this.servicesStore.initialiseSpotify],
+      services: [this.servicesStore.initialise],
       update: [this.libraryStore.initialise],
       volume: [this.playerStore.initialise, this.outputsStore.initialise]
     }
@@ -142,14 +138,13 @@ export default {
       const socket = this.createWebsocket()
       const events = [
         'database',
-        'lastfm',
         'options',
         'outputs',
         'pairing',
         'player',
         'queue',
         'settings',
-        'spotify',
+        'services',
         'update',
         'volume'
       ]

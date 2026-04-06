@@ -100,21 +100,21 @@ airptp_callbacks_register(struct airptp_callbacks *cb)
 }
 
 struct airptp_handle *
-airptp_daemon_bind(void)
+airptp_daemon_bind(const char *node)
 {
   struct airptp_handle *hdl = NULL;
   struct utils_net_socket event_socket = UTILS_NET_SOCKET_INIT;
   struct utils_net_socket general_socket = UTILS_NET_SOCKET_INIT;
   int ret;
 
-  ret = utils_net_bind(&event_socket, NULL, airptp_event_port);
+  ret = utils_net_bind(&event_socket, node, airptp_event_port);
   if (ret < 0)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to event port (usually 319)");
 
   if (event_socket.fd4 < 0 || event_socket.fd6 < 0)
     airptp_logmsg("Couldn't bind port %hu for %s", airptp_event_port, (event_socket.fd6 < 0) ? "ipv6" : "ipv4");
 
-  ret = utils_net_bind(&general_socket, NULL, airptp_general_port);
+  ret = utils_net_bind(&general_socket, node, airptp_general_port);
   if (ret < 0)
     RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to general port (usually 320)");
 

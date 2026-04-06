@@ -24,9 +24,7 @@ export default {
   name: 'PageMusicRecentlyPlayed',
   components: { ContentWithHeading, ListTracks, PaneTitle, TabsMusic },
   data() {
-    return {
-      tracks: new GroupedList()
-    }
+    return { tracks: new GroupedList() }
   },
   async mounted() {
     const data = await library.search({

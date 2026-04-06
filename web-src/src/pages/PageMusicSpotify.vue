@@ -77,7 +77,7 @@ export default {
     return { albums: [], artists: [], playlists: [] }
   },
   async mounted() {
-    const { api, configuration } = await services.spotify()
+    const { api, configuration } = await services.spotify.get()
     const [newReleases, followedArtists, featuredPlaylists] = await Promise.all(
       [
         api.browse.getNewReleases(configuration.webapi_country, 3),

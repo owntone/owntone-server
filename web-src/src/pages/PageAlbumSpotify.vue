@@ -45,10 +45,7 @@ export default {
     return { servicesStore: useServicesStore() }
   },
   data() {
-    return {
-      album: { artists: [{}], tracks: {} },
-      showDetailsModal: false
-    }
+    return { album: { artists: [{}], tracks: {} }, showDetailsModal: false }
   },
   computed: {
     heading() {
@@ -72,7 +69,7 @@ export default {
     }
   },
   async mounted() {
-    const { api, configuration } = await services.spotify()
+    const { api, configuration } = await services.spotify.get()
     this.album = await api.albums.get(
       this.$route.params.id,
       configuration.webapi_country

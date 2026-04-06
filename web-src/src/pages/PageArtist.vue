@@ -76,11 +76,7 @@ export default {
     return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
   data() {
-    return {
-      albumList: new GroupedList(),
-      artist: {},
-      showDetailsModal: false
-    }
+    return { albumList: new GroupedList(), artist: {}, showDetailsModal: false }
   },
   computed: {
     albums() {

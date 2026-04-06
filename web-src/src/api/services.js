@@ -2,28 +2,40 @@ import { SpotifyApi } from '@spotify/web-api-ts-sdk'
 import api from '@/api'
 
 export default {
-  lastfm() {
-    return api.get('./api/lastfm')
+  lastfm: {
+    get() {
+      return api.get('./api/lastfm')
+    },
+    login(credentials) {
+      return api.post('./api/lastfm-login', credentials)
+    },
+    logout() {
+      return api.get('./api/lastfm-logout')
+    }
   },
-  loginLastfm(credentials) {
-    return api.post('./api/lastfm-login', credentials)
+  listenbrainz: {
+    get() {
+      return api.get('./api/listenbrainz')
+    },
+    addToken(token) {
+      return api.post('./api/listenbrainz/token', { token })
+    },
+    removeToken() {
+      return api.delete('./api/listenbrainz/token')
+    }
   },
-  logoutLastfm() {
-    return api.get('./api/lastfm-logout')
-  },
-  logoutSpotify() {
-    return api.get('./api/spotify-logout')
-  },
-  spotify() {
-    return api.get('./api/spotify').then((configuration) => {
+  spotify: {
+    get: async () => {
+      const configuration = await api.get('./api/spotify')
       const sdk = SpotifyApi.withAccessToken(
         configuration.webapi_client_id,
-        {
-          access_token: configuration.webapi_token
-        },
+        { access_token: configuration.webapi_token },
         { errorHandler: { handleErrors: () => true } }
       )
       return { api: sdk, configuration }
-    })
+    },
+    logout() {
+      return api.get('./api/spotify-logout')
+    }
   }
 }

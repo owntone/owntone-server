@@ -26,10 +26,7 @@ export default {
     }
   },
   data() {
-    return {
-      playlist: {},
-      playlistList: new GroupedList()
-    }
+    return { playlist: {}, playlistList: new GroupedList() }
   },
   computed: {
     heading() {

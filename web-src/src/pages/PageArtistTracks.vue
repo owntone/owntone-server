@@ -79,11 +79,7 @@ export default {
     return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
   data() {
-    return {
-      artist: {},
-      showDetailsModal: false,
-      trackList: new GroupedList()
-    }
+    return { artist: {}, showDetailsModal: false, trackList: new GroupedList() }
   },
   computed: {
     albumCount() {

@@ -42,11 +42,7 @@ export default {
     }
   },
   data() {
-    return {
-      parameters: {},
-      results: new Map(),
-      types: SEARCH_TYPES
-    }
+    return { parameters: {}, results: new Map(), types: SEARCH_TYPES }
   },
   computed: {
     expanded() {
@@ -78,47 +74,42 @@ export default {
         this.results.set(type, { items: [], total: 0 })
       })
     },
-    search(types = SEARCH_TYPES, limit = PAGE_SIZE, offset = 0) {
+    async search(types = SEARCH_TYPES, limit = PAGE_SIZE, offset = 0) {
       if (this.searchStore.query) {
         this.types = types
         this.parameters.limit = limit
         this.parameters.offset = offset
         this.searchStore.query = this.searchStore.query.trim()
         this.reset()
-        this.searchItems().then((data) => {
-          this.types.forEach((type) => {
-            this.results.set(type, data[`${type}s`])
-          })
+        const data = await this.searchItems()
+        this.types.forEach((type) => {
+          this.results.set(type, data[`${type}s`])
         })
         this.searchStore.add(this.searchStore.query)
       }
     },
-    searchItems() {
-      return services
-        .spotify()
-        .then(({ api, configuration }) =>
-          api.search(
-            this.searchStore.query,
-            this.types,
-            configuration.webapi_country,
-            this.parameters.limit,
-            this.parameters.offset
-          )
-        )
+    async searchItems() {
+      const { api, configuration } = await services.spotify.get()
+      return api.search(
+        this.searchStore.query,
+        this.types,
+        configuration.webapi_country,
+        this.parameters.limit,
+        this.parameters.offset
+      )
     },
     searchLibrary() {
       this.$router.push({ name: 'search-library' })
     },
-    searchNext({ loaded }) {
+    async searchNext({ loaded }) {
       const items = this.results.get(this.types[0])
       this.parameters.limit = PAGE_SIZE_EXPANDED
-      this.searchItems().then((data) => {
-        const [next] = Object.values(data)
-        items.items.push(...next.items)
-        this.parameters.offset += next.items.length
-        const remaining = Number(next.next && 1000 - this.parameters.offset)
-        loaded(remaining, PAGE_SIZE_EXPANDED)
-      })
+      const data = await this.searchItems()
+      const [next] = Object.values(data)
+      items.items.push(...next.items)
+      this.parameters.offset += next.items.length
+      const remaining = Number(next.next && 1000 - this.parameters.offset)
+      loaded(remaining, PAGE_SIZE_EXPANDED)
     }
   }
 }

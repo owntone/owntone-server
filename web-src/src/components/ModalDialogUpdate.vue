@@ -56,9 +56,7 @@ export default {
     }
   },
   data() {
-    return {
-      rescanMetadata: false
-    }
+    return { rescanMetadata: false }
   },
   computed: {
     actions() {

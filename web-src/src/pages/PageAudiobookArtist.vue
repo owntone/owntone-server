@@ -42,11 +42,7 @@ export default {
     PaneTitle
   },
   data() {
-    return {
-      albums: new GroupedList(),
-      artist: {},
-      showDetailsModal: false
-    }
+    return { albums: new GroupedList(), artist: {}, showDetailsModal: false }
   },
   computed: {
     heading() {

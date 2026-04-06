@@ -362,23 +362,26 @@
       "verification-code": "驗證碼"
     },
     "services": {
+      "authorise": "授權訪問服務 {service}。",
+      "authorised": "已授權使用者 {user}。",
       "lastfm": {
-        "grant-access": "使用您的 Last.fm 用戶名和密碼登入以啓用記錄功能",
-        "info": "OwnTone不會存儲您的 Last.fm 用戶名/密碼，僅存儲會話密鑰。會話密鑰不會過期",
-        "no-support": "OwnTone並無Last.fm的官方支持",
+        "info": "啟用 Last.fm 以追蹤您的音樂收聽習慣。使用您的 Last.fm 用戶名和密碼登入。您的密碼不會被儲存：僅會保留一個會話令牌，且永不過期。",
         "title": "Last.fm"
       },
+      "listenbrainz": {
+        "info": "啟用 ListenBrainz 以追蹤您的音樂收聽習慣。提供您的 ListenBrainz 用戶令牌，您可以在 ListenBrainz 網站的設置中獲取。",
+        "title": "ListenBrainz",
+        "token-required": "需要 ListenBrainz 用戶令牌才能啟用 ListenBrainz 集成。"
+      },
+      "no-support": "服務 {service} 不受支援。",
       "password": "密碼",
       "spotify": {
-        "authorize": "授權 API 訪問",
-        "grant-access": "授予對 Spotify API 的訪問權限",
-        "no-support": "OwnTone 開發時未支援 Spotify",
-        "reauthorize": "請重新授權 API 訪問權限，以授予 OwnTone 以下附加訪問權限：{scopes}",
-        "requirements": "您必須擁有 Spotify付費帳戶。訪問 Spotify API 可以掃描您的 Spotify庫。所需範圍是：{scopes}",
-        "title": "Spotify",
-        "user": "授予訪問權限 {user}"
+        "info": "啟用 Spotify 以透過 OwnTone 收聽您帳戶中的曲目。您必須擁有 Spotify Premium 帳戶。所需的權限如下：{scopes}。",
+        "reauthorize": "請重新授權 API 訪問權限，以授予 OwnTone 以下附加訪問權限：{scopes}。",
+        "title": "Spotify"
       },
-      "username": "用戶名"
+      "username": "用戶名",
+      "user-token": "用戶令牌"
     },
     "webinterface": {
       "genres": "音樂類型",
@@ -390,7 +393,7 @@
       "recently-added-limit": "限制顯示的相簿數量",
       "recently-added-page": "“最近新增”頁面",
       "show-composer-for-genre": "僅顯示列出的音樂類型的作曲家",
-      "show-composer-genres-help": "以逗號分隔的音樂類型清單，將顯示作曲家的音樂類型{0}留空以始終顯示作曲家{0}通過檢查是否包含定義的音樂類型之一來匹配當前曲目的音樂類型標籤。例如，設定為“古典、原聲帶”將顯示音樂類型標籤為“當代古典”的曲目的作曲家",
+      "show-composer-genres-help": "以逗號分隔的音樂類型清單，將顯示作曲家的音樂類型{0}留空以始終顯示作曲家{0}通過檢查是否包含定義的音樂類型之一來匹配當前曲目的音樂類型標籤。例如，設定為“古典、原聲帶”將顯示音樂類型標籤為“當代古典”的曲目的作曲家。",
       "show-composer-now-playing": "顯示作曲家",
       "show-filepath-now-playing": "顯示檔案路徑",
       "show-menu-item-audiobooks": "有聲書",

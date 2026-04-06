@@ -40,9 +40,7 @@ export default {
   },
   emits: ['close', 'play-count-changed', 'podcast-deleted'],
   data() {
-    return {
-      showRemovePodcastModal: false
-    }
+    return { showRemovePodcastModal: false }
   },
   computed: {
     actions() {
@@ -114,11 +112,10 @@ export default {
     cancel() {
       this.showRemovePodcastModal = false
     },
-    markAsPlayed() {
-      library.updateAlbum(this.item.id, { play_count: 'played' }).then(() => {
-        this.$emit('play-count-changed')
-        this.$emit('close')
-      })
+    async markAsPlayed() {
+      await library.updateAlbum(this.item.id, { play_count: 'played' })
+      this.$emit('play-count-changed')
+      this.$emit('close')
     },
     openArtist() {
       this.$emit('close')
@@ -131,17 +128,17 @@ export default {
       this.showRemovePodcastModal = true
       this.showDetailsModal = false
     },
-    removePodcast() {
+    async removePodcast() {
       this.showRemovePodcastModal = false
-      library.albumTracks(this.item.id, { limit: 1 }).then((album) => {
-        library.trackPlaylists(album.items[0].id).then((data) => {
-          const { id } = data.items.find((item) => item.type === 'rss')
-          library.playlistDelete(id).then(() => {
-            this.$emit('podcast-deleted')
-            this.$emit('close')
-          })
-        })
-      })
+      const album = await library.albumTracks(this.item.id, { limit: 1 })
+      const trackId = album.items[0].id
+      const data = await library.trackPlaylists(trackId)
+      const rssPlaylist = data.items.find((item) => item.type === 'rss')
+      if (rssPlaylist?.id) {
+        await library.playlistDelete(rssPlaylist.id)
+        this.$emit('podcast-deleted')
+        this.$emit('close')
+      }
     }
   }
 }

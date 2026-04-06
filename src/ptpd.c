@@ -23,6 +23,7 @@
 #include "libairptp/airptp.h"
 #include "misc.h"
 #include "logger.h"
+#include "conffile.h"
 
 static struct airptp_handle *ptpd_hdl;
 static bool airptp_create_own_service = false;
@@ -73,6 +74,10 @@ int
 ptpd_find_or_bind(void)
 {
   struct airptp_callbacks cb = { .logmsg = logmsg, .hexdump = hexdump, .thread_name_set = thread_setname };
+  const char *bind_address = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
+
+  if (bind_address && strcmp(bind_address, "::") == 0)
+    bind_address = NULL;
 
   airptp_callbacks_register(&cb);
 
@@ -87,7 +92,7 @@ ptpd_find_or_bind(void)
 
   DPRINTF(E_INFO, L_AIRPLAY, "Creating own ptp service\n");
   airptp_create_own_service = true;
-  ptpd_hdl = airptp_daemon_bind();
+  ptpd_hdl = airptp_daemon_bind(bind_address);
 
   return ptpd_hdl ? 0 : -1;
 }
@@ -100,9 +105,10 @@ ptpd_init(uint64_t clock_id_seed)
 
   airptp_callbacks_register(&cb);
 
-  if (airptp_create_own_service)
+  if (airptp_create_own_service && ptpd_hdl)
     return airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
 
+  // This is for the sake of cliap which never calls ptpd_find_or_bind()
   if (!ptpd_hdl)
     ptpd_hdl = airptp_daemon_find();
 

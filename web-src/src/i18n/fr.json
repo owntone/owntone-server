@@ -362,23 +362,26 @@
       "verification-code": "Code de vérification"
     },
     "services": {
+      "authorise": "Autorisez l’accès au service {service}.",
+      "authorised": "Accès autorisé pour l’utilisateur {user}.",
       "lastfm": {
-        "grant-access": "Connectez-vous avec votre nom d’utilisateur et votre mot de passe Last.fm pour activer le scrobbling.",
-        "info": "Le nom d’utilisateur et le mot de passe Last.fm ne sont pas enregistrés, uniquement la clé de session. La clé de session n’expire pas.",
-        "no-support": "L’option Last.fm n’est pas présente.",
+        "info": "Activez Last.fm pour suivre vos écoutes de musique. Connectez-vous avec votre nom d’utilisateur et mot de passe Last.fm. Votre mot de passe n’est pas enregistré : seul un jeton de session est conservé, et il n’expire jamais.",
         "title": "Last.fm"
       },
+      "listenbrainz": {
+        "info": "Activez ListenBrainz pour suivre vos écoutes de musique. Fournissez votre jeton utilisateur ListenBrainz, que vous pouvez obtenir dans vos paramètres sur le site de ListenBrainz.",
+        "title": "ListenBrainz",
+        "token-required": "Le jeton utilisateur ListenBrainz est requis pour activer l’intégration de ListenBrainz."
+      },
+      "no-support": "L’option {service} n’est pas présente.",
       "password": "Mot de passe",
       "spotify": {
-        "authorize": "Autoriser l’accès à l’API",
-        "grant-access": "Accordez l’accès à l’API de Spotify.",
-        "no-support": "L’option Spotify n’est pas présente.",
-        "reauthorize": "Veuillez autoriser à nouveau l’accès à l’API pour accorder à OwnTone les droits d’accès supplémentaires suivants : {scopes}.",
-        "requirements": "Vous devez posséder un compte Spotify Premium. L’accès à l’API de Spotify permet l’analyse de votre bibliothèque Spotify. Les champs d’application requis sont les suivants : {scopes}.",
-        "title": "Spotify",
-        "user": "Accès autorisé pour {user}."
+        "info": "Activez l’accès à Spotify pour écouter les morceaux disponibles sur votre compte via OwnTone. Vous devez posséder un compte Spotify Premium. Les permissions nécessaires sont les suivantes : {scopes}.",
+        "reauthorize": "Veuillez autoriser à nouveau l’accès à Spotify pour accorder à OwnTone les droits d’accès supplémentaires suivants : {scopes}.",
+        "title": "Spotify"
       },
-      "username": "Nom d’utilisateur"
+      "username": "Nom d’utilisateur",
+      "user-token": "Jeton utilisateur"
     },
     "webinterface": {
       "genres": "Genres",

@@ -230,8 +230,9 @@ static pthread_t tid_mpd;
 static struct event_base *evbase_mpd;
 static struct commands_base *cmdbase;
 static struct evhttp *evhttpd;
-static struct evconnlistener *mpd_listener;
-static int mpd_sockfd;
+static struct evconnlistener *mpd_listener4;
+static struct evconnlistener *mpd_listener6;
+static struct net_socket mpd_socket = NET_SOCKET_INIT;
 static bool mpd_plugin_httpd;
 static int mpd_plugin_httpd_shortid = -1;
 
@@ -639,6 +640,7 @@ mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
       "file: %s\n"
       "Last-Modified: %s\n"
       "Time: %d\n"
+      "duration: %.3f\n"
       "Artist: %s\n"
       "AlbumArtist: %s\n"
       "ArtistSort: %s\n"
@@ -654,6 +656,7 @@ mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
       (queue_item->virtual_path + 1),
       modified,
       (queue_item->song_length / 1000),
+      ((float) queue_item->song_length / 1000),
       sanitize(queue_item->artist),
       sanitize(queue_item->album_artist),
       sanitize(queue_item->artist_sort),
@@ -4320,20 +4323,36 @@ mpd_init(void)
   CHECK_NULL(L_MPD, evbase_mpd = event_base_new());
   CHECK_NULL(L_MPD, cmdbase = commands_base_new(evbase_mpd, NULL));
 
-  mpd_sockfd = net_bind(&port, SOCK_STREAM, "mpd");
-  if (mpd_sockfd < 0)
+  ret = net_bind(&mpd_socket, &port, SOCK_STREAM, "mpd");
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not bind mpd server to port %hu\n", port);
       goto bind_fail;
     }
 
-  mpd_listener = evconnlistener_new(evbase_mpd, mpd_accept_conn_cb, NULL, 0, -1, mpd_sockfd);
-  if (!mpd_listener)
+  if (mpd_socket.fd4 >= 0)
     {
-      DPRINTF(E_LOG, L_MPD, "Could not create connection listener for mpd clients on port %d\n", port);
-      goto connew_fail;
+      mpd_listener4 = evconnlistener_new(evbase_mpd, mpd_accept_conn_cb, NULL, 0, -1, mpd_socket.fd4);
+      if (!mpd_listener4)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Could not create ipv4 connection listener for mpd clients on port %d\n", port);
+	  goto connew_fail;
+	}
+
+      evconnlistener_set_error_cb(mpd_listener4, mpd_accept_error_cb);
     }
-  evconnlistener_set_error_cb(mpd_listener, mpd_accept_error_cb);
+
+  if (mpd_socket.fd6 >= 0)
+    {
+      mpd_listener6 = evconnlistener_new(evbase_mpd, mpd_accept_conn_cb, NULL, 0, -1, mpd_socket.fd6);
+      if (!mpd_listener6)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Could not create ipv6 connection listener for mpd clients on port %d\n", port);
+	  goto connew_fail;
+	}
+
+      evconnlistener_set_error_cb(mpd_listener6, mpd_accept_error_cb);
+    }
 
   ret = mpd_httpd_init();
   if (ret < 0)
@@ -4382,9 +4401,12 @@ mpd_init(void)
  thread_fail:
   mpd_httpd_deinit();
  httpd_fail:
-  evconnlistener_free(mpd_listener);
+  if (mpd_listener4)
+    evconnlistener_free(mpd_listener4);
+  if (mpd_listener6)
+    evconnlistener_free(mpd_listener6);
  connew_fail:
-  close(mpd_sockfd);
+  net_socket_close(&mpd_socket);
  bind_fail:
   commands_base_free(cmdbase);
   event_base_free(evbase_mpd);
@@ -4425,9 +4447,12 @@ mpd_deinit(void)
 
   mpd_httpd_deinit();
 
-  evconnlistener_free(mpd_listener);
+  if (mpd_listener4)
+    evconnlistener_free(mpd_listener4);
+  if (mpd_listener6)
+    evconnlistener_free(mpd_listener6);
 
-  close(mpd_sockfd);
+  net_socket_close(&mpd_socket);
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);

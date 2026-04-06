@@ -6,11 +6,17 @@
     </template>
     <template #content>
       <div v-if="servicesStore.isSpotifyEnabled">
-        <div v-text="$t('settings.services.spotify.grant-access')" />
+        <div
+          v-text="
+            $t('settings.services.authorise', {
+              service: $t('settings.services.spotify.title')
+            })
+          "
+        />
         <div
           class="notification help"
           v-text="
-            $t('settings.services.spotify.requirements', {
+            $t('settings.services.spotify.info', {
               scopes: servicesStore.requiredSpotifyScopes.join(', ')
             })
           "
@@ -18,7 +24,7 @@
         <div v-if="servicesStore.isSpotifyActive">
           <div
             v-text="
-              $t('settings.services.spotify.user', {
+              $t('settings.services.authorised', {
                 user: servicesStore.spotify.webapi_user
               })
             "
@@ -38,7 +44,7 @@
             <a
               class="button"
               :href="servicesStore.spotify.oauth_uri"
-              v-text="$t('settings.services.spotify.authorize')"
+              v-text="$t('actions.login')"
             />
           </div>
           <div v-if="servicesStore.isSpotifyActive" class="control">
@@ -50,7 +56,14 @@
           </div>
         </div>
       </div>
-      <div v-else v-text="$t('settings.services.spotify.no-support')" />
+      <div
+        v-else
+        v-text="
+          $t('settings.services.no-support', {
+            service: $t('settings.services.spotify.title')
+          })
+        "
+      />
     </template>
   </content-with-heading>
   <content-with-heading>
@@ -59,7 +72,13 @@
     </template>
     <template #content>
       <div v-if="servicesStore.isLastfmEnabled">
-        <div v-text="$t('settings.services.lastfm.grant-access')" />
+        <div
+          v-text="
+            $t('settings.services.authorise', {
+              service: $t('settings.services.lastfm.title')
+            })
+          "
+        />
         <div
           class="notification help"
           v-text="$t('settings.services.lastfm.info')"
@@ -116,7 +135,73 @@
           />
         </div>
       </div>
-      <div v-else v-text="$t('settings.services.lastfm.no-support')" />
+      <div
+        v-else
+        v-text="
+          $t('settings.services.no-support', {
+            service: $t('settings.services.lastfm.title')
+          })
+        "
+      />
+    </template>
+  </content-with-heading>
+  <content-with-heading>
+    <template #heading>
+      <pane-title
+        :content="{ title: $t('settings.services.listenbrainz.title') }"
+      />
+    </template>
+    <template #content>
+      <div
+        v-text="
+          $t('settings.services.authorise', {
+            service: $t('settings.services.listenbrainz.title')
+          })
+        "
+      />
+      <div
+        class="notification help"
+        v-text="$t('settings.services.listenbrainz.info')"
+      />
+      <div v-if="!servicesStore.isListenBrainzActive">
+        <div class="field is-grouped mt-5">
+          <div class="control">
+            <input
+              v-model="listenbrainzToken"
+              class="input"
+              type="text"
+              :placeholder="$t('settings.services.user-token')"
+            />
+          </div>
+          <div class="control">
+            <button
+              class="button"
+              @click="addListenBrainzToken"
+              v-text="$t('actions.save')"
+            />
+          </div>
+        </div>
+        <div
+          v-if="listenbrainzError"
+          class="help is-danger"
+          v-text="listenbrainzError"
+        />
+      </div>
+      <div v-else>
+        <div
+          v-if="servicesStore.listenbrainz.user_name"
+          v-text="
+            $t('settings.services.authorised', {
+              user: servicesStore.listenbrainz.user_name
+            })
+          "
+        />
+        <button
+          class="button is-danger mt-5"
+          @click="removeListenBrainzToken"
+          v-text="$t('actions.logout')"
+        />
+      </div>
     </template>
   </content-with-heading>
 </template>
@@ -137,24 +222,45 @@ export default {
   data() {
     return {
       lastfmCredentials: { password: '', user: '' },
-      lastfmErrors: { error: '', password: '', user: '' }
+      lastfmErrors: { error: '', password: '', user: '' },
+      listenbrainzToken: '',
+      listenbrainzError: ''
     }
   },
   methods: {
-    loginLastfm() {
-      services.loginLastfm(this.lastfmCredentials).then((data) => {
-        this.lastfmErrors = data.errors
-        this.lastfmCredentials.password = ''
-        if (data.success) {
-          this.lastfmCredentials.user = ''
-        }
-      })
+    async loginLastfm() {
+      const { errors, success } = await services.lastfm.login(
+        this.lastfmCredentials
+      )
+      this.lastfmErrors = errors
+      this.lastfmCredentials.password = ''
+      if (success) {
+        this.lastfmCredentials.user = ''
+      }
+      this.servicesStore.initialise()
     },
     logoutLastfm() {
-      services.logoutLastfm()
+      services.lastfm.logout()
+      this.servicesStore.initialise()
     },
     logoutSpotify() {
-      services.logoutSpotify()
+      services.spotify.logout()
+      this.servicesStore.initialise()
+    },
+    async addListenBrainzToken() {
+      if (!this.listenbrainzToken.trim()) {
+        this.listenbrainzError = this.$t(
+          'settings.services.listenbrainz.token-required'
+        )
+        return
+      }
+      await services.listenbrainz.addToken(this.listenbrainzToken)
+      this.listenbrainzToken = ''
+      this.servicesStore.initialise()
+    },
+    async removeListenBrainzToken() {
+      await services.listenbrainz.removeToken()
+      this.servicesStore.initialise()
     }
   }
 }

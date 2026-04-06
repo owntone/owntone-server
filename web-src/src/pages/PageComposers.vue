@@ -32,9 +32,7 @@ export default {
     TabsMusic
   },
   data() {
-    return {
-      composers: new GroupedList()
-    }
+    return { composers: new GroupedList() }
   },
   computed: {
     heading() {

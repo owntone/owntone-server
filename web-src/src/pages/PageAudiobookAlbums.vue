@@ -32,9 +32,7 @@ export default {
     TabsAudiobooks
   },
   data() {
-    return {
-      albums: new GroupedList()
-    }
+    return { albums: new GroupedList() }
   },
   computed: {
     heading() {

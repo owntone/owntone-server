@@ -28,9 +28,7 @@ export default {
     return { servicesStore: useServicesStore() }
   },
   data() {
-    return {
-      spotifyTrack: {}
-    }
+    return { spotifyTrack: {} }
   },
   computed: {
     actions() {
@@ -92,19 +90,16 @@ export default {
     }
   },
   watch: {
-    item() {
-      if (this.item?.data_kind === 'spotify') {
-        return services.spotify().then(({ api }) => {
-          const trackId = this.item.path.slice(
-            this.item.path.lastIndexOf(':') + 1
-          )
-          return api.tracks.get(trackId).then((response) => {
-            this.spotifyTrack = response
-          })
-        })
+    async item() {
+      if (this.item?.data_kind !== 'spotify') {
+        this.spotifyTrack = {}
+        return {}
       }
-      this.spotifyTrack = {}
-      return {}
+      const { api } = await services.spotify.get()
+      const trackId = this.item.path.slice(this.item.path.lastIndexOf(':') + 1)
+      const response = await api.tracks.get(trackId)
+      this.spotifyTrack = response
+      return response
     }
   },
   methods: {

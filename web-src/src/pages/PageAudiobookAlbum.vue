@@ -43,11 +43,7 @@ export default {
     PaneHero
   },
   data() {
-    return {
-      album: {},
-      showDetailsModal: false,
-      tracks: new GroupedList()
-    }
+    return { album: {}, showDetailsModal: false, tracks: new GroupedList() }
   },
   computed: {
     heading() {
