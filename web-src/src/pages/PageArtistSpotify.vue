@@ -5,10 +5,9 @@
     </template>
     <template #actions>
       <control-button
-        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-      />
-      <control-button
-        :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
+        v-for="button in buttons"
+        :key="button.key"
+        :button="button"
       />
     </template>
     <template #content>
@@ -52,6 +51,17 @@ export default {
     }
   },
   computed: {
+    buttons() {
+      return [
+        { handler: this.openDetails, icon: 'dots-horizontal' },
+        {
+          handler: this.playTopTracks,
+          icon: 'play',
+          key: this.$t('actions.play-top-tracks')
+        },
+        { handler: this.play, icon: 'shuffle', key: 'actions.shuffle' }
+      ]
+    },
     heading() {
       return {
         subtitle: [{ count: this.total, key: 'data.albums' }],
@@ -98,6 +108,15 @@ export default {
     play() {
       this.showDetailsModal = false
       queue.playUri(this.artist.uri, true)
+    },
+    async playTopTracks() {
+      const { api, configuration } = await services.spotify.get()
+      const tracks = await api.artists.topTracks(
+        this.artist.id,
+        configuration.webapi_country
+      )
+      const uris = tracks.tracks.map((item) => item.uri).join(',')
+      queue.playUri(uris, false)
     }
   }
 }
