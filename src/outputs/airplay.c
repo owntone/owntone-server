@@ -3976,6 +3976,11 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
       DPRINTF(E_INFO, L_AIRPLAY, "AirPlay device '%s' ignored, other speaker(s) set as exclusive\n", name);
       return;
     }
+  if (devcfg && cfg_getbool(devcfg, "airplay2_disable"))
+    {
+      DPRINTF(E_INFO, L_AIRPLAY, "Disabling AirPlay 2 for device '%s' as set in config\n", name);
+      return;
+    }
   if (devcfg && cfg_getstr(devcfg, "nickname"))
     {
       nickname = cfg_getstr(devcfg, "nickname");
