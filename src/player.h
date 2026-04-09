@@ -36,6 +36,7 @@ struct player_speaker_info {
   char output_type[50];
   int relvol;
   int absvol;
+  int offset_ms;
 
   enum media_format format;
   uint32_t supported_formats;
@@ -130,6 +131,9 @@ player_speaker_authorize(uint64_t id, const char *pin);
 
 int
 player_speaker_format_set(uint64_t id, enum media_format format);
+
+int
+player_speaker_offset_ms_set(uint64_t id, int offset_ms);
 
 int
 player_streaming_register(int *audio_fd, int *metadata_fd, enum media_format format, struct media_quality quality);

@@ -1,4 +1,6 @@
 name: FreeBSD
+permissions:
+  contents: read
 
 on:
   push:
@@ -32,8 +34,8 @@ jobs:
           pw user add owntone -m -d /usr/local/var/cache/owntone
 
         run: |
-          autoreconf -vi
-          export CFLAGS="${ARCH} -g -I/usr/local/include -I/usr/include"
+          autoreconf -vif
+          export CFLAGS="-g -I/usr/local/include -I/usr/include"
           export LDFLAGS="-L/usr/local/lib -L/usr/lib"
           ./configure --disable-install-system
           gmake

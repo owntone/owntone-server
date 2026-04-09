@@ -60,17 +60,6 @@ export default {
     ModalDialogGenre,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.genre(to.params.name, to.query.mediaKind),
-      library.genreTracks(to.params.name, to.query.mediaKind)
-    ]).then(([genre, tracks]) => {
-      next((vm) => {
-        vm.genre = genre.items.shift()
-        vm.trackList = new GroupedList(tracks)
-      })
-    })
-  },
   setup() {
     return { uiStore: useUIStore() }
   },
@@ -125,6 +114,14 @@ export default {
       )
       return this.trackList.group(options)
     }
+  },
+  async mounted() {
+    const [genre, tracks] = await Promise.all([
+      library.genre(this.$route.params.name, this.$route.query.mediaKind),
+      library.genreTracks(this.$route.params.name, this.$route.query.mediaKind)
+    ])
+    this.genre = genre.items.shift()
+    this.trackList = new GroupedList(tracks)
   },
   methods: {
     openDetails() {

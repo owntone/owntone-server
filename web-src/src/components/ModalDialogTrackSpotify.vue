@@ -38,7 +38,9 @@ export default {
           },
           {
             key: 'property.position',
-            value: [this.item.disc_number, this.item.track_number].join(' / ')
+            value:
+              this.item.track_number > 0 &&
+              [this.item.disc_number, this.item.track_number].join(' / ')
           },
           {
             key: 'property.duration',

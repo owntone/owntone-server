@@ -1,4 +1,6 @@
 name: Web UI Lint
+permissions:
+  contents: read
 
 on:
   push:

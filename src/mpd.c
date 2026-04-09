@@ -230,8 +230,9 @@ static pthread_t tid_mpd;
 static struct event_base *evbase_mpd;
 static struct commands_base *cmdbase;
 static struct evhttp *evhttpd;
-static struct evconnlistener *mpd_listener;
-static int mpd_sockfd;
+static struct evconnlistener *mpd_listener4;
+static struct evconnlistener *mpd_listener6;
+static struct net_socket mpd_socket = NET_SOCKET_INIT;
 static bool mpd_plugin_httpd;
 static int mpd_plugin_httpd_shortid = -1;
 
@@ -639,6 +640,7 @@ mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
       "file: %s\n"
       "Last-Modified: %s\n"
       "Time: %d\n"
+      "duration: %.3f\n"
       "Artist: %s\n"
       "AlbumArtist: %s\n"
       "ArtistSort: %s\n"
@@ -654,6 +656,7 @@ mpd_add_db_queue_item(struct evbuffer *evbuf, struct db_queue_item *queue_item)
       (queue_item->virtual_path + 1),
       modified,
       (queue_item->song_length / 1000),
+      ((float) queue_item->song_length / 1000),
       sanitize(queue_item->artist),
       sanitize(queue_item->album_artist),
       sanitize(queue_item->artist_sort),
@@ -1092,11 +1095,13 @@ mpd_command_status(struct mpd_command_output *out, struct mpd_command_input *in,
   if (status.status != PLAY_STOPPED)
    {
       evbuffer_add_printf(out->evbuf,
-	  "time: %d:%d\n"
+	  "time: %d:%d\n" // Deprecated
+	  "duration: %#.3f\n"
 	  "elapsed: %#.3f\n"
 	  "bitrate: 128\n"
 	  "audio: 44100:16:2\n",
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
+	  (status.len_ms / 1000.0),
 	  (status.pos_ms / 1000.0));
    }
 
@@ -2382,7 +2387,7 @@ mpd_command_albumart(struct mpd_command_output *out, struct mpd_command_input *i
   int id;
 
   virtual_path = prepend_slash(in->argv[1]);
-  id = db_file_id_byvirtualpath(virtual_path);
+  id = db_file_id_byvirtualpath_match(virtual_path);
   free(virtual_path);
   if (id <= 0)
     RETURN_ERROR(ACK_ERROR_ARG, "Invalid path");
@@ -2391,7 +2396,7 @@ mpd_command_albumart(struct mpd_command_output *out, struct mpd_command_input *i
 
   // Ref. docs: "If the song file was recognized, but there is no picture, the
   // response is successful, but is otherwise empty"
-  format = artwork_get_item(artwork, id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
+  format = artwork_get_by_file_id(artwork, id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (format == ART_FMT_PNG)
     evbuffer_add_printf(out->evbuf, "type: image/png\n");
   else if (format == ART_FMT_JPEG)
@@ -3133,7 +3138,7 @@ mpd_command_password(struct mpd_command_output *out, struct mpd_command_input *i
 
   required_password = cfg_getstr(cfg_getsec(cfg, "library"), "password");
   password_is_required = required_password && required_password[0] != '\0';
-  if (password_is_required && strcmp(supplied_password, required_password) != 0)
+  if (password_is_required && constant_time_strcmp(supplied_password, required_password) != 0)
     RETURN_ERROR(ACK_ERROR_PASSWORD, "Wrong password. Authentication failed.");
 
   ctx->authenticated = true;
@@ -4150,7 +4155,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
   const char *path;
   char *decoded_path;
   char *last_slash;
-  int itemid;
+  int file_id;
   int format;
 
   if (evhttp_request_get_command(req) != EVHTTP_REQ_GET)
@@ -4195,8 +4200,8 @@ artwork_cb(struct evhttp_request *req, void *arg)
 
   DPRINTF(E_DBG, L_MPD, "Artwork request for path: %s\n", decoded_path);
 
-  itemid = db_file_id_byvirtualpath_match(decoded_path);
-  if (!itemid)
+  file_id = db_file_id_byvirtualpath_match(decoded_path);
+  if (!file_id)
     {
       DPRINTF(E_WARN, L_MPD, "No item found for path '%s' from request uri '%s'\n", decoded_path, uri);
       evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
@@ -4205,17 +4210,9 @@ artwork_cb(struct evhttp_request *req, void *arg)
       return;
     }
 
-  evbuffer = evbuffer_new();
-  if (!evbuffer)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not allocate an evbuffer for artwork request\n");
-      evhttp_send_error(req, HTTP_INTERNAL, "Document was not found");
-      evhttp_uri_free(decoded);
-      free(decoded_path);
-      return;
-    }
+  CHECK_NULL(L_MPD, evbuffer = evbuffer_new());
 
-  format = artwork_get_item(evbuffer, itemid, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
+  format = artwork_get_by_file_id(evbuffer, file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (format < 0)
     {
       evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
@@ -4249,6 +4246,8 @@ static void *
 mpd(void *arg)
 {
   int ret;
+
+  thread_setname("mpd");
 
   ret = db_perthread_init();
   if (ret < 0)
@@ -4324,20 +4323,36 @@ mpd_init(void)
   CHECK_NULL(L_MPD, evbase_mpd = event_base_new());
   CHECK_NULL(L_MPD, cmdbase = commands_base_new(evbase_mpd, NULL));
 
-  mpd_sockfd = net_bind(&port, SOCK_STREAM, "mpd");
-  if (mpd_sockfd < 0)
+  ret = net_bind(&mpd_socket, &port, SOCK_STREAM, "mpd");
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not bind mpd server to port %hu\n", port);
       goto bind_fail;
     }
 
-  mpd_listener = evconnlistener_new(evbase_mpd, mpd_accept_conn_cb, NULL, 0, -1, mpd_sockfd);
-  if (!mpd_listener)
+  if (mpd_socket.fd4 >= 0)
     {
-      DPRINTF(E_LOG, L_MPD, "Could not create connection listener for mpd clients on port %d\n", port);
-      goto connew_fail;
+      mpd_listener4 = evconnlistener_new(evbase_mpd, mpd_accept_conn_cb, NULL, 0, -1, mpd_socket.fd4);
+      if (!mpd_listener4)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Could not create ipv4 connection listener for mpd clients on port %d\n", port);
+	  goto connew_fail;
+	}
+
+      evconnlistener_set_error_cb(mpd_listener4, mpd_accept_error_cb);
     }
-  evconnlistener_set_error_cb(mpd_listener, mpd_accept_error_cb);
+
+  if (mpd_socket.fd6 >= 0)
+    {
+      mpd_listener6 = evconnlistener_new(evbase_mpd, mpd_accept_conn_cb, NULL, 0, -1, mpd_socket.fd6);
+      if (!mpd_listener6)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Could not create ipv6 connection listener for mpd clients on port %d\n", port);
+	  goto connew_fail;
+	}
+
+      evconnlistener_set_error_cb(mpd_listener6, mpd_accept_error_cb);
+    }
 
   ret = mpd_httpd_init();
   if (ret < 0)
@@ -4378,8 +4393,6 @@ mpd_init(void)
       goto thread_fail;
     }
 
-  thread_setname(tid_mpd, "mpd");
-
   mpd_clients = NULL;
   listener_add(mpd_listener_cb, MPD_ALL_IDLE_LISTENER_EVENTS, NULL);
 
@@ -4388,9 +4401,12 @@ mpd_init(void)
  thread_fail:
   mpd_httpd_deinit();
  httpd_fail:
-  evconnlistener_free(mpd_listener);
+  if (mpd_listener4)
+    evconnlistener_free(mpd_listener4);
+  if (mpd_listener6)
+    evconnlistener_free(mpd_listener6);
  connew_fail:
-  close(mpd_sockfd);
+  net_socket_close(&mpd_socket);
  bind_fail:
   commands_base_free(cmdbase);
   event_base_free(evbase_mpd);
@@ -4431,9 +4447,12 @@ mpd_deinit(void)
 
   mpd_httpd_deinit();
 
-  evconnlistener_free(mpd_listener);
+  if (mpd_listener4)
+    evconnlistener_free(mpd_listener4);
+  if (mpd_listener6)
+    evconnlistener_free(mpd_listener6);
 
-  close(mpd_sockfd);
+  net_socket_close(&mpd_socket);
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);

@@ -5,6 +5,7 @@ if COND_SPOTIFY
 SPOTIFY_SRC = \
 	library/spotify_webapi.c library/spotify_webapi.h \
 	inputs/spotify.c inputs/spotify.h inputs/spotify_librespotc.c
+LIBRESPOTC_SUBDIR=inputs/librespot-c
 endif
 
 if COND_LASTFM
@@ -88,6 +89,7 @@ owntone_SOURCES = main.c \
 	library/filescanner.c library/filescanner.h \
 	library/filescanner_ffmpeg.c library/filescanner_playlist.c \
 	library/filescanner_smartpl.c library/filescanner_itunes.c \
+	library/filescanner_mountwatch.c \
 	library/rssscanner.c \
 	library.c library.h \
 	$(MDNS_SRC) mdns.h \
@@ -130,6 +132,7 @@ owntone_SOURCES = main.c \
 	$(MPD_SRC) \
 	listener.c listener.h \
 	commands.c commands.h \
+	ptpd.c ptpd.h \
 	outputs/plist_wrap.h \
 	$(LIBWEBSOCKETS_SRC) \
 	$(GPERF_SRC) \
@@ -147,6 +150,8 @@ BUILT_SOURCES = \
 EXTRA_DIST = \
 	$(GPERF_FILES) \
 	$(LEXER_SRC:.l=.h)
+
+SUBDIRS = $(LIBRESPOTC_SUBDIR) libairptp
 
 # gperf construction rules
 %_hash.h: %.gperf

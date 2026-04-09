@@ -78,19 +78,6 @@ export default {
     ModalDialogAddRss,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.albums('podcast'),
-      library.newPodcastEpisodes(),
-      library.rssCount()
-    ]).then(([albums, episodes, rssCount]) => {
-      next((vm) => {
-        vm.albums = new GroupedList(albums)
-        vm.episodes = new GroupedList(episodes)
-        vm.rssCount = rssCount
-      })
-    })
-  },
   setup() {
     return { libraryStore: useLibraryStore(), uiStore: useUIStore() }
   },
@@ -116,6 +103,16 @@ export default {
       return {}
     }
   },
+  async mounted() {
+    const [albums, episodes, rssCount] = await Promise.all([
+      library.albums('podcast'),
+      library.newPodcastEpisodes(),
+      library.rssCount()
+    ])
+    this.albums = new GroupedList(albums)
+    this.episodes = new GroupedList(episodes)
+    this.rssCount = rssCount
+  },
   methods: {
     markAllAsPlayed() {
       this.episodes.items.forEach((episode) => {
@@ -126,22 +123,19 @@ export default {
     openAddPodcastDialog() {
       this.showAddPodcastModal = true
     },
-    reloadEpisodes() {
-      library.newPodcastEpisodes().then((episodes) => {
-        this.episodes = new GroupedList(episodes)
-      })
+    async reloadEpisodes() {
+      const episodes = await library.newPodcastEpisodes()
+      this.episodes = new GroupedList(episodes)
     },
-    reloadPodcasts() {
-      library.albums('podcast').then((albums) => {
-        this.albums = new GroupedList(albums)
-        this.reloadEpisodes()
-        this.reloadRssCount()
-      })
+    async reloadPodcasts() {
+      const albums = await library.albums('podcast')
+      this.albums = new GroupedList(albums)
+      await this.reloadEpisodes()
+      await this.reloadRssCount()
     },
-    reloadRssCount() {
-      library.rssCount().then((rssCount) => {
-        this.rssCount = rssCount
-      })
+    async reloadRssCount() {
+      const rssCount = await library.rssCount()
+      this.rssCount = rssCount
     },
     updateRss() {
       this.libraryStore.update_dialog_scan_kind = 'rss'

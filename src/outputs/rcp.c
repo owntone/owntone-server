@@ -1264,7 +1264,7 @@ static void
 rcp_mdns_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
   struct output_device *device;
-  bool exclude;
+  cfg_t *devcfg;
   int ret;
 
   /* $ avahi-browse -vrt  _roku-rcp._tcp
@@ -1280,12 +1280,17 @@ rcp_mdns_device_cb(const char *name, const char *type, const char *domain, const
 	: All for now
    */
 
-  exclude = cfg_getbool(cfg_gettsec(cfg, "rcp", name), "exclude");
-  DPRINTF(E_DBG, L_RCP, "Event for %sRCP/SoundBridge device '%s' (address %s, port %d)\n", exclude ? "excluded " : "", name, address, port);
-  
-  if (exclude)
+  DPRINTF(E_DBG, L_RCP, "Event for RCP/SoundBridge device '%s' (address %s, port %d)\n", name, address, port);
+
+  devcfg = cfg_gettsec(cfg, "rcp", name);
+  if (devcfg && cfg_getbool(devcfg, "exclude"))
     {
-      DPRINTF(E_INFO, L_RCP, "Excluding discovered RCP/SoundBridge device '%s' at %s\n", name, address);
+      DPRINTF(E_LOG, L_RCP, "Excluding device '%s' as set in config\n", name);
+      return;
+    }
+  if (outputs_exclusive_mode_get() && !(devcfg && cfg_getbool(devcfg, "exclusive")))
+    {
+      DPRINTF(E_INFO, L_RCP, "RCP/Soundbridge device '%s' ignored, other speaker(s) set as exclusive\n", name);
       return;
     }
 
@@ -1363,6 +1368,7 @@ rcp_deinit(void)
 struct output_definition output_rcp =
 {
   .name = "RCP/SoundBridge",
+  .cfg_name = "rcp",
   .type = OUTPUT_TYPE_RCP,
   .priority = 99,
   .disabled = 0,

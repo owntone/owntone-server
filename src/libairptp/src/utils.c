@@ -1,0 +1,231 @@
+/*
+MIT License
+
+Copyright (c) 2026 OwnTone
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/time.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <fcntl.h>
+
+#include "utils.h"
+
+extern struct airptp_callbacks __thread airptp_cb;
+
+static int
+bind_one(const char *node, unsigned short port, int family)
+{
+  struct addrinfo hints = { 0 };
+  struct addrinfo *servinfo;
+  struct addrinfo *ptr;
+  char strport[8];
+  int flags;
+  int yes = 1;
+  int fd = -1;
+  int ret;
+
+  hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_family = family;
+  hints.ai_flags = node ? 0 : AI_PASSIVE;
+
+  snprintf(strport, sizeof(strport), "%hu", port);
+  ret = getaddrinfo(node, strport, &hints, &servinfo);
+  if (ret != 0)
+    goto error;
+
+  for (ptr = servinfo; ptr != NULL; ptr = ptr->ai_next) {
+    if (fd >= 0)
+      close(fd);
+
+    fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+    if (fd < 0)
+      continue;
+
+    flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0)
+      continue;
+    ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
+    if (ret < 0)
+      continue;
+
+    // We won't be using dual stack for BSD compability. We also don't use
+    // ifdef __linux__ to avoid branching.
+    ret = (ptr->ai_family == AF_INET6) ? setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(yes)) : 0;
+    if (ret < 0)
+      continue;
+
+    ret = bind(fd, ptr->ai_addr, ptr->ai_addrlen);
+    if (ret < 0)
+      continue;
+/*
+    char straddr[128];
+    utils_net_address_get(straddr, sizeof(straddr), (union utils_net_sockaddr *)ptr->ai_addr);
+    printf("Bound %s (%s) to port %hu\n", straddr, (ptr->ai_family == AF_INET) ? "AF_INET" : "AF_INET6", port);
+*/
+    break;
+  }
+
+  freeaddrinfo(servinfo);
+
+  if (!ptr)
+    goto error;
+
+  return fd;
+
+ error:
+  if (fd >= 0)
+    close(fd);
+  return -1;
+}
+
+int
+utils_net_bind(struct utils_net_socket *sock, const char *node, unsigned short port)
+{
+  sock->fd4 = bind_one(node, port, AF_INET);
+  sock->fd6 = bind_one(node, port, AF_INET6);
+
+  if (sock->fd4 < 0 && sock->fd6 < 0)
+    return -1;
+
+  return 0;
+}
+
+int
+utils_net_sockaddr_get(union utils_net_sockaddr *naddr, const char *addr, unsigned short port)
+{
+  const char *ipv4mapped_prefix = "::ffff:";
+  struct addrinfo hints = { 0 };
+  struct addrinfo *servinfo;
+  char strport[8];
+  int ret;
+
+  // Trying to send to an ipv4-mapped address on our ipv6 socket will yield
+  // Network unreachable, so we want to just have a clean ipv4 address
+  if (strncmp(addr, ipv4mapped_prefix, strlen(ipv4mapped_prefix)) == 0)
+    addr += strlen(ipv4mapped_prefix);
+
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_DGRAM;
+
+  snprintf(strport, sizeof(strport), "%hu", port);
+  ret = getaddrinfo(addr, strport, &hints, &servinfo);
+  if (ret != 0)
+    goto error;
+
+  memcpy(&naddr->sa, servinfo->ai_addr, servinfo->ai_addrlen);
+
+ error:
+  freeaddrinfo(servinfo);
+  return (ret < 0) ? -1 : 0;
+}
+
+int
+utils_net_address_get(char *addr, size_t addr_len, union utils_net_sockaddr *naddr)
+{
+  const char *s = NULL;
+
+  memset(addr, 0, addr_len); // Just in case caller doesn't check for errors
+
+  if (naddr->sa.sa_family == AF_INET6)
+     s = inet_ntop(AF_INET6, &naddr->sin6.sin6_addr, addr, addr_len);
+  else if (naddr->sa.sa_family == AF_INET)
+     s = inet_ntop(AF_INET, &naddr->sin.sin_addr, addr, addr_len);
+
+  if (!s)
+    return -1;
+
+  return 0;
+}
+
+bool
+utils_net_address_is_same(union utils_net_sockaddr *a, union utils_net_sockaddr *b)
+{
+  int a_family = a->sa.sa_family;
+  int b_family = b->sa.sa_family;
+  struct in_addr *a_sin_addr = &a->sin.sin_addr;
+  struct in_addr *b_sin_addr = &b->sin.sin_addr;
+  struct in6_addr *a_sin6_addr = &a->sin6.sin6_addr;
+  struct in6_addr *b_sin6_addr = &b->sin6.sin6_addr;
+  int cmp;
+
+  if (a_family == AF_INET && b_family == AF_INET)
+    cmp = memcmp(a_sin_addr, b_sin_addr, sizeof(struct in_addr));
+  else if (a_family == AF_INET6 && b_family == AF_INET6)
+    cmp = memcmp(a_sin6_addr, b_sin6_addr, sizeof(struct in6_addr));
+  else if (a_family == AF_INET && IN6_IS_ADDR_V4MAPPED(b_sin6_addr))
+    cmp = memcmp(a_sin_addr, ((uint8_t *)b_sin6_addr) + 12, sizeof(struct in_addr));
+  else if (b_family == AF_INET && IN6_IS_ADDR_V4MAPPED(a_sin6_addr))
+    cmp = memcmp(b_sin_addr, ((uint8_t *)a_sin6_addr) + 12, sizeof(struct in_addr));
+  else
+    cmp = 1;
+
+  return (cmp == 0);
+}
+
+// In Linux, you just need one socket for sending both ipv4 and ipv6, but BSD
+// and Mac OS think that would be too easy. We have to go with the lowest
+// denominator.
+ssize_t
+utils_net_sendto(struct utils_net_socket *sock, const void *buf, size_t len, union utils_net_sockaddr *addr)
+{
+  if (addr->sa.sa_family == AF_INET6)
+    return sendto(sock->fd6, buf, len, 0, &addr->sa, sizeof(addr->sin6));
+  else
+    return sendto(sock->fd4, buf, len, 0, &addr->sa, sizeof(addr->sin));
+}
+
+void
+utils_net_socket_close(struct utils_net_socket *sock)
+{
+  if (sock->fd4 >= 0)
+    close(sock->fd4);
+  if (sock->fd6 >= 0)
+    close(sock->fd6);
+
+  sock->fd4 = -1;
+  sock->fd6 = -1;
+}
+
+uint32_t
+utils_djb_hash(const void *data, size_t len)
+{
+  const unsigned char *bytes = data;
+  uint32_t hash = 5381;
+
+  while (len--) {
+    hash = ((hash << 5) + hash) + *bytes;
+    bytes++;
+  }
+
+  return hash;
+}

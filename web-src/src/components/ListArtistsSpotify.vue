@@ -3,6 +3,7 @@
     v-for="item in items"
     :key="item.id"
     :is-item="true"
+    :image="image(item)"
     :index="item.index"
     :lines="[item.name]"
     @open="open(item)"
@@ -32,6 +33,9 @@ export default {
     return { selectedItem: {}, showDetailsModal: false }
   },
   methods: {
+    image(item) {
+      return { caption: item.name, url: item.images?.[0]?.url }
+    },
     open(item) {
       this.$router.push({
         name: 'music-spotify-artist',

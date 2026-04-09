@@ -817,6 +817,8 @@ pipe_watch_update(void *arg, int *retval)
 static void *
 pipe_thread_run(void *arg)
 {
+  thread_setname("pipe");
+
   event_base_dispatch(evbase_pipe);
 
   pthread_exit(NULL);
@@ -934,8 +936,6 @@ pipe_thread_start(void)
   CHECK_NULL(L_PLAYER, evbase_pipe = event_base_new());
   CHECK_NULL(L_PLAYER, cmdbase = commands_base_new(evbase_pipe, NULL));
   CHECK_ERR(L_PLAYER, pthread_create(&tid_pipe, NULL, pipe_thread_run, NULL));
-
-  thread_setname(tid_pipe, "pipe");
 }
 
 static void

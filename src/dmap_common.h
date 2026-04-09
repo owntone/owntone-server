@@ -45,7 +45,7 @@ const struct dmap_field *
 dmap_get_fields_table(int *nfields);
 
 const struct dmap_field *
-dmap_find_field_wrapper(const char *str, int len);
+dmap_find_field_wrapper(const char *str);
 
 
 void

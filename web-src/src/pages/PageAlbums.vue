@@ -68,20 +68,11 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    library.albums('music').then((albums) => {
-      next((vm) => {
-        vm.albumList = new GroupedList(albums)
-      })
-    })
-  },
   setup() {
     return { servicesStore: useServicesStore(), uiStore: useUIStore() }
   },
   data() {
-    return {
-      albumList: new GroupedList()
-    }
+    return { albumList: new GroupedList() }
   },
   computed: {
     albums() {
@@ -147,6 +138,10 @@ export default {
         title: this.$t('page.albums.title')
       }
     }
+  },
+  async mounted() {
+    const albums = await library.albums('music')
+    this.albumList = new GroupedList(albums)
   }
 }
 </script>

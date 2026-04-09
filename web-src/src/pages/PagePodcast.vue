@@ -48,23 +48,8 @@ export default {
     ModalDialogAlbum,
     PaneHero
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.album(to.params.id),
-      library.podcastEpisodes(to.params.id)
-    ]).then(([album, tracks]) => {
-      next((vm) => {
-        vm.album = album
-        vm.tracks = new GroupedList(tracks)
-      })
-    })
-  },
   data() {
-    return {
-      album: {},
-      showDetailsModal: false,
-      tracks: new GroupedList()
-    }
+    return { album: {}, showDetailsModal: false, tracks: new GroupedList() }
   },
   computed: {
     heading() {
@@ -79,6 +64,14 @@ export default {
       }
     }
   },
+  async mounted() {
+    const [album, tracks] = await Promise.all([
+      library.album(this.$route.params.id),
+      library.podcastEpisodes(this.$route.params.id)
+    ])
+    this.album = album
+    this.tracks = new GroupedList(tracks)
+  },
   methods: {
     openDetails() {
       this.showDetailsModal = true
@@ -89,10 +82,9 @@ export default {
     podcastDeleted() {
       this.$router.push({ name: 'podcasts' })
     },
-    reloadTracks() {
-      library.podcastEpisodes(this.album.id).then((tracks) => {
-        this.tracks = new GroupedList(tracks)
-      })
+    async reloadTracks() {
+      const tracks = await library.podcastEpisodes(this.album.id)
+      this.tracks = new GroupedList(tracks)
     }
   }
 }

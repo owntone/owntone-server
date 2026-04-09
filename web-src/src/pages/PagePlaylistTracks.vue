@@ -47,23 +47,8 @@ export default {
     ModalDialogPlaylist,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.playlist(to.params.id),
-      library.playlistTracks(to.params.id)
-    ]).then(([playlist, tracks]) => {
-      next((vm) => {
-        vm.playlist = playlist
-        vm.tracks = new GroupedList(tracks)
-      })
-    })
-  },
   data() {
-    return {
-      playlist: {},
-      showDetailsModal: false,
-      tracks: new GroupedList()
-    }
+    return { playlist: {}, showDetailsModal: false, tracks: new GroupedList() }
   },
   computed: {
     heading() {
@@ -78,6 +63,14 @@ export default {
       }
       return this.playlist.uri
     }
+  },
+  async mounted() {
+    const [playlist, tracks] = await Promise.all([
+      library.playlist(this.$route.params.id),
+      library.playlistTracks(this.$route.params.id)
+    ])
+    this.playlist = playlist
+    this.tracks = new GroupedList(tracks)
   },
   methods: {
     play() {

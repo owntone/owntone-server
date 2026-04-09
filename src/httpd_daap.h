@@ -3,7 +3,7 @@
 #define __HTTPD_DAAP_H__
 
 int
-daap_session_is_valid(int id);
+daap_session_is_valid(uint32_t id);
 
 struct evbuffer *
 daap_reply_build(const char *uri, const char *user_agent, int is_remote);

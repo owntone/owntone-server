@@ -334,6 +334,7 @@ incoming_tcp_cb(int fd, short what, void *arg)
   struct sp_session *session = arg;
   struct sp_connection *conn = &session->conn;
   struct sp_message msg = { .type = SP_MSG_TYPE_TCP };
+  struct timeval sp_idle_tv = { SP_AP_DISCONNECT_SECS, 0 };
   int ret;
 
   if (what == EV_READ)
@@ -391,6 +392,9 @@ incoming_tcp_cb(int fd, short what, void *arg)
 	event_del(conn->timeout_ev);
 	goto error;
     }
+
+  // Reset the disconnect timer
+  event_add(conn->idle_ev, &sp_idle_tv);
 
   msg_clear(&msg);
   return;
@@ -852,6 +856,9 @@ credentials_get(void *arg, int *retval)
 static void *
 librespotc(void *arg)
 {
+  if (sp_cb.thread_name_set)
+    sp_cb.thread_name_set();
+
   event_base_dispatch(sp_evbase);
 
   pthread_exit(NULL);
@@ -1051,9 +1058,6 @@ librespotc_init(struct sp_sysinfo *sysinfo, struct sp_callbacks *callbacks)
   ret = pthread_create(&sp_tid, NULL, librespotc, NULL);
   if (ret < 0)
     RETURN_ERROR(SP_ERR_OOM, "Could not start thread");
-
-  if (sp_cb.thread_name_set)
-    sp_cb.thread_name_set(sp_tid);
 
   sp_initialized = true;
   return 0;

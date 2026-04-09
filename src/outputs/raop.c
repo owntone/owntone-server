@@ -85,7 +85,10 @@
 
 #define RAOP_RTP_PAYLOADTYPE                 0x60
 
-// How many RTP packets keep in a buffer for retransmission
+// See AIRPLAY_AUDIO_LATENCY_MS
+#define RAOP_AUDIO_LATENCY_MS                250
+
+// How many RTP packets to buffer for retransmission
 #define RAOP_PACKET_BUFFER_SIZE    1000
 
 #define RAOP_MD_DELAY_STARTUP      15360
@@ -156,7 +159,7 @@ struct raop_extra
 struct raop_master_session
 {
   struct evbuffer *input_buffer;
-  int input_buffer_samples;
+  uint32_t input_buffer_samples;
 
   struct rtp_session *rtp_session;
 
@@ -168,7 +171,7 @@ struct raop_master_session
 
   uint8_t *rawbuf;
   size_t rawbuf_size;
-  int samples_per_packet;
+  uint32_t samples_per_packet;
   bool encrypt;
 
   struct media_quality quality;
@@ -176,7 +179,7 @@ struct raop_master_session
   // Number of samples that we tell the output to buffer (this will mean that
   // the position that we send in the sync packages are offset by this amount
   // compared to the rtptimes of the corresponding RTP packages we are sending)
-  int output_buffer_samples;
+  uint32_t output_buffer_samples;
 
   struct raop_master_session *next;
 };
@@ -220,6 +223,10 @@ struct raop_session
 
   int volume;
 
+  // device->offset_ms in samples (user config for correction of static
+  // amplifier or DSP delays)
+  int offset_samples;
+
   /* AirTunes v2 */
   unsigned short server_port;
   unsigned short control_port;
@@ -246,9 +253,10 @@ struct raop_metadata
 
 struct raop_service
 {
-  int fd;
+  struct net_socket socket;
   unsigned short port;
-  struct event *ev;
+  struct event *ev4;
+  struct event *ev6;
 };
 
 typedef void (*evrtsp_req_cb)(struct evrtsp_request *req, void *arg);
@@ -1860,6 +1868,7 @@ master_session_make(struct media_quality *quality, bool encrypt)
 {
   struct raop_master_session *rms;
   struct transcode_encode_setup_args encode_args = { .profile = XCODE_ALAC, .quality = quality };
+  uint64_t buffer_duration_ms;
   int ret;
 
   // First check if we already have a suitable session
@@ -1879,7 +1888,7 @@ master_session_make(struct media_quality *quality, bool encrypt)
 
   CHECK_NULL(L_RAOP, rms = calloc(1, sizeof(struct raop_master_session)));
 
-  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0);
+  rms->rtp_session = rtp_session_new(quality, RAOP_PACKET_BUFFER_SIZE, 0, 0);
   if (!rms->rtp_session)
     {
       outputs_quality_unsubscribe(quality);
@@ -1898,7 +1907,14 @@ master_session_make(struct media_quality *quality, bool encrypt)
   transcode_decode_cleanup(&encode_args.src_ctx);
   if (!rms->encode_ctx)
     {
-      DPRINTF(E_LOG, L_RAOP, "Will not be able to stream AirPlay 2, ffmpeg has no ALAC encoder\n");
+      DPRINTF(E_LOG, L_RAOP, "Will not be able to stream AirPlay, ffmpeg has no ALAC encoder\n");
+      goto error;
+    }
+
+  buffer_duration_ms = outputs_buffer_duration_ms_get();
+  if (buffer_duration_ms <= RAOP_AUDIO_LATENCY_MS)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Configuration of start_buffer_ms must be higher than min latency (%d)\n", RAOP_AUDIO_LATENCY_MS);
       goto error;
     }
 
@@ -1906,7 +1922,7 @@ master_session_make(struct media_quality *quality, bool encrypt)
   rms->quality = *quality;
   rms->samples_per_packet = RAOP_SAMPLES_PER_PACKET;
   rms->rawbuf_size = STOB(rms->samples_per_packet, quality->bits_per_sample, quality->channels);
-  rms->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+  rms->output_buffer_samples = (buffer_duration_ms - RAOP_AUDIO_LATENCY_MS) * quality->sample_rate / 1000;
 
   CHECK_NULL(L_RAOP, rms->rawbuf = malloc(rms->rawbuf_size));
   CHECK_NULL(L_RAOP, rms->input_buffer = evbuffer_new());
@@ -2184,6 +2200,7 @@ session_make(struct output_device *rd, int callback_id, bool only_probe)
 
   rs->devname = strdup(rd->name);
   rs->volume = rd->volume;
+  rs->offset_samples = rd->offset_ms * rd->quality.sample_rate / 1000;
 
   rs->state = RAOP_STATE_STOPPED;
   rs->only_probe = only_probe;
@@ -2314,7 +2331,7 @@ raop_metadata_prepare(struct output_metadata *metadata)
   CHECK_NULL(L_RAOP, rmd->metadata = evbuffer_new());
   CHECK_NULL(L_RAOP, tmp = evbuffer_new());
 
-  ret = artwork_get_item(rmd->artwork, queue_item->file_id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
+  ret = artwork_get_by_queue_item_id(rmd->artwork, queue_item->id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (ret < 0)
     {
       DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file '%s'; no artwork will be sent\n", queue_item->path);
@@ -2881,6 +2898,7 @@ static void
 control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 {
   socklen_t addrlen;
+  int fd;
   int ret;
 
   switch (rs->family)
@@ -2888,11 +2906,13 @@ control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
       case AF_INET:
 	rs->naddr.sin.sin_port = htons(rs->control_port);
 	addrlen = sizeof(rs->naddr.sin);
+	fd = rs->control_svc->socket.fd4;
 	break;
 
       case AF_INET6:
 	rs->naddr.sin6.sin6_port = htons(rs->control_port);
 	addrlen = sizeof(rs->naddr.sin6);
+	fd = rs->control_svc->socket.fd6;
 	break;
 
       default:
@@ -2900,7 +2920,7 @@ control_packet_send(struct raop_session *rs, struct rtp_packet *pkt)
 	return;
     }
 
-  ret = sendto(rs->control_svc->fd, pkt->data, pkt->data_len, 0, &rs->naddr.sa, addrlen);
+  ret = sendto(fd, pkt->data, pkt->data_len, 0, &rs->naddr.sa, addrlen);
   if (ret < 0)
     DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device '%s': %s\n", rs->devname, strerror(errno));
 }
@@ -2948,7 +2968,7 @@ packets_send(struct raop_master_session *rms)
       return -1;
     }
 
-  pkt = rtp_packet_next(rms->rtp_session, len, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE, 0);
+  pkt = rtp_packet_next(rms->rtp_session, len, rms->samples_per_packet, RAOP_RTP_PAYLOADTYPE);
 
   evbuffer_remove(rms->encoded_buffer, pkt->payload, pkt->payload_len);
 
@@ -2967,12 +2987,12 @@ packets_send(struct raop_master_session *rms)
       // Device just joined
       if (rs->state == RAOP_STATE_CONNECTED)
 	{
-	  pkt->header[1] = 0xe0;
+	  pkt->header[1] |= RTP_MARKER_BIT; // Set marker bit, value becomes 0xe0
 	  packet_send(rs, pkt);
+	  pkt->header[1] &= ~RTP_MARKER_BIT; // Clear marker bit
 	}
       else if (rs->state == RAOP_STATE_STREAMING)
 	{
-	  pkt->header[1] = 0x60;
 	  packet_send(rs, pkt);
 	}
     }
@@ -3025,6 +3045,7 @@ static void
 packets_sync_send(struct raop_master_session *rms)
 {
   struct rtp_packet *sync_pkt;
+  struct rtcp_timestamp cur_stamp;
   struct raop_session *rs;
   struct timespec ts;
   bool is_sync_time;
@@ -3040,18 +3061,23 @@ packets_sync_send(struct raop_master_session *rms)
       if (rs->master_session != rms)
 	continue;
 
+      cur_stamp = rms->cur_stamp;
+
+      // Apply user configured offset
+      cur_stamp.pos -= rs->offset_samples;
+
       // A device has joined and should get an init sync packet
       if (rs->state == RAOP_STATE_CONNECTED)
 	{
-	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, rms->cur_stamp, 0x90);
+	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, cur_stamp, 0x90);
 	  control_packet_send(rs, sync_pkt);
 
-	  DPRINTF(E_DBG, L_RAOP, "Start sync packet sent to '%s': cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
-	    rs->devname, rms->cur_stamp.pos, (long)rms->cur_stamp.ts.tv_sec, (long)rms->cur_stamp.ts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec, rms->rtp_session->pos);
+	  DPRINTF(E_DBG, L_RAOP, "Start sync packet sent to '%s': offset=%d, cur_pos=%" PRIu32 ", cur_ts=%ld.%09ld, clock=%ld.%09ld, rtptime=%" PRIu32 "\n",
+	    rs->devname, rs->offset_samples, cur_stamp.pos, (long)cur_stamp.ts.tv_sec, (long)cur_stamp.ts.tv_nsec, (long)ts.tv_sec, (long)ts.tv_nsec, rms->rtp_session->pos);
 	}
       else if (is_sync_time && rs->state == RAOP_STATE_STREAMING)
 	{
-	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, rms->cur_stamp, 0x80);
+	  sync_pkt = rtp_sync_packet_next(rms->rtp_session, cur_stamp, 0x80);
 	  control_packet_send(rs, sync_pkt);
 	}
     }
@@ -3063,37 +3089,51 @@ packets_sync_send(struct raop_master_session *rms)
 static void
 service_stop(struct raop_service *svc)
 {
-  if (svc->ev)
-    event_free(svc->ev);
+  if (svc->ev4)
+    event_free(svc->ev4);
+  if (svc->ev6)
+    event_free(svc->ev6);
 
-  if (svc->fd >= 0)
-    close(svc->fd);
+  svc->ev4 = NULL;
+  svc->ev6 = NULL;
 
-  svc->ev = NULL;
-  svc->fd = -1;
+  net_socket_close(&svc->socket);
+
   svc->port = 0;
 }
 
 static int
 service_start(struct raop_service *svc, event_callback_fn cb, unsigned short port, const char *log_service_name)
 {
+  int ret;
+
   memset(svc, 0, sizeof(struct raop_service));
 
-  svc->fd = net_bind(&port, SOCK_DGRAM, log_service_name);
-  if (svc->fd < 0)
+  svc->socket.fd4 = -1;
+  svc->socket.fd6 = -1;
+
+  ret = net_bind(&svc->socket, &port, SOCK_DGRAM, log_service_name);
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not start '%s' service\n", log_service_name);
       goto error;
     }
 
-  svc->ev = event_new(evbase_player, svc->fd, EV_READ | EV_PERSIST, cb, svc);
-  if (!svc->ev)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not create event for '%s' service\n", log_service_name);
+  if (svc->socket.fd4 >= 0) {
+    svc->ev4 = event_new(evbase_player, svc->socket.fd4, EV_READ | EV_PERSIST, cb, svc);
+    if (!svc->ev4)
       goto error;
-    }
 
-  event_add(svc->ev, NULL);
+    event_add(svc->ev4, NULL);
+  }
+
+  if (svc->socket.fd6 >= 0) {
+    svc->ev6 = event_new(evbase_player, svc->socket.fd6, EV_READ | EV_PERSIST, cb, svc);
+    if (!svc->ev6)
+      goto error;
+
+    event_add(svc->ev6, NULL);
+  }
 
   svc->port = port;
 
@@ -3107,7 +3147,6 @@ service_start(struct raop_service *svc, event_callback_fn cb, unsigned short por
 static void
 timing_svc_cb(int fd, short what, void *arg)
 {
-  struct raop_service *svc;
   union net_sockaddr peer_addr;
   socklen_t peer_addrlen = sizeof(peer_addr);
   uint8_t req[32];
@@ -3115,8 +3154,6 @@ timing_svc_cb(int fd, short what, void *arg)
   struct ntp_stamp recv_stamp;
   struct ntp_stamp xmit_stamp;
   int ret;
-
-  svc = (struct raop_service *)arg;
 
   ret = timing_get_clock_ntp(&recv_stamp);
   if (ret < 0)
@@ -3126,7 +3163,7 @@ timing_svc_cb(int fd, short what, void *arg)
     }
 
   peer_addrlen = sizeof(peer_addr);
-  ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
+  ret = recvfrom(fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading timing request: %s\n", strerror(errno));
@@ -3181,7 +3218,7 @@ timing_svc_cb(int fd, short what, void *arg)
       memcpy(res + 28, &xmit_stamp.frac, 4);
     }
 
-  ret = sendto(svc->fd, res, sizeof(res), 0, &peer_addr.sa, peer_addrlen);
+  ret = sendto(fd, res, sizeof(res), 0, &peer_addr.sa, peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send timing reply: %s\n", strerror(errno));
@@ -3192,7 +3229,6 @@ timing_svc_cb(int fd, short what, void *arg)
 static void
 control_svc_cb(int fd, short what, void *arg)
 {
-  struct raop_service *svc;
   union net_sockaddr peer_addr = { 0 };
   socklen_t peer_addrlen = sizeof(peer_addr);
   char address[INET6_ADDRSTRLEN];
@@ -3202,9 +3238,7 @@ control_svc_cb(int fd, short what, void *arg)
   uint16_t seq_len;
   int ret;
 
-  svc = (struct raop_service *)arg;
-
-  ret = recvfrom(svc->fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
+  ret = recvfrom(fd, req, sizeof(req), 0, &peer_addr.sa, &peer_addrlen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading control request: %s\n", strerror(errno));
@@ -4215,6 +4249,12 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
       return;
     }
+  if (outputs_exclusive_mode_get() && !(devcfg && cfg_getbool(devcfg, "exclusive")))
+    {
+      DPRINTF(E_INFO, L_RAOP, "AirPlay device '%s' ignored, other speaker(s) set as exclusive\n", device_name);
+
+      return;
+    }
   if (devcfg && cfg_getbool(devcfg, "raop_disable"))
     {
       DPRINTF(E_INFO, L_RAOP, "Disabling AirPlay 1 (RAOP) for device '%s' as set in config\n", device_name);
@@ -4603,8 +4643,6 @@ raop_init(void)
   char ebuf[64];
   char *ptr;
   gpg_error_t gc_err;
-  int timing_port;
-  int control_port;
   int ret;
 
   // Generate AES key and IV
@@ -4659,8 +4697,7 @@ raop_init(void)
 
   CHECK_NULL(L_RAOP, keep_alive_timer = evtimer_new(evbase_player, raop_keep_alive_timer_cb, NULL));
 
-  timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
-  ret = service_start(&raop_timing_svc, timing_svc_cb, timing_port, "RAOP timing");
+  ret = service_start(&raop_timing_svc, timing_svc_cb, 0, "RAOP timing");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay time synchronization failed to start\n");
@@ -4668,8 +4705,7 @@ raop_init(void)
       goto out_free_timer;
     }
 
-  control_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "control_port");
-  ret = service_start(&raop_control_svc, control_svc_cb, control_port, "RAOP control");
+  ret = service_start(&raop_control_svc, control_svc_cb, 0, "RAOP control");
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirPlay playback control failed to start\n");
@@ -4730,6 +4766,7 @@ raop_deinit(void)
 struct output_definition output_raop =
 {
   .name = "AirPlay 1",
+  .cfg_name = "airplay",
   .type = OUTPUT_TYPE_RAOP,
 #ifdef PREFER_AIRPLAY2
   .priority = 2,

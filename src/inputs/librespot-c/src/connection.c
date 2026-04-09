@@ -1049,6 +1049,8 @@ handle_login5(struct sp_message *msg, struct sp_session *session)
   return ret;
 }
 
+// If we don't get a proper response we fall back to requesting extended
+// metadata, thus this function fails since that would abort the sequence
 static enum sp_error
 handle_metadata_get(struct sp_message *msg, struct sp_session *session)
 {
@@ -1058,22 +1060,89 @@ handle_metadata_get(struct sp_message *msg, struct sp_session *session)
   int ret;
 
   if (hres->code != HTTP_OK)
-    RETURN_ERROR(SP_ERR_INVALID, "Request for metadata returned an error");
+    goto fallback;
 
-  // FIXME Use Episode object for file.media_type == SP_MEDIA_EPISODE
+  // Also works for Episode response
   response = track__unpack(NULL, hres->body_len, hres->body);
   if (!response)
-    RETURN_ERROR(SP_ERR_INVALID, "Could not parse metadata response");
+    goto fallback;
 
   ret = file_select(channel->file.id, sizeof(channel->file.id), response, session->bitrate_preferred);
   if (ret < 0)
-    RETURN_ERROR(SP_ERR_INVALID, "Could not find track data");
+    goto fallback;
 
   track__free_unpacked(response, NULL);
   return SP_OK_DONE;
 
- error:
+ fallback:
+  sp_cb.logmsg("Couldn't find file id in metadata response, will request extended metadata\n");
+
   track__free_unpacked(response, NULL);
+  return SP_OK_DONE;
+}
+
+// We need to find the file.id (necessary to get the audio key) which is buried
+// deep in the extended metadata response. Originally, it was also included in
+// a metadata request, but that was broken by Spotify in spclient responses,
+// except, weirdly, when requesting spclient.wg.spotify.com. The below method
+// should match what go-librespot does.
+static enum sp_error
+handle_extended_metadata_get(struct sp_message *msg, struct sp_session *session)
+{
+  struct http_response *hres = &msg->payload.hres;
+  struct sp_channel *channel = session->now_streaming_channel;
+  Spotify__Extendedmetadata__BatchedExtensionResponse *response = NULL;
+  Spotify__Extendedmetadata__EntityExtensionData *entity_extension_data = NULL;
+  Track *track = NULL;
+  int i, j;
+  int ret;
+
+  if (hres->code != HTTP_OK)
+    RETURN_ERROR(SP_ERR_INVALID, "Request for extended metadata returned a http error");
+
+  response = spotify__extendedmetadata__batched_extension_response__unpack(NULL, hres->body_len, hres->body);
+  if (!response)
+    RETURN_ERROR(SP_ERR_INVALID, "Could not parse extended metadata response");
+
+  for (i = 0; i < response->n_extended_metadata && !entity_extension_data; i++)
+    {
+      for (j = 0; j < response->extended_metadata[i]->n_extension_data && !entity_extension_data; j++)
+	{
+	  entity_extension_data = response->extended_metadata[i]->extension_data[j];
+	  if (!entity_extension_data)
+	    continue;
+	  else if (!entity_extension_data->entity_uri || strcmp(entity_extension_data->entity_uri, channel->file.path) != 0)
+	    entity_extension_data = NULL;
+	  else if (!entity_extension_data->header || entity_extension_data->header->status_code != HTTP_OK)
+	    entity_extension_data = NULL;
+	  else if (!entity_extension_data->extension_data || !entity_extension_data->extension_data->type_url)
+	    entity_extension_data = NULL;
+	}
+    }
+
+  if (!entity_extension_data)
+    RETURN_ERROR(SP_ERR_INVALID, "Could not extract entity extension data from extended metadata response");
+
+  // Like go-librespot, we don't check entity_extension_data->extension_data->type_url,
+  // which should be either type.googleapis.com/spotify.metadata.Track or
+  // .Episode. If we get something else we will fail later anyway.
+
+  // This also works for episodes
+  track = track__unpack(NULL, entity_extension_data->extension_data->value.len, entity_extension_data->extension_data->value.data);
+  if (!track)
+    RETURN_ERROR(SP_ERR_INVALID, "Could not parse track data in extended metadata response");
+
+  ret = file_select(channel->file.id, sizeof(channel->file.id), track, session->bitrate_preferred);
+  if (ret < 0)
+    RETURN_ERROR(SP_ERR_INVALID, "Could not find track data in extended metadata response");
+
+  spotify__extendedmetadata__batched_extension_response__free_unpacked(response, NULL);
+  track__free_unpacked(track, NULL);
+  return SP_OK_DONE;
+
+ error:
+  spotify__extendedmetadata__batched_extension_response__free_unpacked(response, NULL);
+  track__free_unpacked(track, NULL);
   return ret;
 }
 
@@ -1980,7 +2049,6 @@ msg_make_login5_challenges(struct sp_message *msg, struct sp_session *session)
   return msg_make_login5(msg, session);
 }
 
-// Ref. spclient/spclient.go
 static int
 msg_make_metadata_get(struct sp_message *msg, struct sp_session *session)
 {
@@ -2010,6 +2078,53 @@ msg_make_metadata_get(struct sp_message *msg, struct sp_session *session)
   hreq->headers[2] = asprintf_or_die("Authorization: Bearer %s", session->http_accesstoken.value);
 
   free(media_id);
+  return 0;
+}
+
+// Ref. spclient/spclient.go
+static int
+msg_make_extended_metadata_get(struct sp_message *msg, struct sp_session *session)
+{
+  struct http_request *hreq = &msg->payload.hreq;
+  struct sp_server *server = &session->spclient;
+  Spotify__Extendedmetadata__BatchedEntityRequest req = SPOTIFY__EXTENDEDMETADATA__BATCHED_ENTITY_REQUEST__INIT;
+  Spotify__Extendedmetadata__EntityRequest entity_request = SPOTIFY__EXTENDEDMETADATA__ENTITY_REQUEST__INIT;
+  Spotify__Extendedmetadata__EntityRequest *entity_requests;
+  Spotify__Extendedmetadata__ExtensionQuery query = SPOTIFY__EXTENDEDMETADATA__EXTENSION_QUERY__INIT;
+  Spotify__Extendedmetadata__ExtensionQuery *queries;
+  struct sp_channel *channel = session->now_streaming_channel;
+  struct sp_file zerofile = { 0 };
+
+  if (memcmp(channel->file.id, zerofile.id, sizeof(channel->file.id)) != 0)
+    return 1; // Skip this request, we got the file id from metadata_get
+
+  if (channel->file.media_type == SP_MEDIA_TRACK)
+    query.extension_kind = SPOTIFY__EXTENDEDMETADATA__EXTENSION_KIND__TRACK_V4;
+  else if (channel->file.media_type == SP_MEDIA_EPISODE)
+    query.extension_kind = SPOTIFY__EXTENDEDMETADATA__EXTENSION_KIND__EPISODE_V4;
+  else
+    return -1;
+
+  queries = &query;
+  entity_request.query = &queries;
+  entity_request.n_query = 1;
+  entity_request.entity_uri = channel->file.path;
+
+  entity_requests = &entity_request;
+  req.entity_request = &entity_requests;
+  req.n_entity_request = 1;
+
+  hreq->body_len = spotify__extendedmetadata__batched_entity_request__get_packed_size(&req);
+  hreq->body = malloc(hreq->body_len);
+
+  spotify__extendedmetadata__batched_entity_request__pack(&req, hreq->body);
+
+  hreq->url = asprintf_or_die("https://%s:%d/extended-metadata/v0/extended-metadata", server->address, server->port);
+
+  hreq->headers[0] = asprintf_or_die("Accept: application/x-protobuf");
+  hreq->headers[1] = asprintf_or_die("Client-Token: %s", session->http_clienttoken.value);
+  hreq->headers[2] = asprintf_or_die("Authorization: Bearer %s", session->http_accesstoken.value);
+
   return 0;
 }
 
@@ -2064,7 +2179,7 @@ msg_make_media_get(struct sp_message *msg, struct sp_session *session)
 }
 
 // Must be large enough to also include null terminating elements
-static struct sp_seq_request seq_requests[][7] =
+static struct sp_seq_request seq_requests[][15] =
 {
   {
     // Just a dummy so that the array is aligned with the enum
@@ -2083,6 +2198,7 @@ static struct sp_seq_request seq_requests[][7] =
     { SP_SEQ_MEDIA_OPEN, "LOGIN5", SP_PROTO_HTTP, msg_make_login5, NULL, handle_login5, },
     { SP_SEQ_MEDIA_OPEN, "LOGIN5_CHALLENGES", SP_PROTO_HTTP, msg_make_login5_challenges, NULL, handle_login5, },
     { SP_SEQ_MEDIA_OPEN, "METADATA_GET", SP_PROTO_HTTP, msg_make_metadata_get, NULL, handle_metadata_get, },
+    { SP_SEQ_MEDIA_OPEN, "EXTENDED_METADATA_GET", SP_PROTO_HTTP, msg_make_extended_metadata_get, NULL, handle_extended_metadata_get, },
     { SP_SEQ_MEDIA_OPEN, "AUDIO_KEY_GET", SP_PROTO_TCP, msg_make_audio_key_get, prepare_tcp, handle_tcp_generic, },
     { SP_SEQ_MEDIA_OPEN, "STORAGE_RESOLVE", SP_PROTO_HTTP, msg_make_storage_resolve, NULL, handle_storage_resolve, },
     { SP_SEQ_MEDIA_OPEN, "MEDIA_PREFETCH", SP_PROTO_HTTP, msg_make_media_get, NULL, handle_media_get, },

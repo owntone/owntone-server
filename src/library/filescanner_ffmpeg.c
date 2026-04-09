@@ -773,6 +773,8 @@ scan_metadata_ffmpeg(struct media_file_info *mfi, const char *file)
 	    mfi->type = strdup("aif");
 	    mfi->codectype = strdup("aif");
 	    mfi->description = strdup("AIFF audio file");
+
+	    extra_md_map = md_map_id3;
 	    break;
 	  }
 	else if (strcmp(ctx->iformat->name, "wav") == 0)

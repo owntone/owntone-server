@@ -106,6 +106,8 @@ some common reasons:
   port with [`nc`](https://en.wikipedia.org/wiki/Netcat) or
   [`telnet`](https://en.wikipedia.org/wiki/Telnet) commands.
 
+- Some users report that Remote can get in a state where pairing isn't possible
+  and nothing appears in OwnTone's logs. In that case try reinstalling Remote.
 
 ## Remotes for iTunes/Apple Music (Android)
 

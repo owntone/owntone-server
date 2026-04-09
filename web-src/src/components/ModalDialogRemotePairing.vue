@@ -32,10 +32,7 @@ export default {
     return { remoteStore: useRemotesStore() }
   },
   data() {
-    return {
-      disabled: true,
-      pin: ''
-    }
+    return { disabled: true, pin: '' }
   },
   computed: {
     actions() {
@@ -58,10 +55,9 @@ export default {
       this.pin = pin
       this.disabled = disabled
     },
-    pair() {
-      remotes.pair(this.pin).then(() => {
-        this.pin = ''
-      })
+    async pair() {
+      await remotes.pair(this.pin)
+      this.pin = ''
     }
   }
 }

@@ -48,14 +48,6 @@ export default {
     ModalDialogPlayable,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    next(async (vm) => {
-      await vm.fetchData(to)
-    })
-  },
-  beforeRouteUpdate(to, from, next) {
-    this.fetchData(to).then(() => next())
-  },
   setup() {
     return {
       configurationStore: useConfigurationStore()
@@ -73,6 +65,9 @@ export default {
     current() {
       return this.$route.query?.directory || '/'
     },
+    expression() {
+      return `path starts with "${this.current}" order by path asc`
+    },
     name() {
       if (this.current !== '/') {
         return this.current?.slice(this.current.lastIndexOf('/') + 1)
@@ -81,7 +76,7 @@ export default {
     },
     playable() {
       return {
-        expression: `path starts with "${this.current}" order by path asc`,
+        expression: this.expression,
         name: this.current,
         properties: [
           { key: 'property.folders', value: this.directories.length },
@@ -90,6 +85,14 @@ export default {
         ]
       }
     }
+  },
+  watch: {
+    $route(to) {
+      this.fetchData(to)
+    }
+  },
+  async mounted() {
+    await this.fetchData(this.$route)
   },
   methods: {
     async fetchData(to) {

@@ -691,6 +691,7 @@ streaming_deinit(void)
 struct output_definition output_streaming =
 {
   .name = "streaming",
+  .cfg_name = "streaming",
   .type = OUTPUT_TYPE_STREAMING,
   .priority = 0,
   .disabled = 0,

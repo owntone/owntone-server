@@ -23,24 +23,17 @@ import library from '@/api/library'
 export default {
   name: 'PageMusicRecentlyPlayed',
   components: { ContentWithHeading, ListTracks, PaneTitle, TabsMusic },
-  beforeRouteEnter(to, from, next) {
-    library
-      .search({
-        expression:
-          'time_played after 8 weeks ago and media_kind is music order by time_played desc',
-        limit: 50,
-        type: 'track'
-      })
-      .then((data) => {
-        next((vm) => {
-          vm.tracks = new GroupedList(data.tracks)
-        })
-      })
-  },
   data() {
-    return {
-      tracks: new GroupedList()
-    }
+    return { tracks: new GroupedList() }
+  },
+  async mounted() {
+    const data = await library.search({
+      expression:
+        'time_played after 8 weeks ago and media_kind is music order by time_played desc',
+      limit: 50,
+      type: 'track'
+    })
+    this.tracks = new GroupedList(data.tracks)
   }
 }
 </script>

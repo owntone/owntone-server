@@ -52,7 +52,7 @@ static cfg_opt_t sec_general[] =
     CFG_STR("logformat", "default", CFGF_NONE),
     CFG_STR("admin_password", NULL, CFGF_NONE),
     CFG_INT("websocket_port", 3688, CFGF_NONE),
-    CFG_STR("websocket_interface", NULL, CFGF_NONE),
+    CFG_STR("websocket_interface", NULL, CFGF_DEPRECATED),
     CFG_STR_LIST("trusted_networks", "{lan}", CFGF_NONE),
     CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
     CFG_STR("bind_address", NULL, CFGF_NONE),
@@ -76,6 +76,7 @@ static cfg_opt_t sec_general[] =
     CFG_STR("user_agent", PACKAGE_NAME "/" PACKAGE_VERSION, CFGF_NONE),
     CFG_BOOL("ssl_verifypeer", cfg_true, CFGF_NONE),
     CFG_BOOL("timer_test", cfg_false, CFGF_NONE),
+    CFG_INT("start_buffer_ms", 2250, CFGF_NONE),
     CFG_END()
   };
 
@@ -144,11 +145,12 @@ static cfg_opt_t sec_audio[] =
     CFG_STR("mixer_device", NULL, CFGF_NONE),
     CFG_BOOL("sync_disable", cfg_false, CFGF_NONE),
     CFG_INT("offset", 0, CFGF_DEPRECATED),
-    CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
     CFG_INT("adjust_period_seconds", 100, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
-
 
 /* local ALSA audio section structure */
 static cfg_opt_t sec_alsa[] =
@@ -156,7 +158,9 @@ static cfg_opt_t sec_alsa[] =
     CFG_STR("nickname", NULL, CFGF_NONE),
     CFG_STR("mixer", NULL, CFGF_NONE),
     CFG_STR("mixer_device", NULL, CFGF_NONE),
-    CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -179,6 +183,9 @@ static cfg_opt_t sec_airplay[] =
     CFG_STR("password", NULL, CFGF_NONE),
     CFG_BOOL("raop_disable", cfg_false, CFGF_NONE),
     CFG_STR("nickname", NULL, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
+    CFG_BOOL("ptp_disable", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -187,8 +194,10 @@ static cfg_opt_t sec_chromecast[] =
   {
     CFG_INT("max_volume", 11, CFGF_NONE),
     CFG_BOOL("exclude", cfg_false, CFGF_NONE),
-    CFG_INT("offset_ms", 0, CFGF_NONE),
+    CFG_INT("offset_ms", 0, CFGF_DEPRECATED),
     CFG_STR("nickname", NULL, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -197,6 +206,8 @@ static cfg_opt_t sec_fifo[] =
   {
     CFG_STR("nickname", "fifo", CFGF_NONE),
     CFG_STR("path", NULL, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -205,6 +216,8 @@ static cfg_opt_t sec_rcp[] =
   {
     CFG_BOOL("exclude", cfg_false, CFGF_NONE),
     CFG_BOOL("clear_on_close", cfg_false, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -219,6 +232,7 @@ static cfg_opt_t sec_spotify[] =
     CFG_BOOL("artist_override", cfg_false, CFGF_NONE),
     CFG_BOOL("album_override", cfg_false, CFGF_NONE),
     CFG_BOOL("disable_legacy_mode", cfg_false, CFGF_NONE),
+    CFG_BOOL("initscan_disable", cfg_false, CFGF_NONE),
     // Issued by Spotify on developer.spotify.com for forked-daapd/OwnTone
     CFG_STR("webapi_client_id", "0e684a5422384114a8ae7ac020f01789", CFGF_NONE),
     CFG_STR("webapi_client_secret", "232af95f39014c9ba218285a5c11a239", CFGF_NONE),
@@ -258,6 +272,8 @@ static cfg_opt_t sec_streaming[] =
     CFG_INT("sample_rate", 44100, CFGF_NONE),
     CFG_INT("bit_rate", 192, CFGF_NONE),
     CFG_INT("icy_metaint", 16384, CFGF_NONE),
+    // Hidden options
+    CFG_BOOL("exclusive", cfg_false, CFGF_NONE),
     CFG_END()
   };
 

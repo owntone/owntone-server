@@ -14,6 +14,7 @@
     "mark-as-played": "Mark as played",
     "pair": "Pair Remote",
     "play": "Play",
+    "play-top-tracks": "Play top tracks",
     "remove": "Remove",
     "rescan": "Rescan",
     "save": "Save",
@@ -70,15 +71,15 @@
       }
     },
     "queue-item": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
+      "quality": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
       "pairing-code": "Pairing code",
       "title": "Remote pairing request"
     },
     "track": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
-      "rating-value": "{rating} / 10"
+      "quality": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
+      "rating": "{rating} / 10"
     },
     "update": {
       "all": "Update everything",
@@ -130,6 +131,7 @@
     "files": "Files",
     "genres": "Genres",
     "music": "Music",
+    "outputs": "Outputs",
     "playlists": "Playlists",
     "podcasts": "Podcasts",
     "radio": "Radio",
@@ -137,7 +139,6 @@
     "settings": "Settings",
     "spotify": "Spotify",
     "stream": "HTTP stream",
-    "stream-error": "HTTP stream error: failed to load stream or stopped loading due to network problem",
     "update-library": "Update Library",
     "volume": "Volume"
   },
@@ -213,6 +214,9 @@
         "spotify": "Spotify"
       }
     },
+    "outputs": {
+      "title": "Outputs"
+    },
     "player": {
       "info": "Add some tracks by browsing your library",
       "time": "Live|{time}|{time}",
@@ -266,6 +270,7 @@
     "spotify": {
       "music": {
         "featured-playlists": "Featured Playlists",
+        "followed-artists": "Followed Artists",
         "new-releases": "New Releases"
       }
     }
@@ -353,27 +358,30 @@
       "pairing-code": "Pairing code",
       "pairing-request": "Remote pairing request from ",
       "speaker-pairing": "Speaker pairing and device verification",
-      "speaker-pairing-info": "If your speaker requires pairing then activate it below and enter the PIN that it displays.",
+      "speaker-pairing-info": "If your speaker requires pairing, enter the verification code displayed. You can also set an offset compensation (±2000 ms) to synchronise playback between multiple speakers. To apply the offset, please restart the stream.",
       "verification-code": "Verification code"
     },
     "services": {
+      "authorise": "Authorize the access to the service {service}",
+      "authorised": "Access granted for {user}",
       "lastfm": {
-        "grant-access": "Login with your Last.fm username and password to enable scrobbling.",
-        "info": "OwnTone will not store your Last.fm username/password, only the session key. The session key does not expire.",
-        "no-support": "OwnTone was built without support for Last.fm.",
+        "info": "Enable Last.fm to track your music listening. Log in with your Last.fm username and password. Your password is not stored: only a session token is kept, and it never expires.",
         "title": "Last.fm"
       },
+      "listenbrainz": {
+        "info": "Enable ListenBrainz to track your music listening. Provide your ListenBrainz user token, which you can obtain from your settings on the ListenBrainz website.",
+        "title": "ListenBrainz",
+        "token-required": "The ListenBrainz user token is required to enable ListenBrainz integration."
+      },
+      "no-support": "The option {service} is not supported.",
       "password": "Password",
       "spotify": {
-        "authorize": "Authorize API access",
-        "grant-access": "Grant access to the Spotify API.",
-        "no-support": "OwnTone was either built without support for Spotify or libspotify is not installed.",
+        "info": "Enable Spotify access to listen to tracks available on your account via OwnTone. You must have a Spotify Premium account. Required scopes are: {scopes}.",
         "reauthorize": "Please reauthorize API access to grant OwnTone the following additional access rights: {scopes}.",
-        "requirements": "You must have a Spotify premium account. Access to the Spotify API enables scanning of your Spotify library. Required scopes are: {scopes}.",
-        "title": "Spotify",
-        "user": "Access granted for {user}"
+        "title": "Spotify"
       },
-      "username": "Username"
+      "username": "Username",
+      "user-token": "User token"
     },
     "webinterface": {
       "genres": "Genres",

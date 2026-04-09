@@ -14,6 +14,7 @@
     "mark-as-played": "标记为已播放",
     "pair": "遥控配对",
     "play": "播放",
+    "play-top-tracks": "收听热门歌曲",
     "remove": "移除",
     "rescan": "重新扫描",
     "save": "保存",
@@ -70,15 +71,15 @@
       }
     },
     "queue-item": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
+      "quality": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
     },
     "remote-pairing": {
       "pairing-code": "配对码",
       "title": "请求遥控配对"
     },
     "track": {
-      "quality-value": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
-      "rating-value": "{rating} / 10"
+      "quality": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
+      "rating": "{rating} / 10"
     },
     "update": {
       "all": "更新所有内容",
@@ -130,6 +131,7 @@
     "files": "文件",
     "genres": "流派",
     "music": "音乐",
+    "outputs": "输出",
     "playlists": "播放列表",
     "podcasts": "播客",
     "radio": "广播电台",
@@ -137,7 +139,6 @@
     "settings": "设置",
     "spotify": "Spotify",
     "stream": "HTTP流",
-    "stream-error": "HTTP流错误：流载入失败或者由于网络原因无法载入",
     "update-library": "更新资料库",
     "volume": "音量"
   },
@@ -213,6 +214,9 @@
         "spotify": "Spotify"
       }
     },
+    "outputs": {
+      "title": "输出"
+    },
     "player": {
       "info": "浏览资料库添加曲目",
       "time": "直播|{time}|{time}",
@@ -266,6 +270,7 @@
     "spotify": {
       "music": {
         "featured-playlists": "特色列表",
+        "followed-artists": "关注的艺人",
         "new-releases": "最新发行"
       }
     }
@@ -353,27 +358,30 @@
       "pairing-code": "配对代码",
       "pairing-request": "远程配对请求来自于 ",
       "speaker-pairing": "扬声器配对和设备验证",
-      "speaker-pairing-info": "如果您的扬声器需要配对，请在下面输入它显示的 PIN以激活",
+      "speaker-pairing-info": "如果您的扬声器需要配对，请输入其显示的验证码。您还可以设置一个偏移补偿（±2000 毫秒）以同步多个扬声器之间的播放。 要使偏移生效，请重新启动流。",
       "verification-code": "验证码"
     },
     "services": {
+      "authorise": "授权访问服务 {service}。",
+      "authorised": "已授权用户 {user}。",
       "lastfm": {
-        "grant-access": "使用您的 Last.fm 用户名和密码登录以启用记录功能",
-        "info": "OwnTone不会存储您的 Last.fm 用户名/密码，仅存储会话密钥。会话密钥不会过期",
-        "no-support": "OwnTone的构建没有来自Last.fm的官方支持",
+        "info": "启用 Last.fm 以跟踪您的音乐收听情况。使用您的 Last.fm 用户名和密码登录。您的密码不会被保存：仅会保存会话令牌，且永不过期。",
         "title": "Last.fm"
       },
+      "listenbrainz": {
+        "info": "启用 ListenBrainz 以跟踪您的音乐收听情况。提供您的 ListenBrainz 用户令牌，您可以在 ListenBrainz 网站的设置中获取。",
+        "title": "ListenBrainz",
+        "token-required": "需要 ListenBrainz 用户令牌才能启用 ListenBrainz 集成。"
+      },
+      "no-support": "不支持 {service} 选项。",
       "password": "密码",
       "spotify": {
-        "authorize": "授权 API 访问",
-        "grant-access": "授予对 Spotify API 的访问权限",
-        "no-support": "OwnTone的构建没有来自 Spotify 官方的支持，也未安装 libspotify",
-        "reauthorize": "请重新授权 API 访问权限，以授予 OwnTone 以下附加访问权限：{scopes}",
-        "requirements": "您必须拥有 Spotify付费帐户。访问 Spotify API 可以扫描您的 Spotify库。所需范围是：{scopes}",
-        "title": "Spotify",
-        "user": "授予访问权限 {user}"
+        "info": "启用 Spotify 以通过 OwnTone 收听您帐户中的曲目。您必须拥有 Spotify Premium 帐户。所需权限如下：{scopes}。",
+        "reauthorize": "请重新授权 API 访问权限，以授予 OwnTone 以下附加访问权限：{scopes}。",
+        "title": "Spotify"
       },
-      "username": "用户名"
+      "username": "用户名",
+      "user-token": "用户令牌"
     },
     "webinterface": {
       "genres": "流派",

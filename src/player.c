@@ -154,6 +154,7 @@ struct speaker_attr_param
 
   struct media_quality quality;
   enum media_format format;
+  int offset_ms;
 
   int audio_fd;
   int metadata_fd;
@@ -222,7 +223,7 @@ struct player_source
   uint64_t read_end;
 
   // Same as the above, but added with samples equivalent to
-  // OUTPUTS_BUFFER_DURATION. So when the session position reaches play_start it
+  // outputs_buffer_duration_ms. When the session position reaches play_start it
   // means the media should actually be playing on your device.
   uint64_t play_start;
   uint64_t play_end;
@@ -256,7 +257,7 @@ struct player_session
   struct timespec start_ts;
 
   // The time the first sample in the buffer should be played by the output,
-  // without taking output buffer time (OUTPUTS_BUFFER_DURATION) into account.
+  // without taking outputs_buffer_duration_ms into account.
   // It will be equal to:
   // pts = start_ts + ticks_elapsed * player_tick_interval
   struct timespec pts;
@@ -868,6 +869,7 @@ session_update_read(int nsamples)
   // Did we just complete our first read? Then set the start timestamp
   if (pb_session.start_ts.tv_sec == 0)
     {
+      // TODO raop/airplay ntp uses CLOCK_MONOTONIC, so this is just for testing PTP
       clock_gettime_with_res(CLOCK_MONOTONIC, &pb_session.start_ts, &player_timer_res);
       pb_session.pts = pb_session.start_ts;
     }
@@ -898,7 +900,7 @@ session_update_read_quality(struct media_quality *quality)
   pb_session.reading_now->quality = *quality;
 
   samples_per_read = ((uint64_t)quality->sample_rate * (player_tick_interval.tv_nsec / 1000000)) / 1000;
-  pb_session.reading_now->output_buffer_samples = OUTPUTS_BUFFER_DURATION * quality->sample_rate;
+  pb_session.reading_now->output_buffer_samples = outputs_buffer_duration_ms_get() * quality->sample_rate / 1000;
 
   pb_session.bufsize = STOB(samples_per_read, quality->bits_per_sample, quality->channels);
   pb_session.read_deficit_max = STOB(((uint64_t)quality->sample_rate * PLAYER_READ_BEHIND_MAX) / 1000, quality->bits_per_sample, quality->channels);
@@ -921,6 +923,14 @@ session_update_read_quality(struct media_quality *quality)
 
  out:
   free(quality);
+}
+
+static void
+session_update_read_ts(struct timespec *ts)
+{
+  pb_session.pts = *ts;
+
+  free(ts);
 }
 
 static void
@@ -989,6 +999,14 @@ event_read_quality(struct media_quality *quality)
   session_update_read_quality(quality);
 }
 
+static void
+event_read_ts(struct timespec *ts)
+{
+  DPRINTF(E_DBG, L_PLAYER, "event_read_ts()\n");
+
+  session_update_read_ts(ts);
+}
+
 // Stuff to do when read of current track ends
 static void
 event_read_eof()
@@ -1034,7 +1052,7 @@ event_read_metadata(struct input_metadata *metadata)
   DPRINTF(E_DBG, L_PLAYER, "event_read_metadata()\n");
 
   // Add the metadata to the register of pending events with a trigger position
-  // that corresponds to OUTPUTS_BUFFER_DURATION into the future. If we have
+  // that corresponds to outputs_buffer_duration_ms into the future. If we have
   // received a negative position we assume the metadata needs to be delayed
   // until the position is 0.
   if (metadata->pos_is_updated && metadata->pos_ms < 0)
@@ -1231,6 +1249,10 @@ source_read(int *nbytes, int *nsamples, uint8_t *buf, int len)
   else if (flag == INPUT_FLAG_QUALITY)
     {
       event_read_quality((struct media_quality *)flagdata);
+    }
+  else if (flag == INPUT_FLAG_SYNC)
+    {
+      event_read_ts((struct timespec *)flagdata);
     }
 
   if (*nbytes == 0 || pb_session.quality.channels == 0)
@@ -2528,6 +2550,7 @@ device_to_speaker_info(struct player_speaker_info *spk, struct output_device *de
   spk->output_type[sizeof(spk->output_type) - 1] = '\0';
   spk->relvol = device->relvol;
   spk->absvol = device->volume;
+  spk->offset_ms = device->offset_ms;
 
   spk->supported_formats = device->supported_formats;
   // Devices supporting more than one format should at least have default_format set
@@ -2894,6 +2917,39 @@ speaker_format_set(void *arg, int *retval)
 
  error:
   DPRINTF(E_LOG, L_PLAYER, "Error setting format '%s', device unknown or format unsupported\n", media_format_to_string(param->format));
+  *retval = -1;
+  return COMMAND_END;
+}
+
+static enum command_state
+speaker_offset_ms_set(void *arg, int *retval)
+{
+  struct speaker_attr_param *param = arg;
+  struct output_device *device;
+
+  if (param->offset_ms < -2000 || param->offset_ms > 2000)
+    goto error;
+
+  device = outputs_device_get(param->spk_id);
+  if (!device)
+    goto error;
+
+  device->offset_ms = param->offset_ms;
+
+  // We can't change offset during playback, but if playback is paused we stop
+  // the output session, so the new offset is used when restarting playback
+  if (player_state == PLAY_PAUSED)
+    *retval = outputs_device_stop(device, device_shutdown_cb);
+  else
+    *retval = 0;
+
+  if (*retval > 0)
+    return COMMAND_PENDING; // async
+
+  return COMMAND_END;
+
+ error:
+  DPRINTF(E_LOG, L_PLAYER, "Error setting offset_ms %d, outside of supported range -2000 to 2000\n", param->offset_ms);
   *retval = -1;
   return COMMAND_END;
 }
@@ -3606,6 +3662,17 @@ player_speaker_format_set(uint64_t id, enum media_format format)
 }
 
 int
+player_speaker_offset_ms_set(uint64_t id, int offset_ms)
+{
+  struct speaker_attr_param param;
+
+  param.spk_id = id;
+  param.offset_ms = offset_ms;
+
+  return commands_exec_sync(cmdbase, speaker_offset_ms_set, speaker_generic_bh, &param);
+}
+
+int
 player_streaming_register(int *audio_fd, int *metadata_fd, enum media_format format, struct media_quality quality)
 {
   struct speaker_attr_param param;
@@ -3839,6 +3906,8 @@ player(void *arg)
   struct output_device *device;
   int ret;
 
+  thread_setname("player");
+
   ret = db_perthread_init();
   if (ret < 0)
     {
@@ -3953,8 +4022,6 @@ player_init(void)
       DPRINTF(E_FATAL, L_PLAYER, "Could not spawn player thread: %s\n", strerror(errno));
       goto error_input_deinit;
     }
-
-  thread_setname(tid_player, "player");
 
   return 0;
 

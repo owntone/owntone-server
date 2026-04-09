@@ -1,6 +1,6 @@
 <template>
   <tabs-music />
-  <content-with-heading>
+  <content-with-heading v-if="albums">
     <template #heading>
       <pane-title :content="{ title: $t('page.spotify.music.new-releases') }" />
     </template>
@@ -16,7 +16,7 @@
       </router-link>
     </template>
   </content-with-heading>
-  <content-with-heading>
+  <content-with-heading v-if="playlists">
     <template #heading>
       <pane-title
         :content="{ title: $t('page.spotify.music.featured-playlists') }"
@@ -34,14 +34,32 @@
       </router-link>
     </template>
   </content-with-heading>
+  <content-with-heading v-if="artists">
+    <template #heading>
+      <pane-title
+        :content="{ title: $t('page.spotify.music.followed-artists') }"
+      />
+    </template>
+    <template #content>
+      <list-artists-spotify :items="artists" />
+    </template>
+    <template #footer>
+      <router-link
+        :to="{ name: 'music-spotify-followed-artists' }"
+        class="button is-small is-rounded"
+      >
+        {{ $t('actions.show-more') }}
+      </router-link>
+    </template>
+  </content-with-heading>
 </template>
 
 <script>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
+import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
 
@@ -50,36 +68,31 @@ export default {
   components: {
     ContentWithHeading,
     ListAlbumsSpotify,
+    ListArtistsSpotify,
     ListPlaylistsSpotify,
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then((data) => {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(data.webapi_token)
-      Promise.all([
-        spotifyApi.getNewReleases({
-          country: data.webapi_country,
-          limit: 3
-        }),
-        spotifyApi.getFeaturedPlaylists({
-          country: data.webapi_country,
-          limit: 3
-        })
-      ]).then((response) => {
-        next((vm) => {
-          vm.albums = response[0].albums.items
-          vm.playlists = response[1].playlists.items
-        })
-      })
-    })
-  },
   data() {
-    return {
-      albums: [],
-      playlists: []
-    }
+    return { albums: [], artists: [], playlists: [] }
+  },
+  async mounted() {
+    const { api, configuration } = await services.spotify.get()
+    const [newReleases, followedArtists, featuredPlaylists] = await Promise.all(
+      [
+        api.browse.getNewReleases(configuration.webapi_country, 3),
+        api.currentUser.followedArtists(null, 3),
+        api.browse.getFeaturedPlaylists(
+          configuration.webapi_country,
+          null,
+          null,
+          3
+        )
+      ]
+    )
+    this.albums = newReleases.albums.items
+    this.artists = followedArtists?.artists.items
+    this.playlists = featuredPlaylists.playlists.items
   }
 }
 </script>

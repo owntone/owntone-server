@@ -31,19 +31,8 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    library.genres('music').then((genres) => {
-      next((vm) => {
-        vm.genres = new GroupedList(genres, {
-          index: { field: 'name_sort', type: String }
-        })
-      })
-    })
-  },
   data() {
-    return {
-      genres: new GroupedList()
-    }
+    return { genres: new GroupedList() }
   },
   computed: {
     heading() {
@@ -52,6 +41,12 @@ export default {
         title: this.$t('page.genres.title')
       }
     }
+  },
+  async mounted() {
+    const genres = await library.genres('music')
+    this.genres = new GroupedList(genres, {
+      index: { field: 'name_sort', type: String }
+    })
   }
 }
 </script>

@@ -28,7 +28,6 @@ import ControlImage from '@/components/ControlImage.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import PaneHero from '@/components/PaneHero.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import queue from '@/api/queue'
 import services from '@/api/services'
 import { useServicesStore } from '@/stores/services'
@@ -42,29 +41,11 @@ export default {
     ModalDialogAlbumSpotify,
     PaneHero
   },
-  beforeRouteEnter(to, from, next) {
-    const spotifyApi = new SpotifyWebApi()
-    services.spotify().then((data) => {
-      spotifyApi.setAccessToken(data.webapi_token)
-      spotifyApi
-        .getAlbum(to.params.id, {
-          market: useServicesStore().spotify.webapi_country
-        })
-        .then((album) => {
-          next((vm) => {
-            vm.album = album
-          })
-        })
-    })
-  },
   setup() {
     return { servicesStore: useServicesStore() }
   },
   data() {
-    return {
-      album: { artists: [{}], tracks: {} },
-      showDetailsModal: false
-    }
+    return { album: { artists: [{}], tracks: {} }, showDetailsModal: false }
   },
   computed: {
     heading() {
@@ -86,6 +67,13 @@ export default {
       }
       return []
     }
+  },
+  async mounted() {
+    const { api, configuration } = await services.spotify.get()
+    this.album = await api.albums.get(
+      this.$route.params.id,
+      configuration.webapi_country
+    )
   },
   methods: {
     openArtist() {

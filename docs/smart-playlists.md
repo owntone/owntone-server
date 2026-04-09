@@ -63,6 +63,9 @@ Valid operands include:
 
 * "string value" (string)
 * integer (int)
+* `empty`
+
+The `empty` operand is only valid with the `is` operator and matches items with no value for the given field-name e.g. `comment`
 
 Valid operands for the enumeration `data_kind` are:
 
@@ -154,6 +157,17 @@ This would match the last 10 music files added to the library.
 ```
 
 This generates a random set of, maximum of 10, rated Pop music tracks every time the playlist is queried.
+
+```
+"All Jazz, No Foo" {
+  media_kind is music and
+  genre is "jazz" and
+  (not comment includes "foo" or
+  comment is empty)
+}
+```
+
+This matches both the songs with comments that do not include "foo", but also the songs with no comment.
 
 ## Date Operand Syntax
 

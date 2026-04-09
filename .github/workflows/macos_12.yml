@@ -1,4 +1,6 @@
 name: macOS 12
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:

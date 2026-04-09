@@ -41,23 +41,8 @@ export default {
     ModalDialogArtist,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.artist(to.params.id),
-      library.artistAlbums(to.params.id)
-    ]).then(([artist, albums]) => {
-      next((vm) => {
-        vm.artist = artist
-        vm.albums = new GroupedList(albums)
-      })
-    })
-  },
   data() {
-    return {
-      albums: new GroupedList(),
-      artist: {},
-      showDetailsModal: false
-    }
+    return { albums: new GroupedList(), artist: {}, showDetailsModal: false }
   },
   computed: {
     heading() {
@@ -71,6 +56,14 @@ export default {
       }
       return {}
     }
+  },
+  async mounted() {
+    const [artist, albums] = await Promise.all([
+      library.artist(this.$route.params.id),
+      library.artistAlbums(this.$route.params.id)
+    ])
+    this.artist = artist
+    this.albums = new GroupedList(albums)
   },
   methods: {
     openDetails() {

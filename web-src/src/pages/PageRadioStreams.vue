@@ -28,19 +28,8 @@ export default {
     ListTracks,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    library.radioStreams().then((tracks) => {
-      next((vm) => {
-        vm.tracks = new GroupedList(tracks, {
-          index: { field: 'title_sort', type: String }
-        })
-      })
-    })
-  },
   data() {
-    return {
-      tracks: new GroupedList()
-    }
+    return { tracks: new GroupedList() }
   },
   computed: {
     heading() {
@@ -49,6 +38,12 @@ export default {
         title: this.$t('page.radio.title')
       }
     }
+  },
+  async mounted() {
+    const tracks = await library.radioStreams()
+    this.tracks = new GroupedList(tracks, {
+      index: { field: 'title_sort', type: String }
+    })
   }
 }
 </script>

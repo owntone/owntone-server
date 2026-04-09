@@ -100,7 +100,7 @@ init_cb(struct evthr *thr, void *shared)
 
   worker_thr = thr;
 
-  thread_setname(pthread_self(), "worker");
+  thread_setname("worker");
 }
 
 static void

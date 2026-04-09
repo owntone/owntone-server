@@ -9,7 +9,7 @@
                 <input
                   v-model="searchStore.query"
                   class="input is-rounded"
-                  type="text"
+                  type="search"
                   :placeholder="$t('page.search.placeholder')"
                   autocomplete="off"
                 />

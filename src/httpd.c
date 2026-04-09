@@ -209,40 +209,6 @@ content_type_from_profile(enum transcode_profile profile)
   return NULL;
 }
 
-static int
-basic_auth_cred_extract(char **user, char **pwd, const char *auth)
-{
-  char *decoded = NULL;
-  regex_t preg = { 0 };
-  regmatch_t matchptr[3]; // Room for entire string, username substring and password substring
-  int ret;
-
-  decoded = (char *)b64_decode(NULL, auth);
-  if (!decoded)
-    goto error;
-
-  // Apple Music gives is "(dt:1):password", which we need to support even if it
-  // isn't according to the basic auth RFC that says the username cannot include
-  // a colon
-  ret = regcomp(&preg, "(\\(.*?\\)|[^:]*):(.*)", REG_EXTENDED);
-  if (ret != 0)
-    goto error;
-
-  ret = regexec(&preg, decoded, ARRAY_SIZE(matchptr), matchptr, 0);
-  if (ret != 0 || matchptr[1].rm_so == -1 || matchptr[2].rm_so == -1)
-    goto error;
-
-  *user = strndup(decoded + matchptr[1].rm_so, matchptr[1].rm_eo - matchptr[1].rm_so);
-  *pwd = strndup(decoded + matchptr[2].rm_so, matchptr[2].rm_eo - matchptr[2].rm_so);
-
-  free(decoded);
-  return 0;
-
- error:
-  free(decoded);
-  return -1;
-}
-
 
 /* --------------------------- MODULES INTERFACE ---------------------------- */
 
@@ -920,7 +886,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
       if (ret == 0)
 	DPRINTF(E_INFO, L_HTTPD, "Done streaming file id %d\n", st->id);
       else
-	DPRINTF(E_LOG, L_HTTPD, "Streaming error, file id %d\n", st->id);
+	DPRINTF(E_LOG, L_HTTPD, "Read error, file id %d: %s\n", st->id, strerror(errno));
 
       stream_end(st);
       return;
@@ -1427,18 +1393,12 @@ httpd_request_is_authorized(struct httpd_request *hreq)
       return false;
     }
 
-  DPRINTF(E_DBG, L_HTTPD, "Checking web interface authentication\n");
-
   ret = httpd_basic_auth(hreq, "admin", passwd, PACKAGE " web interface");
   if (ret != 0)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Web interface request to '%s' denied: Incorrect password\n", hreq->uri);
-
-      // httpd_basic_auth has sent a reply
+      // httpd_basic_auth has sent a reply (and logged an error, if relevant)
       return false;
     }
-
-  DPRINTF(E_DBG, L_HTTPD, "Authentication successful\n");
 
   return true;
 }
@@ -1448,58 +1408,62 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
 {
   char header[256];
   const char *auth;
-  char *authuser;
-  char *authpwd;
+  char *decoded_auth;
+  char *delim;
+  bool is_authorized;
   int ret;
 
   auth = httpd_header_find(hreq->in_headers, "Authorization");
   if (!auth)
     {
       DPRINTF(E_DBG, L_HTTPD, "No Authorization header\n");
-
       goto need_auth;
     }
 
   if (strncmp(auth, "Basic ", strlen("Basic ")) != 0)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Bad Authentication header\n");
-
+      DPRINTF(E_LOG, L_HTTPD, "Bad Authentication header in authorization attempt from %s\n", hreq->peer_address);
       goto need_auth;
     }
 
   auth += strlen("Basic ");
 
-  ret = basic_auth_cred_extract(&authuser, &authpwd, auth);
-  if (ret < 0)
+  decoded_auth = (char *)b64_decode(NULL, auth);
+  if (!decoded_auth)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Malformed Authentication header\n");
-
+      DPRINTF(E_LOG, L_HTTPD, "Bad Authentication header in authorization attempt from %s\n", hreq->peer_address);
       goto need_auth;
     }
 
-  if (user)
+  // Apple Music sends "iTunes_Music/1.4 ... (dt:1):password", which we need to
+  // support even if it isn't according to the basic auth RFC that says the
+  // username cannot include a colon. In addition, the password could have
+  // colons that are not escaped. So delimiting user and password isn't
+  // straightforward. Also, we don't want to make assumptions about Apple's
+  // future changes to username (say they drop "(dt:1)" again).
+  is_authorized = false;
+  delim = strchr(decoded_auth, ':');
+  while (!is_authorized && delim)
     {
-      if (strcmp(user, authuser) != 0)
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Username mismatch\n");
+      *delim = '\0';
 
-	  free(authuser);
-	  free(authpwd);
-	  goto need_auth;
-	}
+      if (user)
+	is_authorized = (strcmp(decoded_auth, user) == 0) && (constant_time_strcmp(delim + 1, passwd) == 0);
+      else
+	is_authorized = (constant_time_strcmp(delim + 1, passwd) == 0);
+
+      *delim = ':';
+      delim = strchr(delim + 1, ':');
     }
 
-  if (strcmp(passwd, authpwd) != 0)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Bad password\n");
+  free(decoded_auth);
 
-      free(authuser);
-      free(authpwd);
+  if (!is_authorized)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Bad username or password in authorization attempt from %s\n", hreq->peer_address);
       goto need_auth;
     }
 
-  free(authuser);
-  free(authpwd);
   return 0;
 
  need_auth:
@@ -1511,24 +1475,22 @@ httpd_basic_auth(struct httpd_request *hreq, const char *user, const char *passw
     }
 
   httpd_header_add(hreq->out_headers, "WWW-Authenticate", header);
-
   evbuffer_add_printf(hreq->out_body, ERR_PAGE, HTTP_UNAUTHORIZED, "Unauthorized", "Authorization required");
-
   httpd_send_reply(hreq, HTTP_UNAUTHORIZED, "Unauthorized", HTTPD_SEND_NO_GZIP);
-
   return -1;
 }
 
 static int
-bind_test(short unsigned port)
+bind_test(unsigned short port)
 {
-  int fd;
+  struct net_socket socket = NET_SOCKET_INIT;
+  int ret;
 
-  fd = net_bind(&port, SOCK_STREAM, "httpd init");
-  if (fd < 0)
+  ret = net_bind(&socket, &port, SOCK_STREAM, "httpd init");
+  if (ret < 0)
     return -1;
 
-  close(fd);
+  net_socket_close(&socket);
   return 0;
 }
 
@@ -1538,7 +1500,7 @@ thread_init_cb(struct evthr *thr, void *shared)
   struct event_base *evbase;
   httpd_server *server;
 
-  thread_setname(pthread_self(), "httpd");
+  thread_setname("httpd");
 
   CHECK_ERR(L_HTTPD, db_perthread_init());
   CHECK_NULL(L_HTTPD, evbase = evthr_get_base(thr));

@@ -38,11 +38,7 @@ export default {
   components: { ControlSlider },
   emits: ['change', 'mute'],
   data() {
-    return {
-      loading: false,
-      playing: false,
-      volume: 10
-    }
+    return { loading: false, playing: false, volume: 10 }
   },
   unmounted() {
     this.closeAudio()

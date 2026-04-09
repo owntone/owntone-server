@@ -62,7 +62,7 @@ struct httpd_uri_parsed
 
 struct httpd_server
 {
-  int fd;
+  struct net_socket socket;
   struct evhttp *evhttp;
   struct commands_base *cmdbase;
   httpd_request_cb request_cb;
@@ -633,8 +633,7 @@ httpd_server_free(httpd_server *server)
   if (!server)
     return;
 
-  if (server->fd > 0)
-    close(server->fd);
+  net_socket_close(&server->socket);
 
   if (server->evhttp)
     {
@@ -660,19 +659,34 @@ httpd_server_new(struct event_base *evbase, unsigned short port, httpd_request_c
 
   server->request_cb = cb;
   server->request_cb_arg = arg;
+  server->socket.fd4 = -1;
+  server->socket.fd6 = -1;
 
-  server->fd = net_bind_with_reuseport(&port, SOCK_STREAM, "httpd");
-  if (server->fd <= 0)
-    goto error;
-
-  // Backlog of 128 is the same that libevent uses
-  ret = listen(server->fd, 128);
+  ret = net_bind_with_reuseport(&server->socket, &port, SOCK_STREAM, "httpd");
   if (ret < 0)
     goto error;
 
-  ret = evhttp_accept_socket(server->evhttp, server->fd);
-  if (ret < 0)
-    goto error;
+  if (server->socket.fd4 != -1)
+    {
+      ret = listen(server->socket.fd4, 128); // Backlog of 128 is the same that libevent uses
+      if (ret < 0)
+	goto error;
+
+      ret = evhttp_accept_socket(server->evhttp, server->socket.fd4);
+      if (ret < 0)
+	goto error;
+    }
+
+  if (server->socket.fd6 != -1)
+    {
+      ret = listen(server->socket.fd6, 128); // Backlog of 128 is the same that libevent uses
+      if (ret < 0)
+	goto error;
+
+      ret = evhttp_accept_socket(server->evhttp, server->socket.fd6);
+      if (ret < 0)
+	goto error;
+    }
 
   evhttp_set_gencb(server->evhttp, gencb_httpd, server);
 #ifdef HAVE_LIBEVENT22

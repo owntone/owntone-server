@@ -61,6 +61,7 @@ char *
 xml_to_string(xml_node *top, const char *xml_declaration)
 {
   xmlBuffer *buf;
+  const xmlChar *xml_string;
   char *s;
 
   buf = xmlBufferCreate();
@@ -72,7 +73,9 @@ xml_to_string(xml_node *top, const char *xml_declaration)
 
   xmlNodeDump(buf, top->doc, top, 0, 0);
 
-  s = strdup((char *)buf->content);
+  xml_string = xmlBufferContent(buf);
+
+  s = xml_string ? strdup((char *)xml_string) : NULL;
 
   xmlBufferFree(buf);
 
@@ -108,6 +111,9 @@ xml_from_file(const char *path)
 void
 xml_free(xml_node *top)
 {
+  if (!top || !top->doc)
+    return;
+
   xmlFreeDoc(top->doc);
 }
 

@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.60])
-AC_INIT([owntone], [28.12])
+AC_INIT([owntone], [29.0])
 
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -26,7 +26,7 @@ AS_IF([[test -z "$GPERF"]],
 		[AM_MISSING_PROG([GPERF], [[gperf]])
 		AC_MSG_NOTICE([[
 
-GNU gperf not found, but it's output appears to be present.
+GNU gperf not found, but its output appears to be present.
 If you modify any .gperf files, you will need to install it.]])],
 		[AC_MSG_ERROR([[GNU gperf required, please install it.]])])
 	])
@@ -75,25 +75,33 @@ AC_SEARCH_LIBS([timer_settime], [rt],
 AC_SEARCH_LIBS([pthread_exit], [pthread], [],
 	[AC_MSG_ERROR([[pthreads library is required]])])
 AC_SEARCH_LIBS([pthread_setname_np], [pthread],
-	[dnl Validate pthread_setname_np with 2 args (some have 1)
-	 AC_MSG_CHECKING([[for two-parameter pthread_setname_np]])
+	[AC_MSG_CHECKING([[for two-parameter pthread_setname_np]])
 	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@include <pthread.h>]],
 		[[pthread_setname_np(pthread_self(), "name");]])],
 		[AC_MSG_RESULT([yes])
 		 AC_DEFINE([HAVE_PTHREAD_SETNAME_NP], 1,
-			[Define to 1 if you have pthread_setname_np])],
-		[AC_MSG_RESULT([[no]])])],
-	[AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
-		[AC_CHECK_FUNCS([pthread_set_name_np])])])
+			[Define to 1 if you have pthread_setname_np with 2 args])],
+		[AC_MSG_RESULT([[no]])])
+	 AC_MSG_CHECKING([[for MacOS single-parameter pthread_setname_np]])
+	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@include <pthread.h>]],
+		[[pthread_setname_np("name");]])],
+		[AC_MSG_RESULT([yes])
+		 AC_DEFINE([HAVE_PTHREAD_SETNAME_NP_MACOS], 1,
+			[Define to 1 if you have pthread_setname_np with 1 arg])],
+		[AC_MSG_RESULT([[no]])])])
+AC_SEARCH_LIBS([pthread_set_name_np], [pthread],
+	[AC_DEFINE([HAVE_PTHREAD_SET_NAME_NP], 1,
+		[Define to 1 if you have pthread_set_name_np])])
 AC_SEARCH_LIBS([pthread_getname_np], [pthread],
 	[AC_DEFINE([HAVE_PTHREAD_GETNAME_NP], 1,
-		[Define to 1 if you have pthread_getname_np])]
-	[AC_SEARCH_LIBS([pthread_get_name_np], [pthread],
-		[AC_DEFINE([HAVE_PTHREAD_GETNAME_NP], 1,
-			[Define to 1 if you have pthread_get_name_np])])])
+		[Define to 1 if you have pthread_getname_np])])
+AC_SEARCH_LIBS([pthread_get_name_np], [pthread],
+	[AC_DEFINE([HAVE_PTHREAD_GET_NAME_NP], 1,
+		[Define to 1 if you have pthread_get_name_np])])
 AC_SEARCH_LIBS([pthread_getthreadid_np], [pthread],
 	[AC_DEFINE([HAVE_PTHREAD_GETTHREADID_NP], 1,
 		[Define to 1 if you have pthread_getthreadid_np])])
+
 AC_SEARCH_LIBS([uuid_generate_random], [uuid],
 	[AC_DEFINE([HAVE_UUID], 1,
 		[Define to 1 if you have uuid_generate_random])])
@@ -103,6 +111,9 @@ AC_SEARCH_LIBS([copy_file_range], [c],
 AC_SEARCH_LIBS([fcopyfile], [c],
 	[AC_DEFINE([HAVE_FCOPYFILE], 1,
 		[Define to 1 if you have fcopyfile])])
+AC_SEARCH_LIBS([mnt_new_monitor], [mount],
+	[AC_DEFINE([HAVE_LIBMOUNT], 1,
+		[Define to 1 if you have libmount])])
 
 AC_SEARCH_LIBS([log10], [m])
 AC_SEARCH_LIBS([lrint], [m])
@@ -192,6 +203,11 @@ PKG_CHECK_EXISTS([libplist],
 	[OWNTONE_MODULES_CHECK([OWNTONE], [LIBPLIST], [libplist-2.0],
 		[plist_dict_get_item], [plist/plist.h])])
 
+dnl AC_SEARCH_LIBS does not find plist_get_unix_date_val() on MacOS
+OWNTONE_CHECK_DECLS([plist_get_unix_date_val], [plist/plist.h])
+dnl Only in libplist 2.3+
+OWNTONE_CHECK_DECLS([plist_new_int], [plist/plist.h])
+
 AM_PATH_LIBGCRYPT([1:1.7.0])
 OWNTONE_FUNC_REQUIRE([OWNTONE], [GNU Crypt Library], [LIBGCRYPT], [gcrypt],
 	[gcry_control], [gcrypt.h])
@@ -265,6 +281,8 @@ OWNTONE_MODULES_CHECK([OWNTONE], [LIBAV],
 
 AC_CHECK_SIZEOF([void *])
 
+OWNTONE_VAR_PREPEND([OWNTONE_LIBS], [libairptp/src/libairptp.a])
+
 dnl --- Begin configuring the options ---
 dnl ALSA
 OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [ALSA support], [alsa], [ALSA],
@@ -327,7 +345,7 @@ AM_CONDITIONAL([COND_CHROMECAST], [[test "x$enable_chromecast" = "xyes"]])
 AM_CONDITIONAL([COND_PROTOBUF_OLD], [[test "x$protobuf_old" = "xyes"]])
 
 dnl Prefer AirPlay 2
-OWNTONE_ARG_ENABLE([preference for AirPlay 2 for devices that support both 1 and 2], [preferairplay2], [PREFER_AIRPLAY2])
+OWNTONE_ARG_DISABLE([preference for AirPlay 2 for devices that support both 1 and 2], [preferairplay2], [PREFER_AIRPLAY2])
 
 dnl DB profiling support
 OWNTONE_ARG_ENABLE([DB profiling support], [dbprofile], [DB_PROFILE])
@@ -389,6 +407,7 @@ dnl --- End options ---
 
 dnl Unconditional since we always want to produce Makefiles for dist targets
 AC_CONFIG_SUBDIRS([
+	src/libairptp
 	src/inputs/librespot-c
 ])
 

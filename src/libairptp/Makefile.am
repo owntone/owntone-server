@@ -1,0 +1,13 @@
+if BUILD_DAEMON
+DAEMON_SUBDIR = daemon
+endif
+
+if BUILD_TESTS
+TESTS_SUBDIR = tests
+endif
+
+SUBDIRS = src $(DAEMON_SUBDIR) $(TESTS_SUBDIR)
+
+noinst_HEADERS = airptp.h
+
+EXTRA_DIST = README.md LICENSE

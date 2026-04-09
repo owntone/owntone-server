@@ -29,11 +29,7 @@ export default {
   props: { show: Boolean },
   emits: ['close'],
   data() {
-    return {
-      disabled: true,
-      loading: false,
-      url: ''
-    }
+    return { disabled: true, loading: false, url: '' }
   },
   computed: {
     actions() {
@@ -58,17 +54,15 @@ export default {
     }
   },
   methods: {
-    add() {
+    async add() {
       this.loading = true
-      queue
-        .addUri(this.url)
-        .then(() => {
-          this.$emit('close')
-        })
-        .finally(() => {
-          this.url = ''
-          this.loading = false
-        })
+      try {
+        await queue.addUri(this.url)
+        this.$emit('close')
+      } finally {
+        this.url = ''
+        this.loading = false
+      }
     },
     cancel() {
       this.$emit('close')
@@ -77,17 +71,15 @@ export default {
       this.url = url
       this.disabled = disabled
     },
-    play() {
+    async play() {
       this.loading = true
-      queue
-        .playUri(this.url, false)
-        .then(() => {
-          this.$emit('close')
-          this.url = ''
-        })
-        .catch(() => {
-          this.loading = false
-        })
+      try {
+        await queue.playUri(this.url, false)
+        this.$emit('close')
+        this.url = ''
+      } finally {
+        this.loading = false
+      }
     }
   }
 }

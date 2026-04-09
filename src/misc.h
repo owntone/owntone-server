@@ -15,6 +15,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#define NET_CONNECT_TIMEOUT_MS 3000
+#define NET_SOCKET_INIT {-1, -1}
+
+struct net_socket
+{
+  int fd4;
+  int fd6;
+};
+
 union net_sockaddr
 {
   struct sockaddr_in sin;
@@ -31,21 +40,29 @@ int
 net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr);
 
 int
-net_port_get(short unsigned *port, union net_sockaddr *naddr);
+net_sockaddr_get(union net_sockaddr *naddr, const char *addr, unsigned short port);
+
+int
+net_port_get(unsigned short *port, union net_sockaddr *naddr);
 
 int
 net_if_get(char *ifname, size_t ifname_len, const char *addr);
+
+int
+net_mac_get(uint8_t *mac, size_t mac_size, const char *ifname);
 
 // Returns the socket fd from socket(), -1 on error
 int
 net_connect(const char *addr, unsigned short port, int type, const char *log_service_name);
 
-// Returns the socket fd from socket(), -1 on error
-int
-net_bind(short unsigned *port, int type, const char *log_service_name);
+void
+net_socket_close(struct net_socket *socket);
 
 int
-net_bind_with_reuseport(short unsigned *port, int type, const char *log_service_name);
+net_bind(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name);
+
+int
+net_bind_with_reuseport(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name);
 
 // To avoid polluting namespace too much we don't include event2/http.h here
 struct evhttp;
@@ -69,6 +86,8 @@ net_is_http_or_https(const char *url);
 #define be16toh(x) OSSwapBigToHostInt16(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define be32toh(x) OSSwapBigToHostInt32(x)
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
 #endif
 
 // Samples to bytes, bytes to samples
@@ -130,6 +149,10 @@ trim(char *str);
 // Copies the trimmed part of str to a newly allocated string (caller must free)
 char *
 atrim(const char *str);
+
+// Safe against timing attacks (for comparing passwords)
+int
+constant_time_strcmp(const char *a, const char *b);
 
 void
 swap_pointers(char **a, char **b);
@@ -263,6 +286,9 @@ clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec 
 struct timespec
 timespec_add(struct timespec time1, struct timespec time2);
 
+struct timespec
+timespec_sub(struct timespec time1, struct timespec time2);
+
 int
 timespec_cmp(struct timespec time1, struct timespec time2);
 
@@ -316,20 +342,19 @@ buildopts_get(void);
 int
 mutex_init(pthread_mutex_t *mutex);
 
-// wrapper for gettid/pthread_getthreadid_np
 int
-thread_gettid();
+thread_gettid(void);
 
 // wrapper for pthread_getname_np/pthread_get_name_np
 void
-thread_getname(pthread_t thread, char *name, size_t len);
+thread_getname(char *name, size_t len);
 
 void
 thread_getnametid(char *buf, size_t len);
 
 // wrapper for pthread_setname_np/pthread_set_name_np
 void
-thread_setname(pthread_t thread, const char *name);
+thread_setname(const char *name);
 
 void
 uuid_make(char *str);

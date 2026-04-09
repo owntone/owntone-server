@@ -7,11 +7,10 @@ export const usePlayerStore = defineStore('PlayerStore', {
   actions: {
     async initialise() {
       this.$state = await player.state()
-      const queueStore = useQueueStore()
-      if (queueStore.current.track_id) {
-        library.track(queueStore.current.track_id).then((data) => {
-          this.lyricsContent = data.lyrics || ''
-        })
+      const trackId = useQueueStore().current.track_id
+      if (trackId) {
+        const data = await library.track(trackId)
+        this.lyricsContent = data.lyrics || ''
       }
     }
   },

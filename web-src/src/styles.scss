@@ -61,6 +61,7 @@ button.navbar-item:hover {
 
 .overlay-fullscreen {
   @extend .is-overlay;
+  position: fixed;
   z-index: 1;
   background-color: rgba(10, 10, 10, 0.5);
 }

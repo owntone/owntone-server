@@ -277,12 +277,6 @@ rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
       return -1;
     }
 
-  // TODO remove
-  char *xml = NULL;
-  uint32_t xml_len;
-  plist_to_xml(request, &xml, &xml_len);
-  DPRINTF(E_DBG, L_AIRPLAY, "%s\n", xml);
-
   item = plist_dict_get_item(request, "type");
   if (item)
     {
@@ -470,6 +464,9 @@ incoming_cb(int fd, short what, void *arg)
 static void *
 airplay_events(void *arg)
 {
+
+  thread_setname("airplay events");
+
   event_base_dispatch(evbase);
 
   pthread_exit(NULL);
@@ -509,8 +506,6 @@ airplay_events_init(void)
   CHECK_NULL(L_AIRPLAY, evbase = event_base_new());
   CHECK_NULL(L_AIRPLAY, cmdbase = commands_base_new(evbase, NULL));
 
-  DPRINTF(E_INFO, L_AIRPLAY, "AirPlay events thread init\n");
-
   ret = pthread_create(&thread_id, NULL, airplay_events, NULL);
   if (ret < 0)
     {
@@ -518,8 +513,6 @@ airplay_events_init(void)
 
       goto error;
     }
-
-// TODO  thread_name_set(thread_id, "airplay events");
 
   return 0;
 

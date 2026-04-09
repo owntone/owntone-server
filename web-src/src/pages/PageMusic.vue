@@ -54,8 +54,11 @@ export default {
     PaneTitle,
     TabsMusic
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
+  data() {
+    return { albums: [], tracks: null }
+  },
+  async mounted() {
+    const [{ albums }, { tracks }] = await Promise.all([
       library.search({
         expression:
           'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc',
@@ -68,18 +71,9 @@ export default {
         limit: 3,
         type: 'track'
       })
-    ]).then(([{ albums }, { tracks }]) => {
-      next((vm) => {
-        vm.albums = new GroupedList(albums)
-        vm.tracks = new GroupedList(tracks)
-      })
-    })
-  },
-  data() {
-    return {
-      albums: [],
-      tracks: null
-    }
+    ])
+    this.albums = new GroupedList(albums)
+    this.tracks = new GroupedList(tracks)
   }
 }
 </script>

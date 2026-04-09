@@ -55,7 +55,7 @@ export default {
     }
   },
   methods: {
-    update(event, sanitise) {
+    async update(event, sanitise) {
       const value = sanitise?.(event.target)
       if (value === this.setting.value) {
         return
@@ -65,20 +65,17 @@ export default {
         name: this.name,
         value
       }
-      settings
-        .update(setting)
-        .then(() => {
-          window.clearTimeout(this.timerId)
-          this.settingsStore.update(setting)
-        })
-        .catch(() => {
-          this.timerId = -2
-        })
-        .finally(() => {
-          this.timerId = window.setTimeout(() => {
-            this.timerId = -1
-          }, this.timerDelay)
-        })
+      try {
+        await settings.update(setting)
+        window.clearTimeout(this.timerId)
+        this.settingsStore.update(setting)
+      } catch {
+        this.timerId = -2
+      } finally {
+        this.timerId = window.setTimeout(() => {
+          this.timerId = -1
+        }, this.timerDelay)
+      }
     }
   }
 }

@@ -59,17 +59,6 @@ export default {
     ModalDialogComposer,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    Promise.all([
-      library.composer(to.params.name),
-      library.composerTracks(to.params.name)
-    ]).then(([composer, tracks]) => {
-      next((vm) => {
-        vm.composer = composer
-        vm.trackList = new GroupedList(tracks)
-      })
-    })
-  },
   setup() {
     return { uiStore: useUIStore() }
   },
@@ -123,6 +112,14 @@ export default {
       )
       return this.trackList.group(options)
     }
+  },
+  async mounted() {
+    const [composer, tracks] = await Promise.all([
+      library.composer(this.$route.params.name),
+      library.composerTracks(this.$route.params.name)
+    ])
+    this.composer = composer
+    this.trackList = new GroupedList(tracks)
   },
   methods: {
     openAlbums() {

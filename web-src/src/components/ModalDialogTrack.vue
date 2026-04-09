@@ -66,7 +66,7 @@ export default {
             key: 'property.quality',
             value:
               this.item.data_kind !== 'spotify' &&
-              this.$t('dialog.track.quality-value', {
+              this.$t('dialog.track.quality', {
                 bitrate: this.item.bitrate,
                 count: this.item.channels,
                 format: this.item.type,
@@ -79,7 +79,7 @@ export default {
           },
           {
             key: 'property.rating',
-            value: this.$t('dialog.track.rating-value', {
+            value: this.$t('dialog.track.rating', {
               rating: Math.floor(this.item.rating / 10)
             })
           },
@@ -91,19 +91,15 @@ export default {
     }
   },
   methods: {
-    markAsNew() {
-      library.updateTrack(this.item.id, { play_count: 'reset' }).then(() => {
-        this.$emit('play-count-changed')
-        this.$emit('close')
-      })
+    async markAsNew() {
+      await library.updateTrack(this.item.id, { play_count: 'reset' })
+      this.$emit('play-count-changed')
+      this.$emit('close')
     },
-    markAsPlayed() {
-      library
-        .updateTrack(this.item.id, { play_count: 'increment' })
-        .then(() => {
-          this.$emit('play-count-changed')
-          this.$emit('close')
-        })
+    async markAsPlayed() {
+      await library.updateTrack(this.item.id, { play_count: 'increment' })
+      this.$emit('play-count-changed')
+      this.$emit('close')
     },
     openAlbum() {
       this.$emit('close')

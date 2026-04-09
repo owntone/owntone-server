@@ -152,7 +152,7 @@ static const char *spotify_client_id;
 static const char *spotify_client_secret;
 static const char *spotify_redirect_uri;
 
-static const char *spotify_scope         = "playlist-read-private playlist-read-collaborative user-library-read user-read-private streaming";
+static const char *spotify_scope         = "playlist-read-collaborative playlist-read-private streaming user-follow-read user-library-read user-read-private";
 
 static const char *spotify_auth_uri      = "https://accounts.spotify.com/authorize";
 static const char *spotify_token_uri     = "https://accounts.spotify.com/api/token";
@@ -2038,8 +2038,14 @@ spotifywebapi_library_initscan(void)
     }
 
   /*
-   * Scan saved tracks from the web api
+   * Scan saved tracks from the web api (can be disabled in config)
    */
+  if (cfg_getbool(cfg_getsec(cfg, "spotify"), "initscan_disable"))
+    {
+      DPRINTF(E_INFO, L_SPOTIFY, "Skipping Spotify library scan on startup as configured\n");
+      return 0;
+    }
+
   scan(SPOTIFY_REQUEST_TYPE_RESCAN);
   return 0;
 }

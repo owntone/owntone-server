@@ -14,9 +14,9 @@
 <script>
 import ListProperties from '@/components/ListProperties.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import player from '@/api/player'
 import queue from '@/api/queue'
+import services from '@/api/services'
 import { useServicesStore } from '@/stores/services'
 
 export default {
@@ -28,9 +28,7 @@ export default {
     return { servicesStore: useServicesStore() }
   },
   data() {
-    return {
-      spotifyTrack: {}
-    }
+    return { spotifyTrack: {} }
   },
   computed: {
     actions() {
@@ -62,7 +60,9 @@ export default {
           },
           {
             key: 'property.position',
-            value: [this.item.disc_number, this.item.track_number].join(' / ')
+            value:
+              this.item.track_number > 0 &&
+              [this.item.disc_number, this.item.track_number].join(' / ')
           },
           {
             key: 'property.duration',
@@ -75,12 +75,14 @@ export default {
           },
           {
             key: 'property.quality',
-            value: this.$t('dialog.track.quality-value', {
-              bitrate: this.item.bitrate,
-              count: this.item.channels,
-              format: this.item.type,
-              samplerate: this.item.samplerate
-            })
+            value:
+              this.item.data_kind !== 'spotify' &&
+              this.$t('dialog.track.quality', {
+                bitrate: this.item.bitrate,
+                count: this.item.channels,
+                format: this.item.type,
+                samplerate: this.item.samplerate
+              })
           }
         ],
         uri: this.item.uri
@@ -88,18 +90,16 @@ export default {
     }
   },
   watch: {
-    item() {
-      if (this.item?.data_kind === 'spotify') {
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(this.servicesStore.spotify.webapi_token)
-        spotifyApi
-          .getTrack(this.item.path.slice(this.item.path.lastIndexOf(':') + 1))
-          .then((response) => {
-            this.spotifyTrack = response
-          })
-      } else {
+    async item() {
+      if (this.item?.data_kind !== 'spotify') {
         this.spotifyTrack = {}
+        return {}
       }
+      const { api } = await services.spotify.get()
+      const trackId = this.item.path.slice(this.item.path.lastIndexOf(':') + 1)
+      const response = await api.tracks.get(trackId)
+      this.spotifyTrack = response
+      return response
     }
   },
   methods: {

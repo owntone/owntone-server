@@ -34,10 +34,6 @@ general {
 	# Websocket port for the web interface.
 #	websocket_port = 3688
 
-	# Websocket interface to bind listener to (e.g. "eth0"). Default is
-	# disabled, which means listen on all interfaces.
-#	websocket_interface = ""
-
 	# Sets who is allowed to connect without authorisation. This applies to
 	# client types like Remotes, DAAP clients (iTunes) and to the web
 	# interface. Options are "any", "lan", "localhost", "none" or the prefix
@@ -67,6 +63,12 @@ general {
 	# unusual platform and experience audio drop-outs, you can try changing
 	# this option
 #	high_resolution_clock = yes
+
+	# Milliseconds the audio outputs should buffer before starting playback.
+	# The default is 2250 ms due to old Airplay device hardcoding. You may
+	# be able to reduce this to 500 ms, which most listeners will perceive
+	# as starting "instantly".
+#	start_buffer_ms = 2250
 }
 
 # Library configuration
@@ -205,7 +207,7 @@ library {
 #	force_decode = { "format", "format" }
 	# Prefer transcode to wav (default), alac or mpeg (mp3 with the bit rate
 	# configured below in the streaming section). Note that alac requires
-	# precomputing and caching mp4 headers, which takes both cpu and disk. 
+	# precomputing and caching mp4 headers, which takes both cpu and disk.
 #	prefer_format = "format"
 
 	# Set ffmpeg filters (similar to 'ffmpeg -af xxx') that you want the
@@ -287,12 +289,6 @@ audio {
 	# are better off disabling the feature.
 #	sync_disable = false
 
-	# Here you can adjust when local audio is started relative to other
-	# speakers, e.g. Airplay. Negative values correspond to moving local
-	# audio ahead, positive correspond to delaying it. The unit is
-	# milliseconds. The offset must be between -1000 and 1000 (+/- 1 sec).
-#	offset_ms = 0
-
 	# To calculate what and if resampling is required, local audio delay is
 	# measured each second. After a period the collected measurements are
 	# used to estimate drift and latency, which determines if corrections
@@ -327,9 +323,9 @@ audio {
 
 # AirPlay settings common to all devices
 #airplay_shared {
-        # UDP ports used when airplay devices make connections back to
-	# OwnTone (choosing specific ports may be helpful when running
-	# OwnTone behind a firewall)
+	# UDP ports used when Airplay 2 devices make connections to the server.
+	# By default random ports are used, but that can make firewall rules
+	# difficult to make. Airplay 1 devices will always use random ports.
 #       control_port = 0
 #       timing_port = 0
 
@@ -409,6 +405,13 @@ spotify {
 	# it will only appear in one album when browsing (in which album is
 	# random).
 #	album_override = false
+
+	# Disable automatic Spotify library scanning on startup
+	# When set to true, OwnTone will skip the Spotify library
+	# scan for saved albums/playlists/shows during server initialization. 
+	# Spotify playback remains available immediately after startup. 
+	# Manual or API-triggered rescans continue to work as before.
+#	initscan_disable = false
 }
 
 # RCP/Roku Soundbridge output settings
@@ -418,7 +421,7 @@ spotify {
 	# list
 #	exclude = false
 
-	# A Roku/SoundBridge can power up in 2 modes: (default) reconnect to the 
+	# A Roku/SoundBridge can power up in 2 modes: (default) reconnect to the
 	# previously used library (ie OwnTone) or in a 'cleared library' mode.
 	# The Roku power up behaviour is affected by how OwnTone disconnects
 	# from the Roku device.

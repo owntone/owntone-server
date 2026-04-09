@@ -5,14 +5,13 @@
     </template>
     <template #actions>
       <control-button
-        :button="{ handler: openDetails, icon: 'dots-horizontal' }"
-      />
-      <control-button
-        :button="{ handler: play, icon: 'shuffle', key: 'actions.shuffle' }"
+        v-for="button in buttons"
+        :key="button.key"
+        :button="button"
       />
     </template>
     <template #content>
-      <list-albums-spotify :items="albums" :load="load" />
+      <list-albums-spotify v-if="albums.length" :items="albums" :load="load" />
     </template>
   </content-with-heading>
   <modal-dialog-artist-spotify
@@ -28,10 +27,8 @@ import ControlButton from '@/components/ControlButton.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
-import SpotifyWebApi from 'spotify-web-api-js'
 import queue from '@/api/queue'
 import services from '@/api/services'
-import { useServicesStore } from '@/stores/services'
 
 const PAGE_SIZE = 50
 
@@ -44,31 +41,6 @@ export default {
     ModalDialogArtistSpotify,
     PaneTitle
   },
-  beforeRouteEnter(to, from, next) {
-    services.spotify().then((data) => {
-      const spotifyApi = new SpotifyWebApi()
-      spotifyApi.setAccessToken(data.webapi_token)
-      Promise.all([
-        spotifyApi.getArtist(to.params.id),
-        spotifyApi.getArtistAlbums(to.params.id, {
-          include_groups: 'album,single',
-          limit: PAGE_SIZE,
-          market: useServicesStore().spotify.webapi_country,
-          offset: 0
-        })
-      ]).then(([artist, albums]) => {
-        next((vm) => {
-          vm.artist = artist
-          vm.albums = albums.items
-          vm.total = albums.total
-          vm.offset = albums.limit
-        })
-      })
-    })
-  },
-  setup() {
-    return { servicesStore: useServicesStore() }
-  },
   data() {
     return {
       albums: [],
@@ -79,6 +51,17 @@ export default {
     }
   },
   computed: {
+    buttons() {
+      return [
+        { handler: this.openDetails, icon: 'dots-horizontal' },
+        {
+          handler: this.playTopTracks,
+          icon: 'play',
+          key: this.$t('actions.play-top-tracks')
+        },
+        { handler: this.play, icon: 'shuffle', key: 'actions.shuffle' }
+      ]
+    },
     heading() {
       return {
         subtitle: [{ count: this.total, key: 'data.albums' }],
@@ -86,27 +69,38 @@ export default {
       }
     }
   },
+  async mounted() {
+    const { api, configuration } = await services.spotify.get()
+    const [artist, albums] = await Promise.all([
+      api.artists.get(this.$route.params.id),
+      api.artists.albums(
+        this.$route.params.id,
+        'album,single',
+        configuration.webapi_country,
+        PAGE_SIZE,
+        0
+      )
+    ])
+    this.artist = artist
+    this.appendAlbums(albums)
+  },
   methods: {
     appendAlbums(data) {
       this.albums = this.albums.concat(data.items)
       this.total = data.total
       this.offset += data.limit
     },
-    load({ loaded }) {
-      services.spotify().then((data) => {
-        const spotifyApi = new SpotifyWebApi()
-        spotifyApi.setAccessToken(data.webapi_token)
-        spotifyApi
-          .getArtistAlbums(this.artist.id, {
-            include_groups: 'album,single',
-            limit: PAGE_SIZE,
-            offset: this.offset
-          })
-          .then((albums) => {
-            this.appendAlbums(albums)
-            loaded(albums.items.length, PAGE_SIZE)
-          })
-      })
+    async load({ loaded }) {
+      const { api, configuration } = await services.spotify.get()
+      const albums = await api.artists.albums(
+        this.artist.id,
+        'album,single',
+        configuration.webapi_country,
+        PAGE_SIZE,
+        this.offset
+      )
+      this.appendAlbums(albums)
+      loaded(albums.items.length, PAGE_SIZE)
     },
     openDetails() {
       this.showDetailsModal = true
@@ -114,6 +108,15 @@ export default {
     play() {
       this.showDetailsModal = false
       queue.playUri(this.artist.uri, true)
+    },
+    async playTopTracks() {
+      const { api, configuration } = await services.spotify.get()
+      const tracks = await api.artists.topTracks(
+        this.artist.id,
+        configuration.webapi_country
+      )
+      const uris = tracks.tracks.map((item) => item.uri).join(',')
+      queue.playUri(uris, false)
     }
   }
 }

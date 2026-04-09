@@ -24,7 +24,9 @@ import PageMusicRecentlyAdded from '@/pages/PageMusicRecentlyAdded.vue'
 import PageMusicRecentlyPlayed from '@/pages/PageMusicRecentlyPlayed.vue'
 import PageMusicSpotify from '@/pages/PageMusicSpotify.vue'
 import PageMusicSpotifyFeaturedPlaylists from '@/pages/PageMusicSpotifyFeaturedPlaylists.vue'
+import PageMusicSpotifyFollowedArtists from '@/pages/PageMusicSpotifyFollowedArtists.vue'
 import PageMusicSpotifyNewReleases from '@/pages/PageMusicSpotifyNewReleases.vue'
+import PageOutputs from '@/pages/PageOutputs.vue'
 import PagePlayer from '@/pages/PagePlayer.vue'
 import PagePlaylistFolder from '@/pages/PagePlaylistFolder.vue'
 import PagePlaylistTracks from '@/pages/PagePlaylistTracks.vue'
@@ -109,6 +111,11 @@ export const router = createRouter({
       redirect: { name: 'audiobook-artists' }
     },
     {
+      component: PageOutputs,
+      name: 'outputs',
+      path: '/outputs'
+    },
+    {
       name: 'music',
       path: '/music',
       redirect: { name: 'music-history' }
@@ -137,6 +144,11 @@ export const router = createRouter({
       component: PageMusicSpotifyFeaturedPlaylists,
       name: 'music-spotify-featured-playlists',
       path: '/music/spotify/featured-playlists'
+    },
+    {
+      component: PageMusicSpotifyFollowedArtists,
+      name: 'music-spotify-followed-artists',
+      path: '/music/spotify/followed-artists'
     },
     {
       component: PageMusicSpotifyNewReleases,

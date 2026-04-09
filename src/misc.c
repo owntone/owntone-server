@@ -49,9 +49,17 @@
 #endif
 
 #include <fcntl.h>
+#include <poll.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h> // getifaddrs
+
+#if defined(__linux__)
+# include <sys/ioctl.h>
+# include <net/if.h>
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+# include <net/if_dl.h>
+#endif
 
 #include <event2/http.h> // evhttp_bind
 
@@ -276,8 +284,31 @@ net_address_get(char *addr, size_t addr_len, union net_sockaddr *naddr)
   return 0;
 }
 
+// Maybe use getaddrinfo instead?
 int
-net_port_get(short unsigned *port, union net_sockaddr *naddr)
+net_sockaddr_get(union net_sockaddr *naddr, const char *addr, unsigned short port)
+{
+  memset(naddr, 0, sizeof(union net_sockaddr));
+
+  if (inet_pton(AF_INET, addr, &naddr->sin.sin_addr) == 1)
+    {
+      naddr->sin.sin_family = AF_INET;
+      naddr->sin.sin_port = htons(port);
+      return 0;
+    }
+
+  if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6") && inet_pton(AF_INET6, addr, &naddr->sin6.sin6_addr) == 1)
+    {
+      naddr->sin6.sin6_family = AF_INET6;
+      naddr->sin6.sin6_port = htons(port);
+      return 0;
+    }
+
+  return -1;
+}
+
+int
+net_port_get(unsigned short *port, union net_sockaddr *naddr)
 {
   if (naddr->sa.sa_family == AF_INET6)
      *port = ntohs(naddr->sin6.sin6_port);
@@ -320,15 +351,156 @@ net_if_get(char *ifname, size_t ifname_len, const char *addr)
   return (ifname[0] != 0) ? 0 : -1;
 }
 
+int
+net_mac_get(uint8_t *mac, size_t mac_size, const char *ifname)
+{
+#define MAC_LENGTH 6
+  if (mac_size < MAC_LENGTH || !ifname)
+    return -1;
+
+#if defined(__linux__)
+  struct ifreq ifr;
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+  if (sockfd < 0)
+    return -1;
+
+  strncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);
+  ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
+  if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) < 0)
+    {
+      close(sockfd);
+      return -1;
+    }
+
+  memcpy(mac, ifr.ifr_hwaddr.sa_data, MAC_LENGTH);
+  close(sockfd);
+  return 0;
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+  struct ifaddrs *ifap, *ifaptr;
+  struct sockaddr_dl *sdl;
+
+  if (getifaddrs(&ifap) != 0)
+    return -1;
+
+  for (ifaptr = ifap; ifaptr != NULL; ifaptr = ifaptr->ifa_next)
+    {
+      if (strcmp(ifaptr->ifa_name, ifname) == 0 && ifaptr->ifa_addr->sa_family == AF_LINK)
+	{
+	  sdl = (struct sockaddr_dl *)ifaptr->ifa_addr;
+          memcpy(mac, LLADDR(sdl), MAC_LENGTH);
+          freeifaddrs(ifap);
+          return 0;
+        }
+    }
+
+  freeifaddrs(ifap);
+  return -1;
+#else
+  return -1;
+#endif
+
+#undef MAC_LENGTH
+}
+
 static int
-net_connect_impl(const char *addr, unsigned short port, int type, const char *log_service_name, bool set_nonblock)
+net_connect_addrinfo(struct addrinfo *ai, int timeout_ms, bool set_nonblock, const char **errmsg)
+{
+  int fd = -1;
+  int flags;
+  struct pollfd pollfd;
+  socklen_t len;
+  int error;
+  int ret;
+
+  fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+  if (fd < 0)
+    {
+      *errmsg = strerror(errno);
+      goto error;
+    }
+
+  // For Linux we could just give SOCK_CLOEXEC to socket(), but that won't work
+  // with MacOS, so we have to use fcntl()
+  flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0)
+    {
+      *errmsg = "fcntl() with F_GETFL returned an error";
+      goto error;
+    }
+
+  ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_CLOEXEC);
+  if (ret < 0)
+    {
+      *errmsg = "fcntl() with F_SETFL non-block returned an error";
+      goto error;
+    }
+
+  // We often need to wait for the connection. On Linux this seems always to be
+  // the case, but FreeBSD connect() sometimes returns immediate success.
+  ret = connect(fd, ai->ai_addr, ai->ai_addrlen);
+  if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of nonblock
+    {
+      *errmsg = strerror(errno);
+      goto error;
+    }
+  else if (ret != 0)
+    {
+      // Use poll here since select requires using fdset that would be
+      // overflowed in FreeBSD
+      pollfd.fd = fd;
+      pollfd.events = POLLOUT;
+
+      ret = poll(&pollfd, 1, timeout_ms);
+      if (ret < 0)
+	{
+	  *errmsg = strerror(errno);
+	  goto error;
+	}
+      else if (ret == 0)
+	{
+	  *errmsg = "Timed out trying to connect";
+	  goto error;
+	}
+
+      len = sizeof(error);
+      ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len);
+      if (ret < 0 || error)
+	{
+	  *errmsg = error ? strerror(error) : strerror(errno);
+	  goto error;
+	}
+    }
+
+  if (!set_nonblock)
+    {
+      ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
+      if (ret < 0)
+	{
+	  *errmsg = "fcntl() with F_SETFL block returned an error";
+	  goto error;
+	}
+    }
+
+  return fd;
+
+ error:
+  if (fd >= 0)
+    close(fd);
+
+  return -1;
+}
+
+static int
+net_connect_impl(const char *addr, unsigned short port, int type, const char *log_service_name, int timeout_ms, bool set_nonblock)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
-  struct addrinfo *ptr;
+  struct addrinfo *ai;
   char strport[8];
-  int flags;
-  int fd;
+  const char *errmsg = NULL;
+  int fd = -1;
   int ret;
 
   DPRINTF(E_DBG, L_MISC, "Connecting to '%s' at %s (port %u)\n", log_service_name, addr, port);
@@ -338,51 +510,26 @@ net_connect_impl(const char *addr, unsigned short port, int type, const char *lo
 
   snprintf(strport, sizeof(strport), "%hu", port);
   ret = getaddrinfo(addr, strport, &hints, &servinfo);
-  if (ret < 0)
+  if (ret != 0)
     {
       DPRINTF(E_LOG, L_MISC, "Could not get '%s' address info for %s (port %u): %s\n", log_service_name, addr, port, gai_strerror(ret));
       return -1;
     }
 
-  for (ptr = servinfo; ptr; ptr = ptr->ai_next)
+  for (ai = servinfo; ai && fd < 0; ai = ai->ai_next)
     {
-      fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-      if (fd < 0)
-	{
-	  continue;
-	}
-
-      // For Linux we could just give SOCK_CLOEXEC to socket(), but that won't
-      // work with MacOS, so we have to use fcntl()
-      flags = fcntl(fd, F_GETFL, 0);
-      if (flags < 0)
-	continue;
-      if (set_nonblock)
-	ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_CLOEXEC);
-      else
-	ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
-      if (ret < 0)
-	continue;
-
-      ret = connect(fd, ptr->ai_addr, ptr->ai_addrlen);
-      if (ret < 0 && errno != EINPROGRESS) // EINPROGRESS in case of nonblock
-	{
-	  close(fd);
-	  continue;
-	}
-
-      break;
+      fd = net_connect_addrinfo(ai, timeout_ms, set_nonblock, &errmsg);
     }
 
   freeaddrinfo(servinfo);
 
-  if (!ptr)
+  if (fd < 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, strerror(errno));
+      DPRINTF(E_LOG, L_MISC, "Could not connect to '%s' at %s (port %u): %s\n", log_service_name, addr, port, errmsg);
       return -1;
     }
 
-  // net_address_get(ipaddr, sizeof(ipaddr), (union net_sockaddr *)ptr->ai-addr);
+  // net_address_get(ipaddr, sizeof(ipaddr), (union net_sockaddr *)ai->ai-addr);
 
   return fd;
 }
@@ -390,21 +537,32 @@ net_connect_impl(const char *addr, unsigned short port, int type, const char *lo
 int
 net_connect(const char *addr, unsigned short port, int type, const char *log_service_name)
 {
-  return net_connect_impl(addr, port, type, log_service_name, false);
+  return net_connect_impl(addr, port, type, log_service_name, NET_CONNECT_TIMEOUT_MS, false);
+}
+
+void
+net_socket_close(struct net_socket *socket)
+{
+  if (socket->fd4 >= 0)
+    close(socket->fd4);
+  if (socket->fd6 >= 0)
+    close(socket->fd6);
+
+  socket->fd4 = -1;
+  socket->fd6 = -1;
 }
 
 // If *port is 0 then a random port will be assigned, and *port will be updated
 // with the port number. SOCK_STREAM type services are set to use non-blocking
 // sockets.
 static int
-net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool reuseport)
+bind_one(const char *node, unsigned short *port, int type, int family, const char *log_service_name, bool reuseport)
 {
   struct addrinfo hints = { 0 };
   struct addrinfo *servinfo;
   struct addrinfo *ptr;
   union net_sockaddr naddr = { 0 };
   socklen_t naddr_len = sizeof(naddr);
-  const char *cfgaddr;
   char addr[INET6_ADDRSTRLEN];
   char strport[8];
   int flags;
@@ -413,17 +571,15 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
   int fd = -1;
   int ret;
 
-  cfgaddr = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
-
   hints.ai_socktype = type;
-  hints.ai_family = (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6")) ? AF_INET6 : AF_INET;
-  hints.ai_flags = cfgaddr ? 0 : AI_PASSIVE;
+  hints.ai_family = family;
+  hints.ai_flags = node ? 0 : AI_PASSIVE;
 
   snprintf(strport, sizeof(strport), "%hu", *port);
-  ret = getaddrinfo(cfgaddr, strport, &hints, &servinfo);
-  if (ret < 0)
+  ret = getaddrinfo(node, strport, &hints, &servinfo);
+  if (ret != 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Failure creating '%s' service, could not resolve '%s' (port %s): %s\n", log_service_name, cfgaddr ? cfgaddr : "(ANY)", strport, gai_strerror(ret));
+      DPRINTF(E_LOG, L_MISC, "Failure creating '%s' service, could not resolve '%s' (port %s): %s\n", log_service_name, node ? node : "(ANY)", strport, gai_strerror(ret));
       return -1;
     }
 
@@ -441,18 +597,12 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
       flags = fcntl(fd, F_GETFL, 0);
       if (flags < 0)
 	continue;
-      if (type == SOCK_STREAM)
-	ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK | O_CLOEXEC);
-      else
-	ret = fcntl(fd, F_SETFL, flags | O_CLOEXEC);
+      ret = fcntl(fd, F_SETFL, (type == SOCK_STREAM) ? flags | O_NONBLOCK | O_CLOEXEC : flags | O_CLOEXEC);
       if (ret < 0)
 	continue;
 
       // Makes us able to attach multiple threads to the same port
-      if (reuseport)
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
-      else
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &no, sizeof(no));
+      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, reuseport ? &yes : &no, sizeof(int));
       if (ret < 0)
 	continue;
 
@@ -461,17 +611,18 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
       if (ret < 0)
 	continue;
 
-      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+      // For tcp, SO_REUSE_ADDR means the server can restart quickly. For udp,
+      // the setting would mean that multiple sockets could bind to the same
+      // port, but only one would get the messages.
+      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (type == SOCK_STREAM) ? &yes : &no, sizeof(int));
       if (ret < 0)
 	continue;
 
-      if (ptr->ai_family == AF_INET6)
-	{
-	  // We want to be sure the service is dual stack
-	  ret = setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no));
-	  if (ret < 0)
-	    continue;
-	}
+      // We don't use dual stack (IPV6_V6ONLY=no) because it doesn't work on
+      // MacOS/BSD. Turn if off explicitly.
+      ret = (ptr->ai_family == AF_INET6) ? setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(no)) : 0;
+      if (ret < 0)
+	continue;
 
       ret = bind(fd, ptr->ai_addr, ptr->ai_addrlen);
       if (ret < 0)
@@ -484,7 +635,7 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
 
   if (!ptr)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not create service '%s' with address %s, port %hu: %s\n", log_service_name, cfgaddr ? cfgaddr : "(ANY)", *port, strerror(errno));
+      DPRINTF(E_LOG, L_MISC, "Could not create service '%s' with address %s, port %hu: %s\n", log_service_name, node ? node : "(ANY)", *port, strerror(errno));
       goto error;
     }
 
@@ -515,16 +666,49 @@ net_bind_impl(short unsigned *port, int type, const char *log_service_name, bool
   return -1;
 }
 
-int
-net_bind(short unsigned *port, int type, const char *log_service_name)
+static int
+bind_impl(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name, bool reuseport)
 {
-  return net_bind_impl(port, type, log_service_name, false);
+  const char *bind_address = cfg_getstr(cfg_getsec(cfg, "general"), "bind_address");
+  bool v6_enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
+
+  // Normally comply with config, except for "::" where we want to listen on
+  // both ipv4 and ipv6 (as the comment in the config file says)
+  if (bind_address && strcmp(bind_address, "::") == 0)
+    bind_address = NULL;
+
+  if (v6_enabled)
+    {
+      socket->fd6 = bind_one(bind_address, port, type, AF_INET6, log_service_name, reuseport);
+      if (socket->fd6 < 0)
+	{
+	  DPRINTF(E_LOG, L_MISC, "Could not bind service '%s' for IPv6, falling back to IPv4\n", log_service_name);
+	  v6_enabled = 0;
+	}
+    }
+
+  socket->fd4 = bind_one(bind_address, port, type, AF_INET, log_service_name, reuseport);
+  if (socket->fd4 < 0)
+    {
+      if (!v6_enabled)
+	return -1;
+
+      DPRINTF(E_LOG, L_MISC, "Could not bind service '%s' for IPv4, listening on IPv6 only\n", log_service_name);
+    }
+
+  return 0;
 }
 
 int
-net_bind_with_reuseport(short unsigned *port, int type, const char *log_service_name)
+net_bind(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name)
 {
-  return net_bind_impl(port, type, log_service_name, true);
+  return bind_impl(socket, port, type, log_service_name, false);
+}
+
+int
+net_bind_with_reuseport(struct net_socket *socket, unsigned short *port, int type, const char *log_service_name)
+{
+  return bind_impl(socket, port, type, log_service_name, true);
 }
 
 int
@@ -1002,6 +1186,30 @@ atrim(const char *str)
   memcpy(result, str + start, size);
   result[size - 1] = '\0';
 
+  return result;
+}
+
+int
+constant_time_strcmp(const char *a, const char *b)
+{
+  size_t len_a = strlen(a);
+  size_t len_b = strlen(b);
+  size_t max_len;
+  volatile int result = 0;
+  volatile char ca;
+  volatile char cb;
+  size_t i;
+
+  // Always compare full length to prevent timing leak
+  max_len = MAX(len_a, len_b);
+  for (i = 0; i < max_len; i++)
+    {
+      ca = (i < len_a) ? a[i] : 0;
+      cb = (i < len_b) ? b[i] : 0;
+      result |= ca ^ cb;
+    }
+
+  result |= len_a ^ len_b;
   return result;
 }
 
@@ -1556,6 +1764,21 @@ timespec_add(struct timespec time1, struct timespec time2)
   return result;
 }
 
+struct timespec
+timespec_sub(struct timespec time1, struct timespec time2)
+{
+  struct timespec result;
+
+  result.tv_sec = time1.tv_sec - time2.tv_sec;
+  result.tv_nsec = time1.tv_nsec - time2.tv_nsec;
+  if (result.tv_nsec < 0)
+    {
+      result.tv_sec--;
+      result.tv_nsec += 1000000000L;
+    }
+  return result;
+}
+
 int
 timespec_cmp(struct timespec time1, struct timespec time2)
 {
@@ -1789,26 +2012,29 @@ mutex_init(pthread_mutex_t *mutex)
 }
 
 int
-thread_gettid()
+thread_gettid(void)
 {
-  int tid = -1;
+  int tid;
 #if defined(HAVE_GETTID)
   tid = (int)gettid();
 #elif defined(HAVE_PTHREAD_GETTHREADID_NP)
   tid = pthread_getthreadid_np();
+#else //defacto thread id
+  tid = (int)(intptr_t)pthread_self();
 #endif
   return tid;
 }
 
 void
-thread_getname(pthread_t thread, char *name, size_t len)
+thread_getname(char *name, size_t len)
 {
 #if defined(HAVE_PTHREAD_GETNAME_NP)
-  pthread_getname_np(thread, name, len);
+  pthread_getname_np(pthread_self(), name, len);
 #elif defined(HAVE_PTHREAD_GET_NAME_NP)
-  pthread_get_name_np(thread, name, len);
+  pthread_get_name_np(pthread_self(), name, len);
 #else
-  name[0] = '\0';
+  if (len > 0)
+    name[0] = '\0';
 #endif
 }
 
@@ -1817,20 +2043,21 @@ thread_getnametid(char *buf, size_t len)
 {
   int tid;
   char thread_name[32];
-  pthread_t p = pthread_self();
 
-  thread_getname(p, thread_name, sizeof(thread_name));
+  thread_getname(thread_name, sizeof(thread_name));
   tid = thread_gettid() % 10000;
   snprintf(buf, len, "%s (%d)", thread_name, tid);
 }
 
 void
-thread_setname(pthread_t thread, const char *name)
+thread_setname(const char *name)
 {
 #if defined(HAVE_PTHREAD_SETNAME_NP)
-  pthread_setname_np(thread, name);
+  pthread_setname_np(pthread_self(), name);
+#elif defined(HAVE_PTHREAD_SETNAME_NP_MACOS)
+  pthread_setname_np(name);
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)
-  pthread_set_name_np(thread, name);
+  pthread_set_name_np(pthread_self(), name);
 #endif
 }
 

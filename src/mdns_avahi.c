@@ -802,7 +802,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
   if (event != AVAHI_RESOLVER_FOUND)
     {
       if (event == AVAHI_RESOLVER_FAILURE)
-	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver failure: service '%s' type '%s' proto %d: %s\n", name, type, proto, MDNSERR);
+	DPRINTF(E_WARN, L_MDNS, "Avahi Resolver failure: service '%s' type '%s' proto %d: %s\n", name, type, proto, MDNSERR);
       else
 	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver empty callback\n");
 

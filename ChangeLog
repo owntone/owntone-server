@@ -1,5 +1,31 @@
 # Changelog
 
+## Version 29.0 - 2025-09-12
+
+- fix: client name showing as blank when pairing with MacOS
+- fix: Spotify playback error "Could not find track data"
+- fix: prevent OwnTone from hanging when a tcp connection can't be made
+- fix: use libmount to detect filesystem mount events (previously undetected)
+- fix: build errors with libcurl 7
+- fix: build for platforms without fcopyfile() or copy_file_range()
+- fix: ffmpeg, libplist and libxml2 deprecations
+- fix: null-pointer dereference bug when handling dacp request
+- new: support for "empty" operand in smart playlists
+- new: Spotify OAuth redirection to github page instead of owntone.local
+- web UI 3.0:
+    - enhanced styling, layout consistency, colours streamlined
+    - improve mobile responsiveness, simplify settings pages
+    - added support for dark/light mode switching
+    - switch to Bulma 1.0
+    - fix Spotify search results not paginating correctly
+    - fix translation inconsistencies and errors
+    - add page to control outputs
+    - add followed artists to the Spotify music page
+    - add the cover artwork of Spotify playlists in the modal dialog
+    - display artist visuals from Spotify
+    - show cover of Spotify playlists
+    - switch to Spotify Web SDK
+
 ## Version 28.12 - 2025-02-22
 
 - fix: possible deadlock during Spotify scan

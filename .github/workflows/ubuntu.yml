@@ -1,4 +1,6 @@
 name: Ubuntu
+permissions:
+  contents: read
 
 on:
   push:

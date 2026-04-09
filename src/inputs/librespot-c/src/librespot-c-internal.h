@@ -37,6 +37,7 @@
 #include "proto/authentication.pb-c.h"
 #include "proto/mercury.pb-c.h"
 #include "proto/metadata.pb-c.h"
+#include "proto/extended_metadata.pb-c.h"
 #include "proto/clienttoken.pb-c.h"
 #include "proto/login5.pb-c.h"
 #include "proto/storage_resolve.pb-c.h"

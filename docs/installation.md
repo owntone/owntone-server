@@ -9,7 +9,7 @@ platforms. These can save you some work and make it easier to stay up to date:
 |Platform              | How to get
 |----------------------|---------------------------------------------------------
 |RPi w/Raspberry Pi OS | Add OwnTone repository to apt sources<br>(See: [Raspberry Pi Forums](http://www.raspberrypi.org/phpBB3/viewtopic.php?t=49928))
-|Debian/Ubuntu amd64   | Download the .deb package as artifact from the [Github workflow](https://github.com/owntone/owntone-apt/actions)<br>(requires that you are logged in)
+|Debian/Ubuntu amd64   | Packages available [here](https://github.com/owntone/owntone-apt/tree/dpkg/owntone-server)
 |OpenWrt               | Run `opkg install libwebsockets-full owntone`
 |Docker / Podman       | See [official image](https://github.com/owntone/owntone-container)
 |FreeBSD               | Run `pkg install owntone` (See: [FreeBSD ports](https://cgit.freebsd.org/ports/tree/audio/owntone))

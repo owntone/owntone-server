@@ -3,23 +3,15 @@ import services from '@/api/services'
 
 export const useServicesStore = defineStore('ServicesStore', {
   actions: {
-    async initialiseLastfm() {
-      this.lastfm = await services.lastfm()
-    },
-    initialiseSpotify() {
-      services.spotify().then((data) => {
-        this.spotify = data
-        if (this.spotifyTimerId > 0) {
-          clearTimeout(this.spotifyTimerId)
-          this.spotifyTimerId = 0
-        }
-        if (data.webapi_token_expires_in > 0 && data.webapi_token) {
-          this.spotifyTimerId = setTimeout(
-            () => this.initialiseSpotify(),
-            1000 * data.webapi_token_expires_in
-          )
-        }
-      })
+    async initialise() {
+      const [lastfm, listenbrainz, spotify] = await Promise.all([
+        services.lastfm.get(),
+        services.listenbrainz.get(),
+        services.spotify.get()
+      ])
+      this.lastfm = lastfm
+      this.listenbrainz = listenbrainz
+      this.spotify = spotify.configuration
     }
   },
   getters: {
@@ -30,6 +22,8 @@ export const useServicesStore = defineStore('ServicesStore', {
       !state.isSpotifyActive || state.hasMissingSpotifyScopes,
     isLastfmActive: (state) => state.lastfm.scrobbling_enabled,
     isLastfmEnabled: (state) => state.lastfm.enabled,
+    isListenBrainzEnabled: (state) => state.listenbrainz.enabled,
+    isListenBrainzActive: (state) => state.listenbrainz.token_valid,
     isSpotifyActive: (state) => state.spotify.webapi_token_valid,
     isSpotifyEnabled: (state) => state.spotify.spotify_installed,
     missingSpotifyScopes(state) {
@@ -41,5 +35,5 @@ export const useServicesStore = defineStore('ServicesStore', {
     requiredSpotifyScopes: (state) =>
       state.spotify.webapi_required_scope?.split(' ') ?? []
   },
-  state: () => ({ lastfm: {}, spotify: {}, spotifyTimerId: 0 })
+  state: () => ({ lastfm: {}, listenbrainz: {}, spotify: {} })
 })

@@ -93,6 +93,8 @@ struct fifo_session
 
   int created;
 
+  struct timespec delay;
+
   uint64_t device_id;
   int callback_id;
 };
@@ -249,12 +251,22 @@ static struct fifo_session *
 fifo_session_make(struct output_device *device, int callback_id)
 {
   struct fifo_session *fifo_session;
+  uint64_t delay_ms;
 
   CHECK_NULL(L_FIFO, fifo_session = calloc(1, sizeof(struct fifo_session)));
 
   fifo_session->state = OUTPUT_STATE_CONNECTED;
   fifo_session->device_id = device->id;
   fifo_session->callback_id = callback_id;
+
+  delay_ms = outputs_buffer_duration_ms_get();
+  if (delay_ms + device->offset_ms < 0)
+    DPRINTF(E_LOG, L_FIFO, "'%s' configured with invalid start time (delay=%" PRIu64 ", offset=%d)\n", device->name, delay_ms, device->offset_ms);
+  else
+    delay_ms += device->offset_ms;
+
+  fifo_session->delay.tv_sec = delay_ms / 1000;
+  fifo_session->delay.tv_nsec = (delay_ms % 1000) * 1000000UL;
 
   fifo_session->created = 0;
   fifo_session->path = device->extra_device_info;
@@ -430,8 +442,7 @@ fifo_write(struct output_buffer *obuf)
   if (!buffer.tail)
     buffer.tail = packet;
 
-  now.tv_sec = obuf->pts.tv_sec - OUTPUTS_BUFFER_DURATION;
-  now.tv_nsec = obuf->pts.tv_sec;
+  now = timespec_sub(obuf->pts, fifo_session->delay);
 
   while (buffer.tail && (timespec_cmp(buffer.tail->pts, now) == -1))
     {
@@ -479,6 +490,12 @@ fifo_init(void)
   if (!path)
     return -1;
 
+  if (outputs_exclusive_mode_get() && !(cfg_fifo && cfg_getbool(cfg_fifo, "exclusive")))
+    {
+      DPRINTF(E_INFO, L_FIFO, "fifo output ignored, other speaker(s) set as exclusive\n");
+      return -1;
+    }
+
   nickname = cfg_getstr(cfg_fifo, "nickname");
 
   memset(&buffer, 0, sizeof(struct fifo_buffer));
@@ -508,6 +525,7 @@ fifo_deinit(void)
 struct output_definition output_fifo =
 {
   .name = "fifo",
+  .cfg_name = "fifo",
   .type = OUTPUT_TYPE_FIFO,
   .priority = 98,
   .disabled = 0,

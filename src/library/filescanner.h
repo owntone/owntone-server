@@ -4,6 +4,13 @@
 
 #include "db.h"
 
+enum mountwatch_event
+{
+  MOUNTWATCH_ERR = -1,
+  MOUNTWATCH_NONE = 0,
+  MOUNTWATCH_MOUNT = 1,
+  MOUNTWATCH_UNMOUNT = 2,
+};
 
 /* --------------------------- Actual scanners ---------------------------- */
 
@@ -83,5 +90,14 @@ playlist_add(const char *path);
 
 int
 write_metadata_ffmpeg(const struct media_file_info *mfi);
+
+int
+mountwatch_event_get(char **path);
+
+void
+mountwatch_deinit(void);
+
+int
+mountwatch_init(void);
 
 #endif /* !__FILESCANNER_H__ */

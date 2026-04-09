@@ -1,5 +1,4 @@
 <template>
-  <vue-progress-bar class="has-background-primary" />
   <navbar-top />
   <router-view v-slot="{ Component }">
     <component :is="Component" />
@@ -63,10 +62,7 @@ export default {
     }
   },
   data() {
-    return {
-      handlers: {},
-      scheduledHandlers: new Map()
-    }
+    return { handlers: {}, scheduledHandlers: new Map() }
   },
   watch: {
     'uiStore.showBurgerMenu'() {
@@ -79,28 +75,16 @@ export default {
   created() {
     this.handlers = {
       database: [this.libraryStore.initialise],
-      lastfm: [this.servicesStore.initialiseLastfm],
       options: [this.playerStore.initialise],
       outputs: [this.outputsStore.initialise],
       pairing: [this.remotesStore.initialise],
       player: [this.playerStore.initialise],
       queue: [this.queueStore.initialise],
       settings: [this.settingsStore.initialise],
-      spotify: [this.servicesStore.initialiseSpotify],
+      services: [this.servicesStore.initialise],
       update: [this.libraryStore.initialise],
       volume: [this.playerStore.initialise, this.outputsStore.initialise]
     }
-    this.$router.beforeEach(async (to, from, next) => {
-      await this.configurationStore.initialise()
-      this.updateClipping()
-      if (!(to.path === from.path && to.hash)) {
-        this.$Progress.start()
-      }
-      next()
-    })
-    this.$router.afterEach(() => {
-      this.$Progress.finish()
-    })
     this.connect()
   },
   beforeUnmount() {
@@ -154,14 +138,13 @@ export default {
       const socket = this.createWebsocket()
       const events = [
         'database',
-        'lastfm',
         'options',
         'outputs',
         'pairing',
         'player',
         'queue',
         'settings',
-        'spotify',
+        'services',
         'update',
         'volume'
       ]

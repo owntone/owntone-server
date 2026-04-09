@@ -35,12 +35,6 @@
 // as one.
 #define OUTPUTS_MAX_QUALITY_SUBSCRIPTIONS 5
 
-// Number of seconds the outputs should buffer before starting playback. Note
-// this value cannot freely be changed because 1) some Airplay devices ignore
-// the values we give and stick to 2 seconds, 2) those devices that can handle
-// different values can only do so within a limited range (maybe max 3 secs)
-#define OUTPUTS_BUFFER_DURATION 2
-
 // Whether the device should be *displayed* as selected is not given by
 // device->selected, since that means "has the user selected the device",
 // without taking into account whether it is working or available. This macro
@@ -140,6 +134,9 @@ struct output_device
   enum media_format default_format;
   uint32_t supported_formats;
 
+  // For user config of speaker start
+  int offset_ms;
+
   // Address
   char *v4_address;
   char *v6_address;
@@ -201,6 +198,9 @@ struct output_definition
 {
   // Name of the output
   const char *name;
+
+  // The output's config section name in the config file
+  const char *cfg_name;
 
   // Type of output
   enum output_types type;
@@ -275,6 +275,12 @@ struct output_definition
 
 struct output_device *
 outputs_device_get(uint64_t device_id);
+
+uint64_t
+outputs_buffer_duration_ms_get(void);
+
+bool
+outputs_exclusive_mode_get(void);
 
 /* ----------------------- Called by backend modules ------------------------ */
 

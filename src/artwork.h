@@ -13,7 +13,7 @@
 #include <stdbool.h>
 
 /*
- * Get the artwork image for an individual item (track)
+ * Get the artwork image for an individual library item (track)
  *
  * @out evbuf    Event buffer that will contain the (scaled) image
  * @in  id       The mfi item id
@@ -23,7 +23,7 @@
  * @return       ART_FMT_* on success, -1 on error or no artwork found
  */
 int
-artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int format);
+artwork_get_by_file_id(struct evbuffer *evbuf, int id, int max_w, int max_h, int format);
 
 /*
  * Get the artwork image for a group (an album or an artist)
@@ -36,7 +36,21 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h, int forma
  * @return       ART_FMT_* on success, -1 on error or no artwork found
  */
 int
-artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h, int format);
+artwork_get_by_group_id(struct evbuffer *evbuf, int id, int max_w, int max_h, int format);
+
+/*
+ * Get the artwork image for a queue item. If the queue item is in the library,
+ * this will return the same as artwork_get_by_file_id
+ *
+ * @out evbuf    Event buffer that will contain the (scaled) image
+ * @in  item_id  The queue item id
+ * @in  max_w    Requested maximum image width (may not be obeyed)
+ * @in  max_h    Requested maximum image height (may not be obeyed)
+ * @in  format   Requested format (may not be obeyed), 0 for default
+ * @return       ART_FMT_* on success, -1 on error or no artwork found
+ */
+int
+artwork_get_by_queue_item_id(struct evbuffer *evbuf, int item_id, int max_w, int max_h, int format);
 
 /*
  * Checks if the file is an artwork file (based on user config)

@@ -164,16 +164,16 @@ dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct db_
    * FIXME: Giving the client invalid ids on purpose is hardly ideal, but the
    * clients don't seem to use these ids for anything other than rating.
    */
-  if (queue_item->data_kind == DATA_KIND_HTTP || queue_item->data_kind == DATA_KIND_PIPE)
+  if (queue_item->data_kind == DATA_KIND_HTTP || queue_item->data_kind == DATA_KIND_PIPE || queue_item->file_id == DB_MEDIA_FILE_NON_PERSISTENT_ID)
     {
       // Could also use queue_item->queue_version, but it changes a bit too much
       // leading to Remote reloading too much
       if (queue_item->artwork_url)
-	id = djb_hash(queue_item->artwork_url, strlen(queue_item->artwork_url));
+	songalbumid = two_str_hash(queue_item->album, queue_item->artwork_url);
       else
-	id = djb_hash(queue_item->title, strlen(queue_item->title));
+	songalbumid = two_str_hash(queue_item->album, queue_item->title);
 
-      songalbumid = (int64_t)id;
+      id = (uint32_t)songalbumid;
     }
   else
     {
@@ -597,7 +597,7 @@ static int
 dacp_request_authorize(struct httpd_request *hreq)
 {
   const char *param;
-  int32_t id;
+  uint32_t id;
   int ret;
 
   if (httpd_request_is_trusted(hreq))
@@ -610,7 +610,7 @@ dacp_request_authorize(struct httpd_request *hreq)
       goto invalid;
     }
 
-  ret = safe_atoi32(param, &id);
+  ret = safe_atou32(param, &id);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Invalid session-id specified in request: '%s'\n", param);
@@ -1894,6 +1894,7 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
   const char *querymodifier;
   const char *sort;
   const char *param;
+  const char *ptr;
   char modifiedquery[32];
   int mode;
   int plid;
@@ -1955,7 +1956,8 @@ dacp_reply_playqueueedit_add(struct httpd_request *hreq)
   else
     {
       // Modify the query: Take the id from the editquery and use it as a queuefilter playlist id
-      ret = safe_atoi32(strchr(editquery, ':') + 1, &plid);
+      ptr = strchr(editquery, ':');
+      ret = ptr ? safe_atoi32(ptr + 1, &plid) : -1;
       if (ret < 0)
         {
 	  DPRINTF(E_LOG, L_DACP, "Invalid playlist id in request: %s\n", editquery);
@@ -2029,38 +2031,44 @@ dacp_reply_playqueueedit_move(struct httpd_request *hreq)
   struct player_status status;
   int ret;
   const char *param;
+  const char *ptr;
   int src;
   int dst;
 
   param = httpd_query_value_find(hreq->query, "edit-params");
-  if (param)
-  {
-    ret = safe_atoi32(strchr(param, ':') + 1, &src);
-    if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-from value in playqueue-edit request\n");
+  if (!param)
+    goto out;
 
-      dacp_send_error(hreq, "cacr", "Invalid request");
-      return -1;
-    }
+  ptr = strchr(param, ':');
+  if (!ptr)
+    goto error;
 
-    ret = safe_atoi32(strchr(param, ',') + 1, &dst);
-    if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-to value in playqueue-edit request\n");
+  ret = safe_atoi32(ptr + 1, &src);
+  if (ret < 0)
+    goto error;
 
-      dacp_send_error(hreq, "cacr", "Invalid request");
-      return -1;
-    }
+  ptr = strchr(param, ',');
+  if (!ptr)
+    goto error;
 
-    player_get_status(&status);
-    db_queue_move_byposrelativetoitem(src, dst, status.item_id, status.shuffle);
-  }
+  ret = safe_atoi32(ptr + 1, &dst);
+  if (ret < 0)
+    goto error;
 
+  player_get_status(&status);
+  db_queue_move_byposrelativetoitem(src, dst, status.item_id, status.shuffle);
+
+ out:
   /* 204 No Content is the canonical reply */
   httpd_send_reply(hreq, HTTP_NOCONTENT, "No Content", HTTPD_SEND_NO_GZIP);
 
   return 0;
+
+ error:
+  DPRINTF(E_LOG, L_DACP, "Invalid edit-params in playqueue-edit request: '%s'\n", param);
+
+  dacp_send_error(hreq, "cacr", "Invalid request");
+  return -1;
 }
 
 static int
@@ -2249,11 +2257,11 @@ dacp_reply_playstatusupdate(struct httpd_request *hreq)
 static int
 dacp_reply_nowplayingartwork(struct httpd_request *hreq)
 {
+  struct player_status status;
   char clen[32];
   const char *param;
   char *ctype;
   size_t len;
-  uint32_t id;
   int max_w;
   int max_h;
   int ret;
@@ -2290,11 +2298,11 @@ dacp_reply_nowplayingartwork(struct httpd_request *hreq)
       goto error;
     }
 
-  ret = player_playing_now(&id);
-  if (ret < 0)
+  player_get_status(&status);
+  if (status.status == PLAY_STOPPED)
     goto no_artwork;
 
-  ret = artwork_get_item(hreq->out_body, id, max_w, max_h, 0);
+  ret = artwork_get_by_queue_item_id(hreq->out_body, status.item_id, max_w, max_h, 0);
   len = evbuffer_get_length(hreq->out_body);
 
   switch (ret)
@@ -2538,8 +2546,7 @@ dacp_reply_setspeakers(struct httpd_request *hreq)
     }
 
   nspk = 1;
-  ptr = param;
-  while ((ptr = strchr(ptr + 1, ',')))
+  for (ptr = param; ptr; ptr = strchr(ptr + 1, ','))
     nspk++;
 
   CHECK_NULL(L_DACP, ids = calloc((nspk + 1), sizeof(uint64_t)));
