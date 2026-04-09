@@ -1266,25 +1266,6 @@ static const struct db_upgrade_query db_upgrade_v2202_queries[] =
 
 /* ---------------------------- 22.02 -> 22.03 ------------------------------ */
 
-#define U_v2203_ALTER_FILES_ADD_CHAPTERS \
-  "ALTER TABLE files ADD COLUMN chapters TEXT DEFAULT NULL;"
-
-#define U_v2203_SCVER_MAJOR                    \
-  "UPDATE admin SET value = '22' WHERE key = 'schema_version_major';"
-#define U_v2203_SCVER_MINOR                    \
-  "UPDATE admin SET value = '03' WHERE key = 'schema_version_minor';"
-
-static const struct db_upgrade_query db_upgrade_v2203_queries[] =
-  {
-    { U_v2203_ALTER_FILES_ADD_CHAPTERS, "alter table files add column chapters" },
-
-    { U_v2203_SCVER_MAJOR,    "set schema_version_major to 22" },
-    { U_v2203_SCVER_MINOR,    "set schema_version_minor to 03" },
-  };
-
-
-/* ---------------------------- 22.02 -> 22.03 ------------------------------ */
-
 #define U_v2203_ALTER_SPEAKERS_ADD_OFFSET_MS \
   "ALTER TABLE speakers ADD COLUMN offset_ms INTEGER DEFAULT 0;"
 
@@ -1301,6 +1282,23 @@ static const struct db_upgrade_query db_upgrade_v2203_queries[] =
     { U_v2203_SCVER_MINOR,    "set schema_version_minor to 03" },
   };
 
+/* ---------------------------- 22.03 -> 22.04 ------------------------------ */
+
+#define U_v2204_ALTER_FILES_ADD_CHAPTERS \
+  "ALTER TABLE files ADD COLUMN chapters TEXT DEFAULT NULL;"
+
+#define U_v2204_SCVER_MAJOR                    \
+  "UPDATE admin SET value = '22' WHERE key = 'schema_version_major';"
+#define U_v2204_SCVER_MINOR                    \
+  "UPDATE admin SET value = '04' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v2204_queries[] =
+  {
+    { U_v2204_ALTER_FILES_ADD_CHAPTERS, "alter table files add column chapters" },
+
+    { U_v2204_SCVER_MAJOR,    "set schema_version_major to 22" },
+    { U_v2204_SCVER_MINOR,    "set schema_version_minor to 04" },
+  };
 
 /* -------------------------- Main upgrade handler -------------------------- */
 
