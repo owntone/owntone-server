@@ -109,14 +109,14 @@ airptp_daemon_bind(const char *node)
 
   ret = utils_net_bind(&event_socket, node, airptp_event_port);
   if (ret < 0)
-    RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to event port (usually 319)");
+    RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to PTP event port, usually 319. Check privileges and that it's free.");
 
   if (event_socket.fd4 < 0 || event_socket.fd6 < 0)
     airptp_logmsg("Couldn't bind port %hu for %s", airptp_event_port, (event_socket.fd6 < 0) ? "ipv6" : "ipv4");
 
   ret = utils_net_bind(&general_socket, node, airptp_general_port);
   if (ret < 0)
-    RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to general port (usually 320)");
+    RETURN_ERROR(AIRPTP_ERR_INVALID, "Could not bind to PTP general port, usually 320. Check privileges and that it's free.");
 
   if (general_socket.fd4 < 0 || general_socket.fd6 < 0)
     airptp_logmsg("Couldn't bind port %hu for %s", airptp_general_port, (general_socket.fd6 < 0) ? "ipv6" : "ipv4");

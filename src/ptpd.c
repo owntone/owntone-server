@@ -93,8 +93,13 @@ ptpd_find_or_bind(void)
   DPRINTF(E_INFO, L_AIRPLAY, "Creating own ptp service\n");
   airptp_create_own_service = true;
   ptpd_hdl = airptp_daemon_bind(bind_address);
+  if (!ptpd_hdl)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "%s\n", airptp_errmsg_get());
+      return -1;
+    }
 
-  return ptpd_hdl ? 0 : -1;
+  return 0;
 }
 
 // Thread: main (normal priviliges)
@@ -102,17 +107,26 @@ int
 ptpd_init(uint64_t clock_id_seed)
 {
   struct airptp_callbacks cb = { .logmsg = logmsg, .hexdump = hexdump, .thread_name_set = thread_setname };
+  int ret;
 
   airptp_callbacks_register(&cb);
 
-  if (airptp_create_own_service && ptpd_hdl)
-    return airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
-
-  // This is for the sake of cliap which never calls ptpd_find_or_bind()
   if (!ptpd_hdl)
-    ptpd_hdl = airptp_daemon_find();
+    {
+      // This is for the sake of cliap which never calls ptpd_find_or_bind()
+      ptpd_hdl = airptp_daemon_find();
+      return ptpd_hdl ? 0 : -1;
+    }
+  else if (!airptp_create_own_service)
+    return 0;
 
-  return ptpd_hdl ? 0 : -1;
+  ret = airptp_daemon_start(ptpd_hdl, clock_id_seed, false);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_AIRPLAY, "%s\n", airptp_errmsg_get());
+    }
+
+  return 0;
 }
 
 // Thread: main (normal priviliges)
