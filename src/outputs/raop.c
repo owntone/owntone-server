@@ -4493,7 +4493,7 @@ static int
 raop_device_start_generic(struct output_device *device, int callback_id, bool only_probe)
 {
   struct raop_session *rs;
-  int ret;
+  int ret = -1; // The logic below makes some compilers react with a maybe-uninitialized warning
 
   /* Send an OPTIONS request to establish the connection. If device verification
    * is required we start with that. After that, we can determine our local
