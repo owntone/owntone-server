@@ -1,5 +1,24 @@
 # Changelog
 
+## Version 29.1 - 2026-04-15
+
+- fix: Samsung and Sonos Era speakers via support for Airplay 2 PTP timing
+- fix: shairport-sync Airplay 2 mode via support for PTP timing
+- fix: ipv6 on MacOS and BSD
+- fix: if bind_address is configured, use it for all services
+- fix: better mpd support of swmpc (fix sort tags and missing fields)
+- fix: security (races conditions, segfaults, sql injection, timing attacks)
+- fix: iTunes/Apple Music with password
+- fix: artwork for radio statios sometimes not updating
+- fix: playback not starting in the web UI Files page
+- new: Airplay 2 is now default
+- new: support artwork for non-library items, e.g. from Spotify search
+- new: set speaker offset via web UI
+- new: option to skip startup Spotify rescan
+- new: option to set Airplay speakers as "exclusive"
+- new: deprecate config file playback offset and websocket interface
+- new: add option for music-assistant/cliairplay to set playback start time
+
 ## Version 29.0 - 2025-09-12
 
 - fix: client name showing as blank when pairing with MacOS
