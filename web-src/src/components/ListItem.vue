@@ -49,33 +49,25 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import ControlImage from '@/components/ControlImage.vue'
 import ControlProgress from '@/components/ControlProgress.vue'
 
-export default {
-  name: 'ListItem',
-  components: { ControlImage, ControlProgress },
-  props: {
-    icon: { default: null, type: String },
-    image: { default: null, type: Object },
-    index: { default: null, type: [String, Number] },
-    isItem: { default: true, type: Boolean },
-    isPlayable: { default: true, type: Boolean },
-    isRead: { default: false, type: Boolean },
-    lines: { default: null, type: Array },
-    progress: { default: null, type: Number }
-  },
-  emits: ['open', 'openDetails'],
-  methods: {
-    open() {
-      this.$emit('open')
-    },
-    openDetails() {
-      this.$emit('openDetails')
-    }
-  }
-}
+defineProps({
+  icon: { default: null, type: String },
+  image: { default: null, type: Object },
+  index: { default: null, type: [String, Number] },
+  isItem: { default: true, type: Boolean },
+  isPlayable: { default: true, type: Boolean },
+  isRead: { default: false, type: Boolean },
+  lines: { default: null, type: Array },
+  progress: { default: null, type: Number }
+})
+
+const emit = defineEmits(['open', 'openDetails'])
+
+const open = () => emit('open')
+const openDetails = () => emit('openDetails')
 </script>
 
 <style scoped>

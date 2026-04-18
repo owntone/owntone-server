@@ -16,12 +16,8 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import ControlButton from '@/components/ControlButton.vue'
 
-export default {
-  name: 'PaneHero',
-  components: { ControlButton },
-  props: { content: { required: true, type: Object } }
-}
+defineProps({ content: { required: true, type: Object } })
 </script>

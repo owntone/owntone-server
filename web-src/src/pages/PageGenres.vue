@@ -13,7 +13,8 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListGenres from '@/components/ListGenres.vue'
@@ -21,32 +22,21 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PageGenres',
-  components: {
-    ContentWithHeading,
-    ListGenres,
-    ListIndexButtons,
-    PaneTitle,
-    TabsMusic
-  },
-  data() {
-    return { genres: new GroupedList() }
-  },
-  computed: {
-    heading() {
-      return {
-        subtitle: [{ count: this.genres.total, key: 'data.genres' }],
-        title: this.$t('page.genres.title')
-      }
-    }
-  },
-  async mounted() {
-    const genres = await library.genres('music')
-    this.genres = new GroupedList(genres, {
-      index: { field: 'name_sort', type: String }
-    })
-  }
-}
+const { t } = useI18n()
+
+const genres = ref(new GroupedList())
+
+const heading = computed(() => ({
+  subtitle: [{ count: genres.value.total, key: 'data.genres' }],
+  title: t('page.genres.title')
+}))
+
+onMounted(async () => {
+  const genresData = await library.genres('music')
+  genres.value = new GroupedList(genresData, {
+    index: { field: 'name_sort', type: String }
+  })
+})
 </script>

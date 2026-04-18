@@ -18,30 +18,30 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ControlUrlField',
-  props: {
-    help: { default: '', type: String },
-    icon: { required: true, type: String },
-    loading: { default: false, type: Boolean },
-    placeholder: { required: true, type: String }
-  },
-  emits: ['input'],
-  data() {
-    return { value: '' }
-  },
-  mounted() {
-    setTimeout(() => {
-      this.$refs.input.focus()
-    }, 10)
-  },
-  methods: {
-    validate(event) {
-      const { validity } = event.target
-      const invalid = validity.patternMismatch || validity.valueMissing
-      this.$emit('input', this.value, invalid)
-    }
-  }
+<script setup>
+import { onMounted, ref } from 'vue'
+
+defineProps({
+  help: { default: '', type: String },
+  icon: { required: true, type: String },
+  loading: { default: false, type: Boolean },
+  placeholder: { required: true, type: String }
+})
+
+const emit = defineEmits(['input'])
+
+const value = ref('')
+const input = ref(null)
+
+onMounted(() => {
+  setTimeout(() => {
+    input.value?.focus()
+  }, 10)
+})
+
+const validate = (event) => {
+  const { validity } = event.target
+  const invalid = validity.patternMismatch || validity.valueMissing
+  emit('input', value.value, invalid)
 }
 </script>

@@ -29,7 +29,9 @@
   </content-with-hero>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -38,54 +40,49 @@ import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import PaneHero from '@/components/PaneHero.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PagePodcast',
-  components: {
-    ContentWithHero,
-    ControlImage,
-    ListTracks,
-    ModalDialogAlbum,
-    PaneHero
-  },
-  data() {
-    return { album: {}, showDetailsModal: false, tracks: new GroupedList() }
-  },
-  computed: {
-    heading() {
-      return {
-        count: this.$t('data.tracks', { count: this.album.track_count }),
-        subtitle: '',
-        title: this.album.name,
-        actions: [
-          { handler: this.play, icon: 'play', key: 'actions.play' },
-          { handler: this.openDetails, icon: 'dots-horizontal' }
-        ]
-      }
-    }
-  },
-  async mounted() {
-    const [album, tracks] = await Promise.all([
-      library.album(this.$route.params.id),
-      library.podcastEpisodes(this.$route.params.id)
-    ])
-    this.album = album
-    this.tracks = new GroupedList(tracks)
-  },
-  methods: {
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    play() {
-      queue.playUri(this.album.uri, false)
-    },
-    podcastDeleted() {
-      this.$router.push({ name: 'podcasts' })
-    },
-    async reloadTracks() {
-      const tracks = await library.podcastEpisodes(this.album.id)
-      this.tracks = new GroupedList(tracks)
-    }
-  }
+const route = useRoute()
+const router = useRouter()
+const { t } = useI18n()
+
+const album = ref({})
+const showDetailsModal = ref(false)
+const tracks = ref(new GroupedList())
+
+const openDetails = () => {
+  showDetailsModal.value = true
 }
+
+const play = () => {
+  queue.playUri(album.value.uri, false)
+}
+
+const podcastDeleted = () => {
+  router.push({ name: 'podcasts' })
+}
+
+const reloadTracks = async () => {
+  const tracksData = await library.podcastEpisodes(album.value.id)
+  tracks.value = new GroupedList(tracksData)
+}
+
+const heading = computed(() => ({
+  count: t('data.tracks', { count: album.value.track_count }),
+  subtitle: '',
+  title: album.value.name,
+  actions: [
+    { handler: play, icon: 'play', key: 'actions.play' },
+    { handler: openDetails, icon: 'dots-horizontal' }
+  ]
+}))
+
+onMounted(async () => {
+  const [albumData, tracksData] = await Promise.all([
+    library.album(route.params.id),
+    library.podcastEpisodes(route.params.id)
+  ])
+  album.value = albumData
+  tracks.value = new GroupedList(tracksData)
+})
 </script>

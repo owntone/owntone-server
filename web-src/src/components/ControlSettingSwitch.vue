@@ -1,6 +1,6 @@
 <template>
-  <control-setting :category="category" :disabled="disabled" :name="name">
-    <template #input="{ label, setting, update }">
+  <control-setting :disabled="disabled" :setting="setting">
+    <template #input="{ label, update }">
       <control-switch
         :model-value="setting.value"
         @update:model-value="
@@ -18,22 +18,14 @@
   </control-setting>
 </template>
 
-<script>
+<script setup>
 import ControlSetting from '@/components/ControlSetting.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 
-export default {
-  name: 'ControlSettingSwitch',
-  components: { ControlSetting, ControlSwitch },
-  props: {
-    category: { required: true, type: String },
-    disabled: { default: false, type: Boolean },
-    name: { required: true, type: String }
-  },
-  methods: {
-    sanitise(target) {
-      return target.checked
-    }
-  }
-}
+defineProps({
+  disabled: { default: false, type: Boolean },
+  setting: { required: true, type: Object }
+})
+
+const sanitise = (target) => target.checked
 </script>

@@ -6,43 +6,44 @@
   />
 </template>
 
-<script>
+<script setup>
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
+import { computed } from 'vue'
+import formatters from '@/lib/Formatters'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ModalDialogAlbumSpotify',
-  components: { ModalDialogPlayable },
-  props: { item: { required: true, type: Object }, show: Boolean },
-  emits: ['close'],
-  computed: {
-    playable() {
-      return {
-        image: this.item.images?.[0]?.url || '',
-        name: this.item.name || '',
-        properties: [
-          {
-            handler: this.openArtist,
-            key: 'property.artist',
-            value: this.item?.artists?.[0]?.name
-          },
-          {
-            key: 'property.release-date',
-            value: this.$formatters.toDate(this.item.release_date)
-          },
-          { key: 'property.type', value: this.item.album_type }
-        ],
-        uri: this.item.uri
-      }
-    }
-  },
-  methods: {
-    openArtist() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-spotify-artist',
-        params: { id: this.item.artists[0].id }
-      })
-    }
-  }
+const props = defineProps({
+  item: { type: Object, required: true },
+  show: Boolean
+})
+
+const emit = defineEmits(['close'])
+
+const router = useRouter()
+
+const openArtist = () => {
+  emit('close')
+  router.push({
+    name: 'music-spotify-artist',
+    params: { id: props.item.artists[0].id }
+  })
 }
+
+const playable = computed(() => ({
+  image: props.item.images?.[0]?.url || '',
+  name: props.item.name || '',
+  properties: [
+    {
+      handler: openArtist,
+      key: 'property.artist',
+      value: props.item.artists?.[0].name
+    },
+    {
+      key: 'property.release-date',
+      value: formatters.toDate(props.item.release_date)
+    },
+    { key: 'property.type', value: props.item.album_type }
+  ],
+  uri: props.item.uri
+}))
 </script>

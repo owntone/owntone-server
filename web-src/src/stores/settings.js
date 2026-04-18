@@ -25,11 +25,16 @@ export const useSettingsStore = defineStore('SettingsStore', {
       return locale
     },
     get(categoryName, optionName) {
-      return (
+      const option =
         this.categories
-          .find((category) => category.name === categoryName)
-          ?.options.find((option) => option.name === optionName) ?? {}
-      )
+          .find((c) => c.name === categoryName)
+          ?.options.find((o) => o.name === optionName) ?? {}
+      return {
+        category: categoryName,
+        name: optionName,
+        value: option.value,
+        ...option
+      }
     },
     async initialise() {
       this.$state = await settings.state()
@@ -45,6 +50,17 @@ export const useSettingsStore = defineStore('SettingsStore', {
     },
     setLocale(locale) {
       i18n.global.locale.value = locale
+    },
+    settings(categoryName, group) {
+      return (
+        this.categories.find((category) => category.name === categoryName)
+          ?.options ?? []
+      )
+        .filter((setting) => setting.name.startsWith(group))
+        .map((setting) => ({
+          ...setting,
+          category: categoryName
+        }))
     },
     update(option) {
       const settingCategory = this.categories.find(

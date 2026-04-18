@@ -20,7 +20,8 @@
   />
 </template>
 
-<script>
+<script setup>
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ListNotifications from '@/components/ListNotifications.vue'
 import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing.vue'
 import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
@@ -28,6 +29,7 @@ import NavbarBottom from '@/components/NavbarBottom.vue'
 import NavbarTop from '@/components/NavbarTop.vue'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
 import { useConfigurationStore } from '@/stores/configuration'
+import { useI18n } from 'vue-i18n'
 import { useLibraryStore } from '@/stores/library'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useOutputsStore } from './stores/outputs'
@@ -38,140 +40,128 @@ import { useServicesStore } from '@/stores/services'
 import { useSettingsStore } from '@/stores/settings'
 import { useUIStore } from './stores/ui'
 
-export default {
-  name: 'App',
-  components: {
-    ListNotifications,
-    ModalDialogRemotePairing,
-    ModalDialogUpdate,
-    NavbarBottom,
-    NavbarTop
-  },
-  setup() {
-    return {
-      configurationStore: useConfigurationStore(),
-      libraryStore: useLibraryStore(),
-      notificationsStore: useNotificationsStore(),
-      outputsStore: useOutputsStore(),
-      playerStore: usePlayerStore(),
-      queueStore: useQueueStore(),
-      remotesStore: useRemotesStore(),
-      servicesStore: useServicesStore(),
-      settingsStore: useSettingsStore(),
-      uiStore: useUIStore()
-    }
-  },
-  data() {
-    return { handlers: {}, scheduledHandlers: new Map() }
-  },
-  watch: {
-    'uiStore.showBurgerMenu'() {
-      this.updateClipping()
-    },
-    'uiStore.showPlayerMenu'() {
-      this.updateClipping()
-    }
-  },
-  created() {
-    this.handlers = {
-      database: [this.libraryStore.initialise],
-      options: [this.playerStore.initialise],
-      outputs: [this.outputsStore.initialise],
-      pairing: [this.remotesStore.initialise],
-      player: [this.playerStore.initialise],
-      queue: [this.queueStore.initialise],
-      settings: [this.settingsStore.initialise],
-      services: [this.servicesStore.initialise],
-      update: [this.libraryStore.initialise],
-      volume: [this.playerStore.initialise, this.outputsStore.initialise]
-    }
-    this.connect()
-  },
-  beforeUnmount() {
-    this.scheduledHandlers.forEach((timeoutId) => clearTimeout(timeoutId))
-    this.scheduledHandlers.clear()
-  },
-  methods: {
-    async connect() {
-      try {
-        await this.configurationStore.initialise()
-        this.uiStore.hideSingles = this.configurationStore.hide_singles
-        document.title = this.configurationStore.library_name
-        this.openWebsocket()
-      } catch {
-        this.notificationsStore.add({
-          text: this.$t('server.connection-failed'),
-          topic: 'connection',
-          type: 'danger'
-        })
-      }
-    },
-    createWebsocket() {
-      const protocol = window.location.protocol.replace('http', 'ws')
-      const hostname =
-        (import.meta.env.DEV &&
-          URL.parse(import.meta.env.VITE_OWNTONE_URL)?.hostname) ||
-        window.location.hostname
-      const suffix =
-        this.configurationStore.websocket_port || `${window.location.port}/ws`
-      const url = `${protocol}${hostname}:${suffix}`
-      return new ReconnectingWebSocket(url, 'notify', {
-        maxReconnectInterval: 2000,
-        reconnectInterval: 1000
-      })
-    },
-    handleEvents(events = []) {
-      events.forEach((event) => {
-        const handlers = this.handlers[event] || []
-        handlers.forEach((handler) => {
-          if (!this.scheduledHandlers.has(handler)) {
-            const timeoutId = setTimeout(() => {
-              handler.call(this)
-              this.scheduledHandlers.delete(handler)
-            }, 50)
-            this.scheduledHandlers.set(handler, timeoutId)
-          }
-        })
-      })
-    },
-    openWebsocket() {
-      const socket = this.createWebsocket()
-      const events = [
-        'database',
-        'options',
-        'outputs',
-        'pairing',
-        'player',
-        'queue',
-        'settings',
-        'services',
-        'update',
-        'volume'
-      ]
-      socket.onopen = () => {
-        socket.send(JSON.stringify({ notify: events }))
-        this.handleEvents(events)
-      }
-      window.addEventListener('focus', () => {
-        this.handleEvents(events)
-      })
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          this.handleEvents(events)
-        }
-      })
-      socket.onmessage = (response) => {
-        const notifiedEvents = JSON.parse(response.data).notify
-        this.handleEvents(notifiedEvents)
-      }
-    },
-    updateClipping() {
-      if (this.uiStore.showBurgerMenu || this.uiStore.showPlayerMenu) {
-        document.querySelector('html').classList.add('is-clipped')
-      } else {
-        document.querySelector('html').classList.remove('is-clipped')
-      }
-    }
+const configurationStore = useConfigurationStore()
+const libraryStore = useLibraryStore()
+const notificationsStore = useNotificationsStore()
+const outputsStore = useOutputsStore()
+const playerStore = usePlayerStore()
+const queueStore = useQueueStore()
+const remotesStore = useRemotesStore()
+const servicesStore = useServicesStore()
+const settingsStore = useSettingsStore()
+const uiStore = useUIStore()
+const { t } = useI18n()
+
+const handlers = ref({})
+const scheduledHandlers = ref(new Map())
+
+const updateClipping = () => {
+  const html = document.querySelector('html')
+  if (uiStore.showBurgerMenu || uiStore.showPlayerMenu) {
+    html.classList.add('is-clipped')
+  } else {
+    html.classList.remove('is-clipped')
   }
 }
+
+watch(() => uiStore.showBurgerMenu, updateClipping)
+watch(() => uiStore.showPlayerMenu, updateClipping)
+
+const handleEvents = (events = []) => {
+  events.forEach((event) => {
+    const list = handlers.value[event] || []
+    list.forEach((handler) => {
+      if (!scheduledHandlers.value.has(handler)) {
+        const timeoutId = setTimeout(() => {
+          handler.call()
+          scheduledHandlers.value.delete(handler)
+        }, 50)
+        scheduledHandlers.value.set(handler, timeoutId)
+      }
+    })
+  })
+}
+
+const createWebsocket = () => {
+  const protocol = window.location.protocol.replace('http', 'ws')
+  const hostname =
+    (import.meta.env.DEV &&
+      URL.parse(import.meta.env.VITE_OWNTONE_URL)?.hostname) ||
+    window.location.hostname
+  const suffix =
+    configurationStore.websocket_port || `${window.location.port}/ws`
+  const url = `${protocol}${hostname}:${suffix}`
+  return new ReconnectingWebSocket(url, 'notify', {
+    maxReconnectInterval: 2000,
+    reconnectInterval: 1000
+  })
+}
+
+const openWebsocket = () => {
+  const socket = createWebsocket()
+  const events = [
+    'database',
+    'options',
+    'outputs',
+    'pairing',
+    'player',
+    'queue',
+    'settings',
+    'services',
+    'update',
+    'volume'
+  ]
+  socket.onopen = () => {
+    socket.send(JSON.stringify({ notify: events }))
+    handleEvents(events)
+  }
+  window.addEventListener('focus', () => {
+    handleEvents(events)
+  })
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      handleEvents(events)
+    }
+  })
+  socket.onmessage = (response) => {
+    const notifiedEvents = JSON.parse(response.data).notify
+    handleEvents(notifiedEvents)
+  }
+}
+
+const connect = async () => {
+  try {
+    await configurationStore.initialise()
+    uiStore.hideSingles = configurationStore.hide_singles
+    document.title = configurationStore.library_name
+    openWebsocket()
+  } catch {
+    notificationsStore.add({
+      text: t('server.connection-failed') ?? 'Connection failed',
+      topic: 'connection',
+      type: 'danger'
+    })
+  }
+}
+
+onMounted(() => {
+  handlers.value = {
+    database: [libraryStore.initialise],
+    options: [playerStore.initialise],
+    outputs: [outputsStore.initialise],
+    pairing: [remotesStore.initialise],
+    player: [playerStore.initialise],
+    queue: [queueStore.initialise],
+    settings: [settingsStore.initialise],
+    services: [servicesStore.initialise],
+    update: [libraryStore.initialise],
+    volume: [playerStore.initialise, outputsStore.initialise]
+  }
+  connect()
+})
+
+onBeforeUnmount(() => {
+  scheduledHandlers.value.forEach((timeoutId) => clearTimeout(timeoutId))
+  scheduledHandlers.value.clear()
+})
 </script>

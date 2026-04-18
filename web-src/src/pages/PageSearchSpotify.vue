@@ -14,103 +14,105 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithSearch from '@/templates/ContentWithSearch.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import services from '@/api/services'
+import { useRouter } from 'vue-router'
 import { useSearchStore } from '@/stores/search'
 
 const PAGE_SIZE = 3
 const PAGE_SIZE_EXPANDED = 50
 const SEARCH_TYPES = ['track', 'artist', 'album', 'playlist']
 
-export default {
-  name: 'PageSearchSpotify',
-  components: { ContentWithSearch },
-  setup() {
-    return {
-      components: {
-        album: ListAlbumsSpotify,
-        artist: ListArtistsSpotify,
-        playlist: ListPlaylistsSpotify,
-        track: ListTracksSpotify
-      },
-      searchStore: useSearchStore()
-    }
-  },
-  data() {
-    return { parameters: {}, results: new Map(), types: SEARCH_TYPES }
-  },
-  computed: {
-    expanded() {
-      return this.types.length === 1
-    },
-    history() {
-      return this.searchStore.history.filter(
-        (query) => !query.startsWith('query:')
-      )
-    }
-  },
-  mounted() {
-    this.search()
-  },
-  methods: {
-    expand(type) {
-      this.search([type], PAGE_SIZE_EXPANDED)
-    },
-    getItems(items) {
-      return items.items
-    },
-    openSearch(query) {
-      this.searchStore.query = query
-      this.search()
-    },
-    reset() {
-      this.results.clear()
-      this.types.forEach((type) => {
-        this.results.set(type, { items: [], total: 0 })
-      })
-    },
-    async search(types = SEARCH_TYPES, limit = PAGE_SIZE, offset = 0) {
-      if (this.searchStore.query) {
-        this.types = types
-        this.parameters.limit = limit
-        this.parameters.offset = offset
-        this.searchStore.query = this.searchStore.query.trim()
-        this.reset()
-        const data = await this.searchItems()
-        this.types.forEach((type) => {
-          this.results.set(type, data[`${type}s`])
-        })
-        this.searchStore.add(this.searchStore.query)
-      }
-    },
-    async searchItems() {
-      const { api, configuration } = await services.spotify.get()
-      return api.search(
-        this.searchStore.query,
-        this.types,
-        configuration.webapi_country,
-        this.parameters.limit,
-        this.parameters.offset
-      )
-    },
-    searchLibrary() {
-      this.$router.push({ name: 'search-library' })
-    },
-    async searchNext({ loaded }) {
-      const items = this.results.get(this.types[0])
-      this.parameters.limit = PAGE_SIZE_EXPANDED
-      const data = await this.searchItems()
-      const [next] = Object.values(data)
-      items.items.push(...next.items)
-      this.parameters.offset += next.items.length
-      const remaining = Number(next.next && 1000 - this.parameters.offset)
-      loaded(remaining, PAGE_SIZE_EXPANDED)
-    }
-  }
+const searchStore = useSearchStore()
+const router = useRouter()
+
+const parameters = ref({})
+const results = ref(new Map())
+const types = ref([...SEARCH_TYPES])
+
+const components = {
+  album: ListAlbumsSpotify,
+  artist: ListArtistsSpotify,
+  playlist: ListPlaylistsSpotify,
+  track: ListTracksSpotify
 }
+
+const expanded = computed(() => types.value.length === 1)
+const history = computed(() =>
+  searchStore.history.filter((q) => !q.startsWith('query:'))
+)
+
+const getItems = (items) => items.items
+
+const reset = () => {
+  results.value.clear()
+  types.value.forEach((type) => {
+    results.value.set(type, { items: [], total: 0 })
+  })
+}
+
+const searchItems = async () => {
+  const { api, configuration } = await services.spotify.get()
+  return api.search(
+    searchStore.query,
+    types.value,
+    configuration.webapi_country,
+    parameters.value.limit,
+    parameters.value.offset
+  )
+}
+
+const search = async (
+  newTypes = SEARCH_TYPES,
+  limit = PAGE_SIZE,
+  offset = 0
+) => {
+  if (!searchStore.query) {
+    return
+  }
+  types.value = newTypes
+  parameters.value.limit = limit
+  parameters.value.offset = offset
+  searchStore.query = searchStore.query.trim()
+  reset()
+  const data = await searchItems()
+  types.value.forEach((type) => {
+    results.value.set(type, data[`${type}s`])
+  })
+  searchStore.add(searchStore.query)
+}
+
+const searchLibrary = () => {
+  router.push({ name: 'search-library' })
+}
+
+const expand = async (type) => {
+  await search([type], PAGE_SIZE_EXPANDED)
+}
+
+const searchNext = async ({ loaded }) => {
+  const items = results.value.get(types.value[0])
+  parameters.value.limit = PAGE_SIZE_EXPANDED
+  const data = await searchItems()
+  const [next] = Object.values(data)
+  items.items.push(...next.items)
+  parameters.value.offset += next.items.length
+  const remaining = Number(next.next && 1000 - parameters.value.offset)
+  loaded(remaining, PAGE_SIZE_EXPANDED)
+}
+
+const openSearch = (query) => {
+  searchStore.query = query
+  search()
+}
+
+onMounted(() => {
+  search()
+})
 </script>

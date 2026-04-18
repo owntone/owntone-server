@@ -10,9 +10,3 @@
     </div>
   </div>
 </template>
-
-<script>
-export default {
-  name: 'ListOptions'
-}
-</script>

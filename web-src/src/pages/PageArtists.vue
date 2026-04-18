@@ -42,7 +42,9 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
@@ -53,67 +55,51 @@ import ListOptions from '@/components/ListOptions.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
+import { useI18n } from 'vue-i18n'
 import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'PageArtists',
-  components: {
-    ContentWithHeading,
-    ControlDropdown,
-    ControlSwitch,
-    ListArtists,
-    ListIndexButtons,
-    ListOptions,
-    PaneTitle,
-    TabsMusic
+const servicesStore = useServicesStore()
+const uiStore = useUIStore()
+
+const { t } = useI18n()
+
+const artistList = ref(new GroupedList())
+
+const groupings = computed(() => [
+  {
+    id: 1,
+    name: t('options.sort.name'),
+    options: { index: { field: 'name_sort', type: String } }
   },
-  setup() {
-    return { servicesStore: useServicesStore(), uiStore: useUIStore() }
-  },
-  data() {
-    return { artistList: new GroupedList() }
-  },
-  computed: {
-    artists() {
-      const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.artistsSort
-      )
-      options.filters = [
-        (artist) =>
-          !this.uiStore.hideSingles ||
-          artist.track_count > artist.album_count * 2,
-        (artist) => !this.uiStore.hideSpotify || artist.data_kind !== 'spotify'
-      ]
-      return this.artistList.group(options)
-    },
-    groupings() {
-      return [
-        {
-          id: 1,
-          name: this.$t('options.sort.name'),
-          options: { index: { field: 'name_sort', type: String } }
-        },
-        {
-          id: 2,
-          name: this.$t('options.sort.recently-added'),
-          options: {
-            criteria: [{ field: 'time_added', order: -1, type: Date }],
-            index: { field: 'time_added', type: Date }
-          }
-        }
-      ]
-    },
-    heading() {
-      return {
-        subtitle: [{ count: this.artists.count, key: 'data.artists' }],
-        title: this.$t('page.artists.title')
-      }
+  {
+    id: 2,
+    name: t('options.sort.recently-added'),
+    options: {
+      criteria: [{ field: 'time_added', order: -1, type: Date }],
+      index: { field: 'time_added', type: Date }
     }
-  },
-  async mounted() {
-    const artists = await library.artists('music')
-    this.artistList = new GroupedList(artists)
   }
-}
+])
+
+const artists = computed(() => {
+  const grouping = groupings.value.find((g) => g.id === uiStore.artistsSort)
+  const options = { ...grouping.options }
+  options.filters = [
+    (artist) =>
+      !uiStore.hideSingles || artist.track_count > artist.album_count * 2,
+    (artist) => !uiStore.hideSpotify || artist.data_kind !== 'spotify'
+  ]
+  return artistList.value.group(options)
+})
+
+const heading = computed(() => ({
+  subtitle: [{ count: artists.value.count, key: 'data.artists' }],
+  title: t('page.artists.title')
+}))
+
+onMounted(async () => {
+  const data = await library.artists('music')
+  artistList.value = new GroupedList(data)
+})
 </script>

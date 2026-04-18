@@ -22,7 +22,8 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -31,47 +32,38 @@ import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
+import { useRoute } from 'vue-router'
 
-export default {
-  name: 'PageAudiobookArtist',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ListAlbums,
-    ModalDialogArtist,
-    PaneTitle
-  },
-  data() {
-    return { albums: new GroupedList(), artist: {}, showDetailsModal: false }
-  },
-  computed: {
-    heading() {
-      if (this.artist.name) {
-        return {
-          subtitle: [
-            { count: this.artist.album_count, key: 'data.audiobooks' }
-          ],
-          title: this.artist.name
-        }
-      }
-      return {}
-    }
-  },
-  async mounted() {
-    const [artist, albums] = await Promise.all([
-      library.artist(this.$route.params.id),
-      library.artistAlbums(this.$route.params.id)
-    ])
-    this.artist = artist
-    this.albums = new GroupedList(albums)
-  },
-  methods: {
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    play() {
-      queue.playUri(this.albums.items.map((item) => item.uri).join(), false)
+const route = useRoute()
+
+const albums = ref(new GroupedList())
+const artist = ref({})
+const showDetailsModal = ref(false)
+
+const heading = computed(() => {
+  if (artist.value.name) {
+    return {
+      subtitle: [{ count: artist.value.album_count, key: 'data.audiobooks' }],
+      title: artist.value.name
     }
   }
+  return {}
+})
+
+const openDetails = () => {
+  showDetailsModal.value = true
 }
+
+const play = () => {
+  queue.playUri(albums.value.items.map((item) => item.uri).join(), false)
+}
+
+onMounted(async () => {
+  const [artistData, albumData] = await Promise.all([
+    library.artist(route.params.id),
+    library.artistAlbums(route.params.id)
+  ])
+  artist.value = artistData
+  albums.value = new GroupedList(albumData)
+})
 </script>

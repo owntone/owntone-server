@@ -13,7 +13,8 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListComposers from '@/components/ListComposers.vue'
@@ -21,32 +22,20 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PageComposers',
-  components: {
-    ContentWithHeading,
-    ListComposers,
-    ListIndexButtons,
-    PaneTitle,
-    TabsMusic
-  },
-  data() {
-    return { composers: new GroupedList() }
-  },
-  computed: {
-    heading() {
-      return {
-        subtitle: [{ count: this.composers.total, key: 'data.composers' }],
-        title: this.$t('page.composers.title')
-      }
-    }
-  },
-  async mounted() {
-    const composers = await library.composers('music')
-    this.composers = new GroupedList(composers, {
-      index: { field: 'name_sort', type: String }
-    })
-  }
-}
+const composers = ref(new GroupedList())
+const { t } = useI18n()
+
+const heading = computed(() => ({
+  subtitle: [{ count: composers.value.total, key: 'data.composers' }],
+  title: t('page.composers.title')
+}))
+
+onMounted(async () => {
+  const composerList = await library.composers('music')
+  composers.value = new GroupedList(composerList, {
+    index: { field: 'name_sort', type: String }
+  })
+})
 </script>

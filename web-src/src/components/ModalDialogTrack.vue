@@ -7,144 +7,145 @@
   />
 </template>
 
-<script>
+<script setup>
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
+import { computed } from 'vue'
+import formatters from '@/lib/formatters'
 import library from '@/api/library'
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ModalDialogTrack',
-  components: { ModalDialogPlayable },
-  props: { item: { required: true, type: Object }, show: Boolean },
-  emits: ['close', 'play-count-changed'],
-  computed: {
-    buttons() {
-      if (this.item.media_kind !== 'podcast') {
-        return []
-      } else if (this.item.play_count > 0) {
-        return [{ handler: this.markAsNew, key: 'actions.mark-as-new' }]
-      }
-      return [{ handler: this.markAsPlayed, key: 'actions.mark-as-played' }]
-    },
-    playable() {
-      return {
-        name: this.item.title,
-        properties: [
-          {
-            handler: this.openAlbum,
-            key: 'property.album',
-            value: this.item.album
-          },
-          {
-            handler: this.openArtist,
-            key: 'property.album-artist',
-            value: this.item.album_artist
-          },
-          { key: 'property.composer', value: this.item.composer },
-          {
-            key: 'property.release-date',
-            value: this.$formatters.toDate(this.item.date_released)
-          },
-          { key: 'property.year', value: this.item.year },
-          { key: 'property.genre', value: this.item.genre },
-          {
-            key: 'property.position',
-            value:
-              this.item.track_number > 0 &&
-              [this.item.disc_number, this.item.track_number].join(' / ')
-          },
-          {
-            key: 'property.duration',
-            value:
-              this.item.length_ms > 0 &&
-              this.$formatters.toTimecode(this.item.length_ms)
-          },
-          {
-            key: 'property.type',
-            value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
-          },
-          {
-            key: 'property.quality',
-            value:
-              this.item.data_kind !== 'spotify' &&
-              this.$t('dialog.track.quality', {
-                bitrate: this.item.bitrate,
-                count: this.item.channels,
-                format: this.item.type,
-                samplerate: this.item.samplerate
-              })
-          },
-          {
-            key: 'property.added-on',
-            value: this.$formatters.toDateTime(this.item.time_added)
-          },
-          {
-            key: 'property.rating',
-            value: this.$t('dialog.track.rating', {
-              rating: Math.floor(this.item.rating / 10)
-            })
-          },
-          { key: 'property.comment', value: this.item.comment },
-          { key: 'property.path', value: this.item.path }
-        ],
-        uri: this.item.uri
-      }
-    }
-  },
-  methods: {
-    async markAsNew() {
-      await library.updateTrack(this.item.id, { play_count: 'reset' })
-      this.$emit('play-count-changed')
-      this.$emit('close')
-    },
-    async markAsPlayed() {
-      await library.updateTrack(this.item.id, { play_count: 'increment' })
-      this.$emit('play-count-changed')
-      this.$emit('close')
-    },
-    openAlbum() {
-      this.$emit('close')
-      if (this.item.media_kind === 'podcast') {
-        this.$router.push({
-          name: 'podcast',
-          params: { id: this.item.album_id }
-        })
-      } else if (this.item.media_kind === 'audiobook') {
-        this.$router.push({
-          name: 'audiobook-album',
-          params: { id: this.item.album_id }
-        })
-      } else if (this.item.media_kind === 'music') {
-        this.$router.push({
-          name: 'music-album',
-          params: { id: this.item.album_id }
-        })
-      }
-    },
-    openArtist() {
-      this.$emit('close')
-      if (
-        this.item.media_kind === 'music' ||
-        this.item.media_kind === 'podcast'
-      ) {
-        this.$router.push({
-          name: 'music-artist',
-          params: { id: this.item.album_artist_id }
-        })
-      } else if (this.item.media_kind === 'audiobook') {
-        this.$router.push({
-          name: 'audiobook-artist',
-          params: { id: this.item.album_artist_id }
-        })
-      }
-    },
-    openGenre() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'genre-albums',
-        params: { name: this.item.genre },
-        query: { mediaKind: this.item.media_kind }
-      })
-    }
+const { t } = useI18n()
+
+defineOptions({ name: 'ModalDialogTrack' })
+
+const props = defineProps({
+  item: { required: true, type: Object },
+  show: Boolean
+})
+
+const emit = defineEmits(['close', 'play-count-changed'])
+
+const router = useRouter()
+
+const markAsNew = async () => {
+  await library.updateTrack(props.item.id, { play_count: 'reset' })
+  emit('play-count-changed')
+  emit('close')
+}
+
+const markAsPlayed = async () => {
+  await library.updateTrack(props.item.id, { play_count: 'increment' })
+  emit('play-count-changed')
+  emit('close')
+}
+
+const buttons = computed(() => {
+  if (props.item.media_kind !== 'podcast') {
+    return []
+  } else if (props.item.play_count > 0) {
+    return [{ handler: markAsNew, key: 'actions.mark-as-new' }]
+  }
+  return [{ handler: markAsPlayed, key: 'actions.mark-as-played' }]
+})
+
+const openAlbum = () => {
+  emit('close')
+  if (props.item.media_kind === 'podcast') {
+    router.push({
+      name: 'podcast',
+      params: { id: props.item.album_id }
+    })
+  } else if (props.item.media_kind === 'audiobook') {
+    router.push({
+      name: 'audiobook-album',
+      params: { id: props.item.album_id }
+    })
+  } else if (props.item.media_kind === 'music') {
+    router.push({
+      name: 'music-album',
+      params: { id: props.item.album_id }
+    })
   }
 }
+
+const openArtist = () => {
+  emit('close')
+  if (
+    props.item.media_kind === 'music' ||
+    props.item.media_kind === 'podcast'
+  ) {
+    router.push({
+      name: 'music-artist',
+      params: { id: props.item.album_artist_id }
+    })
+  } else if (props.item.media_kind === 'audiobook') {
+    router.push({
+      name: 'audiobook-artist',
+      params: { id: props.item.album_artist_id }
+    })
+  }
+}
+
+const playable = computed(() => ({
+  name: props.item.title,
+  properties: [
+    {
+      handler: openAlbum,
+      key: 'property.album',
+      value: props.item.album
+    },
+    {
+      handler: openArtist,
+      key: 'property.album-artist',
+      value: props.item.album_artist
+    },
+    { key: 'property.composer', value: props.item.composer },
+    {
+      key: 'property.release-date',
+      value: formatters.toDate(props.item.date_released)
+    },
+    { key: 'property.year', value: props.item.year },
+    { key: 'property.genre', value: props.item.genre },
+    {
+      key: 'property.position',
+      value:
+        props.item.track_number > 0 &&
+        [props.item.disc_number, props.item.track_number].join(' / ')
+    },
+    {
+      key: 'property.duration',
+      value:
+        props.item.length_ms > 0 && formatters.toTimecode(props.item.length_ms)
+    },
+    {
+      key: 'property.type',
+      value: `${t(`media.kind.${props.item.media_kind}`)} - ${t(`data.kind.${props.item.data_kind}`)}`
+    },
+    {
+      key: 'property.quality',
+      value:
+        props.item.data_kind !== 'spotify' &&
+        t('dialog.track.quality', {
+          bitrate: props.item.bitrate,
+          count: props.item.channels,
+          format: props.item.type,
+          samplerate: props.item.samplerate
+        })
+    },
+    {
+      key: 'property.added-on',
+      value: formatters.toDateTime(props.item.time_added)
+    },
+    {
+      key: 'property.rating',
+      value: t('dialog.track.rating', {
+        rating: Math.floor(props.item.rating / 10)
+      })
+    },
+    { key: 'property.comment', value: props.item.comment },
+    { key: 'property.path', value: props.item.path }
+  ],
+  uri: props.item.uri
+}))
 </script>

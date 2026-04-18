@@ -10,11 +10,6 @@
   </button>
 </template>
 
-<script>
-export default {
-  name: 'ControlButton',
-  props: {
-    button: { required: true, type: Object }
-  }
-}
+<script setup>
+defineProps({ button: { required: true, type: Object } })
 </script>

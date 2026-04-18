@@ -1,5 +1,5 @@
 <template>
-  <button :disabled="disabled" @click="previous">
+  <button :disabled="queueStore.isEmpty" @click="previous">
     <mdicon
       class="icon"
       name="skip-backward"
@@ -8,24 +8,13 @@
   </button>
 </template>
 
-<script>
+<script setup>
 import player from '@/api/player'
 import { useQueueStore } from '@/stores/queue'
 
-export default {
-  name: 'ControlPlayerPrevious',
-  setup() {
-    return { queueStore: useQueueStore() }
-  },
-  computed: {
-    disabled() {
-      return this.queueStore.isEmpty
-    }
-  },
-  methods: {
-    previous() {
-      player.previous()
-    }
-  }
+const queueStore = useQueueStore()
+
+const previous = () => {
+  player.previous()
 }
 </script>

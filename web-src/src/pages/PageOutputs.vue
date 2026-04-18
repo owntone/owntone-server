@@ -15,7 +15,7 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlMainVolume from '@/components/ControlMainVolume.vue'
 import ControlOutputVolume from '@/components/ControlOutputVolume.vue'
@@ -23,19 +23,5 @@ import ControlStreamVolume from '@/components/ControlStreamVolume.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import { useOutputsStore } from '@/stores/outputs'
 
-export default {
-  name: 'PageOutputs',
-  components: {
-    ContentWithHeading,
-    ControlMainVolume,
-    ControlOutputVolume,
-    ControlStreamVolume,
-    PaneTitle
-  },
-  setup() {
-    return {
-      outputsStore: useOutputsStore()
-    }
-  }
-}
+const outputsStore = useOutputsStore()
 </script>

@@ -32,7 +32,8 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
@@ -40,91 +41,82 @@ import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.
 import PaneTitle from '@/components/PaneTitle.vue'
 import queue from '@/api/queue'
 import services from '@/api/services'
+import { useRoute } from 'vue-router'
 
 const PAGE_SIZE = 50
 
-export default {
-  name: 'PagePlaylistTracksSpotify',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ListTracksSpotify,
-    ModalDialogPlaylistSpotify,
-    PaneTitle
-  },
-  data() {
+const route = useRoute()
+
+const offset = ref(0)
+const playlist = ref({ tracks: {} })
+const showDetailsModal = ref(false)
+const total = ref(0)
+const tracks = ref([])
+
+const heading = computed(() => {
+  if (playlist.value.name) {
     return {
-      offset: 0,
-      playlist: { tracks: {} },
-      showDetailsModal: false,
-      total: 0,
-      tracks: []
-    }
-  },
-  computed: {
-    heading() {
-      if (this.playlist.name) {
-        return {
-          subtitle: [{ count: this.playlist.tracks.total, key: 'data.tracks' }],
-          title: this.playlist.name
-        }
-      }
-      return {}
-    }
-  },
-  async mounted() {
-    const { api, configuration } = await services.spotify.get()
-    const [playlist, tracks] = await Promise.all([
-      api.playlists.getPlaylist(this.$route.params.id),
-      api.playlists.getPlaylistItems(
-        this.$route.params.id,
-        configuration.webapi_country,
-        null,
-        PAGE_SIZE,
-        0
-      )
-    ])
-    this.playlist = playlist
-    this.appendTracks(tracks)
-  },
-  methods: {
-    appendTracks(data) {
-      let position = Math.max(
-        -1,
-        ...this.tracks.map((item) => item.position).filter((item) => item)
-      )
-      data.items.forEach((item) => {
-        const { track } = item
-        if (track) {
-          if (track.is_playable) {
-            position += 1
-            track.position = position
-          }
-          this.tracks.push(track)
-        }
-      })
-      this.total = data.total
-      this.offset += data.limit
-    },
-    async load({ loaded }) {
-      const { api, configuration } = await services.spotify.get()
-      const data = await api.playlists.getPlaylistItems(
-        this.playlist.id,
-        configuration.webapi_country,
-        null,
-        PAGE_SIZE,
-        this.offset
-      )
-      this.appendTracks(data)
-      loaded(data.items.length, PAGE_SIZE)
-    },
-    play() {
-      this.showDetailsModal = false
-      queue.playUri(this.playlist.uri, true)
-    },
-    openDetails() {
-      this.showDetailsModal = true
+      subtitle: [{ count: playlist.value.tracks?.total, key: 'data.tracks' }],
+      title: playlist.value.name
     }
   }
+  return {}
+})
+
+const appendTracks = (data) => {
+  let position = Math.max(
+    -1,
+    ...tracks.value.map((item) => item.position).filter(Boolean)
+  )
+  data.items.forEach((item) => {
+    const { track } = item
+    if (track) {
+      if (track.is_playable) {
+        position += 1
+        track.position = position
+      }
+      tracks.value.push(track)
+    }
+  })
+  total.value = data.total
+  offset.value += data.limit
 }
+
+const load = async ({ loaded }) => {
+  const { api, configuration } = await services.spotify.get()
+  const data = await api.playlists.getPlaylistItems(
+    playlist.value.id,
+    configuration.webapi_country,
+    null,
+    PAGE_SIZE,
+    offset.value
+  )
+  appendTracks(data)
+  loaded(data.items.length, PAGE_SIZE)
+}
+
+const play = () => {
+  showDetailsModal.value = false
+  queue.playUri(playlist.value.uri, true)
+}
+
+const openDetails = () => {
+  showDetailsModal.value = true
+}
+
+onMounted(async () => {
+  const { api, configuration } = await services.spotify.get()
+  const [playlistData, tracksData] = await Promise.all([
+    api.playlists.getPlaylist(route.params.id),
+    api.playlists.getPlaylistItems(
+      route.params.id,
+      configuration.webapi_country,
+      null,
+      PAGE_SIZE,
+      0
+    )
+  ])
+  playlist.value = playlistData
+  appendTracks(tracksData)
+})
 </script>

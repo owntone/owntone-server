@@ -21,59 +21,53 @@
   </modal-dialog>
 </template>
 
-<script>
+<script setup>
 import ControlButton from '@/components/ControlButton.vue'
 import ListProperties from '@/components/ListProperties.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import queue from '@/api/queue'
 
-export default {
-  name: 'ModalDialogPlayable',
-  components: { ControlButton, ListProperties, ModalDialog },
-  props: {
-    buttons: { default: () => [], type: Array },
-    item: { required: true, type: Object },
-    show: Boolean
-  },
-  emits: ['close'],
-  computed: {
-    actions() {
-      return [
-        { handler: this.addToQueue, icon: 'playlist-plus', key: 'actions.add' },
-        {
-          handler: this.addNextToQueue,
-          icon: 'playlist-play',
-          key: 'actions.add-next'
-        },
-        { handler: this.play, icon: 'play', key: 'actions.play' }
-      ]
-    }
-  },
-  methods: {
-    addNextToQueue() {
-      this.$emit('close')
-      if (this.item.expression) {
-        queue.addExpression(this.item.expression, true)
-      } else {
-        queue.addUri(this.item.uris || this.item.uri, true)
-      }
-    },
-    addToQueue() {
-      this.$emit('close')
-      if (this.item.expression) {
-        queue.addExpression(this.item.expression)
-      } else {
-        queue.addUri(this.item.uris || this.item.uri)
-      }
-    },
-    play() {
-      this.$emit('close')
-      if (this.item.expression) {
-        queue.playExpression(this.item.expression, false)
-      } else {
-        queue.playUri(this.item.uris || this.item.uri, false)
-      }
-    }
+const props = defineProps({
+  buttons: { default: () => [], type: Array },
+  item: { required: true, type: Object },
+  show: Boolean
+})
+
+const emit = defineEmits(['close'])
+
+const resolveSource = () =>
+  props.item.expression || props.item.uris || props.item.uri
+
+const addNextToQueue = () => {
+  emit('close')
+  if (props.item.expression) {
+    queue.addExpression(props.item.expression, true)
+  } else {
+    queue.addUri(resolveSource(), true)
   }
 }
+
+const addToQueue = () => {
+  emit('close')
+  if (props.item.expression) {
+    queue.addExpression(props.item.expression)
+  } else {
+    queue.addUri(resolveSource())
+  }
+}
+
+const play = () => {
+  emit('close')
+  if (props.item.expression) {
+    queue.playExpression(props.item.expression, false)
+  } else {
+    queue.playUri(resolveSource(), false)
+  }
+}
+
+const actions = [
+  { handler: addToQueue, icon: 'playlist-plus', key: 'actions.add' },
+  { handler: addNextToQueue, icon: 'playlist-play', key: 'actions.add-next' },
+  { handler: play, icon: 'play', key: 'actions.play' }
+]
 </script>

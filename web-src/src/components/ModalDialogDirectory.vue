@@ -6,21 +6,19 @@
   />
 </template>
 
-<script>
+<script setup>
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
+import { computed } from 'vue'
 
-export default {
-  name: 'ModalDialogDirectory',
-  components: { ModalDialogPlayable },
-  props: { item: { required: true, type: String }, show: Boolean },
-  emits: ['close'],
-  computed: {
-    playable() {
-      return {
-        expression: `path starts with "${this.item}" order by path asc`,
-        name: this.item
-      }
-    }
-  }
-}
+const props = defineProps({
+  item: { required: true, type: String },
+  show: Boolean
+})
+
+defineEmits(['close'])
+
+const playable = computed(() => ({
+  expression: `path starts with "${props.item}" order by path asc`,
+  name: props.item
+}))
 </script>

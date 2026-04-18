@@ -16,32 +16,32 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ListGenres',
-  components: { ListItem, ModalDialogGenre },
-  props: {
-    items: { required: true, type: Object },
-    mediaKind: { required: true, type: String }
-  },
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    open(item) {
-      this.$router.push({
-        name: 'genre-albums',
-        params: { name: item.name },
-        query: { mediaKind: this.mediaKind }
-      })
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    }
-  }
+const router = useRouter()
+
+const props = defineProps({
+  items: { required: true, type: Object },
+  mediaKind: { required: true, type: String }
+})
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const open = (item) => {
+  router.push({
+    name: 'genre-albums',
+    params: { name: item.name },
+    query: { mediaKind: props.mediaKind }
+  })
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
 }
 </script>

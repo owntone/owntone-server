@@ -19,53 +19,51 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogTrack from '@/components/ModalDialogTrack.vue'
 import queue from '@/api/queue'
+import { ref } from 'vue'
 
-export default {
-  name: 'ListTracks',
-  components: { ListItem, ModalDialogTrack },
-  props: {
-    expression: { default: '', type: String },
-    icon: { default: null, type: String },
-    items: { default: null, type: Object },
-    load: { default: null, type: Function },
-    showProgress: { default: false, type: Boolean },
-    uris: { default: '', type: String }
-  },
-  emits: ['play-count-changed'],
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    isRead(item) {
-      return item.media_kind === 'podcast' && item.play_count > 0
-    },
-    open(item) {
-      if (this.uris) {
-        queue.playUri(this.uris, false, this.items.items.indexOf(item))
-      } else if (this.expression) {
-        queue.playExpression(
-          this.expression,
-          false,
-          this.items.items.indexOf(item)
-        )
-      } else {
-        queue.playUri(item.uri, false)
-      }
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    },
-    progress(item) {
-      if (this.showProgress && item.seek_ms > 0) {
-        return item.seek_ms / item.length_ms
-      }
-      return null
-    }
+const props = defineProps({
+  expression: { default: '', type: String },
+  icon: { default: null, type: String },
+  items: { default: null, type: Object },
+  load: { default: null, type: Function },
+  showProgress: { default: false, type: Boolean },
+  uris: { default: '', type: String }
+})
+
+defineEmits(['play-count-changed'])
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const isRead = (item) => item.media_kind === 'podcast' && item.play_count > 0
+
+const open = (item) => {
+  if (props.uris) {
+    queue.playUri(props.uris, false, props.items.items.indexOf(item))
+  } else if (props.expression) {
+    queue.playExpression(
+      props.expression,
+      false,
+      props.items.items.indexOf(item)
+    )
+  } else {
+    queue.playUri(item.uri, false)
   }
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
+}
+
+const progress = (item) => {
+  if (props.showProgress && item.seek_ms > 0) {
+    return item.seek_ms / item.length_ms
+  }
+  return null
 }
 </script>

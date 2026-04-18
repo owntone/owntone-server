@@ -16,14 +16,8 @@
   </vue-eternal-loading>
 </template>
 
-<script>
+<script setup>
 import { VueEternalLoading } from '@ts-pro/vue-eternal-loading'
 
-export default {
-  name: 'LoaderListItem',
-  components: { VueEternalLoading },
-  props: {
-    load: { default: null, type: Function }
-  }
-}
+defineProps({ load: { default: null, type: Function } })
 </script>

@@ -28,7 +28,8 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -37,48 +38,40 @@ import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
+import { useRoute } from 'vue-router'
 
-export default {
-  name: 'PagePlaylistTracks',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ListTracks,
-    ModalDialogPlaylist,
-    PaneTitle
-  },
-  data() {
-    return { playlist: {}, showDetailsModal: false, tracks: new GroupedList() }
-  },
-  computed: {
-    heading() {
-      return {
-        subtitle: [{ count: this.tracks.count, key: 'data.tracks' }],
-        title: this.playlist.name
-      }
-    },
-    uris() {
-      if (this.playlist.random) {
-        return this.tracks.map((item) => item.uri).join()
-      }
-      return this.playlist.uri
-    }
-  },
-  async mounted() {
-    const [playlist, tracks] = await Promise.all([
-      library.playlist(this.$route.params.id),
-      library.playlistTracks(this.$route.params.id)
-    ])
-    this.playlist = playlist
-    this.tracks = new GroupedList(tracks)
-  },
-  methods: {
-    play() {
-      queue.playUri(this.uris, true)
-    },
-    openDetails() {
-      this.showDetailsModal = true
-    }
+const route = useRoute()
+
+const playlist = ref({})
+const showDetailsModal = ref(false)
+const tracks = ref(new GroupedList())
+
+const heading = computed(() => ({
+  subtitle: [{ count: tracks.value.count, key: 'data.tracks' }],
+  title: playlist.value.name
+}))
+
+const uris = computed(() => {
+  if (playlist.value.random) {
+    return tracks.value.map((item) => item.uri).join()
   }
+  return playlist.value.uri
+})
+
+const play = () => {
+  queue.playUri(uris.value, true)
 }
+
+const openDetails = () => {
+  showDetailsModal.value = true
+}
+
+onMounted(async () => {
+  const [playlistData, tracksData] = await Promise.all([
+    library.playlist(route.params.id),
+    library.playlistTracks(route.params.id)
+  ])
+  playlist.value = playlistData
+  tracks.value = new GroupedList(tracksData)
+})
 </script>

@@ -36,7 +36,8 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
@@ -45,35 +46,25 @@ import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
 
-export default {
-  name: 'PageMusic',
-  components: {
-    ContentWithHeading,
-    ListAlbums,
-    ListTracks,
-    PaneTitle,
-    TabsMusic
-  },
-  data() {
-    return { albums: [], tracks: null }
-  },
-  async mounted() {
-    const [{ albums }, { tracks }] = await Promise.all([
-      library.search({
-        expression:
-          'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc',
-        limit: 3,
-        type: 'album'
-      }),
-      library.search({
-        expression:
-          'time_played after 8 weeks ago and media_kind is music order by time_played desc',
-        limit: 3,
-        type: 'track'
-      })
-    ])
-    this.albums = new GroupedList(albums)
-    this.tracks = new GroupedList(tracks)
-  }
-}
+const albums = ref([])
+const tracks = ref(null)
+
+onMounted(async () => {
+  const [{ albums: albumList }, { tracks: trackList }] = await Promise.all([
+    library.search({
+      expression:
+        'time_added after 8 weeks ago and media_kind is music having track_count > 3 order by time_added desc',
+      limit: 3,
+      type: 'album'
+    }),
+    library.search({
+      expression:
+        'time_played after 8 weeks ago and media_kind is music order by time_played desc',
+      limit: 3,
+      type: 'track'
+    })
+  ])
+  albums.value = new GroupedList(albumList)
+  tracks.value = new GroupedList(trackList)
+})
 </script>

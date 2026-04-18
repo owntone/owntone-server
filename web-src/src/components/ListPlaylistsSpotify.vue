@@ -17,39 +17,41 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import LoaderListItem from '@/components/LoaderListItem.vue'
 import ModalDialogPlaylistSpotify from '@/components/ModalDialogPlaylistSpotify.vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings'
 
-export default {
-  name: 'ListPlaylistsSpotify',
-  components: { ListItem, LoaderListItem, ModalDialogPlaylistSpotify },
-  props: {
-    items: { required: true, type: Object },
-    load: { default: null, type: Function }
-  },
-  setup() {
-    return { settingsStore: useSettingsStore() }
-  },
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    image(item) {
-      if (this.settingsStore.showCoverArtworkInAlbumLists) {
-        return { caption: item.name, url: item.images?.[0]?.url }
-      }
-      return null
-    },
-    open(item) {
-      this.$router.push({ name: 'playlist-spotify', params: { id: item.id } })
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
+defineProps({
+  items: { required: true, type: Object },
+  load: { default: null, type: Function }
+})
+
+const router = useRouter()
+const settingsStore = useSettingsStore()
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const image = (item) => {
+  if (settingsStore.showCoverArtworkInAlbumLists) {
+    return {
+      caption: item.name,
+      url: item.images?.[0]?.url
     }
   }
+  return null
+}
+
+const open = (item) => {
+  router.push({ name: 'playlist-spotify', params: { id: item.id } })
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
 }
 </script>

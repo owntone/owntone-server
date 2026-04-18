@@ -27,12 +27,6 @@
   </section>
 </template>
 
-<script>
-export default {
-  name: 'ContentWithHero'
-}
-</script>
-
 <style lang="scss" scoped>
 @use 'bulma/sass/utilities/mixins';
 

@@ -1,11 +1,10 @@
 <template>
   <control-setting
-    :category="category"
     :disabled="disabled"
-    :name="name"
     :placeholder="placeholder"
+    :setting="setting"
   >
-    <template #input="{ label, setting, update }">
+    <template #input="{ label, update }">
       <span v-text="label" />
       <input
         class="input"
@@ -22,23 +21,17 @@
   </control-setting>
 </template>
 
-<script>
+<script setup>
 import ControlSetting from '@/components/ControlSetting.vue'
 
-export default {
-  name: 'ControlSettingIntegerField',
-  components: { ControlSetting },
-  props: {
-    category: { required: true, type: String },
-    disabled: Boolean,
-    name: { required: true, type: String },
-    placeholder: { default: '', type: String }
-  },
-  methods: {
-    sanitise(target) {
-      const value = parseInt(target.value.replace(/\D+/gu, ''), 10) || 0
-      return (target.value = value)
-    }
-  }
+defineProps({
+  disabled: Boolean,
+  placeholder: { default: '', type: String },
+  setting: { required: true, type: Object }
+})
+
+const sanitise = (target) => {
+  const value = parseInt(target.value.replace(/\D+/gu, ''), 10) || 0
+  return (target.value = value)
 }
 </script>

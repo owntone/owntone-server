@@ -25,121 +25,114 @@
   </modal-dialog>
 </template>
 
-<script>
+<script setup>
+import { computed, ref } from 'vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
+import formatters from '@/lib/formatters'
 import library from '@/api/library'
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ModalDialogAlbum',
-  components: { ModalDialog, ModalDialogPlayable },
-  props: {
-    item: { required: true, type: Object },
-    mediaKind: { default: '', type: String },
-    show: Boolean
-  },
-  emits: ['close', 'play-count-changed', 'podcast-deleted'],
-  data() {
-    return { showRemovePodcastModal: false }
-  },
-  computed: {
-    actions() {
-      return [
-        {
-          handler: this.cancel,
-          icon: 'cancel',
-          key: this.$t('actions.cancel')
-        },
-        {
-          handler: this.removePodcast,
-          icon: 'delete',
-          key: this.$t('actions.remove')
-        }
-      ]
-    },
-    buttons() {
-      if (this.computedMediaKind === 'podcast') {
-        if (this.item.data_kind === 'url') {
-          return [
-            { handler: this.markAsPlayed, key: 'actions.mark-as-played' },
-            {
-              handler: this.openRemovePodcastDialog,
-              key: 'actions.remove'
-            }
-          ]
-        }
-        return [{ handler: this.markAsPlayed, key: 'actions.mark-as-played' }]
-      }
-      return []
-    },
-    computedMediaKind() {
-      return this.mediaKind || this.item.media_kind
-    },
-    playable() {
-      return {
-        image: this.item.artwork_url,
-        name: this.item.name,
-        properties: [
-          {
-            handler: this.openArtist,
-            key: 'property.artist',
-            value: this.item.artist
-          },
-          {
-            key: 'property.release-date',
-            value: this.$formatters.toDate(this.item.date_released)
-          },
-          { key: 'property.year', value: this.item.year },
-          { key: 'property.tracks', value: this.item.track_count },
-          {
-            key: 'property.duration',
-            value: this.$formatters.toTimecode(this.item.length_ms)
-          },
-          {
-            key: 'property.type',
-            value: `${this.$t(`media.kind.${this.item.media_kind}`)} - ${this.$t(`data.kind.${this.item.data_kind}`)}`
-          },
-          {
-            key: 'property.added-on',
-            value: this.$formatters.toDateTime(this.item.time_added)
-          }
-        ],
-        uri: this.item.uri
-      }
-    }
-  },
-  methods: {
-    cancel() {
-      this.showRemovePodcastModal = false
-    },
-    async markAsPlayed() {
-      await library.updateAlbum(this.item.id, { play_count: 'played' })
-      this.$emit('play-count-changed')
-      this.$emit('close')
-    },
-    openArtist() {
-      this.$emit('close')
-      this.$router.push({
-        name: `${this.computedMediaKind}-artist`,
-        params: { id: this.item.artist_id }
-      })
-    },
-    openRemovePodcastDialog() {
-      this.showRemovePodcastModal = true
-      this.showDetailsModal = false
-    },
-    async removePodcast() {
-      this.showRemovePodcastModal = false
-      const album = await library.albumTracks(this.item.id, { limit: 1 })
-      const trackId = album.items[0].id
-      const data = await library.trackPlaylists(trackId)
-      const rssPlaylist = data.items.find((item) => item.type === 'rss')
-      if (rssPlaylist?.id) {
-        await library.playlistDelete(rssPlaylist.id)
-        this.$emit('podcast-deleted')
-        this.$emit('close')
-      }
-    }
+const props = defineProps({
+  item: { required: true, type: Object },
+  mediaKind: { default: '', type: String },
+  show: Boolean
+})
+
+const emit = defineEmits(['close', 'play-count-changed', 'podcast-deleted'])
+
+const router = useRouter()
+const { t } = useI18n()
+
+const showRemovePodcastModal = ref(false)
+
+const cancel = () => {
+  showRemovePodcastModal.value = false
+}
+
+const computedMediaKind = computed(
+  () => props.mediaKind || props.item.media_kind
+)
+
+const removePodcast = async () => {
+  showRemovePodcastModal.value = false
+  const album = await library.albumTracks(props.item.id, { limit: 1 })
+  const trackId = album.items[0].id
+  const data = await library.trackPlaylists(trackId)
+  const rssPlaylist = data.items.find((item) => item.type === 'rss')
+  if (rssPlaylist?.id) {
+    await library.playlistDelete(rssPlaylist.id)
+    emit('podcast-deleted')
+    emit('close')
   }
 }
+
+const actions = computed(() => [
+  { handler: cancel, icon: 'cancel', key: 'actions.cancel' },
+  { handler: removePodcast, icon: 'delete', key: 'actions.remove' }
+])
+
+const markAsPlayed = async () => {
+  await library.updateAlbum(props.item.id, { play_count: 'played' })
+  emit('play-count-changed')
+  emit('close')
+}
+
+const openRemovePodcastDialog = () => {
+  showRemovePodcastModal.value = true
+}
+
+const buttons = computed(() => {
+  if (computedMediaKind.value === 'podcast') {
+    if (props.item.data_kind === 'url') {
+      return [
+        { handler: markAsPlayed, key: 'actions.mark-as-played' },
+        { handler: openRemovePodcastDialog, key: 'actions.remove' }
+      ]
+    }
+    return [{ handler: markAsPlayed, key: 'actions.mark-as-played' }]
+  }
+
+  return []
+})
+
+const openArtist = () => {
+  emit('close')
+  router.push({
+    name: `${computedMediaKind.value}-artist`,
+    params: { id: props.item.artist_id }
+  })
+}
+
+const playable = computed(() => ({
+  image: props.item.artwork_url,
+  name: props.item.name,
+  properties: [
+    {
+      handler: openArtist,
+      key: 'property.artist',
+      value: props.item.artist
+    },
+    {
+      key: 'property.release-date',
+      value: formatters.toDate(props.item.date_released)
+    },
+    { key: 'property.year', value: props.item.year },
+    { key: 'property.tracks', value: props.item.track_count },
+    {
+      key: 'property.duration',
+      value: formatters.toTimecode(props.item.length_ms)
+    },
+    {
+      key: 'property.type',
+      value: `${t(`media.kind.${props.item.media_kind}`)} - ${t(`data.kind.${props.item.data_kind}`)}`
+    },
+    {
+      key: 'property.added-on',
+      value: formatters.toDateTime(props.item.time_added)
+    }
+  ],
+  uri: props.item.uri
+}))
 </script>

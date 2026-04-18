@@ -24,7 +24,8 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -36,92 +37,79 @@ import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
 import { useConfigurationStore } from '@/stores/configuration'
+import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 
-export default {
-  name: 'PageFiles',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ListDirectories,
-    ListPlaylists,
-    ListTracks,
-    ModalDialogPlayable,
-    PaneTitle
-  },
-  setup() {
-    return {
-      configurationStore: useConfigurationStore()
+const configurationStore = useConfigurationStore()
+const route = useRoute()
+const { t } = useI18n()
+
+const directories = ref([])
+const playlists = ref(new GroupedList())
+const showDetailsModal = ref(false)
+const tracks = ref(new GroupedList())
+
+const current = computed(() => route.query?.directory || '/')
+
+const expression = computed(
+  () => `path starts with "${current.value}" order by path asc`
+)
+
+const name = computed(() => {
+  if (current.value !== '/') {
+    return current.value?.slice(current.value.lastIndexOf('/') + 1)
+  }
+  return t('page.files.title')
+})
+
+const playable = computed(() => ({
+  expression: expression.value,
+  name: current.value,
+  properties: [
+    { key: 'property.folders', value: directories.value.length },
+    { key: 'property.playlists', value: playlists.value.total },
+    { key: 'property.tracks', value: tracks.value.total }
+  ]
+}))
+
+const openDetails = () => {
+  showDetailsModal.value = true
+}
+
+const play = () => {
+  queue.playExpression(expression.value, false)
+}
+
+const transform = (path) => ({
+  name: path.slice(path.lastIndexOf('/') + 1),
+  path
+})
+
+const fetchData = async (to) => {
+  if (to.query.directory) {
+    const data = await library.files(to.query.directory)
+    if (data) {
+      directories.value = data.directories.map((directory) =>
+        transform(directory.path)
+      )
+      playlists.value = new GroupedList(data.playlists)
+      tracks.value = new GroupedList(data.tracks)
     }
-  },
-  data() {
-    return {
-      directories: [],
-      playlists: new GroupedList(),
-      showDetailsModal: false,
-      tracks: new GroupedList()
-    }
-  },
-  computed: {
-    current() {
-      return this.$route.query?.directory || '/'
-    },
-    expression() {
-      return `path starts with "${this.current}" order by path asc`
-    },
-    name() {
-      if (this.current !== '/') {
-        return this.current?.slice(this.current.lastIndexOf('/') + 1)
-      }
-      return this.$t('page.files.title')
-    },
-    playable() {
-      return {
-        expression: this.expression,
-        name: this.current,
-        properties: [
-          { key: 'property.folders', value: this.directories.length },
-          { key: 'property.playlists', value: this.playlists.total },
-          { key: 'property.tracks', value: this.tracks.total }
-        ]
-      }
-    }
-  },
-  watch: {
-    $route(to) {
-      this.fetchData(to)
-    }
-  },
-  async mounted() {
-    await this.fetchData(this.$route)
-  },
-  methods: {
-    async fetchData(to) {
-      if (to.query.directory) {
-        const data = await library.files(to.query.directory)
-        if (data) {
-          this.directories = data.directories.map((directory) =>
-            this.transform(directory.path)
-          )
-          this.playlists = new GroupedList(data.playlists)
-          this.tracks = new GroupedList(data.tracks)
-        }
-      } else {
-        this.directories = this.configurationStore.directories.map((path) =>
-          this.transform(path)
-        )
-        this.playlists = new GroupedList()
-        this.tracks = new GroupedList()
-      }
-    },
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    play() {
-      queue.playExpression(this.expression, false)
-    },
-    transform(path) {
-      return { name: path.slice(path.lastIndexOf('/') + 1), path }
-    }
+  } else {
+    directories.value = configurationStore.directories.map((path) =>
+      transform(path)
+    )
+    playlists.value = new GroupedList()
+    tracks.value = new GroupedList()
   }
 }
+
+watch(
+  () => route.query.directory,
+  () => fetchData(route)
+)
+
+onMounted(() => {
+  fetchData(route)
+})
 </script>

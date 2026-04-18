@@ -34,7 +34,9 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
@@ -46,98 +48,88 @@ import ModalDialogGenre from '@/components/ModalDialogGenre.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
+import { useI18n } from 'vue-i18n'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'PageGenreTracks',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ControlDropdown,
-    ListIndexButtons,
-    ListOptions,
-    ListTracks,
-    ModalDialogGenre,
-    PaneTitle
+defineOptions({ name: 'PageGenreTracks' })
+
+const route = useRoute()
+const router = useRouter()
+const { t } = useI18n()
+const uiStore = useUIStore()
+
+const genre = ref({})
+const mediaKind = ref(route.query.mediaKind)
+const showDetailsModal = ref(false)
+const trackList = ref(new GroupedList())
+
+const expression = computed(
+  () => `genre is "${genre.value.name}" and media_kind is ${mediaKind.value}`
+)
+
+const groupings = computed(() => [
+  {
+    id: 1,
+    name: t('options.sort.name'),
+    options: { index: { field: 'title_sort', type: String } }
   },
-  setup() {
-    return { uiStore: useUIStore() }
-  },
-  data() {
-    return {
-      genre: {},
-      mediaKind: this.$route.query.mediaKind,
-      showDetailsModal: false,
-      trackList: new GroupedList()
-    }
-  },
-  computed: {
-    expression() {
-      return `genre is "${this.genre.name}" and media_kind is ${this.mediaKind}`
-    },
-    groupings() {
-      return [
-        {
-          id: 1,
-          name: this.$t('options.sort.name'),
-          options: { index: { field: 'title_sort', type: String } }
-        },
-        {
-          id: 2,
-          name: this.$t('options.sort.rating'),
-          options: {
-            criteria: [{ field: 'rating', order: -1, type: Number }],
-            index: { field: 'rating', type: 'Digits' }
-          }
-        }
-      ]
-    },
-    heading() {
-      if (this.genre.name) {
-        return {
-          subtitle: [
-            {
-              count: this.genre.album_count,
-              handler: this.openGenre,
-              key: 'data.albums'
-            },
-            { count: this.genre.track_count, key: 'data.tracks' }
-          ],
-          title: this.genre.name
-        }
-      }
-      return {}
-    },
-    tracks() {
-      const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.genreTracksSort
-      )
-      return this.trackList.group(options)
-    }
-  },
-  async mounted() {
-    const [genre, tracks] = await Promise.all([
-      library.genre(this.$route.params.name, this.$route.query.mediaKind),
-      library.genreTracks(this.$route.params.name, this.$route.query.mediaKind)
-    ])
-    this.genre = genre.items.shift()
-    this.trackList = new GroupedList(tracks)
-  },
-  methods: {
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    openGenre() {
-      this.showDetailsModal = false
-      this.$router.push({
-        name: 'genre-albums',
-        params: { name: this.genre.name },
-        query: { mediaKind: this.mediaKind }
-      })
-    },
-    play() {
-      queue.playExpression(this.expression, true)
+  {
+    id: 2,
+    name: t('options.sort.rating'),
+    options: {
+      criteria: [{ field: 'rating', order: -1, type: Number }],
+      index: { field: 'rating', type: 'Digits' }
     }
   }
+])
+
+const openGenre = () => {
+  showDetailsModal.value = false
+  router.push({
+    name: 'genre-albums',
+    params: { name: genre.value.name },
+    query: { mediaKind: mediaKind.value }
+  })
 }
+
+const heading = computed(() => {
+  if (genre.value.name) {
+    return {
+      subtitle: [
+        {
+          count: genre.value.album_count,
+          handler: openGenre,
+          key: 'data.albums'
+        },
+        { count: genre.value.track_count, key: 'data.tracks' }
+      ],
+      title: genre.value.name
+    }
+  }
+  return {}
+})
+
+const tracks = computed(() => {
+  const grouping =
+    groupings.value.find((g) => g.id === uiStore.genreTracksSort) ??
+    groupings.value[0]
+  return trackList.value.group(grouping.options)
+})
+
+const openDetails = () => {
+  showDetailsModal.value = true
+}
+
+const play = () => {
+  queue.playExpression(expression.value, true)
+}
+
+onMounted(async () => {
+  const [genreData, tracksData] = await Promise.all([
+    library.genre(route.params.name, route.query.mediaKind),
+    library.genreTracks(route.params.name, route.query.mediaKind)
+  ])
+  genre.value = genreData.items.shift()
+  trackList.value = new GroupedList(tracksData)
+})
 </script>

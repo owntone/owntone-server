@@ -10,7 +10,7 @@
         <div class="field">
           <div class="control has-icons-left">
             <input
-              ref="playlist_name_field"
+              ref="playlistNameField"
               v-model="playlistName"
               class="input"
               type="text"
@@ -28,63 +28,66 @@
   </modal-dialog>
 </template>
 
-<script>
+<script setup>
+import { computed, nextTick, ref, watch } from 'vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import queue from '@/api/queue'
 
-export default {
-  name: 'ModalDialogPlaylistSave',
-  components: { ModalDialog },
-  props: { show: Boolean },
-  emits: ['close'],
-  data() {
-    return { disabled: true, loading: false, playlistName: '' }
-  },
-  computed: {
-    actions() {
-      if (this.loading) {
-        return [{ icon: 'web', key: 'dialog.playlist.save.saving' }]
-      }
-      return [
-        { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' },
-        {
-          disabled: this.disabled,
-          handler: this.save,
-          icon: 'download',
-          key: 'actions.save'
-        }
-      ]
-    }
-  },
-  watch: {
-    show() {
-      if (this.show) {
-        this.loading = false
-        // Delay setting the focus on the input field until it is part of the DOM and visible
-        setTimeout(() => {
-          this.$refs.playlist_name_field.focus()
-        }, 10)
-      }
-    }
-  },
-  methods: {
-    cancel() {
-      this.$emit('close')
-    },
-    check(event) {
-      const { validity } = event.target
-      this.disabled = validity.patternMismatch || validity.valueMissing
-    },
-    async save() {
-      this.loading = true
-      try {
-        await queue.saveToPlaylist(this.playlistName)
-        this.$emit('close')
-        this.playlistName = ''
-      } finally {
-        this.loading = false
-      }
-    }
+const props = defineProps({ show: Boolean })
+
+const emit = defineEmits(['close'])
+
+const disabled = ref(true)
+const loading = ref(false)
+const playlistName = ref('')
+const playlistNameField = ref(null)
+
+const cancel = () => {
+  emit('close')
+}
+
+const check = (event) => {
+  const { validity } = event.target
+  disabled.value = validity.patternMismatch || validity.valueMissing
+}
+
+const save = async () => {
+  loading.value = true
+  const name = playlistName.value
+  playlistName.value = ''
+  try {
+    await queue.saveToPlaylist(name)
+    emit('close')
+  } finally {
+    loading.value = false
   }
 }
+
+const actions = computed(() => {
+  if (loading.value) {
+    return [{ icon: 'web', key: 'dialog.playlist.save.saving' }]
+  }
+  return [
+    { handler: cancel, icon: 'cancel', key: 'actions.cancel' },
+    {
+      disabled: disabled.value,
+      handler: save,
+      icon: 'download',
+      key: 'actions.save'
+    }
+  ]
+})
+
+watch(
+  () => props.show,
+  async (isShown) => {
+    if (isShown) {
+      loading.value = false
+      await nextTick()
+      setTimeout(() => {
+        playlistNameField.value?.focus()
+      }, 10)
+    }
+  }
+)
 </script>

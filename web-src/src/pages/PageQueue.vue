@@ -97,7 +97,8 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import ListItemQueueItem from '@/components/ListItemQueueItem.vue'
@@ -107,93 +108,72 @@ import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import draggable from 'vuedraggable'
 import queue from '@/api/queue'
-import { useConfigurationStore } from '@/stores/configuration'
+import { useI18n } from 'vue-i18n'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'PageQueue',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ListItemQueueItem,
-    ModalDialogAddStream,
-    ModalDialogPlaylistSave,
-    ModalDialogQueueItem,
-    PaneTitle,
-    draggable
-  },
-  setup() {
-    return {
-      configurationStore: useConfigurationStore(),
-      playerStore: usePlayerStore(),
-      queueStore: useQueueStore(),
-      uiStore: useUIStore()
-    }
-  },
-  data() {
-    return {
-      editing: false,
-      selectedItem: {},
-      showAddStreamDialog: false,
-      showDetailsModal: false,
-      showSaveModal: false
-    }
-  },
-  computed: {
-    currentPosition() {
-      return this.queueStore.current?.position ?? -1
-    },
-    heading() {
-      return {
-        subtitle: [{ count: this.queueStore.count, key: 'data.tracks' }],
-        title: this.$t('page.queue.title')
-      }
-    },
-    items: {
-      get() {
-        return this.queueStore.items
-      },
-      set() {
-        /* Do nothing? Send move request in @end event */
-      }
-    }
-  },
-  methods: {
-    clearQueue() {
-      queue.clear()
-    },
-    isRemovable(item) {
-      return item.id !== this.playerStore.item_id && this.editing
-    },
-    moveItem(event) {
-      const oldPosition =
-        event.oldIndex + (this.uiStore.hideReadItems && this.currentPosition)
-      const item = this.items[oldPosition]
-      const newPosition = item.position + (event.newIndex - event.oldIndex)
-      if (newPosition !== oldPosition) {
-        queue.move(item.id, newPosition)
-      }
-    },
-    openAddStreamDialog() {
-      this.showAddStreamDialog = true
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    },
-    openSaveDialog() {
-      if (!this.queueStore.isEmpty) {
-        this.showSaveModal = true
-      }
-    },
-    remove(item) {
-      queue.remove(item.id)
-    },
-    toggleEdit() {
-      this.editing = !this.editing
-    }
+const playerStore = usePlayerStore()
+const queueStore = useQueueStore()
+const uiStore = useUIStore()
+const { t } = useI18n()
+
+const editing = ref(false)
+const selectedItem = ref({})
+const showAddStreamDialog = ref(false)
+const showDetailsModal = ref(false)
+const showSaveModal = ref(false)
+
+const currentPosition = computed(() => queueStore.current?.position ?? -1)
+
+const heading = computed(() => ({
+  subtitle: [{ count: queueStore.count, key: 'data.tracks' }],
+  title: t('page.queue.title')
+}))
+
+const items = computed({
+  get: () => queueStore.items,
+  set: () => {
+    /* Do nothing? Send move request in @end event */
   }
+})
+
+const clearQueue = () => {
+  queue.clear()
+}
+
+const isRemovable = (item) => item.id !== playerStore.item_id && editing.value
+
+const moveItem = (event) => {
+  const oldPosition =
+    event.oldIndex + (uiStore.hideReadItems && currentPosition.value)
+  const item = items.value[oldPosition]
+  const newPosition = item.position + (event.newIndex - event.oldIndex)
+  if (newPosition !== oldPosition) {
+    queue.move(item.id, newPosition)
+  }
+}
+
+const openAddStreamDialog = () => {
+  showAddStreamDialog.value = true
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
+}
+
+const openSaveDialog = () => {
+  if (!queueStore.isEmpty) {
+    showSaveModal.value = true
+  }
+}
+
+const remove = (item) => {
+  queue.remove(item.id)
+}
+
+const toggleEdit = () => {
+  editing.value = !editing.value
 }
 </script>

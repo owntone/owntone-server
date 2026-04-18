@@ -16,40 +16,41 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogPlaylist from '@/components/ModalDialogPlaylist.vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ListPlaylists',
-  components: { ListItem, ModalDialogPlaylist },
-  props: {
-    items: { required: true, type: Object },
-    load: { default: null, type: Function }
-  },
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    icon(item) {
-      if (item.type === 'folder') {
-        return 'folder'
-      } else if (item.type === 'rss') {
-        return 'rss'
-      }
-      return 'music-box-multiple'
-    },
-    open(item) {
-      if (item.type === 'folder') {
-        this.$router.push({ name: 'playlist-folder', params: { id: item.id } })
-      } else {
-        this.$router.push({ name: 'playlist', params: { id: item.id } })
-      }
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    }
+defineProps({
+  items: { required: true, type: Object },
+  load: { default: null, type: Function }
+})
+
+const router = useRouter()
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const icon = (item) => {
+  if (item.type === 'folder') {
+    return 'folder'
+  } else if (item.type === 'rss') {
+    return 'rss'
   }
+  return 'music-box-multiple'
+}
+
+const open = (item) => {
+  if (item.type === 'folder') {
+    router.push({ name: 'playlist-folder', params: { id: item.id } })
+  } else {
+    router.push({ name: 'playlist', params: { id: item.id } })
+  }
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
 }
 </script>

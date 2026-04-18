@@ -16,9 +16,6 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'PaneTitle',
-  props: { content: { required: true, type: Object } }
-}
+<script setup>
+defineProps({ content: { required: true, type: Object } })
 </script>

@@ -23,54 +23,53 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings'
 
-export default {
-  name: 'ListAlbums',
-  components: { ListItem, ModalDialogAlbum },
-  props: {
-    items: { required: true, type: Object },
-    load: { default: null, type: Function },
-    mediaKind: { default: '', type: String }
-  },
-  emits: ['play-count-changed', 'podcast-deleted'],
-  setup() {
-    return { settingsStore: useSettingsStore() }
-  },
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    image(item) {
-      if (this.settingsStore.showCoverArtworkInAlbumLists) {
-        return { caption: item.item.name, url: item.item.artwork_url }
-      }
-      return null
-    },
-    open(item) {
-      const mediaKind = this.mediaKind || item.media_kind
-      if (mediaKind === 'podcast') {
-        this.$router.push({ name: 'podcast', params: { id: item.id } })
-      } else {
-        this.$router.push({
-          name: `${mediaKind}-album`,
-          params: { id: item.id }
-        })
-      }
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    },
-    playCountChanged() {
-      this.$emit('play-count-changed')
-    },
-    podcastDeleted() {
-      this.$emit('podcast-deleted')
-    }
+const props = defineProps({
+  items: { required: true, type: Object },
+  load: { default: null, type: Function },
+  mediaKind: { default: '', type: String }
+})
+
+const emit = defineEmits(['play-count-changed', 'podcast-deleted'])
+
+const settingsStore = useSettingsStore()
+const router = useRouter()
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const image = (item) => {
+  if (settingsStore.showCoverArtworkInAlbumLists) {
+    return { caption: item.item.name, url: item.item.artwork_url }
   }
+  return null
+}
+
+const open = (item) => {
+  const mediaKind = props.mediaKind || item.media_kind
+  if (mediaKind === 'podcast') {
+    router.push({ name: 'podcast', params: { id: item.id } })
+  } else {
+    router.push({ name: `${mediaKind}-album`, params: { id: item.id } })
+  }
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
+}
+
+const playCountChanged = () => {
+  emit('play-count-changed')
+}
+
+const podcastDeleted = () => {
+  emit('podcast-deleted')
 }
 </script>

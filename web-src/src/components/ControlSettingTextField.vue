@@ -1,11 +1,10 @@
 <template>
   <control-setting
-    :category="category"
     :disabled="disabled"
-    :name="name"
     :placeholder="placeholder"
+    :setting="setting"
   >
-    <template #input="{ label, setting, update }">
+    <template #input="{ label, update }">
       <span v-text="label" />
       <input
         class="input"
@@ -21,22 +20,14 @@
   </control-setting>
 </template>
 
-<script>
+<script setup>
 import ControlSetting from '@/components/ControlSetting.vue'
 
-export default {
-  name: 'ControlSettingTextField',
-  components: { ControlSetting },
-  props: {
-    category: { required: true, type: String },
-    disabled: Boolean,
-    name: { required: true, type: String },
-    placeholder: { default: '', type: String }
-  },
-  methods: {
-    sanitise(target) {
-      return target.value
-    }
-  }
-}
+defineProps({
+  disabled: { type: Boolean },
+  placeholder: { type: String, default: '' },
+  setting: { required: true, type: Object }
+})
+
+const sanitise = (target) => target.value
 </script>

@@ -92,7 +92,7 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlIntegerField from '@/components/ControlIntegerField.vue'
 import ControlPinField from '@/components/ControlPinField.vue'
@@ -100,46 +100,40 @@ import ControlSwitch from '@/components/ControlSwitch.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import outputs from '@/api/outputs'
+import { ref } from 'vue'
 import remotes from '@/api/remotes'
 import { useOutputsStore } from '@/stores/outputs'
 import { useRemotesStore } from '@/stores/remotes'
 
-export default {
-  name: 'PageSettingsDevices',
-  components: {
-    ContentWithHeading,
-    ControlIntegerField,
-    ControlPinField,
-    ControlSwitch,
-    PaneTitle,
-    TabsSettings
-  },
-  setup() {
-    return { outputsStore: useOutputsStore(), remotesStore: useRemotesStore() }
-  },
-  data() {
-    return { outputPin: '', remotePairingDisabled: true, remotePin: '' }
-  },
-  methods: {
-    onOutputPinChange(pin) {
-      this.outputPin = pin
-    },
-    onOutputOffsetChange(identifier, value) {
-      outputs.update(identifier, { offset_ms: value })
-    },
-    onRemotePinChange(pin, disabled) {
-      this.remotePin = pin
-      this.remotePairingDisabled = disabled
-    },
-    pairOutput(identifier) {
-      outputs.update(identifier, { pin: this.outputPin })
-    },
-    pairRemote() {
-      remotes.pair(this.remotePin)
-    },
-    toggleOutput(identifier) {
-      outputs.toggle(identifier)
-    }
-  }
+const outputsStore = useOutputsStore()
+const remotesStore = useRemotesStore()
+
+const outputPin = ref('')
+const remotePairingDisabled = ref(true)
+const remotePin = ref('')
+
+const onOutputPinChange = (pin) => {
+  outputPin.value = pin
+}
+
+const onOutputOffsetChange = (identifier, value) => {
+  outputs.update(identifier, { offset_ms: value })
+}
+
+const onRemotePinChange = (pin, disabled) => {
+  remotePin.value = pin
+  remotePairingDisabled.value = disabled
+}
+
+const pairOutput = (identifier) => {
+  outputs.update(identifier, { pin: outputPin.value })
+}
+
+const pairRemote = () => {
+  remotes.pair(remotePin.value)
+}
+
+const toggleOutput = (identifier) => {
+  outputs.toggle(identifier)
 }
 </script>

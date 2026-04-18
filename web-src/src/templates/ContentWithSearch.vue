@@ -64,35 +64,29 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSearch from '@/components/TabsSearch.vue'
 import { useSearchStore } from '@/stores/search'
 
-export default {
-  name: 'ContentWithSearch',
-  components: { ContentWithHeading, ControlButton, PaneTitle, TabsSearch },
-  props: {
-    components: { default: null, type: Object },
-    expanded: { default: false, type: Boolean },
-    getItems: { default: null, type: Function },
-    history: { default: null, type: Array },
-    load: { default: null, type: Function },
-    results: { default: null, type: Object }
-  },
-  emits: [
-    'expand',
-    'search',
-    'search-library',
-    'search-query',
-    'search-spotify'
-  ],
-  setup() {
-    return {
-      searchStore: useSearchStore()
-    }
-  }
-}
+defineProps({
+  components: { default: null, type: Object },
+  expanded: { default: false, type: Boolean },
+  getItems: { default: null, type: Function },
+  history: { default: null, type: Array },
+  load: { default: null, type: Function },
+  results: { default: null, type: Object }
+})
+
+defineEmits([
+  'expand',
+  'search',
+  'search-library',
+  'search-query',
+  'search-spotify'
+])
+
+const searchStore = useSearchStore()
 </script>

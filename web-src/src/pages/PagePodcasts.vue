@@ -56,7 +56,8 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -65,82 +66,73 @@ import ListTracks from '@/components/ListTracks.vue'
 import ModalDialogAddRss from '@/components/ModalDialogAddRss.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
+import { useI18n } from 'vue-i18n'
 import { useLibraryStore } from '@/stores/library'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'PagePodcasts',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ListAlbums,
-    ListTracks,
-    ModalDialogAddRss,
-    PaneTitle
-  },
-  setup() {
-    return { libraryStore: useLibraryStore(), uiStore: useUIStore() }
-  },
-  data() {
+const { t } = useI18n()
+
+const libraryStore = useLibraryStore()
+const uiStore = useUIStore()
+
+const albums = ref([])
+const episodes = ref({ items: [] })
+const rssCount = ref({})
+const showAddPodcastModal = ref(false)
+
+const hasRss = computed(() => (rssCount.value.albums ?? 0) > 0)
+
+const heading = computed(() => {
+  if (albums.value.total) {
     return {
-      albums: [],
-      episodes: { items: [] },
-      rssCount: {},
-      showAddPodcastModal: false
-    }
-  },
-  computed: {
-    hasRss() {
-      return (this.rssCount.albums ?? 0) > 0
-    },
-    heading() {
-      if (this.albums.total) {
-        return {
-          subtitle: [{ count: this.albums.count, key: 'data.podcasts' }],
-          title: this.$t('page.podcasts.title')
-        }
-      }
-      return {}
-    }
-  },
-  async mounted() {
-    const [albums, episodes, rssCount] = await Promise.all([
-      library.albums('podcast'),
-      library.newPodcastEpisodes(),
-      library.rssCount()
-    ])
-    this.albums = new GroupedList(albums)
-    this.episodes = new GroupedList(episodes)
-    this.rssCount = rssCount
-  },
-  methods: {
-    markAllAsPlayed() {
-      this.episodes.items.forEach((episode) => {
-        library.updateTrack(episode.id, { play_count: 'increment' })
-      })
-      this.episodes.items = {}
-    },
-    openAddPodcastDialog() {
-      this.showAddPodcastModal = true
-    },
-    async reloadEpisodes() {
-      const episodes = await library.newPodcastEpisodes()
-      this.episodes = new GroupedList(episodes)
-    },
-    async reloadPodcasts() {
-      const albums = await library.albums('podcast')
-      this.albums = new GroupedList(albums)
-      await this.reloadEpisodes()
-      await this.reloadRssCount()
-    },
-    async reloadRssCount() {
-      const rssCount = await library.rssCount()
-      this.rssCount = rssCount
-    },
-    updateRss() {
-      this.libraryStore.update_dialog_scan_kind = 'rss'
-      this.uiStore.showUpdateDialog = true
+      subtitle: [{ count: albums.value.count, key: 'data.podcasts' }],
+      title: t('page.podcasts.title')
     }
   }
+  return {}
+})
+
+const markAllAsPlayed = () => {
+  episodes.value.items.forEach((episode) => {
+    library.updateTrack(episode.id, { play_count: 'increment' })
+  })
+  episodes.value.items = {}
 }
+
+const openAddPodcastDialog = () => {
+  showAddPodcastModal.value = true
+}
+
+const reloadEpisodes = async () => {
+  const e = await library.newPodcastEpisodes()
+  episodes.value = new GroupedList(e)
+}
+
+const reloadRssCount = async () => {
+  const r = await library.rssCount()
+  rssCount.value = r
+}
+
+const reloadPodcasts = async () => {
+  const a = await library.albums('podcast')
+  albums.value = new GroupedList(a)
+  await reloadEpisodes()
+  await reloadRssCount()
+}
+
+const updateRss = () => {
+  libraryStore.update_dialog_scan_kind = 'rss'
+  uiStore.showUpdateDialog = true
+}
+
+onMounted(async () => {
+  const [albumsData, episodesData, rssCountData] = await Promise.all([
+    library.albums('podcast'),
+    library.newPodcastEpisodes(),
+    library.rssCount()
+  ])
+  albums.value = new GroupedList(albumsData)
+  episodes.value = new GroupedList(episodesData)
+  rssCount.value = rssCountData
+})
 </script>

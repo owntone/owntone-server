@@ -10,36 +10,28 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PageMusicSpotifyNewReleases',
-  components: {
-    ContentWithHeading,
-    ListAlbumsSpotify,
-    PaneTitle,
-    TabsMusic
-  },
-  data() {
-    return { albums: [] }
-  },
-  computed: {
-    heading() {
-      return { title: this.$t('page.spotify.music.new-releases') }
-    }
-  },
-  async mounted() {
-    const { api, configuration } = await services.spotify.get()
-    const response = await api.browse.getNewReleases(
-      configuration.webapi_country,
-      50
-    )
-    this.albums = response.albums.items
-  }
-}
+const albums = ref([])
+
+const { t } = useI18n()
+const heading = computed(() => ({
+  title: t('page.spotify.music.new-releases', 'New releases')
+}))
+
+onMounted(async () => {
+  const { api, configuration } = await services.spotify.get()
+  const response = await api.browse.getNewReleases(
+    configuration.webapi_country,
+    50
+  )
+  albums.value = response.albums.items
+})
 </script>

@@ -12,38 +12,29 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PageRadioStreams',
-  components: {
-    ContentWithHeading,
-    ListIndexButtons,
-    ListTracks,
-    PaneTitle
-  },
-  data() {
-    return { tracks: new GroupedList() }
-  },
-  computed: {
-    heading() {
-      return {
-        subtitle: [{ count: this.tracks.total, key: 'data.stations' }],
-        title: this.$t('page.radio.title')
-      }
-    }
-  },
-  async mounted() {
-    const tracks = await library.radioStreams()
-    this.tracks = new GroupedList(tracks, {
-      index: { field: 'title_sort', type: String }
-    })
-  }
-}
+const { t } = useI18n()
+
+const tracks = ref(new GroupedList())
+
+const heading = computed(() => ({
+  subtitle: [{ count: tracks.value.total, key: 'data.stations' }],
+  title: t('page.radio.title')
+}))
+
+onMounted(async () => {
+  const data = await library.radioStreams()
+  tracks.value = new GroupedList(data, {
+    index: { field: 'title_sort', type: String }
+  })
+})
 </script>

@@ -9,35 +9,29 @@
   </button>
 </template>
 
-<script>
+<script setup>
+import { computed } from 'vue'
 import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
 
-export default {
-  name: 'ControlPlayerRepeat',
-  setup() {
-    return { playerStore: usePlayerStore() }
-  },
-  computed: {
-    icon() {
-      if (this.playerStore.isRepeatAll) {
-        return 'repeat'
-      } else if (this.playerStore.isRepeatSingle) {
-        return 'repeat-once'
-      }
-      return 'repeat-off'
-    }
-  },
-  methods: {
-    toggle() {
-      if (this.playerStore.isRepeatAll) {
-        player.repeat('single')
-      } else if (this.playerStore.isRepeatSingle) {
-        player.repeat('off')
-      } else {
-        player.repeat('all')
-      }
-    }
+const playerStore = usePlayerStore()
+
+const icon = computed(() => {
+  if (playerStore.isRepeatAll) {
+    return 'repeat'
+  } else if (playerStore.isRepeatSingle) {
+    return 'repeat-once'
+  }
+  return 'repeat-off'
+})
+
+const toggle = () => {
+  if (playerStore.isRepeatAll) {
+    player.repeat('single')
+  } else if (playerStore.isRepeatSingle) {
+    player.repeat('off')
+  } else {
+    player.repeat('all')
   }
 }
 </script>

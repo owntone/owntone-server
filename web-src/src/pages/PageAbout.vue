@@ -80,66 +80,44 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
+import { computed } from 'vue'
+import formatters from '@/lib/Formatters'
 import { useConfigurationStore } from '@/stores/configuration'
+import { useI18n } from 'vue-i18n'
 import { useLibraryStore } from '@/stores/library'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'PageAbout',
-  components: { ContentWithHeading, ControlButton, PaneTitle },
-  setup() {
-    return {
-      configurationStore: useConfigurationStore(),
-      libraryStore: useLibraryStore(),
-      uiStore: useUIStore()
-    }
+const configurationStore = useConfigurationStore()
+const libraryStore = useLibraryStore()
+const { n } = useI18n()
+const uiStore = useUIStore()
+
+const properties = computed(() => [
+  { key: 'property.name', value: configurationStore.library_name },
+  { key: 'property.artists', value: n(libraryStore.artists) },
+  { key: 'property.albums', value: n(libraryStore.albums) },
+  { key: 'property.tracks', value: n(libraryStore.songs) },
+  {
+    key: 'property.playtime',
+    value: formatters.toDuration(libraryStore.db_playtime)
   },
-  computed: {
-    properties() {
-      return [
-        {
-          key: 'property.name',
-          value: this.configurationStore.library_name
-        },
-        {
-          key: 'property.artists',
-          value: this.$n(this.libraryStore.artists)
-        },
-        {
-          key: 'property.albums',
-          value: this.$n(this.libraryStore.albums)
-        },
-        {
-          key: 'property.tracks',
-          value: this.$n(this.libraryStore.songs)
-        },
-        {
-          key: 'property.playtime',
-          value: this.$formatters.toDuration(this.libraryStore.db_playtime)
-        },
-        {
-          alternate: this.$formatters.toDateTime(this.libraryStore.updated_at),
-          key: 'property.updated',
-          value: this.$formatters.toRelativeDuration(
-            this.libraryStore.updated_at
-          )
-        },
-        {
-          alternate: this.$formatters.toDateTime(this.libraryStore.started_at),
-          key: 'property.uptime',
-          value: this.$formatters.toDurationToNow(this.libraryStore.started_at)
-        }
-      ]
-    }
+  {
+    alternate: formatters.toDateTime(libraryStore.updated_at),
+    key: 'property.updated',
+    value: formatters.toRelativeDuration(libraryStore.updated_at)
   },
-  methods: {
-    openUpdateDialog() {
-      this.uiStore.showUpdateDialog = true
-    }
+  {
+    alternate: formatters.toDateTime(libraryStore.started_at),
+    key: 'property.uptime',
+    value: formatters.toDurationToNow(libraryStore.started_at)
   }
+])
+
+const openUpdateDialog = () => {
+  uiStore.showUpdateDialog = true
 }
 </script>

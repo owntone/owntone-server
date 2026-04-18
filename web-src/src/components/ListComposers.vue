@@ -15,31 +15,28 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogComposer from '@/components/ModalDialogComposer.vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ListComposers',
-  components: { ListItem, ModalDialogComposer },
-  props: {
-    items: { required: true, type: Object },
-    load: { default: null, type: Function }
-  },
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    open(item) {
-      this.$router.push({
-        name: 'music-composer-albums',
-        params: { name: item.name }
-      })
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    }
-  }
+defineProps({
+  items: { required: true, type: Object },
+  load: { default: null, type: Function }
+})
+
+const router = useRouter()
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const open = (item) => {
+  router.push({ name: 'music-composer-albums', params: { name: item.name } })
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
 }
 </script>

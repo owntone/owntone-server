@@ -19,15 +19,10 @@
   </section>
 </template>
 
-<script>
+<script setup>
 import { useNotificationsStore } from '@/stores/notifications'
 
-export default {
-  name: 'ListNotifications',
-  setup() {
-    return { notificationsStore: useNotificationsStore() }
-  }
-}
+const notificationsStore = useNotificationsStore()
 </script>
 
 <style scoped>

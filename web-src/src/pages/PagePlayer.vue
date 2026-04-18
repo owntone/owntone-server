@@ -52,135 +52,122 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import ControlImage from '@/components/ControlImage.vue'
 import ControlSlider from '@/components/ControlSlider.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import PaneLyrics from '@/components/PaneLyrics.vue'
+import formatters from '@/lib/Formatters'
 import player from '@/api/player'
+import { useI18n } from 'vue-i18n'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 import { useSettingsStore } from '@/stores/settings'
 
 const INTERVAL = 1000
 
-export default {
-  name: 'PagePlayer',
-  components: {
-    ControlImage,
-    ControlSlider,
-    ModalDialogQueueItem,
-    PaneLyrics
-  },
-  setup() {
-    return {
-      playerStore: usePlayerStore(),
-      queueStore: useQueueStore(),
-      settingsStore: useSettingsStore()
-    }
-  },
-  data() {
-    return {
-      INTERVAL,
-      intervalId: 0,
-      isDragged: false,
-      selectedItem: {},
-      showDetailsModal: false
-    }
-  },
-  computed: {
-    composer() {
-      if (this.settingsStore.showComposerNowPlaying) {
-        const genres = this.settingsStore.showComposerForGenre
-        if (
-          !genres ||
-          (this.track.genre &&
-            genres
-              .toLowerCase()
-              .split(',')
-              .findIndex(
-                (elem) =>
-                  this.track.genre.toLowerCase().indexOf(elem.trim()) >= 0
-              ) >= 0)
-        ) {
-          return this.track.composer
-        }
-      }
-      return null
-    },
-    isLive() {
-      return this.track.length_ms === 0
-    },
-    track() {
-      return this.queueStore.current
-    },
-    trackElapsedTime() {
-      return this.$formatters.toTimecode(this.trackProgress * INTERVAL)
-    },
-    trackProgress: {
-      get() {
-        return Math.floor(this.playerStore.item_progress_ms / INTERVAL)
-      },
-      set(value) {
-        this.playerStore.item_progress_ms = value * INTERVAL
-      }
-    },
-    trackProgressMax() {
-      return Number(this.isLive) || Math.floor(this.track.length_ms / INTERVAL)
-    },
-    trackTotalTime() {
-      return this.$t('page.player.time', this.track.length_ms, {
-        named: {
-          time: this.$formatters.toTimecode(this.track.length_ms)
-        }
-      })
-    }
-  },
-  watch: {
-    'playerStore.state'(newState) {
-      if (this.intervalId > 0) {
-        window.clearTimeout(this.intervalId)
-        this.intervalId = 0
-      }
-      if (newState === 'play') {
-        this.intervalId = window.setInterval(this.tick, INTERVAL)
-      }
-    }
-  },
-  created() {
-    if (this.playerStore.state === 'play') {
-      this.intervalId = window.setInterval(this.tick, INTERVAL)
-    }
-  },
-  unmounted() {
-    if (this.intervalId > 0) {
-      window.clearTimeout(this.intervalId)
-      this.intervalId = 0
-    }
-  },
-  methods: {
-    endDragging() {
-      this.isDragged = false
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    },
-    seek() {
-      if (!this.isLive) {
-        player.seekToPosition(this.trackProgress * INTERVAL)
-      }
-    },
-    startDragging() {
-      this.isDragged = true
-    },
-    tick() {
-      if (!this.isDragged) {
-        this.trackProgress += 1
-      }
+const playerStore = usePlayerStore()
+const queueStore = useQueueStore()
+const settingsStore = useSettingsStore()
+const { t } = useI18n()
+
+const intervalId = ref(0)
+const isDragged = ref(false)
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const track = computed(() => queueStore.current)
+const isLive = computed(() => track.value.length_ms === 0)
+const composer = computed(() => {
+  if (settingsStore.showComposerNowPlaying) {
+    const genres = settingsStore.showComposerForGenre
+    if (
+      !genres ||
+      (track.value.genre &&
+        genres
+          .toLowerCase()
+          .split(',')
+          .findIndex(
+            (elem) => track.value.genre.toLowerCase().indexOf(elem.trim()) >= 0
+          ) >= 0)
+    ) {
+      return track.value.composer
     }
   }
+  return null
+})
+const trackProgress = computed({
+  get() {
+    return Math.floor(playerStore.item_progress_ms / INTERVAL)
+  },
+  set(value) {
+    playerStore.item_progress_ms = value * INTERVAL
+  }
+})
+const trackProgressMax = computed(
+  () => Number(isLive.value) || Math.floor(track.value.length_ms / INTERVAL)
+)
+const trackElapsedTime = computed(() =>
+  formatters.toTimecode(trackProgress.value * INTERVAL)
+)
+const trackTotalTime = computed(() =>
+  t('page.player.time', track.value.length_ms, {
+    named: {
+      time: formatters.toTimecode(track.value.length_ms)
+    }
+  })
+)
+
+const startDragging = () => {
+  isDragged.value = true
 }
+
+const endDragging = () => {
+  isDragged.value = false
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
+}
+
+const seek = () => {
+  if (!isLive.value) {
+    player.seekToPosition(trackProgress.value * INTERVAL)
+  }
+}
+
+const tick = () => {
+  if (!isDragged.value) {
+    trackProgress.value += 1
+  }
+}
+
+const clearTimer = () => {
+  if (intervalId.value > 0) {
+    window.clearInterval(intervalId.value)
+    intervalId.value = 0
+  }
+}
+
+watch(
+  () => playerStore.state,
+  (state) => {
+    clearTimer()
+    if (state === 'play') {
+      intervalId.value = window.setInterval(tick, INTERVAL)
+    }
+  }
+)
+
+onMounted(() => {
+  if (playerStore.state === 'play') {
+    intervalId.value = window.setInterval(tick, INTERVAL)
+  }
+})
+
+onUnmounted(clearTimer)
 </script>
 
 <style scoped>

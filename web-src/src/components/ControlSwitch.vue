@@ -18,14 +18,9 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ControlSwitch',
-  props: {
-    modelValue: Boolean
-  },
-  emits: ['update:modelValue']
-}
+<script setup>
+defineProps({ modelValue: Boolean })
+defineEmits(['update:modelValue'])
 </script>
 
 <style lang="scss" scoped>

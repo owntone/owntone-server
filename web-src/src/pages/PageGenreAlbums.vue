@@ -26,7 +26,9 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -37,70 +39,61 @@ import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
 
-export default {
-  name: 'PageGenreAlbums',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ListAlbums,
-    ListIndexButtons,
-    ModalDialogGenre,
-    PaneTitle
-  },
-  data() {
+const route = useRoute()
+const router = useRouter()
+
+const albums = ref(new GroupedList())
+const genre = ref({})
+const mediaKind = ref(route.query.mediaKind)
+const showDetailsModal = ref(false)
+
+const openDetails = () => {
+  showDetailsModal.value = true
+}
+
+const openTracks = () => {
+  showDetailsModal.value = false
+  router.push({
+    name: 'genre-tracks',
+    params: { name: genre.value.name },
+    query: { mediaKind: mediaKind.value }
+  })
+}
+
+const play = () => {
+  queue.playExpression(
+    `genre is "${genre.value.name}" and media_kind is ${mediaKind.value}`,
+    true
+  )
+}
+
+const heading = computed(() => {
+  if (genre.value?.name) {
     return {
-      albums: new GroupedList(),
-      genre: {},
-      mediaKind: this.$route.query.mediaKind,
-      showDetailsModal: false
-    }
-  },
-  computed: {
-    heading() {
-      if (this.genre.name) {
-        return {
-          subtitle: [
-            { count: this.genre.album_count, key: 'data.albums' },
-            {
-              count: this.genre.track_count,
-              handler: this.openTracks,
-              key: 'data.tracks'
-            }
-          ],
-          title: this.genre.name
+      subtitle: [
+        { count: genre.value.album_count, key: 'data.albums' },
+        {
+          count: genre.value.track_count,
+          handler: openTracks,
+          key: 'data.tracks'
         }
-      }
-      return {}
-    }
-  },
-  async mounted() {
-    const [genre, albums] = await Promise.all([
-      library.genre(this.$route.params.name, this.$route.query.mediaKind),
-      library.genreAlbums(this.$route.params.name, this.$route.query.mediaKind)
-    ])
-    this.genre = genre.items.shift()
-    this.albums = new GroupedList(albums, {
-      index: { field: 'name_sort', type: String }
-    })
-  },
-  methods: {
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    openTracks() {
-      this.showDetailsModal = false
-      this.$router.push({
-        name: 'genre-tracks',
-        params: { name: this.genre.name },
-        query: { mediaKind: this.mediaKind }
-      })
-    },
-    play() {
-      queue.playExpression(
-        `genre is "${this.genre.name}" and media_kind is ${this.mediaKind}`,
-        true
-      )
+      ],
+      title: genre.value.name
     }
   }
+  return {}
+})
+
+const loadData = async () => {
+  const [genreData, albumsData] = await Promise.all([
+    library.genre(route.params.name, route.query.mediaKind),
+    library.genreAlbums(route.params.name, route.query.mediaKind)
+  ])
+  genre.value = genreData.items.shift()
+  albums.value = new GroupedList(albumsData, {
+    index: { field: 'name_sort', type: String }
+  })
 }
+
+onMounted(loadData)
 </script>

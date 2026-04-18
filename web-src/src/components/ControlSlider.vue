@@ -10,22 +10,18 @@
   />
 </template>
 
-<script>
-export default {
-  name: 'ControlSlider',
-  props: {
-    disabled: Boolean,
-    max: { required: true, type: Number },
-    value: { required: true, type: Number }
-  },
-  emits: ['update:value'],
+<script setup>
+import { computed } from 'vue'
 
-  computed: {
-    ratio() {
-      return this.value / this.max
-    }
-  }
-}
+const props = defineProps({
+  disabled: Boolean,
+  max: { required: true, type: Number },
+  value: { required: true, type: Number }
+})
+
+defineEmits(['update:value'])
+
+const ratio = computed(() => props.value / props.max)
 </script>
 
 <style lang="scss" scoped>

@@ -4,7 +4,7 @@
       <slot name="label" />
     </label>
     <div class="control" :class="{ 'has-icons-right': isSuccess || isError }">
-      <slot name="input" :label="label" :setting="setting" :update="update" />
+      <slot name="input" :label="label" :update="update" />
       <mdicon
         v-if="$slots.label && (isSuccess || isError)"
         class="icon is-right"
@@ -18,65 +18,49 @@
   </fieldset>
 </template>
 
-<script>
+<script setup>
+import { computed, ref } from 'vue'
 import settings from '@/api/settings'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settings'
 
-export default {
-  name: 'ControlSetting',
-  props: {
-    category: { required: true, type: String },
-    disabled: Boolean,
-    name: { required: true, type: String },
-    placeholder: { default: '', type: String }
-  },
-  setup() {
-    return {
-      settingsStore: useSettingsStore()
-    }
-  },
-  data() {
-    return { timerDelay: 2000, timerId: -1 }
-  },
-  computed: {
-    isError() {
-      return this.timerId === -2
-    },
-    isSuccess() {
-      return this.timerId >= 0
-    },
-    label() {
-      return this.$t(
-        `settings.${this.category}.${this.name.replace(/_/gu, '-')}`
-      )
-    },
-    setting() {
-      return this.settingsStore.get(this.category, this.name)
-    }
-  },
-  methods: {
-    async update(event, sanitise) {
-      const value = sanitise?.(event.target)
-      if (value === this.setting.value) {
-        return
-      }
-      const setting = {
-        category: this.category,
-        name: this.name,
-        value
-      }
-      try {
-        await settings.update(setting)
-        window.clearTimeout(this.timerId)
-        this.settingsStore.update(setting)
-      } catch {
-        this.timerId = -2
-      } finally {
-        this.timerId = window.setTimeout(() => {
-          this.timerId = -1
-        }, this.timerDelay)
-      }
-    }
+const { t } = useI18n()
+const settingsStore = useSettingsStore()
+
+const props = defineProps({
+  disabled: Boolean,
+  placeholder: { default: '', type: String },
+  setting: { required: true, type: Object }
+})
+
+const timerDelay = 2000
+const timerId = ref(-1)
+
+const isError = computed(() => timerId.value === -2)
+const isSuccess = computed(() => timerId.value >= 0)
+
+const label = computed(() =>
+  t(
+    `settings.${props.setting.category}.${props.setting.name.replace(/_/gu, '-')}`
+  )
+)
+
+const update = async (event, sanitise) => {
+  const value = sanitise?.(event.target)
+  if (value === props.setting.value) {
+    return
+  }
+  const setting = { ...props.setting, value }
+  try {
+    await settings.update(setting)
+    window.clearTimeout(timerId.value)
+    settingsStore.update(setting)
+  } catch {
+    timerId.value = -2
+  } finally {
+    timerId.value = window.setTimeout(() => {
+      timerId.value = -1
+    }, timerDelay)
   }
 }
 </script>

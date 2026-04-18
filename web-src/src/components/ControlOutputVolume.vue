@@ -25,44 +25,40 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { computed, ref, watch } from 'vue'
+
 import ControlSlider from '@/components/ControlSlider.vue'
 import outputs from '@/api/outputs'
 import player from '@/api/player'
 
-export default {
-  name: 'ControlOutputVolume',
-  components: {
-    ControlSlider
-  },
-  props: { output: { required: true, type: Object } },
-  data() {
-    return { volume: this.output.volume }
-  },
-  computed: {
-    icon() {
-      if (this.output.type.startsWith('AirPlay')) {
-        return 'cast-variant'
-      } else if (this.output.type === 'Chromecast') {
-        return 'cast'
-      } else if (this.output.type === 'fifo') {
-        return 'pipe'
-      }
-      return 'server'
-    }
-  },
-  watch: {
-    output() {
-      this.volume = this.output.volume
-    }
-  },
-  methods: {
-    changeVolume() {
-      player.setVolume(this.volume, this.output.id)
-    },
-    toggle() {
-      outputs.update(this.output.id, { selected: !this.output.selected })
-    }
+const props = defineProps({ output: { required: true, type: Object } })
+
+const volume = ref(props.output.volume)
+
+const icon = computed(() => {
+  if (props.output.type.startsWith('AirPlay')) {
+    return 'cast-variant'
+  } else if (props.output.type === 'Chromecast') {
+    return 'cast'
+  } else if (props.output.type === 'fifo') {
+    return 'pipe'
   }
+  return 'server'
+})
+
+watch(
+  () => props.output,
+  (newOutput) => {
+    volume.value = newOutput.volume
+  }
+)
+
+const changeVolume = () => {
+  player.setVolume(volume.value, props.output.id)
+}
+
+const toggle = () => {
+  outputs.update(props.output.id, { selected: !props.output.selected })
 }
 </script>

@@ -17,35 +17,34 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import LoaderListItem from '@/components/LoaderListItem.vue'
 import ModalDialogArtistSpotify from '@/components/ModalDialogArtistSpotify.vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ListArtistsSpotify',
-  components: { ListItem, LoaderListItem, ModalDialogArtistSpotify },
-  props: {
-    items: { required: true, type: Object },
-    load: { default: null, type: Function }
-  },
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    image(item) {
-      return { caption: item.name, url: item.images?.[0]?.url }
-    },
-    open(item) {
-      this.$router.push({
-        name: 'music-spotify-artist',
-        params: { id: item.id }
-      })
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    }
-  }
+defineProps({
+  items: { required: true, type: Object },
+  load: { default: null, type: Function }
+})
+
+const router = useRouter()
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const image = (item) => ({ caption: item.name, url: item.images?.[0]?.url })
+
+const open = (item) => {
+  router.push({
+    name: 'music-spotify-artist',
+    params: { id: item.id }
+  })
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
 }
 </script>

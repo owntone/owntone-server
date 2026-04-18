@@ -34,11 +34,8 @@
   </section>
 </template>
 
-<script>
-export default {
-  name: 'ControlTabList',
-  props: { links: { required: true, type: Array } }
-}
+<script setup>
+defineProps({ links: { required: true, type: Array } })
 </script>
 
 <style scoped>

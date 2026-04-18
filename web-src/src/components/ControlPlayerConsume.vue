@@ -9,21 +9,13 @@
   </button>
 </template>
 
-<script>
+<script setup>
 import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
 
-export default {
-  name: 'ControlPlayerConsume',
-  setup() {
-    return {
-      playerStore: usePlayerStore()
-    }
-  },
-  methods: {
-    toggle() {
-      player.consume(!this.playerStore.consume)
-    }
-  }
+const playerStore = usePlayerStore()
+
+const toggle = () => {
+  player.consume(!playerStore.consume)
 }
 </script>

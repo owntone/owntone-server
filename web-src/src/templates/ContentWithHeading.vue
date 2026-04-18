@@ -45,19 +45,10 @@
   </section>
 </template>
 
-<script>
-export default {
-  name: 'ContentWithHeading',
-  data() {
-    return { hidden: true }
-  },
-  computed: {
-    icon() {
-      if (this.hidden) {
-        return 'chevron-down'
-      }
-      return 'chevron-up'
-    }
-  }
-}
+<script setup>
+import { computed, ref } from 'vue'
+
+const hidden = ref(true)
+
+const icon = computed(() => (hidden.value && 'chevron-down') || 'chevron-up')
 </script>

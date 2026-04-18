@@ -55,94 +55,83 @@
   </nav>
 </template>
 
-<script>
+<script setup>
 import ControlLink from '@/components/ControlLink.vue'
+import { computed } from 'vue'
 import { useSearchStore } from '@/stores/search'
 import { useServicesStore } from '@/stores/services'
 import { useSettingsStore } from '@/stores/settings'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'NavbarTop',
-  components: { ControlLink },
-  setup() {
-    return {
-      searchStore: useSearchStore(),
-      servicesStore: useServicesStore(),
-      settingsStore: useSettingsStore(),
-      uiStore: useUIStore()
-    }
-  },
-  computed: {
-    menus() {
-      return [
-        {
-          icon: 'music-box-multiple',
-          key: 'navigation.playlists',
-          name: 'playlists',
-          show: this.settingsStore.showMenuItemPlaylists
-        },
-        {
-          icon: 'music',
-          key: 'navigation.music',
-          name: 'music',
-          show: this.settingsStore.showMenuItemMusic
-        },
-        { key: 'navigation.artists', name: 'music-artists', sub: true },
-        { key: 'navigation.albums', name: 'music-albums', sub: true },
-        { key: 'navigation.genres', name: 'music-genres', sub: true },
-        { key: 'navigation.composers', name: 'music-composers', sub: true },
-        {
-          key: 'navigation.spotify',
-          name: 'music-spotify',
-          show: this.servicesStore.isSpotifyActive,
-          sub: true
-        },
-        {
-          icon: 'microphone',
-          key: 'navigation.podcasts',
-          name: 'podcasts',
-          show: this.settingsStore.showMenuItemPodcasts
-        },
-        {
-          icon: 'book-open-variant',
-          key: 'navigation.audiobooks',
-          name: 'audiobooks',
-          show: this.settingsStore.showMenuItemAudiobooks
-        },
-        {
-          icon: 'radio',
-          key: 'navigation.radio',
-          name: 'radio',
-          show: this.settingsStore.showMenuItemRadio
-        },
-        {
-          icon: 'folder-open',
-          key: 'navigation.files',
-          name: 'files',
-          show: this.settingsStore.showMenuItemFiles
-        },
-        {
-          icon: 'magnify',
-          key: 'navigation.search',
-          name: this.searchStore.source,
-          show: this.settingsStore.showMenuItemSearch
-        },
-        { separator: true },
-        { key: 'navigation.settings', name: 'settings-webinterface' },
-        { key: 'navigation.outputs', name: 'outputs' },
-        { action: this.openUpdateDialog, key: 'navigation.update-library' },
-        { key: 'navigation.about', name: 'about' }
-      ]
-    }
-  },
-  methods: {
-    openUpdateDialog() {
-      this.uiStore.showUpdateDialog = true
-      this.uiStore.hideMenus()
-    }
-  }
+const searchStore = useSearchStore()
+const servicesStore = useServicesStore()
+const settingsStore = useSettingsStore()
+const uiStore = useUIStore()
+
+const openUpdateDialog = () => {
+  uiStore.showUpdateDialog = true
+  uiStore.hideMenus()
 }
+
+const menus = computed(() => [
+  {
+    icon: 'music-box-multiple',
+    key: 'navigation.playlists',
+    name: 'playlists',
+    show: settingsStore.showMenuItemPlaylists
+  },
+  {
+    icon: 'music',
+    key: 'navigation.music',
+    name: 'music',
+    show: settingsStore.showMenuItemMusic
+  },
+  { key: 'navigation.artists', name: 'music-artists', sub: true },
+  { key: 'navigation.albums', name: 'music-albums', sub: true },
+  { key: 'navigation.genres', name: 'music-genres', sub: true },
+  { key: 'navigation.composers', name: 'music-composers', sub: true },
+  {
+    key: 'navigation.spotify',
+    name: 'music-spotify',
+    show: servicesStore.isSpotifyActive,
+    sub: true
+  },
+  {
+    icon: 'microphone',
+    key: 'navigation.podcasts',
+    name: 'podcasts',
+    show: settingsStore.showMenuItemPodcasts
+  },
+  {
+    icon: 'book-open-variant',
+    key: 'navigation.audiobooks',
+    name: 'audiobooks',
+    show: settingsStore.showMenuItemAudiobooks
+  },
+  {
+    icon: 'radio',
+    key: 'navigation.radio',
+    name: 'radio',
+    show: settingsStore.showMenuItemRadio
+  },
+  {
+    icon: 'folder-open',
+    key: 'navigation.files',
+    name: 'files',
+    show: settingsStore.showMenuItemFiles
+  },
+  {
+    icon: 'magnify',
+    key: 'navigation.search',
+    name: searchStore.source,
+    show: settingsStore.showMenuItemSearch
+  },
+  { separator: true },
+  { key: 'navigation.settings', name: 'settings-webinterface' },
+  { key: 'navigation.outputs', name: 'outputs' },
+  { action: openUpdateDialog, key: 'navigation.update-library' },
+  { key: 'navigation.about', name: 'about' }
+])
 </script>
 
 <style scoped>

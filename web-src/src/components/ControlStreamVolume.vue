@@ -29,59 +29,59 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { onUnmounted, ref } from 'vue'
 import ControlSlider from '@/components/ControlSlider.vue'
 import audio from '@/lib/Audio'
 
-export default {
-  name: 'ControlStreamVolume',
-  components: { ControlSlider },
-  emits: ['change', 'mute'],
-  data() {
-    return { loading: false, playing: false, volume: 10 }
-  },
-  unmounted() {
-    this.closeAudio()
-  },
-  methods: {
-    changeVolume() {
-      audio.setVolume(this.volume / 100)
-    },
-    closeAudio() {
-      audio.stop()
-      this.playing = false
-      this.loading = false
-    },
-    playChannel() {
-      this.loading = true
-      audio.play('/stream.mp3')
-      this.changeVolume()
-      const a = audio.audio
-      if (a) {
-        a.addEventListener('waiting', () => {
-          this.playing = false
-          this.loading = true
-        })
-        a.addEventListener('playing', () => {
-          this.playing = true
-          this.loading = false
-        })
-        a.addEventListener('ended', () => {
-          this.playing = false
-          this.loading = false
-        })
-        a.addEventListener('error', () => {
-          this.closeAudio()
-        })
-      }
-    },
-    togglePlay() {
-      if (this.playing || this.loading) {
-        this.closeAudio()
-      } else {
-        this.playChannel()
-      }
-    }
+const loading = ref(false)
+const playing = ref(false)
+const volume = ref(10)
+
+const changeVolume = () => {
+  audio.setVolume(volume.value / 100)
+}
+
+const closeAudio = () => {
+  audio.stop()
+  playing.value = false
+  loading.value = false
+}
+
+const play = () => {
+  loading.value = true
+  audio.play('/stream.mp3')
+  changeVolume()
+  const a = audio.audio
+  if (!a) {
+    return
+  }
+  a.addEventListener('waiting', () => {
+    playing.value = false
+    loading.value = true
+  })
+  a.addEventListener('playing', () => {
+    playing.value = true
+    loading.value = false
+  })
+  a.addEventListener('ended', () => {
+    playing.value = false
+    loading.value = false
+  })
+  a.addEventListener('error', () => {
+    closeAudio()
+  })
+}
+
+const togglePlay = () => {
+  if (playing.value || loading.value) {
+    closeAudio()
+  } else {
+    play()
   }
 }
+
+onUnmounted(() => {
+  closeAudio()
+})
 </script>

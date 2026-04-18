@@ -7,49 +7,42 @@
     <template #content>
       <div class="content" v-text="$t('settings.artwork.explanation-1')" />
       <div class="content">
-        <control-setting-switch category="artwork" name="streamurl_ignore" />
         <control-setting-switch
-          category="artwork"
-          name="show_cover_artwork_in_album_lists"
+          :setting="settingsStore.get('artwork', 'streamurl_ignore')"
+        />
+        <control-setting-switch
+          :setting="
+            settingsStore.get('artwork', 'show_cover_artwork_in_album_lists')
+          "
         />
       </div>
       <div class="content" v-text="$t('settings.artwork.explanation-2')" />
       <div class="content">
         <control-setting-switch
           v-if="servicesStore.isSpotifyActive"
-          category="artwork"
-          name="use_artwork_source_spotify"
+          :setting="settingsStore.get('artwork', 'use_artwork_source_spotify')"
         />
         <control-setting-switch
-          category="artwork"
-          name="use_artwork_source_discogs"
+          :setting="settingsStore.get('artwork', 'use_artwork_source_discogs')"
         />
         <control-setting-switch
-          category="artwork"
-          name="use_artwork_source_coverartarchive"
+          :setting="
+            settingsStore.get('artwork', 'use_artwork_source_coverartarchive')
+          "
         />
       </div>
     </template>
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlSettingSwitch from '@/components/ControlSettingSwitch.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
 import { useServicesStore } from '@/stores/services'
+import { useSettingsStore } from '@/stores/settings'
 
-export default {
-  name: 'PageSettingsArtwork',
-  components: {
-    ContentWithHeading,
-    ControlSettingSwitch,
-    PaneTitle,
-    TabsSettings
-  },
-  setup() {
-    return { servicesStore: useServicesStore() }
-  }
-}
+const servicesStore = useServicesStore()
+const settingsStore = useSettingsStore()
 </script>

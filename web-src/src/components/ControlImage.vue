@@ -4,40 +4,34 @@
   </figure>
 </template>
 
-<script>
+<script setup>
+import { computed } from 'vue'
 import { renderSVG } from '@/lib/SVGRenderer'
 
-export default {
-  name: 'ControlImage',
-  props: {
-    caption: { default: '', type: String },
-    url: { default: '', type: String }
-  },
-  emits: ['click'],
-  data() {
-    return { font: { family: 'sans-serif', weight: 'bold' }, size: 600 }
-  },
-  computed: {
-    source() {
-      return {
-        lifecycle: {
-          error: (el) => {
-            el.src = this.uri
-          }
-        },
-        src: this.url || this.uri
-      }
-    },
-    uri() {
-      return renderSVG({
-        alternate: this.caption,
-        caption: this.caption.substring(0, 2),
-        font: this.font,
-        size: this.size
-      })
+const props = defineProps({
+  caption: { type: String, default: '' },
+  url: { type: String, default: '' }
+})
+
+defineEmits(['click'])
+
+const uri = computed(() =>
+  renderSVG({
+    alternate: props.caption,
+    caption: props.caption.substring(0, 2),
+    font: { family: 'sans-serif', weight: 'bold' },
+    size: 600
+  })
+)
+
+const source = computed(() => ({
+  lifecycle: {
+    error: (el) => {
+      el.src = uri.value
     }
-  }
-}
+  },
+  src: props.url || uri.value
+}))
 </script>
 
 <style lang="scss" scoped>

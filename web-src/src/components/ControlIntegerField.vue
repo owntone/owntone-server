@@ -18,32 +18,30 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ControlIntegerField',
-  props: {
-    modelValue: { type: Number, default: null },
-    min: { type: Number, default: -Infinity },
-    max: { type: Number, default: Infinity },
-    step: { type: Number, default: 1 },
-    placeholder: { type: String, default: '' }
-  },
-  emits: ['update:modelValue'],
-  methods: {
-    validate(event) {
-      const { value } = event.target
-      if (value === '' || value === '-') {
-        return
-      }
-      event.target.value = Math.min(this.max, Math.max(this.min, Number(value)))
-      this.$emit('update:modelValue', event.target.valueAsNumber)
-    },
-    out(event) {
-      if (!event.target.valueAsNumber) {
-        event.target.value = 0
-        this.$emit('update:modelValue', 0)
-      }
-    }
+<script setup>
+const props = defineProps({
+  modelValue: { type: Number, default: null },
+  min: { type: Number, default: -Infinity },
+  max: { type: Number, default: Infinity },
+  step: { type: Number, default: 1 },
+  placeholder: { type: String, default: '' }
+})
+
+const emit = defineEmits(['update:modelValue'])
+
+const validate = (event) => {
+  const { value } = event.target
+  if (value === '' || value === '-') {
+    return
+  }
+  event.target.value = Math.min(props.max, Math.max(props.min, Number(value)))
+  emit('update:modelValue', event.target.valueAsNumber)
+}
+
+const out = (event) => {
+  if (!event.target.valueAsNumber) {
+    event.target.value = 0
+    emit('update:modelValue', 0)
   }
 }
 </script>

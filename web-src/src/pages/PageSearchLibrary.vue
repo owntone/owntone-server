@@ -33,7 +33,8 @@
   </content-with-search>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithSearch from '@/templates/ContentWithSearch.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListAlbums from '@/components/ListAlbums.vue'
@@ -42,6 +43,7 @@ import ListComposers from '@/components/ListComposers.vue'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import ListTracks from '@/components/ListTracks.vue'
 import library from '@/api/library'
+import { useRouter } from 'vue-router'
 import { useSearchStore } from '@/stores/search'
 
 const PAGE_SIZE = 3
@@ -55,87 +57,82 @@ const SEARCH_TYPES = [
   'podcast'
 ]
 
-export default {
-  name: 'PageSearchLibrary',
-  components: { ContentWithSearch },
-  setup() {
-    return {
-      components: {
-        album: ListAlbums,
-        audiobook: ListAlbums,
-        artist: ListArtists,
-        composer: ListComposers,
-        playlist: ListPlaylists,
-        podcast: ListAlbums,
-        track: ListTracks
-      },
-      searchStore: useSearchStore()
-    }
-  },
-  data() {
-    return { limit: PAGE_SIZE, results: new Map(), types: SEARCH_TYPES }
-  },
-  computed: {
-    expanded() {
-      return this.types.length === 1
-    },
-    history() {
-      return this.searchStore.history
-    }
-  },
-  mounted() {
-    this.search()
-  },
-  methods: {
-    expand(type) {
-      this.search([type], -1)
-    },
-    getItems(items) {
-      return items
-    },
-    openSearch(query) {
-      this.searchStore.query = query
-      this.search()
-    },
-    reset() {
-      this.results.clear()
-      this.types.forEach((type) => {
-        this.results.set(type, new GroupedList())
-      })
-    },
-    search(types = SEARCH_TYPES, limit = PAGE_SIZE) {
-      if (this.searchStore.query) {
-        this.types = types
-        this.limit = limit
-        this.searchStore.query = this.searchStore.query.trim()
-        this.reset()
-        this.types.forEach((type) => {
-          this.searchItems(type)
-        })
-        this.searchStore.add(this.searchStore.query)
-      }
-    },
-    async searchItems(type) {
-      const music = type !== 'audiobook' && type !== 'podcast'
-      const kind = (music && 'music') || type
-      const parameters = {
-        limit: this.limit,
-        type: (music && type) || 'album'
-      }
-      if (this.searchStore.query.startsWith('query:')) {
-        parameters.expression = `(${this.searchStore.query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
-      } else if (music) {
-        parameters.query = this.searchStore.query
-        parameters.media_kind = kind
-      } else {
-        parameters.expression = `(album includes "${this.searchStore.query}" or artist includes "${this.searchStore.query}") and media_kind is ${kind}`
-      }
-      const data = await library.search(parameters)
-      this.results.set(type, new GroupedList(data[`${parameters.type}s`]))
-    },
-    searchSpotify() {
-      this.$router.push({ name: 'search-spotify' })
-    }
+const router = useRouter()
+const searchStore = useSearchStore()
+
+const components = {
+  album: ListAlbums,
+  audiobook: ListAlbums,
+  artist: ListArtists,
+  composer: ListComposers,
+  playlist: ListPlaylists,
+  podcast: ListAlbums,
+  track: ListTracks
+}
+
+const limit = ref(PAGE_SIZE)
+const results = ref(new Map())
+const types = ref(SEARCH_TYPES)
+
+const expanded = computed(() => types.value.length === 1)
+
+const history = computed(() => searchStore.history)
+
+const getItems = (items) => items
+
+const reset = () => {
+  results.value.clear()
+  types.value.forEach((type) => {
+    results.value.set(type, new GroupedList())
+  })
+}
+
+const searchItems = async (type) => {
+  const music = type !== 'audiobook' && type !== 'podcast'
+  const kind = (music && 'music') || type
+  const parameters = {
+    limit: limit.value,
+    type: (music && type) || 'album'
+  }
+  if (searchStore.query.startsWith('query:')) {
+    parameters.expression = `(${searchStore.query.replace(/^query:/u, '').trim()}) and media_kind is ${kind}`
+  } else if (music) {
+    parameters.query = searchStore.query
+    parameters.media_kind = kind
+  } else {
+    parameters.expression = `(album includes "${searchStore.query}" or artist includes "${searchStore.query}") and media_kind is ${kind}`
+  }
+  const data = await library.search(parameters)
+  results.value.set(type, new GroupedList(data[`${parameters.type}s`]))
+}
+
+const search = (typesArg = SEARCH_TYPES, limitArg = PAGE_SIZE) => {
+  if (searchStore.query) {
+    types.value = typesArg
+    limit.value = limitArg
+    searchStore.query = searchStore.query.trim()
+    reset()
+    types.value.forEach((type) => {
+      searchItems(type)
+    })
+    searchStore.add(searchStore.query)
   }
 }
+
+const openSearch = (query) => {
+  searchStore.query = query
+  search()
+}
+
+const expand = (type) => {
+  search([type], -1)
+}
+
+const searchSpotify = () => {
+  router.push({ name: 'search-spotify' })
+}
+
+onMounted(() => {
+  search()
+})
 </script>

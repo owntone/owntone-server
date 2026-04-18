@@ -9,28 +9,17 @@
   </button>
 </template>
 
-<script>
+<script setup>
+import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 
-export default {
-  name: 'ControlPlayerLyrics',
-  setup() {
-    return {
-      playerStore: usePlayerStore()
-    }
-  },
-  computed: {
-    icon() {
-      if (this.playerStore.showLyrics) {
-        return 'script-text-play'
-      }
-      return 'script-text-outline'
-    }
-  },
-  methods: {
-    toggle() {
-      this.playerStore.showLyrics = !this.playerStore.showLyrics
-    }
-  }
+const playerStore = usePlayerStore()
+
+const icon = computed(
+  () => (playerStore.showLyrics && 'script-text-play') || 'script-text-outline'
+)
+
+const toggle = () => {
+  playerStore.showLyrics = !playerStore.showLyrics
 }
 </script>

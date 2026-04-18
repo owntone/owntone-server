@@ -33,14 +33,10 @@
   </section>
 </template>
 
-<script>
+<script setup>
 import { useServicesStore } from '@/stores/services'
 
-export default {
-  name: 'TabsSearch',
-  emits: ['search-library', 'search-spotify'],
-  setup() {
-    return { servicesStore: useServicesStore() }
-  }
-}
+const servicesStore = useServicesStore()
+
+defineEmits(['search-library', 'search-spotify'])
 </script>

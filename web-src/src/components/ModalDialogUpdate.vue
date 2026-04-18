@@ -37,54 +37,41 @@
   </modal-dialog>
 </template>
 
-<script>
+<script setup>
+import { computed, ref } from 'vue'
 import ControlSwitch from '@/components/ControlSwitch.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import library from '@/api/library'
 import { useLibraryStore } from '@/stores/library'
 import { useServicesStore } from '@/stores/services'
 
-export default {
-  name: 'ModalDialogUpdate',
-  components: { ControlSwitch, ModalDialog },
-  props: { show: Boolean },
-  emits: ['close'],
-  setup() {
-    return {
-      libraryStore: useLibraryStore(),
-      servicesStore: useServicesStore()
-    }
-  },
-  data() {
-    return { rescanMetadata: false }
-  },
-  computed: {
-    actions() {
-      const actions = [
-        { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' }
-      ]
-      if (!this.libraryStore.updating) {
-        actions.push({
-          handler: this.analyse,
-          icon: 'check',
-          key: 'actions.rescan'
-        })
-      }
-      return actions
-    }
-  },
-  methods: {
-    analyse() {
-      if (this.rescanMetadata) {
-        library.rescan(this.libraryStore.update_dialog_scan_kind)
-      } else {
-        library.update(this.libraryStore.update_dialog_scan_kind)
-      }
-    },
-    cancel() {
-      this.$emit('close')
-      this.libraryStore.update_dialog_scan_kind = ''
-    }
+defineProps({ show: Boolean })
+
+const emit = defineEmits(['close'])
+
+const libraryStore = useLibraryStore()
+const servicesStore = useServicesStore()
+
+const rescanMetadata = ref(false)
+
+const analyse = () => {
+  if (rescanMetadata.value) {
+    library.rescan(libraryStore.update_dialog_scan_kind)
+  } else {
+    library.update(libraryStore.update_dialog_scan_kind)
   }
 }
+
+const cancel = () => {
+  libraryStore.update_dialog_scan_kind = ''
+  emit('close')
+}
+
+const actions = computed(() => {
+  const items = [{ handler: cancel, icon: 'cancel', key: 'actions.cancel' }]
+  if (!libraryStore.updating) {
+    items.push({ handler: analyse, icon: 'check', key: 'actions.rescan' })
+  }
+  return items
+})
 </script>

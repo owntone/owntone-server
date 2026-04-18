@@ -35,32 +35,9 @@
         v-text="$t('settings.webinterface.navigation-item-selection-info')"
       />
       <control-setting-switch
-        category="webinterface"
-        name="show_menu_item_playlists"
-      />
-      <control-setting-switch
-        category="webinterface"
-        name="show_menu_item_music"
-      />
-      <control-setting-switch
-        category="webinterface"
-        name="show_menu_item_podcasts"
-      />
-      <control-setting-switch
-        category="webinterface"
-        name="show_menu_item_audiobooks"
-      />
-      <control-setting-switch
-        category="webinterface"
-        name="show_menu_item_radio"
-      />
-      <control-setting-switch
-        category="webinterface"
-        name="show_menu_item_files"
-      />
-      <control-setting-switch
-        category="webinterface"
-        name="show_menu_item_search"
+        v-for="setting in settingsStore.settings('webinterface', 'show_menu')"
+        :key="setting.name"
+        :setting="setting"
       />
     </template>
   </content-with-heading>
@@ -72,18 +49,19 @@
     </template>
     <template #content>
       <control-setting-switch
-        category="webinterface"
-        name="show_filepath_now_playing"
+        :setting="
+          settingsStore.get('webinterface', 'show_filepath_now_playing')
+        "
       />
       <control-setting-switch
-        category="webinterface"
-        name="show_composer_now_playing"
+        :setting="
+          settingsStore.get('webinterface', 'show_composer_now_playing')
+        "
       />
       <control-setting-text-field
-        category="webinterface"
-        name="show_composer_for_genre"
         :disabled="!settingsStore.showComposerNowPlaying"
         :placeholder="$t('settings.webinterface.genres')"
+        :setting="settingsStore.get('webinterface', 'show_composer_for_genre')"
       >
         <template #help>
           <i18n-t
@@ -106,14 +84,13 @@
     </template>
     <template #content>
       <control-setting-integer-field
-        category="webinterface"
-        name="recently_added_limit"
+        :setting="settingsStore.get('webinterface', 'recently_added_limit')"
       />
     </template>
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
 import ControlSettingIntegerField from '@/components/ControlSettingIntegerField.vue'
@@ -121,39 +98,17 @@ import ControlSettingSwitch from '@/components/ControlSettingSwitch.vue'
 import ControlSettingTextField from '@/components/ControlSettingTextField.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
+import { computed } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 
-export default {
-  name: 'PageSettingsWebinterface',
-  components: {
-    ContentWithHeading,
-    ControlDropdown,
-    ControlSettingIntegerField,
-    ControlSettingSwitch,
-    ControlSettingTextField,
-    PaneTitle,
-    TabsSettings
-  },
-  setup() {
-    return { settingsStore: useSettingsStore() }
-  },
-  computed: {
-    appearance: {
-      get() {
-        return this.settingsStore.currentAppearance()
-      },
-      set(appearance) {
-        this.settingsStore.setAppearance(appearance)
-      }
-    },
-    locale: {
-      get() {
-        return this.settingsStore.currentLocale()
-      },
-      set(locale) {
-        this.settingsStore.setLocale(locale)
-      }
-    }
-  }
-}
+const settingsStore = useSettingsStore()
+
+const appearance = computed({
+  get: () => settingsStore.currentAppearance(),
+  set: (value) => settingsStore.setAppearance(value)
+})
+const locale = computed({
+  get: () => settingsStore.currentLocale(),
+  set: (value) => settingsStore.setLocale(value)
+})
 </script>

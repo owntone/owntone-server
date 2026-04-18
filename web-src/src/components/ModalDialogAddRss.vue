@@ -19,54 +19,55 @@
   </modal-dialog>
 </template>
 
-<script>
+<script setup>
+import { computed, ref } from 'vue'
+
 import ControlUrlField from '@/components/ControlUrlField.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import library from '@/api/library'
 
-export default {
-  name: 'ModalDialogAddRss',
-  components: { ControlUrlField, ModalDialog },
-  props: { show: Boolean },
-  emits: ['close', 'podcast-added'],
-  data() {
-    return { disabled: true, loading: false, url: '' }
-  },
-  computed: {
-    actions() {
-      if (this.loading) {
-        return [{ icon: 'web', key: 'dialog.add.rss.processing' }]
-      }
-      return [
-        { handler: this.cancel, icon: 'cancel', key: 'actions.cancel' },
-        {
-          disabled: this.disabled,
-          handler: this.add,
-          icon: 'playlist-plus',
-          key: 'actions.add'
-        }
-      ]
-    }
-  },
-  methods: {
-    async add() {
-      this.loading = true
-      try {
-        await library.add(this.url)
-        this.$emit('podcast-added')
-        this.$emit('close')
-      } finally {
-        this.url = ''
-        this.loading = false
-      }
-    },
-    cancel() {
-      this.$emit('close')
-    },
-    onUrlChange(url, disabled) {
-      this.url = url
-      this.disabled = disabled
-    }
+defineProps({ show: Boolean })
+
+const emit = defineEmits(['close', 'podcast-added'])
+
+const disabled = ref(true)
+const loading = ref(false)
+const url = ref('')
+
+const add = async () => {
+  loading.value = true
+  const urlValue = url.value
+  url.value = ''
+  try {
+    await library.add(urlValue)
+    emit('podcast-added')
+    emit('close')
+  } finally {
+    loading.value = false
   }
+}
+
+const cancel = () => {
+  emit('close')
+}
+
+const actions = computed(() => {
+  if (loading.value) {
+    return [{ icon: 'web', key: 'dialog.add.rss.processing' }]
+  }
+  return [
+    { handler: cancel, icon: 'cancel', key: 'actions.cancel' },
+    {
+      disabled: disabled.value,
+      handler: add,
+      icon: 'playlist-plus',
+      key: 'actions.add'
+    }
+  ]
+})
+
+const onUrlChange = (newUrl, isDisabled) => {
+  url.value = newUrl
+  disabled.value = isDisabled
 }
 </script>

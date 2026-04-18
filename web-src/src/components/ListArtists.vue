@@ -15,31 +15,28 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ListArtists',
-  components: { ListItem, ModalDialogArtist },
-  props: {
-    items: { required: true, type: Object },
-    load: { default: null, type: Function }
-  },
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    open(item) {
-      this.$router.push({
-        name: `${item.media_kind}-artist`,
-        params: { id: item.id }
-      })
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    }
-  }
+defineProps({
+  items: { required: true, type: Object },
+  load: { default: null, type: Function }
+})
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const router = useRouter()
+
+const open = (item) => {
+  router.push({ name: `${item.media_kind}-artist`, params: { id: item.id } })
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
 }
 </script>

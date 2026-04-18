@@ -23,14 +23,8 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import ControlImage from '@/components/ControlImage.vue'
 
-export default {
-  name: 'ListProperties',
-  components: { ControlImage },
-  props: {
-    item: { required: true, type: Object }
-  }
-}
+defineProps({ item: { required: true, type: Object } })
 </script>

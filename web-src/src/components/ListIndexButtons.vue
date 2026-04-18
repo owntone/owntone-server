@@ -13,11 +13,8 @@
   </section>
 </template>
 
-<script>
-export default {
-  name: 'ListIndexButtons',
-  props: { indices: { required: true, type: Array } }
-}
+<script setup>
+defineProps({ indices: { required: true, type: Array } })
 </script>
 
 <style scoped>

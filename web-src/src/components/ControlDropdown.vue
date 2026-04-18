@@ -30,32 +30,26 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ControlDropdown',
-  props: {
-    options: { required: true, type: Array },
-    value: { required: true, type: [String, Number] }
-  },
-  emits: ['update:value'],
-  data() {
-    return { active: false }
-  },
-  computed: {
-    option: {
-      get() {
-        return this.options.find((option) => option.id === this.value)
-      }
-    }
-  },
-  methods: {
-    deactivate() {
-      this.active = false
-    },
-    select(option) {
-      this.active = false
-      this.$emit('update:value', option.id)
-    }
-  }
+<script setup>
+import { computed, ref } from 'vue'
+
+const props = defineProps({
+  options: { required: true, type: Array },
+  value: { required: true, type: [String, Number] }
+})
+const emit = defineEmits(['update:value'])
+const active = ref(false)
+
+const option = computed(() =>
+  props.options.find((item) => item.id === props.value)
+)
+
+const deactivate = () => {
+  active.value = false
+}
+
+const select = (item) => {
+  active.value = false
+  emit('update:value', item.id)
 }
 </script>

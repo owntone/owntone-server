@@ -4,22 +4,17 @@
   </a>
 </template>
 
-<script>
+<script setup>
+import { useRouter } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'ControlLink',
-  props: {
-    to: { required: true, type: Object }
-  },
-  setup() {
-    return { uiStore: useUIStore() }
-  },
-  methods: {
-    open() {
-      this.uiStore.hideMenus()
-      this.$router.push(this.to)
-    }
-  }
+const props = defineProps({ to: { required: true, type: Object } })
+
+const uiStore = useUIStore()
+const router = useRouter()
+
+const open = () => {
+  uiStore.hideMenus()
+  router.push(props.to)
 }
 </script>

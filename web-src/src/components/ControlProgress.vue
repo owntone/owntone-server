@@ -11,22 +11,16 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ControlProgress',
-  props: {
-    size: { default: 36, type: Number },
-    value: { default: 0, type: Number }
-  },
-  computed: {
-    offset() {
-      return 1 - this.value
-    },
-    progress() {
-      return `${Math.round(this.value * 100)}%`
-    }
-  }
-}
+<script setup>
+import { computed } from 'vue'
+
+const props = defineProps({
+  size: { default: 36, type: Number },
+  value: { default: 0, type: Number }
+})
+
+const offset = computed(() => 1 - props.value)
+const progress = computed(() => `${Math.round(props.value * 100)}%`)
 </script>
 
 <style lang="scss" scoped>

@@ -9,63 +9,61 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListPlaylists from '@/components/ListPlaylists.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import { useConfigurationStore } from '@/stores/configuration'
+import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 
-export default {
-  name: 'PagePlaylistFolder',
-  components: { ContentWithHeading, ListPlaylists, PaneTitle },
-  setup() {
-    return {
-      configurationStore: useConfigurationStore()
-    }
-  },
-  data() {
-    return { playlist: {}, playlistList: new GroupedList() }
-  },
-  computed: {
-    heading() {
-      return {
-        subtitle: [{ count: this.playlists.count, key: 'data.playlists' }],
-        title: this.$t('page.playlists.title', this.playlists.count, {
-          name: this.playlist.name
-        })
-      }
-    },
-    playlists() {
-      return this.playlistList.group({
-        filters: [
-          (playlist) =>
-            playlist.folder ||
-            this.configurationStore.radio_playlists ||
-            playlist.stream_count === 0 ||
-            playlist.item_count > playlist.stream_count
-        ]
-      })
-    }
-  },
-  watch: {
-    $route(to) {
-      this.fetchData(to.params.id)
-    }
-  },
-  async mounted() {
-    await this.fetchData(this.$route.params.id)
-  },
-  methods: {
-    async fetchData(id) {
-      const [playlist, playlistFolder] = await Promise.all([
-        library.playlist(id),
-        library.playlistFolder(id)
-      ])
-      this.playlist = playlist
-      this.playlistList = new GroupedList(playlistFolder)
-    }
-  }
+const route = useRoute()
+const { t } = useI18n()
+
+const configurationStore = useConfigurationStore()
+
+const playlist = ref({})
+const playlistList = ref(new GroupedList())
+
+const playlists = computed(() =>
+  playlistList.value.group({
+    filters: [
+      (item) =>
+        item.folder ||
+        configurationStore.radio_playlists ||
+        item.stream_count === 0 ||
+        item.item_count > item.stream_count
+    ]
+  })
+)
+
+const heading = computed(() => ({
+  subtitle: [{ count: playlists.value.count, key: 'data.playlists' }],
+  title: t('page.playlists.title', playlists.value.count, {
+    name: playlist.value.name
+  })
+}))
+
+const fetchData = async (id) => {
+  const [playlistData, playlistFolderData] = await Promise.all([
+    library.playlist(id),
+    library.playlistFolder(id)
+  ])
+  playlist.value = playlistData
+  playlistList.value = new GroupedList(playlistFolderData)
 }
+
+watch(
+  () => route.params.id,
+  (id) => {
+    fetchData(id)
+  }
+)
+
+onMounted(() => {
+  fetchData(route.params.id)
+})
 </script>

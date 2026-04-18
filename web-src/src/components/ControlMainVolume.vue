@@ -16,47 +16,35 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { computed, ref, watch } from 'vue'
 import ControlSlider from '@/components/ControlSlider.vue'
 import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
 
-export default {
-  name: 'ControlVolume',
-  components: { ControlSlider },
-  setup() {
-    return { playerStore: usePlayerStore() }
-  },
-  data() {
-    return { volume: 0 }
-  },
-  computed: {
-    icon() {
-      if (this.playerStore.isMuted) {
-        return 'volume-off'
-      }
-      return 'volume-high'
-    }
-  },
-  watch: {
-    'playerStore.volume'() {
-      if (!this.playerStore.isMuted) {
-        this.volume = this.playerStore.volume
-      }
-    }
-  },
-  methods: {
-    changeVolume() {
-      player.setVolume(this.playerStore.volume)
-    },
-    toggle() {
-      if (this.playerStore.isMuted) {
-        this.playerStore.volume = this.volume
-      } else {
-        this.playerStore.volume = 0
-      }
-      this.changeVolume()
+const playerStore = usePlayerStore()
+
+const volume = ref(0)
+
+const icon = computed(
+  () => (playerStore.isMuted && 'volume-off') || 'volume-high'
+)
+
+watch(
+  () => playerStore.volume,
+  (newVolume) => {
+    if (!playerStore.isMuted) {
+      volume.value = newVolume
     }
   }
+)
+
+const changeVolume = () => {
+  player.setVolume(playerStore.volume)
+}
+
+const toggle = () => {
+  playerStore.isMuted = (playerStore.isMuted && volume.value) || 0
+  changeVolume()
 }
 </script>

@@ -22,7 +22,9 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -31,61 +33,56 @@ import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
 import PaneHero from '@/components/PaneHero.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PageAlbum',
-  components: {
-    ContentWithHero,
-    ControlImage,
-    ListTracks,
-    ModalDialogAlbum,
-    PaneHero
-  },
-  data() {
-    return { album: {}, showDetailsModal: false, tracks: new GroupedList() }
-  },
-  computed: {
-    heading() {
-      return {
-        count: this.$t('data.tracks', { count: this.album.track_count }),
-        handler: this.openArtist,
-        subtitle: this.album.artist,
-        title: this.album.name,
-        actions: [
-          { handler: this.play, icon: 'shuffle', key: 'actions.shuffle' },
-          { handler: this.openDetails, icon: 'dots-horizontal' }
-        ]
-      }
-    }
-  },
-  async mounted() {
-    const [album, tracks] = await Promise.all([
-      library.album(this.$route.params.id),
-      library.albumTracks(this.$route.params.id)
-    ])
-    this.album = album
-    this.tracks = new GroupedList(tracks, {
-      criteria: [{ field: 'disc_number', type: Number }],
-      index: { field: 'disc_number', type: Number }
-    })
-    if (this.tracks.indices.length < 2) {
-      this.tracks.group()
-    }
-  },
-  methods: {
-    openArtist() {
-      this.showDetailsModal = false
-      this.$router.push({
-        name: 'music-artist',
-        params: { id: this.album.artist_id }
-      })
-    },
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    play() {
-      queue.playUri(this.album.uri, true)
-    }
-  }
+const route = useRoute()
+const router = useRouter()
+const { t } = useI18n()
+
+const album = ref({})
+const showDetailsModal = ref(false)
+const tracks = ref(new GroupedList())
+
+const openArtist = () => {
+  showDetailsModal.value = false
+  router.push({
+    name: 'music-artist',
+    params: { id: album.value.artist_id }
+  })
 }
+
+const openDetails = () => {
+  showDetailsModal.value = true
+}
+
+const play = () => {
+  queue.playUri(album.value.uri, true)
+}
+
+const heading = computed(() => ({
+  count: t('data.tracks', { count: album.value.track_count }),
+  handler: openArtist,
+  subtitle: album.value.artist,
+  title: album.value.name,
+  actions: [
+    { handler: play, icon: 'shuffle', key: 'actions.shuffle' },
+    { handler: openDetails, icon: 'dots-horizontal' }
+  ]
+}))
+
+onMounted(async () => {
+  const [albumData, tracksData] = await Promise.all([
+    library.album(route.params.id),
+    library.albumTracks(route.params.id)
+  ])
+  album.value = albumData
+  const grouped = new GroupedList(tracksData, {
+    criteria: [{ field: 'disc_number', type: Number }],
+    index: { field: 'disc_number', type: Number }
+  })
+  if (grouped.indices.length < 2) {
+    grouped.group()
+  }
+  tracks.value = grouped
+})
 </script>

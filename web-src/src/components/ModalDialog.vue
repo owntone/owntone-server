@@ -32,26 +32,29 @@
   </transition>
 </template>
 
-<script>
-export default {
-  name: 'ModalDialog',
-  props: {
-    actions: { required: true, type: Array },
-    show: Boolean,
-    title: { default: '', type: String }
-  },
-  emits: ['close'],
-  watch: {
-    show(value) {
-      const { classList } = document.querySelector('html')
-      if (value) {
-        classList.add('is-clipped')
-      } else {
-        classList.remove('is-clipped')
-      }
+<script setup>
+import { watch } from 'vue'
+
+const props = defineProps({
+  actions: { required: true, type: Array },
+  show: Boolean,
+  title: { default: '', type: String }
+})
+
+defineEmits(['close'])
+
+watch(
+  () => props.show,
+  (value) => {
+    const html = document.querySelector('html')
+    if (value) {
+      html.classList.add('is-clipped')
+    } else {
+      html.classList.remove('is-clipped')
     }
-  }
-}
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>

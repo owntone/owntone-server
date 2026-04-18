@@ -22,7 +22,9 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
@@ -30,65 +32,57 @@ import ModalDialogAlbumSpotify from '@/components/ModalDialogAlbumSpotify.vue'
 import PaneHero from '@/components/PaneHero.vue'
 import queue from '@/api/queue'
 import services from '@/api/services'
-import { useServicesStore } from '@/stores/services'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PageAlbumSpotify',
-  components: {
-    ContentWithHero,
-    ControlImage,
-    ListTracksSpotify,
-    ModalDialogAlbumSpotify,
-    PaneHero
-  },
-  setup() {
-    return { servicesStore: useServicesStore() }
-  },
-  data() {
-    return { album: { artists: [{}], tracks: {} }, showDetailsModal: false }
-  },
-  computed: {
-    heading() {
-      return {
-        actions: [
-          { handler: this.play, icon: 'shuffle', key: 'actions.shuffle' },
-          { handler: this.openDetails, icon: 'dots-horizontal' }
-        ],
-        count: this.$t('data.tracks', { count: this.album.tracks.total }),
-        handler: this.openArtist,
-        subtitle: this.album.artists[0].name,
-        title: this.album.name
-      }
-    },
-    tracks() {
-      const { album } = this
-      if (album.tracks.total) {
-        return album.tracks.items.map((track) => ({ ...track, album }))
-      }
-      return []
-    }
-  },
-  async mounted() {
-    const { api, configuration } = await services.spotify.get()
-    this.album = await api.albums.get(
-      this.$route.params.id,
-      configuration.webapi_country
-    )
-  },
-  methods: {
-    openArtist() {
-      this.$router.push({
-        name: 'music-spotify-artist',
-        params: { id: this.album.artists[0].id }
-      })
-    },
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    play() {
-      this.showDetailsModal = false
-      queue.playUri(this.album.uri, true)
-    }
-  }
+const route = useRoute()
+const router = useRouter()
+const { t } = useI18n()
+
+const album = ref({ artists: [{}], tracks: {} })
+const showDetailsModal = ref(false)
+
+const openArtist = () => {
+  router.push({
+    name: 'music-spotify-artist',
+    params: { id: album.value.artists[0].id }
+  })
 }
+
+const openDetails = () => {
+  showDetailsModal.value = true
+}
+
+const play = () => {
+  showDetailsModal.value = false
+  queue.playUri(album.value.uri, true)
+}
+
+const heading = computed(() => ({
+  actions: [
+    { handler: play, icon: 'shuffle', key: 'actions.shuffle' },
+    { handler: openDetails, icon: 'dots-horizontal' }
+  ],
+  count: t('data.tracks', { count: album.value.tracks.total }),
+  handler: openArtist,
+  subtitle: album.value.artists?.[0]?.name,
+  title: album.value.name
+}))
+
+const tracks = computed(() => {
+  if (album.value.tracks?.total) {
+    return album.value.tracks.items.map((track) => ({
+      ...track,
+      album: album.value
+    }))
+  }
+  return []
+})
+
+onMounted(async () => {
+  const { api, configuration } = await services.spotify.get()
+  album.value = await api.albums.get(
+    route.params.id,
+    configuration.webapi_country
+  )
+})
 </script>

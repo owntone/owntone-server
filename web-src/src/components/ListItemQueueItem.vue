@@ -45,35 +45,28 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { computed } from 'vue'
 import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
 
-export default {
-  name: 'ListItemQueueItem',
-  props: {
-    currentPosition: { required: true, type: Number },
-    editing: Boolean,
-    hideReadItems: Boolean,
-    item: { required: true, type: Object },
-    position: { required: true, type: Number }
-  },
-  setup() {
-    return { playerStore: usePlayerStore() }
-  },
-  computed: {
-    isCurrent() {
-      return this.item.id === this.playerStore.item_id
-    },
-    isNext() {
-      return this.currentPosition < 0 || this.position >= this.currentPosition
-    }
-  },
-  methods: {
-    play() {
-      player.play({ item_id: this.item.id })
-    }
-  }
+const props = defineProps({
+  currentPosition: { required: true, type: Number },
+  editing: Boolean,
+  hideReadItems: Boolean,
+  item: { required: true, type: Object },
+  position: { required: true, type: Number }
+})
+
+const playerStore = usePlayerStore()
+
+const isCurrent = computed(() => props.item.id === playerStore.item_id)
+const isNext = computed(
+  () => props.currentPosition < 0 || props.position >= props.currentPosition
+)
+
+const play = () => {
+  player.play({ item_id: props.item.id })
 }
 </script>
 

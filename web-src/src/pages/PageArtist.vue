@@ -45,7 +45,9 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import ControlDropdown from '@/components/ControlDropdown.vue'
@@ -57,93 +59,81 @@ import ModalDialogArtist from '@/components/ModalDialogArtist.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import library from '@/api/library'
 import queue from '@/api/queue'
+import { useI18n } from 'vue-i18n'
 import { useServicesStore } from '@/stores/services'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'PageArtist',
-  components: {
-    ContentWithHeading,
-    ControlButton,
-    ControlDropdown,
-    ControlSwitch,
-    ListAlbums,
-    ListOptions,
-    ModalDialogArtist,
-    PaneTitle
+const route = useRoute()
+const router = useRouter()
+const { t } = useI18n()
+
+const servicesStore = useServicesStore()
+const uiStore = useUIStore()
+
+const albumList = ref(new GroupedList())
+const artist = ref({})
+const showDetailsModal = ref(false)
+
+const groupings = computed(() => [
+  {
+    id: 1,
+    name: t('options.sort.name'),
+    options: { criteria: [{ field: 'name_sort', type: String }] }
   },
-  setup() {
-    return { servicesStore: useServicesStore(), uiStore: useUIStore() }
-  },
-  data() {
-    return { albumList: new GroupedList(), artist: {}, showDetailsModal: false }
-  },
-  computed: {
-    albums() {
-      const { options } = this.groupings.find(
-        (grouping) => grouping.id === this.uiStore.artistAlbumsSort
-      )
-      options.filters = [
-        (album) => !this.uiStore.hideSpotify || album.data_kind !== 'spotify'
-      ]
-      return this.albumList.group(options)
-    },
-    groupings() {
-      return [
-        {
-          id: 1,
-          name: this.$t('options.sort.name'),
-          options: { criteria: [{ field: 'name_sort', type: String }] }
-        },
-        {
-          id: 2,
-          name: this.$t('options.sort.release-date'),
-          options: { criteria: [{ field: 'date_released', type: Date }] }
-        }
-      ]
-    },
-    heading() {
-      return {
-        subtitle: [
-          { count: this.albums.count, key: 'data.albums' },
-          {
-            count: this.trackCount,
-            handler: this.openTracks,
-            key: 'data.tracks'
-          }
-        ],
-        title: this.artist.name
-      }
-    },
-    trackCount() {
-      // The count of tracks is incorrect when albums have Spotify tracks.
-      return [...this.albums].reduce(
-        (total, album) => total + (album?.item.track_count || 0),
-        0
-      )
-    }
-  },
-  async mounted() {
-    const [artist, albums] = await Promise.all([
-      library.artist(this.$route.params.id),
-      library.artistAlbums(this.$route.params.id)
-    ])
-    this.artist = artist
-    this.albumList = new GroupedList(albums)
-  },
-  methods: {
-    openDetails() {
-      this.showDetailsModal = true
-    },
-    openTracks() {
-      this.$router.push({
-        name: 'music-artist-tracks',
-        params: { id: this.artist.id }
-      })
-    },
-    play() {
-      queue.playUri(this.albums.items.map((item) => item.uri).join(), true)
-    }
+  {
+    id: 2,
+    name: t('options.sort.release-date'),
+    options: { criteria: [{ field: 'date_released', type: Date }] }
   }
+])
+
+const albums = computed(() => {
+  const { options } = groupings.value.find(
+    (grouping) => grouping.id === uiStore.artistAlbumsSort
+  )
+  options.filters = [
+    (album) => !uiStore.hideSpotify || album.data_kind !== 'spotify'
+  ]
+  return albumList.value.group(options)
+})
+
+const openTracks = () => {
+  router.push({ name: 'music-artist-tracks', params: { id: artist.value.id } })
 }
+
+const trackCount = computed(() =>
+  [...albums.value].reduce(
+    (total, album) => total + (album?.item.track_count || 0),
+    0
+  )
+)
+
+const heading = computed(() => ({
+  subtitle: [
+    { count: albums.value.count, key: 'data.albums' },
+    {
+      count: trackCount.value,
+      handler: openTracks,
+      key: 'data.tracks'
+    }
+  ],
+  title: artist.value.name
+}))
+
+const openDetails = () => {
+  showDetailsModal.value = true
+}
+
+const play = () => {
+  queue.playUri(albums.value.items.map((item) => item.uri).join(), true)
+}
+
+onMounted(async () => {
+  const [artistData, albumData] = await Promise.all([
+    library.artist(route.params.id),
+    library.artistAlbums(route.params.id)
+  ])
+  artist.value = artistData
+  albumList.value = new GroupedList(albumData)
+})
 </script>

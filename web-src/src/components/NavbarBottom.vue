@@ -62,7 +62,7 @@
   </nav>
 </template>
 
-<script>
+<script setup>
 import ControlLink from '@/components/ControlLink.vue'
 import ControlMainVolume from '@/components/ControlMainVolume.vue'
 import ControlOutputVolume from '@/components/ControlOutputVolume.vue'
@@ -76,44 +76,23 @@ import ControlPlayerPrevious from '@/components/ControlPlayerPrevious.vue'
 import ControlPlayerRepeat from '@/components/ControlPlayerRepeat.vue'
 import ControlPlayerShuffle from '@/components/ControlPlayerShuffle.vue'
 import ControlStreamVolume from '@/components/ControlStreamVolume.vue'
+import { computed } from 'vue'
 import { useOutputsStore } from '@/stores/outputs'
 import { useQueueStore } from '@/stores/queue'
+import { useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 
-export default {
-  name: 'NavbarBottom',
-  components: {
-    ControlLink,
-    ControlMainVolume,
-    ControlOutputVolume,
-    ControlPlayerBack,
-    ControlPlayerConsume,
-    ControlPlayerForward,
-    ControlPlayerLyrics,
-    ControlPlayerNext,
-    ControlPlayerPlay,
-    ControlPlayerPrevious,
-    ControlPlayerRepeat,
-    ControlPlayerShuffle,
-    ControlStreamVolume
-  },
-  setup() {
-    return {
-      outputsStore: useOutputsStore(),
-      queueStore: useQueueStore(),
-      uiStore: useUIStore()
-    }
-  },
-  computed: {
-    isPlayerPage() {
-      return this.$route.name === 'player'
-    },
-    metadata() {
-      const { current } = this.queueStore
-      return [current.artist, current.album].filter(Boolean).join(' - ')
-    }
-  }
-}
+const route = useRoute()
+const outputsStore = useOutputsStore()
+const queueStore = useQueueStore()
+const uiStore = useUIStore()
+
+const isPlayerPage = computed(() => route.name === 'player')
+
+const metadata = computed(() => {
+  const { current } = queueStore
+  return [current.artist, current.album].filter(Boolean).join(' - ')
+})
 </script>
 
 <style scoped>

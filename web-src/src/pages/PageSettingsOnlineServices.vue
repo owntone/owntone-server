@@ -206,62 +206,54 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsSettings from '@/components/TabsSettings.vue'
+import { ref } from 'vue'
 import services from '@/api/services'
+import { useI18n } from 'vue-i18n'
 import { useServicesStore } from '@/stores/services'
 
-export default {
-  name: 'PageSettingsOnlineServices',
-  components: { ContentWithHeading, PaneTitle, TabsSettings },
-  setup() {
-    return { servicesStore: useServicesStore() }
-  },
-  data() {
-    return {
-      lastfmCredentials: { password: '', user: '' },
-      lastfmErrors: { error: '', password: '', user: '' },
-      listenbrainzToken: '',
-      listenbrainzError: ''
-    }
-  },
-  methods: {
-    async loginLastfm() {
-      const { errors, success } = await services.lastfm.login(
-        this.lastfmCredentials
-      )
-      this.lastfmErrors = errors
-      this.lastfmCredentials.password = ''
-      if (success) {
-        this.lastfmCredentials.user = ''
-      }
-      this.servicesStore.initialise()
-    },
-    logoutLastfm() {
-      services.lastfm.logout()
-      this.servicesStore.initialise()
-    },
-    logoutSpotify() {
-      services.spotify.logout()
-      this.servicesStore.initialise()
-    },
-    async addListenBrainzToken() {
-      if (!this.listenbrainzToken.trim()) {
-        this.listenbrainzError = this.$t(
-          'settings.services.listenbrainz.token-required'
-        )
-        return
-      }
-      await services.listenbrainz.addToken(this.listenbrainzToken)
-      this.listenbrainzToken = ''
-      this.servicesStore.initialise()
-    },
-    async removeListenBrainzToken() {
-      await services.listenbrainz.removeToken()
-      this.servicesStore.initialise()
-    }
+const servicesStore = useServicesStore()
+const { t } = useI18n()
+
+const lastfmCredentials = ref({ password: '', user: '' })
+const lastfmErrors = ref({ error: '', password: '', user: '' })
+const listenbrainzToken = ref('')
+const listenbrainzError = ref('')
+
+const loginLastfm = async () => {
+  const credentials = lastfmCredentials.value
+  lastfmCredentials.value = {}
+  const { errors } = await services.lastfm.login(credentials)
+  lastfmErrors.value = errors
+  servicesStore.initialise()
+}
+
+const logoutLastfm = () => {
+  services.lastfm.logout()
+  servicesStore.initialise()
+}
+
+const logoutSpotify = () => {
+  services.spotify.logout()
+  servicesStore.initialise()
+}
+
+const addListenBrainzToken = async () => {
+  if (!listenbrainzToken.value.trim()) {
+    listenbrainzError.value = t('settings.services.listenbrainz.token-required')
+    return
   }
+  const token = listenbrainzToken.value
+  listenbrainzToken.value = ''
+  await services.listenbrainz.addToken(token)
+  servicesStore.initialise()
+}
+
+const removeListenBrainzToken = async () => {
+  await services.listenbrainz.removeToken()
+  servicesStore.initialise()
 }
 </script>

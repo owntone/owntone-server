@@ -12,7 +12,8 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListTracks from '@/components/ListTracks.vue'
@@ -20,20 +21,15 @@ import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import library from '@/api/library'
 
-export default {
-  name: 'PageMusicRecentlyPlayed',
-  components: { ContentWithHeading, ListTracks, PaneTitle, TabsMusic },
-  data() {
-    return { tracks: new GroupedList() }
-  },
-  async mounted() {
-    const data = await library.search({
-      expression:
-        'time_played after 8 weeks ago and media_kind is music order by time_played desc',
-      limit: 50,
-      type: 'track'
-    })
-    this.tracks = new GroupedList(data.tracks)
-  }
-}
+const tracks = ref(new GroupedList())
+
+onMounted(async () => {
+  const data = await library.search({
+    expression:
+      'time_played after 8 weeks ago and media_kind is music order by time_played desc',
+    limit: 50,
+    type: 'track'
+  })
+  tracks.value = new GroupedList(data.tracks)
+})
 </script>

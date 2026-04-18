@@ -13,7 +13,8 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import { GroupedList } from '@/lib/GroupedList'
 import ListArtists from '@/components/ListArtists.vue'
@@ -21,32 +22,21 @@ import ListIndexButtons from '@/components/ListIndexButtons.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import library from '@/api/library'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PageAudiobookArtists',
-  components: {
-    ContentWithHeading,
-    ListArtists,
-    ListIndexButtons,
-    PaneTitle,
-    TabsAudiobooks
-  },
-  data() {
-    return { artists: new GroupedList() }
-  },
-  computed: {
-    heading() {
-      return {
-        subtitle: [{ count: this.artists.count, key: 'data.authors' }],
-        title: this.$t('page.audiobooks.artists.title')
-      }
-    }
-  },
-  async mounted() {
-    const artists = await library.artists('audiobook')
-    this.artists = new GroupedList(artists, {
-      index: { field: 'name_sort', type: String }
-    })
-  }
-}
+const { t } = useI18n()
+
+const artists = ref(new GroupedList())
+
+const heading = computed(() => ({
+  subtitle: [{ count: artists.value.count, key: 'data.authors' }],
+  title: t('page.audiobooks.artists.title')
+}))
+
+onMounted(async () => {
+  const artistsData = await library.artists('audiobook')
+  artists.value = new GroupedList(artistsData, {
+    index: { field: 'name_sort', type: String }
+  })
+})
 </script>

@@ -6,67 +6,71 @@
   />
 </template>
 
-<script>
+<script setup>
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
+import { computed } from 'vue'
+import formatters from '@/lib/Formatters'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ModalDialogTrackSpotify',
-  components: { ModalDialogPlayable },
-  props: { item: { required: true, type: Object }, show: Boolean },
-  emits: ['close'],
-  computed: {
-    playable() {
-      if (!this.item.artists) {
-        return {}
-      }
-      return {
-        name: this.item.name,
-        properties: [
-          {
-            handler: this.openAlbum,
-            key: 'property.album',
-            value: this.item.album.name
-          },
-          {
-            handler: this.openArtist,
-            key: 'property.album-artist',
-            value: this.item.artists[0]?.name
-          },
-          {
-            key: 'property.release-date',
-            value: this.$formatters.toDate(this.item.album.release_date)
-          },
-          {
-            key: 'property.position',
-            value:
-              this.item.track_number > 0 &&
-              [this.item.disc_number, this.item.track_number].join(' / ')
-          },
-          {
-            key: 'property.duration',
-            value: this.$formatters.toTimecode(this.item.duration_ms)
-          },
-          { key: 'property.path', value: this.item.uri }
-        ],
-        uri: this.item.uri
-      }
-    }
-  },
-  methods: {
-    openAlbum() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-spotify-album',
-        params: { id: this.item.album.id }
-      })
-    },
-    openArtist() {
-      this.$emit('close')
-      this.$router.push({
-        name: 'music-spotify-artist',
-        params: { id: this.item.artists[0].id }
-      })
-    }
-  }
+const props = defineProps({
+  item: { required: true, type: Object },
+  show: Boolean
+})
+
+const emit = defineEmits(['close'])
+
+const router = useRouter()
+
+const openAlbum = () => {
+  emit('close')
+  router.push({
+    name: 'music-spotify-album',
+    params: { id: props.item.album.id }
+  })
 }
+
+const openArtist = () => {
+  emit('close')
+  router.push({
+    name: 'music-spotify-artist',
+    params: { id: props.item.artists[0].id }
+  })
+}
+
+const playable = computed(() => {
+  if (!props.item.artists) {
+    return {}
+  }
+  return {
+    name: props.item.name,
+    uri: props.item.uri,
+    properties: [
+      {
+        handler: openAlbum,
+        key: 'property.album',
+        value: props.item.album.name
+      },
+      {
+        handler: openArtist,
+        key: 'property.album-artist',
+        value: props.item.artists[0]?.name
+      },
+      {
+        key: 'property.release-date',
+        value: formatters.toDate(props.item.album.release_date)
+      },
+      {
+        key: 'property.position',
+        value:
+          props.item.track_number > 0 &&
+          [props.item.disc_number, props.item.track_number].join(' / ')
+      },
+      {
+        key: 'property.duration',
+        value: formatters.toTimecode(props.item.duration_ms)
+      },
+      { key: 'property.path', value: props.item.uri }
+    ]
+  }
+})
 </script>

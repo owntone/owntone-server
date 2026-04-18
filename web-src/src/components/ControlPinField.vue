@@ -16,27 +16,25 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ControlPinField',
-  props: {
-    placeholder: { required: true, type: String }
-  },
-  emits: ['input'],
-  data() {
-    return { value: '' }
-  },
-  mounted() {
-    setTimeout(() => {
-      this.$refs.input.focus()
-    }, 10)
-  },
-  methods: {
-    validate(event) {
-      const { validity } = event.target
-      const invalid = validity.patternMismatch || validity.valueMissing
-      this.$emit('input', this.value, invalid)
-    }
-  }
+<script setup>
+import { onMounted, ref } from 'vue'
+
+defineProps({ placeholder: { required: true, type: String } })
+
+const emit = defineEmits(['input'])
+
+const input = ref(null)
+const value = ref('')
+
+onMounted(() => {
+  setTimeout(() => {
+    input.value?.focus()
+  }, 10)
+})
+
+const validate = (event) => {
+  const { validity } = event.target
+  const invalid = validity.patternMismatch || validity.valueMissing
+  emit('input', value.value, invalid)
 }
 </script>

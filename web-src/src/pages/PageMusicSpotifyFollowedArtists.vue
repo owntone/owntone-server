@@ -10,33 +10,27 @@
   </content-with-heading>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'PageMusicSpotifyFeaturedPlaylists',
-  components: {
-    ContentWithHeading,
-    ListArtistsSpotify,
-    PaneTitle,
-    TabsMusic
-  },
-  data() {
-    return { artists: [] }
-  },
-  computed: {
-    heading() {
-      return { title: this.$t('page.spotify.music.followed-artists') }
-    }
-  },
-  async mounted() {
-    const { api } = await services.spotify.get()
-    const response = await api.currentUser.followedArtists(null, 50)
-    this.artists = response.artists.items
-  }
-}
+const { t } = useI18n()
+
+const artists = ref([])
+
+const heading = computed(() => ({
+  title: t('page.spotify.music.followed-artists')
+}))
+
+onMounted(async () => {
+  const { api } = await services.spotify.get()
+  const response = await api.currentUser.followedArtists(null, 50)
+  artists.value = response.artists.items
+})
 </script>

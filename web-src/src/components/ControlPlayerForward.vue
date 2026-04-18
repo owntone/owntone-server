@@ -1,5 +1,5 @@
 <template>
-  <button v-if="visible" :disabled="disabled" @click="seek">
+  <button v-if="visible" :disabled="queueStore.isEmpty" @click="seek">
     <mdicon
       class="icon"
       name="fast-forward-30"
@@ -8,36 +8,20 @@
   </button>
 </template>
 
-<script>
+<script setup>
+import { computed } from 'vue'
 import player from '@/api/player'
-import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 
-export default {
-  name: 'ControlPlayerForward',
-  props: {
-    offset: { required: true, type: Number }
-  },
-  setup() {
-    return {
-      playerStore: usePlayerStore(),
-      queueStore: useQueueStore()
-    }
-  },
-  computed: {
-    disabled() {
-      return this.queueStore.isEmpty || this.playerStore.isStopped
-    },
-    visible() {
-      return ['podcast', 'audiobook'].includes(
-        this.queueStore.current.media_kind
-      )
-    }
-  },
-  methods: {
-    seek() {
-      player.seek(this.offset)
-    }
-  }
+const props = defineProps({ offset: { type: Number, required: true } })
+
+const queueStore = useQueueStore()
+
+const visible = computed(() =>
+  ['podcast', 'audiobook'].includes(queueStore.current?.media_kind)
+)
+
+const seek = () => {
+  player.seek(props.offset)
 }
 </script>

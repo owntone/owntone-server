@@ -27,33 +27,30 @@
   />
 </template>
 
-<script>
+<script setup>
 import ListItem from '@/components/ListItem.vue'
 import LoaderListItem from '@/components/LoaderListItem.vue'
 import ModalDialogTrackSpotify from '@/components/ModalDialogTrackSpotify.vue'
 import queue from '@/api/queue'
+import { ref } from 'vue'
 
-export default {
-  name: 'ListTracksSpotify',
-  components: { ListItem, LoaderListItem, ModalDialogTrackSpotify },
-  props: {
-    contextUri: { default: '', type: String },
-    items: { required: true, type: Object },
-    load: { default: null, type: Function }
-  },
-  data() {
-    return { selectedItem: {}, showDetailsModal: false }
-  },
-  methods: {
-    open(item) {
-      if (item.is_playable) {
-        queue.playUri(this.contextUri || item.uri, false, item.position || 0)
-      }
-    },
-    openDetails(item) {
-      this.selectedItem = item
-      this.showDetailsModal = true
-    }
+const props = defineProps({
+  contextUri: { default: '', type: String },
+  items: { required: true, type: Object },
+  load: { default: null, type: Function }
+})
+
+const selectedItem = ref({})
+const showDetailsModal = ref(false)
+
+const open = (item) => {
+  if (item.is_playable) {
+    queue.playUri(props.contextUri || item.uri, false, item.position || 0)
   }
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item
+  showDetailsModal.value = true
 }
 </script>

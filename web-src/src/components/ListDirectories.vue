@@ -33,46 +33,48 @@
   />
 </template>
 
-<script>
+<script setup>
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogDirectory from '@/components/ModalDialogDirectory.vue'
 
-export default {
-  name: 'ListDirectories',
-  components: { ListItem, ModalDialogDirectory },
-  props: { items: { required: true, type: Array } },
-  data() {
-    return { selectedItem: '', showDetailsModal: false }
-  },
-  computed: {
-    directories() {
-      const directories = []
-      let path = ''
-      this.$route.query?.directory
-        .split('/')
-        .slice(1, -1)
-        .forEach((name, index) => {
-          path = `${path}/${name}`
-          directories.push({ index, name, path })
-        })
-      return directories
-    }
-  },
-  methods: {
-    open(item) {
-      const route = { name: 'files' }
-      if (item.index !== 0) {
-        route.query = { directory: item.path }
-      }
-      this.$router.push(route)
-    },
-    openDetails(item) {
-      this.selectedItem = item.path
-      this.showDetailsModal = true
-    },
-    openParent() {
-      this.open(this.directories.slice(-1).pop())
-    }
+defineProps({ items: { required: true, type: Array } })
+
+const route = useRoute()
+const router = useRouter()
+
+const selectedItem = ref('')
+const showDetailsModal = ref(false)
+
+const directories = computed(() => {
+  const items = []
+  let path = ''
+  route.query?.directory
+    ?.split('/')
+    .slice(1, -1)
+    .forEach((name, index) => {
+      path = `${path}/${name}`
+      items.push({ index, name, path })
+    })
+  return items
+})
+
+const open = (item) => {
+  const nextRoute = { name: 'files' }
+  nextRoute.query = item.index !== 0 && { directory: item.path }
+  router.push(nextRoute)
+}
+
+const openDetails = (item) => {
+  selectedItem.value = item.path
+  showDetailsModal.value = true
+}
+
+const openParent = () => {
+  const parent = directories.value.slice(-1).pop()
+  if (parent) {
+    open(parent)
   }
 }
 </script>
