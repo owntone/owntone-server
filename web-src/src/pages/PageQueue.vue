@@ -21,64 +21,101 @@
       />
       <control-button
         :button="{
+          disabled: queueStore.isEmpty,
           handler: toggleEdit,
           icon: 'pencil',
           key: 'actions.edit'
         }"
         :class="{ 'is-dark': editing }"
-        :disabled="queueStore.isEmpty"
       />
       <control-button
         :button="{
+          disabled: queueStore.isEmpty,
           handler: clearQueue,
-          icon: 'delete-empty',
+          icon: 'trash-can-outline',
           key: 'actions.clear'
         }"
-        :disabled="queueStore.isEmpty"
       />
       <control-button
         v-if="queueStore.isSavingAllowed"
         :button="{
+          disabled: queueStore.isEmpty,
           handler: openSaveDialog,
           icon: 'download',
           key: 'actions.save'
         }"
-        :disabled="queueStore.isEmpty"
       />
     </template>
     <template #content>
-      <draggable
-        v-model="items"
-        :disabled="!editing"
-        item-key="id"
-        @end="moveItem"
+      <div
+        v-for="(element, index) in items"
+        :key="element.id"
+        :data-drag-index="index"
+        :draggable="editing"
+        :class="{
+          'is-dragging': isDragged(index),
+          'is-drag-over': isDraggedOver(index)
+        }"
+        @touchstart="onTouchStart($event)"
+        @touchmove="onTouchMove($event)"
+        @touchend="onTouchEnd"
+        @dragstart="onDragStart(index)"
+        @dragover="onDragOver($event, index)"
+        @drop="onDrop(index)"
       >
-        <template #item="{ element, index }">
-          <list-item-queue-item
-            :item="element"
-            :position="index"
-            :current-position="currentPosition"
-            :hide-read-items="uiStore.hideReadItems"
-            :editing="editing"
-          >
-            <template #actions>
-              <a v-if="!editing" @click.prevent.stop="openDetails(element)">
-                <mdicon
-                  class="icon has-text-grey"
-                  name="dots-vertical"
-                  size="16"
-                />
-              </a>
-              <a
-                v-if="isRemovable(element)"
-                @click.prevent.stop="remove(element)"
-              >
-                <mdicon class="icon has-text-grey" name="delete" size="18" />
-              </a>
-            </template>
-          </list-item-queue-item>
-        </template>
-      </draggable>
+        <list-item-queue-item
+          v-if="
+            currentPosition < 0 ||
+            element.position >= currentPosition ||
+            !uiStore.hideReadItems
+          "
+          :item="element"
+          :is-current="element.id === playerStore.item_id"
+          :is-next="currentPosition < 0 || element.position >= currentPosition"
+          :current-position="currentPosition"
+          :editing="editing"
+        >
+          <template #icon>
+            <div data-drag-handle>
+              <mdicon
+                v-if="editing"
+                class="media-left icon has-text-grey is-movable"
+                name="drag-horizontal"
+                size="18"
+              />
+            </div>
+          </template>
+          <template #actions>
+            <a v-if="!editing" @click.prevent.stop="openDetails(element)">
+              <mdicon
+                class="icon has-text-grey"
+                name="dots-vertical"
+                size="16"
+              />
+            </a>
+            <a
+              v-if="isRemovable(element)"
+              @click.prevent.stop="remove(element)"
+            >
+              <mdicon
+                class="icon has-text-grey"
+                name="trash-can-outline"
+                size="18"
+              />
+            </a>
+          </template>
+        </list-item-queue-item>
+      </div>
+      <div
+        v-if="editing"
+        :data-drag-index="items.length"
+        :class="{ 'is-drag-over': isDraggedOver(items.length) }"
+        style="height: 50px"
+        @dragover="onDragOver($event, items.length)"
+        @drop="onDrop(items.length)"
+      >
+        <br />
+      </div>
     </template>
   </content-with-heading>
   <modal-dialog-queue-item
@@ -106,8 +143,8 @@ import ModalDialogAddStream from '@/components/ModalDialogAddStream.vue'
 import ModalDialogPlaylistSave from '@/components/ModalDialogPlaylistSave.vue'
 import ModalDialogQueueItem from '@/components/ModalDialogQueueItem.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
-import draggable from 'vuedraggable'
 import queue from '@/api/queue'
+import { useDraggableList } from '@/lib/DraggableList'
 import { useI18n } from 'vue-i18n'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
@@ -126,33 +163,33 @@ const showSaveModal = ref(false)
 
 const currentPosition = computed(() => queueStore.current?.position ?? -1)
 
+const items = computed(() => queueStore.items)
+
+const moveItem = (item) => {
+  queue.move(items.value[item.from].id, item.to)
+}
+
+const {
+  isDragged,
+  isDraggedOver,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd
+} = useDraggableList(moveItem)
+
 const heading = computed(() => ({
   subtitle: [{ count: queueStore.count, key: 'data.tracks' }],
   title: t('page.queue.title')
 }))
-
-const items = computed({
-  get: () => queueStore.items,
-  set: () => {
-    /* Do nothing? Send move request in @end event */
-  }
-})
 
 const clearQueue = () => {
   queue.clear()
 }
 
 const isRemovable = (item) => item.id !== playerStore.item_id && editing.value
-
-const moveItem = (event) => {
-  const oldPosition =
-    event.oldIndex + (uiStore.hideReadItems && currentPosition.value)
-  const item = items.value[oldPosition]
-  const newPosition = item.position + (event.newIndex - event.oldIndex)
-  if (newPosition !== oldPosition) {
-    queue.move(item.id, newPosition)
-  }
-}
 
 const openAddStreamDialog = () => {
   showAddStreamDialog.value = true
@@ -177,3 +214,15 @@ const toggleEdit = () => {
   editing.value = !editing.value
 }
 </script>
+
+<style lang="scss" scoped>
+.is-dragging {
+  opacity: 0.4;
+}
+.is-drag-over {
+  border-top: 2px solid var(--bulma-text);
+}
+.is-movable {
+  cursor: move;
+}
+</style>
