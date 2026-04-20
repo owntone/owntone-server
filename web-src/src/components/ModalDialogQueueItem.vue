@@ -94,7 +94,7 @@ const remove = () => {
 }
 
 const actions = computed(() => [
-  { handler: remove, icon: 'delete', key: 'actions.remove' },
+  { handler: remove, icon: 'trash-can-outline', key: 'actions.remove' },
   { handler: play, icon: 'play', key: 'actions.play' }
 ])
 
