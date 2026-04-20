@@ -8,7 +8,7 @@
     :lines="[
       item.item.name,
       item.item.artist,
-      $formatters.toDate(item.item.date_released)
+      formatters.toDate(item.item.date_released)
     ]"
     @open="open(item.item)"
     @open-details="openDetails(item.item)"
@@ -26,6 +26,7 @@
 <script setup>
 import ListItem from '@/components/ListItem.vue'
 import ModalDialogAlbum from '@/components/ModalDialogAlbum.vue'
+import formatters from '@/lib/Formatters'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings'
