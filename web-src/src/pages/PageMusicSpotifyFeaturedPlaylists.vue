@@ -19,6 +19,8 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
 import { useI18n } from 'vue-i18n'
 
+const PAGE_SIZE = 50
+
 const { t } = useI18n()
 
 const playlists = ref([])
@@ -33,7 +35,7 @@ onMounted(async () => {
     configuration.webapi_country,
     null,
     null,
-    50
+    PAGE_SIZE
   )
   playlists.value = response.playlists.items
 })

@@ -64,6 +64,8 @@ import PaneTitle from '@/components/PaneTitle.vue'
 import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
 
+const PAGE_SIZE = 3
+
 const albums = ref([])
 const artists = ref([])
 const playlists = ref([])
@@ -71,9 +73,14 @@ const playlists = ref([])
 onMounted(async () => {
   const { api, configuration } = await services.spotify.get()
   const [newReleases, followedArtists, featuredPlaylists] = await Promise.all([
-    api.browse.getNewReleases(configuration.webapi_country, 3),
-    api.currentUser.followedArtists(null, 3),
-    api.browse.getFeaturedPlaylists(configuration.webapi_country, null, null, 3)
+    api.browse.getNewReleases(configuration.webapi_country, PAGE_SIZE),
+    api.currentUser.followedArtists(null, PAGE_SIZE),
+    api.browse.getFeaturedPlaylists(
+      configuration.webapi_country,
+      null,
+      null,
+      PAGE_SIZE
+    )
   ])
   albums.value = newReleases.albums.items
   artists.value = followedArtists?.artists.items

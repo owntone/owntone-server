@@ -19,18 +19,20 @@ import TabsMusic from '@/components/TabsMusic.vue'
 import services from '@/api/services'
 import { useI18n } from 'vue-i18n'
 
+const PAGE_SIZE = 50
+
 const albums = ref([])
 
 const { t } = useI18n()
 const heading = computed(() => ({
-  title: t('page.spotify.music.new-releases', 'New releases')
+  title: t('page.spotify.music.new-releases')
 }))
 
 onMounted(async () => {
   const { api, configuration } = await services.spotify.get()
   const response = await api.browse.getNewReleases(
     configuration.webapi_country,
-    50
+    PAGE_SIZE
   )
   albums.value = response.albums.items
 })
