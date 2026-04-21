@@ -2520,10 +2520,12 @@ static int
 dacp_reply_setspeakers(struct httpd_request *hreq)
 {
   const char *param;
-  const char *ptr;
-  uint64_t *ids;
+  char *speakers;
+  const char *speaker;
+  char *ptr;
+  uint64_t ids[64]; // Setting 64 speakers should be enough for anybody
+  uint64_t id;
   int nspk;
-  int i;
   int ret;
 
   ret = dacp_request_authorize(hreq);
@@ -2539,53 +2541,35 @@ dacp_reply_setspeakers(struct httpd_request *hreq)
       return -1;
     }
 
-  if (strlen(param) == 0)
+  CHECK_NULL(L_DACP, speakers = strdup(param));
+
+  for (nspk = 0, speaker = strtok_r(speakers, ",", &ptr); speaker; speaker = strtok_r(NULL, ",", &ptr))
     {
-      ids = NULL;
-      goto fastpath;
-    }
-
-  nspk = 1;
-  for (ptr = param; ptr; ptr = strchr(ptr + 1, ','))
-    nspk++;
-
-  CHECK_NULL(L_DACP, ids = calloc((nspk + 1), sizeof(uint64_t)));
-
-  param--;
-  i = 1;
-  do
-    {
-      param++;
-
       // Some like Remote will give us hex, others will give us decimal (e.g. Hyperfine)
-      if (strncmp(param, "0x", 2) == 0)
-	ret = safe_hextou64(param, &ids[i]);
-      else
-	ret = safe_atou64(param, &ids[i]);
-
+      ret = (strncmp(speaker, "0x", 2) == 0) ? safe_hextou64(speaker, &id) : safe_atou64(speaker, &id);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_DACP, "Invalid speaker id in request: %s\n", param);
-
-	  nspk--;
+	  DPRINTF(E_LOG, L_DACP, "Invalid speaker id '%s' in request: '%s'\n", speaker, param);
 	  continue;
 	}
-      else
+
+      nspk++;
+      if (nspk > ARRAY_SIZE(ids) - 1)
 	{
-	  DPRINTF(E_DBG, L_DACP, "Speaker id converted with ret %d, param %s, dec val %" PRIu64 ".\n", ret, param, ids[i]);
+	  DPRINTF(E_LOG, L_DACP, "Too many speaker ids in setspeakers request: '%s'\n", param);
+	  httpd_send_error(hreq, HTTP_BADREQUEST, "Bad Request");
+	  free(speakers);
+	  return -1;
 	}
-      i++;
+
+      ids[nspk] = id;
     }
-  while ((param = strchr(param + 1, ',')));
 
   ids[0] = nspk;
 
- fastpath:
+  free(speakers);
+
   ret = player_speaker_set(ids);
-
-  if (ids)
-    free(ids);
-
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Speakers de/activation failed!\n");
