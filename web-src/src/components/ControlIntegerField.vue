@@ -20,11 +20,11 @@
 
 <script setup>
 const props = defineProps({
-  modelValue: { type: Number, default: null },
-  min: { type: Number, default: -Infinity },
-  max: { type: Number, default: Infinity },
-  step: { type: Number, default: 1 },
-  placeholder: { type: String, default: '' }
+  max: { default: Infinity, type: Number },
+  min: { default: -Infinity, type: Number },
+  modelValue: { default: null, type: Number },
+  placeholder: { default: '', type: String },
+  step: { default: 1, type: Number }
 })
 
 const emit = defineEmits(['update:modelValue'])

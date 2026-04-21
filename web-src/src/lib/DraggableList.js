@@ -41,8 +41,8 @@ const useScroll = () => {
     const container = getScrollContainer(target)
     const rect =
       (container === window && {
-        top: 0,
-        bottom: window.innerHeight
+        bottom: window.innerHeight,
+        top: 0
       }) ||
       container.getBoundingClientRect()
 
@@ -106,7 +106,7 @@ const useMouseDrag = ({ dragState, onMoveEnd, scroll }) => {
     endMove({ dragState, onMoveEnd })
   }
 
-  return { onDragStart, onDragOver, onDrop }
+  return { onDragOver, onDragStart, onDrop }
 }
 
 const useTouchDrag = ({ dragState, onMoveEnd, scroll }) => {
@@ -140,7 +140,7 @@ const useTouchDrag = ({ dragState, onMoveEnd, scroll }) => {
     dragFromHandle = false
   }
 
-  return { onTouchStart, onTouchMove, onTouchEnd }
+  return { onTouchEnd, onTouchMove, onTouchStart }
 }
 
 const useCleanup = (clearDragState) => {
@@ -182,11 +182,11 @@ export const useDraggableList = (onMoveEnd) => {
   return {
     isDragged,
     isDraggedOver,
-    onDragStart,
     onDragOver,
+    onDragStart,
     onDrop,
-    onTouchStart,
+    onTouchEnd,
     onTouchMove,
-    onTouchEnd
+    onTouchStart
   }
 }

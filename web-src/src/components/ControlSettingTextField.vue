@@ -25,7 +25,7 @@ import ControlSetting from '@/components/ControlSetting.vue'
 
 defineProps({
   disabled: { type: Boolean },
-  placeholder: { type: String, default: '' },
+  placeholder: { default: '', type: String },
   setting: { required: true, type: Object }
 })
 

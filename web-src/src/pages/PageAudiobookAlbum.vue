@@ -61,14 +61,14 @@ const play = () => {
 }
 
 const heading = computed(() => ({
-  count: t('data.tracks', { count: album.value.track_count }),
-  handler: openArtist,
-  subtitle: album.value.artist,
-  title: album.value.name,
   actions: [
     { handler: play, icon: 'play', key: 'actions.play' },
     { handler: openDetails, icon: 'dots-horizontal' }
-  ]
+  ],
+  count: t('data.tracks', { count: album.value.track_count }),
+  handler: openArtist,
+  subtitle: album.value.artist,
+  title: album.value.name
 }))
 
 onMounted(async () => {

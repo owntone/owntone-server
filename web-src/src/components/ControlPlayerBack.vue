@@ -14,7 +14,7 @@ import player from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 
-const props = defineProps({ offset: { type: Number, required: true } })
+const props = defineProps({ offset: { required: true, type: Number } })
 
 const playerStore = usePlayerStore()
 const queueStore = useQueueStore()

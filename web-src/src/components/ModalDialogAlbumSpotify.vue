@@ -13,7 +13,7 @@ import formatters from '@/lib/Formatters'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({
-  item: { type: Object, required: true },
+  item: { required: true, type: Object },
   show: Boolean
 })
 

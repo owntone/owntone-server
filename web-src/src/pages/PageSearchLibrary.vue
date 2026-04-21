@@ -62,8 +62,8 @@ const searchStore = useSearchStore()
 
 const components = {
   album: ListAlbums,
-  audiobook: ListAlbums,
   artist: ListArtists,
+  audiobook: ListAlbums,
   composer: ListComposers,
   playlist: ListPlaylists,
   podcast: ListAlbums,

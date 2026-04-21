@@ -22,8 +22,8 @@ export const useServicesStore = defineStore('ServicesStore', {
       !state.isSpotifyActive || state.hasMissingSpotifyScopes,
     isLastfmActive: (state) => state.lastfm.scrobbling_enabled,
     isLastfmEnabled: (state) => state.lastfm.enabled,
-    isListenBrainzEnabled: (state) => state.listenbrainz.enabled,
     isListenBrainzActive: (state) => state.listenbrainz.token_valid,
+    isListenBrainzEnabled: (state) => state.listenbrainz.enabled,
     isSpotifyActive: (state) => state.spotify.webapi_token_valid,
     isSpotifyEnabled: (state) => state.spotify.spotify_installed,
     missingSpotifyScopes(state) {

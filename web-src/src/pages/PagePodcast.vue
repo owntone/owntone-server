@@ -68,13 +68,13 @@ const reloadTracks = async () => {
 }
 
 const heading = computed(() => ({
-  count: t('data.tracks', { count: album.value.track_count }),
-  subtitle: '',
-  title: album.value.name,
   actions: [
     { handler: play, icon: 'play', key: 'actions.play' },
     { handler: openDetails, icon: 'dots-horizontal' }
-  ]
+  ],
+  count: t('data.tracks', { count: album.value.track_count }),
+  subtitle: '',
+  title: album.value.name
 }))
 
 onMounted(async () => {

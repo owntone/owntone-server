@@ -39,9 +39,9 @@
 import player from '@/api/player'
 
 const props = defineProps({
-  item: { required: true, type: Object },
   isCurrent: Boolean,
-  isNext: Boolean
+  isNext: Boolean,
+  item: { required: true, type: Object }
 })
 
 const play = () => {

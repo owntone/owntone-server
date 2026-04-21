@@ -31,8 +31,8 @@ import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings'
 
 defineProps({
-  items: { type: Object, required: true },
-  load: { type: Function, default: null }
+  items: { required: true, type: Object },
+  load: { default: null, type: Function }
 })
 
 const settingsStore = useSettingsStore()

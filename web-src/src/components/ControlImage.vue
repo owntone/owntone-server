@@ -9,8 +9,8 @@ import { computed } from 'vue'
 import { renderSVG } from '@/lib/SVGRenderer'
 
 const props = defineProps({
-  caption: { type: String, default: '' },
-  url: { type: String, default: '' }
+  caption: { default: '', type: String },
+  url: { default: '', type: String }
 })
 
 defineEmits(['click'])

@@ -152,8 +152,8 @@ onMounted(() => {
     pairing: [remotesStore.initialise],
     player: [playerStore.initialise],
     queue: [queueStore.initialise],
-    settings: [settingsStore.initialise],
     services: [servicesStore.initialise],
+    settings: [settingsStore.initialise],
     update: [libraryStore.initialise],
     volume: [playerStore.initialise, outputsStore.initialise]
   }

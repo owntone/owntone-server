@@ -14,11 +14,11 @@ export default {
     }
   },
   listenbrainz: {
-    get() {
-      return api.get('./api/listenbrainz')
-    },
     addToken(token) {
       return api.post('./api/listenbrainz/token', { token })
+    },
+    get() {
+      return api.get('./api/listenbrainz')
     },
     removeToken() {
       return api.delete('./api/listenbrainz/token')

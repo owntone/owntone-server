@@ -13,7 +13,7 @@ import { computed } from 'vue'
 import player from '@/api/player'
 import { useQueueStore } from '@/stores/queue'
 
-const props = defineProps({ offset: { type: Number, required: true } })
+const props = defineProps({ offset: { required: true, type: Number } })
 
 const queueStore = useQueueStore()
 

@@ -15,8 +15,7 @@ export default [
       'id-length': 'off',
       'max-lines-per-function': 'off',
       'no-magic-numbers': 'off',
-      'one-var': 'off',
-      'sort-keys': 'off'
+      'one-var': 'off'
     }
   }
 ]

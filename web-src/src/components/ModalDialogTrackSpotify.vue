@@ -43,7 +43,6 @@ const playable = computed(() => {
   }
   return {
     name: props.item.name,
-    uri: props.item.uri,
     properties: [
       {
         handler: openAlbum,
@@ -70,7 +69,8 @@ const playable = computed(() => {
         value: formatters.toTimecode(props.item.duration_ms)
       },
       { key: 'property.path', value: props.item.uri }
-    ]
+    ],
+    uri: props.item.uri
   }
 })
 </script>
