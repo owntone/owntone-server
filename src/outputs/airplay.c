@@ -204,7 +204,6 @@ struct airplay_extra
 
   uint16_t wanted_metadata;
   bool supports_auth_setup;
-  bool supports_pairing_transient;
   bool supports_encryption;
   bool use_ptp;
 };
@@ -3916,6 +3915,11 @@ features_parse(struct keyval *features_kv, const char *features_txt, const char 
      ["vv=2" "osvers=14.3" "srcvers=530.6" "pk=..." "psi=31...D3" "pi=fd...87" "protovers=1.1" "model=AudioAccessory1,1" "tsid=4...E" "gpn=name" "gcgl=1" "igl=1" "gid=4...E" "flags=0x1a404" "features=0x4A7FCA00,0x3C356BD0" "fex=AMp/StBrNTw" "deviceid=D4:...:C1" "btaddr=5E:...:F1" "acl=0"]
   * Sonos Symfonisk
      ["pk=e5...1c" "gcgl=0" "gid=[uuid]" "pi=[uuid]" "srcvers=366.0" "protovers=1.1" "serialNumber=xx" "manufacturer=Sonos" "model=Bookshelf" "flags=0x4" "fv=p20.63.2-88230" "rsf=0x0" "features=0x445F8A00,0x1C340" "deviceid=11:22:33:44:55:66" "acl=0"]
+  * Marantz NR1607 and SR6009 (which don't support pairing)
+     ["srcvers=190.9.p6" "model=NR1607" "fv=p105321.1400.0" "flags=0x4" "features=0x444F8A00" "deviceid=00:06:12:12:12:12"]
+     ["srcvers=190.9" "seed=99" "model=SR6009" "flags=0x4" "features=0x444F8A00" "deviceid=00:06:12:12:12:12"]
+  * Apple TV 3 (pairing supported, but not encryption)
+     ["vv=2" "srcvers=220.68" "pi=24...08" "pk=4b...48" "pw=1" "model=AppleTV3,1" "flags=0xc4" "features=0x5A7FFFF7,0xE" "deviceid=70:73:12:12:12:12"]
  */
 static void
 airplay_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
@@ -4041,6 +4045,11 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
       DPRINTF(E_DBG, L_AIRPLAY, "AirPlay device '%s' does not support audio\n", name);
       goto free_device;
     }
+  if (!keyval_get(&features_kv, "SupportsCoreUtilsPairingAndEncryption"))
+    {
+      DPRINTF(E_DBG, L_AIRPLAY, "AirPlay device '%s' does not support pairing/encryption, falling back to RAOP\n", name);
+      goto free_device;
+    }
 
   if (keyval_get(&features_kv, "MetadataFeatures_0"))
     extra->wanted_metadata |= AIRPLAY_MD_WANTS_ARTWORK;
@@ -4053,11 +4062,8 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
   if (keyval_get(&features_kv, "SupportsPTP") && !(devcfg && cfg_getbool(devcfg, "ptp_disable")) && !airplay_ptp_is_disabled)
     extra->use_ptp = 1;
 
-  extra->supports_encryption = (keyval_get(&features_kv, "SupportsCoreUtilsPairingAndEncryption") != NULL);
-  if (keyval_get(&features_kv, "SupportsSystemPairing") || keyval_get(&features_kv, "SupportsCoreUtilsPairingAndEncryption"))
-    extra->supports_pairing_transient = 1;
-  else if (keyval_get(&features_kv, "SupportsHKPairingAndAccessControl"))
-    device->requires_auth = 1;
+  // Currently always true since no SupportsCoreUtilsPairingAndEncryption means we fall back to RAOP
+  extra->supports_encryption = 1;
 
   keyval_clear(&features_kv);
 
