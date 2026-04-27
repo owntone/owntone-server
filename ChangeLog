@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 29.1.1 - 2026-04-15
+
+- fix: 29.1 broke some older AirPlay speakers ("Missing or invalid public key")
+- fix: "Computer" always being selected in Apple Remote
+- fix: Minor web UI improvements
+
 ## Version 29.1 - 2026-04-15
 
 - fix: Samsung and Sonos Era speakers via support for Airplay 2 PTP timing
