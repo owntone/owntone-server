@@ -3920,6 +3920,8 @@ features_parse(struct keyval *features_kv, const char *features_txt, const char 
      ["srcvers=190.9" "seed=99" "model=SR6009" "flags=0x4" "features=0x444F8A00" "deviceid=00:06:12:12:12:12"]
   * Apple TV 3 (pairing supported, but not encryption)
      ["vv=2" "srcvers=220.68" "pi=24...08" "pk=4b...48" "pw=1" "model=AppleTV3,1" "flags=0xc4" "features=0x5A7FFFF7,0xE" "deviceid=70:73:12:12:12:12"]
+  * Libratone Loop
+     ["srcvers=190.9" "seed=99" "model=LibratoneLoop1" "flags=0x4" "features=0x444C0A00" "deviceid=XX:XX:XX:XX:XX:XX"]
  */
 static void
 airplay_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
