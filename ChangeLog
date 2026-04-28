@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 29.2 - 2026-04-28
+
+- same as 29.1.1, only released due to RPi packaging issues with version number
+
 ## Version 29.1.1 - 2026-04-15
 
 - fix: 29.1 broke some older AirPlay speakers ("Missing or invalid public key")
