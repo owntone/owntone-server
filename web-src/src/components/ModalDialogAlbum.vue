@@ -29,7 +29,7 @@
 import { computed, ref } from 'vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
-import formatters from '@/lib/formatters'
+import formatters from '@/lib/Formatters'
 import library from '@/api/library'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'

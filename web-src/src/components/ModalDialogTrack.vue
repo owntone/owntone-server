@@ -10,7 +10,7 @@
 <script setup>
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 import { computed } from 'vue'
-import formatters from '@/lib/formatters'
+import formatters from '@/lib/Formatters'
 import library from '@/api/library'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
