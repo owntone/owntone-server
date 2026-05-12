@@ -70,7 +70,7 @@ const removePodcast = async () => {
 
 const actions = computed(() => [
   { handler: cancel, icon: 'cancel', key: 'actions.cancel' },
-  { handler: removePodcast, icon: 'delete', key: 'actions.remove' }
+  { handler: removePodcast, icon: 'trash-can-outline', key: 'actions.remove' }
 ])
 
 const markAsPlayed = async () => {
