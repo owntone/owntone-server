@@ -19,6 +19,7 @@ import { computed, onMounted, ref } from 'vue'
 import ContentWithSearch from '@/templates/ContentWithSearch.vue'
 import ListAlbumsSpotify from '@/components/ListAlbumsSpotify.vue'
 import ListArtistsSpotify from '@/components/ListArtistsSpotify.vue'
+import ListAudiobooksSpotify from '@/components/ListAudiobooksSpotify.vue'
 import ListPlaylistsSpotify from '@/components/ListPlaylistsSpotify.vue'
 import ListTracksSpotify from '@/components/ListTracksSpotify.vue'
 import services from '@/api/services'
@@ -27,7 +28,7 @@ import { useSearchStore } from '@/stores/search'
 
 const PAGE_SIZE = 3
 const PAGE_SIZE_EXPANDED = 50
-const SEARCH_TYPES = ['track', 'artist', 'album', 'playlist']
+const SEARCH_TYPES = ['track', 'artist', 'album', 'playlist', 'audiobook']
 
 const searchStore = useSearchStore()
 const router = useRouter()
@@ -39,6 +40,7 @@ const types = ref([...SEARCH_TYPES])
 const components = {
   album: ListAlbumsSpotify,
   artist: ListArtistsSpotify,
+  audiobook: ListAudiobooksSpotify,
   playlist: ListPlaylistsSpotify,
   track: ListTracksSpotify
 }

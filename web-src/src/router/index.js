@@ -8,10 +8,13 @@ import PageArtistSpotify from '@/pages/PageArtistSpotify.vue'
 import PageArtistTracks from '@/pages/PageArtistTracks.vue'
 import PageArtists from '@/pages/PageArtists.vue'
 import PageAudiobookAlbum from '@/pages/PageAudiobookAlbum.vue'
+import PageAudiobookAlbumSpotify from '@/pages/PageAudiobookAlbumSpotify.vue'
 import PageAudiobookAlbums from '@/pages/PageAudiobookAlbums.vue'
 import PageAudiobookArtist from '@/pages/PageAudiobookArtist.vue'
 import PageAudiobookArtists from '@/pages/PageAudiobookArtists.vue'
 import PageAudiobookGenres from '@/pages/PageAudiobookGenres.vue'
+import PageAudiobookSpotify from '@/pages/PageAudiobookSpotify.vue'
+import PageAudiobookSpotifySavedAudiobooks from '@/pages/PageAudiobookSpotifySavedAudiobooks.vue'
 import PageComposerAlbums from '@/pages/PageComposerAlbums.vue'
 import PageComposerTracks from '@/pages/PageComposerTracks.vue'
 import PageComposers from '@/pages/PageComposers.vue'
@@ -104,6 +107,21 @@ export const router = createRouter({
       component: PageAudiobookGenres,
       name: 'audiobook-genres',
       path: '/audiobook/genres'
+    },
+    {
+      component: PageAudiobookSpotify,
+      name: 'audiobook-spotify',
+      path: '/audiobook/spotify'
+    },
+    {
+      component: PageAudiobookAlbumSpotify,
+      name: 'audiobook-spotify-album',
+      path: '/audiobook/spotify/albums/:id'
+    },
+    {
+      component: PageAudiobookSpotifySavedAudiobooks,
+      name: 'audiobook-spotify-saved',
+      path: '/audiobook/spotify/saved-audiobooks'
     },
     {
       name: 'audiobooks',
