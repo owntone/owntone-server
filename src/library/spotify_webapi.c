@@ -1787,12 +1787,21 @@ map_track_to_mfi(struct media_file_info *mfi, const struct spotify_track *track,
   mfi->track = track->track_number;
 
   mfi->data_kind   = DATA_KIND_SPOTIFY;
-  if (strcmp(track->type, "episode") == 0)
+  if (!track->type)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) has NULL type, defaulting to MUSIC\n", track->name, track->uri);
+      mfi->media_kind  = MEDIA_KIND_MUSIC;
+    }
+  else if (strcmp(track->type, "episode") == 0)
     mfi->media_kind  = MEDIA_KIND_PODCAST;
   else if (strcmp(track->type, "chapter") == 0)
     mfi->media_kind  = MEDIA_KIND_AUDIOBOOK;
   else
-    mfi->media_kind  = MEDIA_KIND_MUSIC;
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) has unknown type '%s', defaulting to MUSIC\n", track->name, track->uri, track->type);
+      mfi->media_kind  = MEDIA_KIND_MUSIC;
+    }
+  DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' mapped to media_kind=%d (type=%s)\n", track->name, mfi->media_kind, track->type ? track->type : "(null)");
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
   mfi->description = strdup("Spotify audio");
@@ -1853,14 +1862,17 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
       return -1;
     }
 
+  DPRINTF(E_DBG, L_SPOTIFY, "track_add: '%s' by '%s' (uri: %s, type: %s, playable: %d)\n",
+	  track->name, track->artist, track->uri, track->type ? track->type : "(null)", track->is_playable);
+
   if (track->linked_from_uri)
     DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) linked from %s\n", track->name, track->uri, track->linked_from_uri);
 
   ret = db_file_ping_bypath(track->uri, track->mtime);
   if (ret == 0 || request_type == SPOTIFY_REQUEST_TYPE_METARESCAN)
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) is new or modified (mtime is %" PRIi64 ")\n",
-	      track->name, track->uri, (int64_t)track->mtime);
+      DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) is new or modified (mtime is %" PRIi64 ", ping returned %d)\n",
+	      track->name, track->uri, (int64_t)track->mtime, ret);
 
       memset(&mfi, 0, sizeof(struct media_file_info));
 
@@ -1871,7 +1883,15 @@ track_add(struct spotify_track *track, struct spotify_album *album, const char *
 
       library_media_save(&mfi);
 
+      DPRINTF(E_DBG, L_SPOTIFY, "Saved track '%s' to db (id=%d, dir_id=%d, media_kind=%d)\n",
+	      track->name, mfi.id, mfi.directory_id, mfi.media_kind);
+
       free_mfi(&mfi, 1);
+    }
+  else
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Track '%s' (%s) unchanged, skipping save (ping returned %d)\n",
+	      track->name, track->uri, ret);
     }
 
   if (album && album->uri)
@@ -2065,6 +2085,18 @@ saved_chapters_add(json_object *item, int index, int total, enum spotify_request
   // Map chapter information
   parse_metadata_chapter(item, &chapter, 0);
 
+  DPRINTF(E_DBG, L_SPOTIFY, "Chapter %d/%d: '%s' (uri: %s, type: %s, duration: %dms, playable: %d)\n",
+	  index + 1, total, chapter.name, chapter.uri, chapter.type ? chapter.type : "(null)",
+	  chapter.duration_ms, chapter.is_playable);
+
+  // Ensure type is "chapter" so map_track_to_mfi sets MEDIA_KIND_AUDIOBOOK
+  if (!chapter.type || strcmp(chapter.type, "chapter") != 0)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Overriding chapter type from '%s' to 'chapter' for '%s'\n",
+	      chapter.type ? chapter.type : "(null)", chapter.name);
+      chapter.type = "chapter";
+    }
+
   // Get or create the directory structure for this audiobook
   dir_id = prepare_directories(audiobook->artist, audiobook->name);
 
@@ -2084,6 +2116,7 @@ saved_audiobook_add(json_object *item, int index, int total, enum spotify_reques
   json_object *jsonaudiobook;
   struct spotify_album audiobook;
   char *endpoint_uri;
+  int ret;
 
   DPRINTF(E_DBG, L_SPOTIFY, "saved_audiobook_add: %s\n", json_object_to_json_string(item));
 
@@ -2106,8 +2139,9 @@ saved_audiobook_add(json_object *item, int index, int total, enum spotify_reques
   audiobook.added_at = jparse_str_from_obj(item, "added_at");
   audiobook.mtime = jparse_time_from_obj(item, "added_at");
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Processing audiobook: '%s' by '%s' (id: %s, uri: %s)\n",
-	  audiobook.name, audiobook.artist, audiobook.id, audiobook.uri);
+  DPRINTF(E_DBG, L_SPOTIFY, "Processing audiobook %d/%d: '%s' by '%s' (id: %s, uri: %s, type: %s)\n",
+	  index + 1, total, audiobook.name, audiobook.artist, audiobook.id, audiobook.uri,
+	  audiobook.type ? audiobook.type : "(null)");
 
   if (!audiobook.id || !audiobook.uri)
     {
@@ -2117,11 +2151,13 @@ saved_audiobook_add(json_object *item, int index, int total, enum spotify_reques
 
   // Fetch and iterate over the audiobook's chapters
   endpoint_uri = safe_asprintf(spotify_audiobook_chapters_uri, audiobook.id);
-  request_pagingobject_endpoint(endpoint_uri, saved_chapters_add, transaction_start, transaction_end, true, request_type, &audiobook);
+  ret = request_pagingobject_endpoint(endpoint_uri, saved_chapters_add, transaction_start, transaction_end, true, request_type, &audiobook);
   free(endpoint_uri);
 
+  DPRINTF(E_DBG, L_SPOTIFY, "Audiobook '%s' chapters fetch returned %d\n", audiobook.name, ret);
+
   if ((index + 1) >= total || ((index + 1) % 10 == 0))
-    DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved audiobooks\n", (index + 1), total);
+    DPRINTF(E_DBG, L_SPOTIFY, "Scanned %d of %d saved audiobooks\n", (index + 1), total);
 
   return 0;
 }
@@ -2136,14 +2172,14 @@ scan_saved_audiobooks(enum spotify_request_type request_type)
 {
   int ret;
 
-  DPRINTF(E_LOG, L_SPOTIFY, "Starting scan of saved audiobooks\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "Starting scan of saved audiobooks\n");
 
   ret = request_pagingobject_endpoint(spotify_audiobooks_uri, saved_audiobook_add, NULL, NULL, true, request_type, NULL);
 
   if (ret < 0)
     DPRINTF(E_LOG, L_SPOTIFY, "Error scanning saved audiobooks\n");
   else
-    DPRINTF(E_LOG, L_SPOTIFY, "Finished scanning saved audiobooks\n");
+    DPRINTF(E_DBG, L_SPOTIFY, "Finished scanning saved audiobooks\n");
 
   return ret;
 }
