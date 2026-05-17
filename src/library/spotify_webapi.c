@@ -2060,6 +2060,7 @@ saved_chapters_add(json_object *item, int index, int total, enum spotify_request
 {
   struct spotify_album *audiobook = arg;
   struct spotify_track chapter;
+  char chapter_name[64];
   int dir_id;
 
   // Map chapter information
@@ -2068,6 +2069,14 @@ saved_chapters_add(json_object *item, int index, int total, enum spotify_request
   // Ensure type is "chapter" so map_track_to_mfi sets MEDIA_KIND_AUDIOBOOK
   if (!chapter.type || strcmp(chapter.type, "chapter") != 0)
     chapter.type = "chapter";
+
+  // If there is no chapter name, default to "Chapter N" instead of leaving it
+  // blank (which would result in "Unknown title" or a generic "Track N" label)
+  if (!chapter.name || chapter.name[0] == '\0')
+    {
+      snprintf(chapter_name, sizeof(chapter_name), "Chapter %d", chapter.track_number);
+      chapter.name = chapter_name;
+    }
 
   // Get or create the directory structure for this audiobook
   dir_id = prepare_directories(audiobook->artist, audiobook->name);
