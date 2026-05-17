@@ -2071,13 +2071,21 @@ saved_chapters_add(json_object *item, int index, int total, enum spotify_request
     chapter.type = "chapter";
 
   // If the chapter has no name, or Spotify returned a generic "Track N" style
-  // name, replace it with "Chapter N" which is more appropriate for audiobooks
-  if (!chapter.name || chapter.name[0] == '\0'
-      || strncasecmp(chapter.name, "Track ", strlen("Track ")) == 0)
-    {
-      snprintf(chapter_name, sizeof(chapter_name), "Chapter %d", chapter.track_number);
-      chapter.name = chapter_name;
-    }
+  // name, replace it with "Chapter N" which is more appropriate for audiobooks.
+  // Use sscanf to match exactly "Track <number>" so we don't accidentally
+  // rename a real chapter title that happens to start with "Track".
+  {
+    int dummy;
+    int pos = 0;
+
+    if (!chapter.name || chapter.name[0] == '\0'
+        || (sscanf(chapter.name, "Track %d%n", &dummy, &pos) == 1
+            && pos == (int)strlen(chapter.name)))
+      {
+        snprintf(chapter_name, sizeof(chapter_name), "Chapter %d", chapter.track_number);
+        chapter.name = chapter_name;
+      }
+  }
 
   // Get or create the directory structure for this audiobook
   dir_id = prepare_directories(audiobook->artist, audiobook->name);
