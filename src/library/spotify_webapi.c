@@ -2100,7 +2100,10 @@ saved_chapters_add(json_object *item, int index, int total, enum spotify_request
   // Get or create the directory structure for this audiobook
   dir_id = prepare_directories(audiobook->artist, audiobook->name);
 
-  track_add(&chapter, audiobook, NULL, dir_id, request_type);
+  // Force re-save (METARESCAN) because chapters use spotify:episode: URIs which
+  // may already exist in the DB as podcasts with media_kind=PODCAST. We need to
+  // ensure they are re-saved with media_kind=AUDIOBOOK.
+  track_add(&chapter, audiobook, NULL, dir_id, SPOTIFY_REQUEST_TYPE_METARESCAN);
 
   return 0;
 }
