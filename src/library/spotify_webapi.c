@@ -2070,9 +2070,10 @@ saved_chapters_add(json_object *item, int index, int total, enum spotify_request
   if (!chapter.type || strcmp(chapter.type, "chapter") != 0)
     chapter.type = "chapter";
 
-  // If there is no chapter name, default to "Chapter N" instead of leaving it
-  // blank (which would result in "Unknown title" or a generic "Track N" label)
-  if (!chapter.name || chapter.name[0] == '\0')
+  // If the chapter has no name, or Spotify returned a generic "Track N" style
+  // name, replace it with "Chapter N" which is more appropriate for audiobooks
+  if (!chapter.name || chapter.name[0] == '\0'
+      || strncasecmp(chapter.name, "Track ", strlen("Track ")) == 0)
     {
       snprintf(chapter_name, sizeof(chapter_name), "Chapter %d", chapter.track_number);
       chapter.name = chapter_name;
