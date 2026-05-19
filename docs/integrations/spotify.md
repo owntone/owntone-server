@@ -1,5 +1,13 @@
 # Spotify
 
+---
+**NOTE**
+
+Currently, Spotify integration doesn't work if you have a Spotify account
+created after around November 2025. See [this issue](https://github.com/owntone/owntone-server/issues/2007).
+
+---
+
 OwnTone has built-in support for playback of the tracks in your Spotify library.
 
 You must have a Spotify premium account. If you normally log into Spotify with
