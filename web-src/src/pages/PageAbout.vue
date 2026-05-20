@@ -103,7 +103,7 @@ const properties = computed(() => [
   { key: 'property.tracks', value: n(libraryStore.songs) },
   {
     key: 'property.playtime',
-    value: formatters.toDuration(libraryStore.db_playtime)
+    value: formatters.toDuration(libraryStore.db_playtime * 1000)
   },
   {
     alternate: formatters.toDateTime(libraryStore.updated_at),
@@ -113,7 +113,7 @@ const properties = computed(() => [
   {
     alternate: formatters.toDateTime(libraryStore.started_at),
     key: 'property.uptime',
-    value: formatters.toDurationToNow(libraryStore.started_at)
+    value: formatters.toDurationSince(libraryStore.started_at)
   }
 ])
 

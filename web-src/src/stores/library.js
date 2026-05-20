@@ -12,9 +12,9 @@ export const useLibraryStore = defineStore('LibraryStore', {
     artists: 0,
     db_playtime: 0,
     songs: 0,
-    started_at: '01',
+    started_at: 0,
     update_dialog_scan_kind: '',
-    updated_at: '01',
+    updated_at: 0,
     updating: false
   })
 })
