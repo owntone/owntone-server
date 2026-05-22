@@ -1,6 +1,5 @@
 import './styles.scss'
 import App from './App.vue'
-import VueClickAway from 'vue3-click-away'
 import VueLazyLoad from 'vue3-lazyload'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
@@ -12,7 +11,6 @@ import { router } from './router'
 const app = createApp(App)
   .use(createPinia())
   .use(router)
-  .use(VueClickAway)
   .use(VueLazyLoad, { log: false })
   .use(mdiVue, { icons })
   .use(i18n)
