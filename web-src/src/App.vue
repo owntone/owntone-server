@@ -21,7 +21,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, watch } from 'vue'
 import ListNotifications from '@/components/ListNotifications.vue'
 import ModalDialogRemotePairing from '@/components/ModalDialogRemotePairing.vue'
 import ModalDialogUpdate from '@/components/ModalDialogUpdate.vue'
@@ -52,31 +52,42 @@ const settingsStore = useSettingsStore()
 const uiStore = useUIStore()
 const { t } = useI18n()
 
-const handlers = ref({})
-const scheduledHandlers = ref(new Map())
+let socket = null
+const handlers = {
+  database: [libraryStore.initialise],
+  options: [playerStore.initialise],
+  outputs: [outputsStore.initialise],
+  pairing: [remotesStore.initialise],
+  player: [playerStore.initialise],
+  queue: [queueStore.initialise],
+  services: [servicesStore.initialise],
+  settings: [settingsStore.initialise],
+  update: [libraryStore.initialise],
+  volume: [playerStore.initialise, outputsStore.initialise]
+}
+const scheduledHandlers = new Map()
+const EVENTS = Object.keys(handlers)
+const HANDLER_DEBOUNCE_MS = 50
 
 const updateClipping = () => {
-  const html = document.querySelector('html')
-  if (uiStore.showBurgerMenu || uiStore.showPlayerMenu) {
-    html.classList.add('is-clipped')
-  } else {
-    html.classList.remove('is-clipped')
-  }
+  document.documentElement.classList.toggle(
+    'is-clipped',
+    uiStore.showBurgerMenu || uiStore.showPlayerMenu
+  )
 }
 
-watch(() => uiStore.showBurgerMenu, updateClipping)
-watch(() => uiStore.showPlayerMenu, updateClipping)
+watch(() => [uiStore.showBurgerMenu, uiStore.showPlayerMenu], updateClipping)
 
 const handleEvents = (events = []) => {
   events.forEach((event) => {
-    const list = handlers.value[event] || []
+    const list = handlers[event] || []
     list.forEach((handler) => {
-      if (!scheduledHandlers.value.has(handler)) {
+      if (!scheduledHandlers.has(handler)) {
         const timeoutId = setTimeout(() => {
-          handler.call()
-          scheduledHandlers.value.delete(handler)
-        }, 50)
-        scheduledHandlers.value.set(handler, timeoutId)
+          handler()
+          scheduledHandlers.delete(handler)
+        }, HANDLER_DEBOUNCE_MS)
+        scheduledHandlers.set(handler, timeoutId)
       }
     })
   })
@@ -85,48 +96,31 @@ const handleEvents = (events = []) => {
 const createWebsocket = () => {
   const protocol = window.location.protocol.replace('http', 'ws')
   const hostname =
-    (import.meta.env.DEV &&
-      URL.parse(import.meta.env.VITE_OWNTONE_URL)?.hostname) ||
+    new URL(import.meta.env.VITE_OWNTONE_URL)?.hostname ||
     window.location.hostname
   const suffix =
     configurationStore.websocket_port || `${window.location.port}/ws`
-  const url = `${protocol}${hostname}:${suffix}`
+  const url = `${protocol}//${hostname}:${suffix}`
   return new ReconnectingWebSocket(url, 'notify', {
     maxReconnectInterval: 2000,
     reconnectInterval: 1000
   })
 }
 
+const focusHandler = () => handleEvents(EVENTS)
+const visibilityHandler = () => {
+  if (document.visibilityState === 'visible') {
+    handleEvents(EVENTS)
+  }
+}
+
 const openWebsocket = () => {
-  const socket = createWebsocket()
-  const events = [
-    'database',
-    'options',
-    'outputs',
-    'pairing',
-    'player',
-    'queue',
-    'settings',
-    'services',
-    'update',
-    'volume'
-  ]
+  socket = createWebsocket()
   socket.onopen = () => {
-    socket.send(JSON.stringify({ notify: events }))
-    handleEvents(events)
+    socket.send(JSON.stringify({ notify: EVENTS }))
+    handleEvents(EVENTS)
   }
-  window.addEventListener('focus', () => {
-    handleEvents(events)
-  })
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      handleEvents(events)
-    }
-  })
-  socket.onmessage = (response) => {
-    const notifiedEvents = JSON.parse(response.data).notify
-    handleEvents(notifiedEvents)
-  }
+  socket.onmessage = ({ data }) => handleEvents(JSON.parse(data).notify)
 }
 
 const connect = async () => {
@@ -145,23 +139,16 @@ const connect = async () => {
 }
 
 onMounted(() => {
-  handlers.value = {
-    database: [libraryStore.initialise],
-    options: [playerStore.initialise],
-    outputs: [outputsStore.initialise],
-    pairing: [remotesStore.initialise],
-    player: [playerStore.initialise],
-    queue: [queueStore.initialise],
-    services: [servicesStore.initialise],
-    settings: [settingsStore.initialise],
-    update: [libraryStore.initialise],
-    volume: [playerStore.initialise, outputsStore.initialise]
-  }
   connect()
+  window.addEventListener('focus', focusHandler)
+  document.addEventListener('visibilitychange', visibilityHandler)
 })
 
 onBeforeUnmount(() => {
-  scheduledHandlers.value.forEach((timeoutId) => clearTimeout(timeoutId))
-  scheduledHandlers.value.clear()
+  window.removeEventListener('focus', focusHandler)
+  document.removeEventListener('visibilitychange', visibilityHandler)
+  scheduledHandlers.forEach((timeoutId) => clearTimeout(timeoutId))
+  scheduledHandlers.clear()
+  socket?.close()
 })
 </script>
