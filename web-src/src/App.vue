@@ -95,9 +95,10 @@ const handleEvents = (events = []) => {
 
 const createWebsocket = () => {
   const protocol = window.location.protocol.replace('http', 'ws')
-  const hostname =
-    new URL(import.meta.env.VITE_OWNTONE_URL)?.hostname ||
-    window.location.hostname
+  let {hostname} = window.location
+  if (import.meta.env.VITE_OWNTONE_URL) {
+    ({hostname} = new URL(import.meta.env.VITE_OWNTONE_URL))
+  }
   const suffix =
     configurationStore.websocket_port || `${window.location.port}/ws`
   const url = `${protocol}//${hostname}:${suffix}`
@@ -139,6 +140,7 @@ const connect = async () => {
 }
 
 onMounted(() => {
+  console.log(import.meta.env.VITE_OWNTONE_URL)
   connect()
   window.addEventListener('focus', focusHandler)
   document.addEventListener('visibilitychange', visibilityHandler)
