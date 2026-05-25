@@ -95,9 +95,9 @@ const handleEvents = (events = []) => {
 
 const createWebsocket = () => {
   const protocol = window.location.protocol.replace('http', 'ws')
-  let {hostname} = window.location
+  let { hostname } = window.location
   if (import.meta.env.VITE_OWNTONE_URL) {
-    ({hostname} = new URL(import.meta.env.VITE_OWNTONE_URL))
+    ;({ hostname } = new URL(import.meta.env.VITE_OWNTONE_URL))
   }
   const suffix =
     configurationStore.websocket_port || `${window.location.port}/ws`
