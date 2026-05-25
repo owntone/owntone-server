@@ -140,7 +140,6 @@ const connect = async () => {
 }
 
 onMounted(() => {
-  console.log(import.meta.env.VITE_OWNTONE_URL)
   connect()
   window.addEventListener('focus', focusHandler)
   document.addEventListener('visibilitychange', visibilityHandler)
