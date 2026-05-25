@@ -29,6 +29,7 @@
     "audiobooks": "{count} 个有声读物|{count} 个有声读物",
     "authors": "{count} 位作者|{count} 位作者",
     "channels": "{count} canal|{count} canaux",
+    "chapters": "{count} 个章节|{count} 个章节",
     "composers": "{count} 位作曲家|{count} 位作曲家",
     "genres": "{count} 个流派|{count} 个流派",
     "kind": {
@@ -186,7 +187,8 @@
       "tabs": {
         "audiobooks": "有声读物",
         "authors": "作者",
-        "genres": "流派"
+        "genres": "流派",
+        "spotify": "Spotify"
       }
     },
     "composers": {
@@ -268,6 +270,9 @@
       }
     },
     "spotify": {
+      "audiobooks": {
+        "saved-audiobooks": "已保存的有声读物"
+      },
       "music": {
         "featured-playlists": "特色列表",
         "followed-artists": "关注的艺人",
