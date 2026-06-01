@@ -1093,215 +1093,28 @@ parse_metadata_chapter(json_object *jsonchapter, struct spotify_track *chapter, 
 }
 
 /*
- * Creates a new string for the playlist API endpoint for the given playist-uri.
+ * Creates a new string for the API endpoint for the given Spotify uri.
  * The returned string needs to be freed by the caller.
  *
- * @param uri Playlist uri (e. g. "spotify:user:username:playlist:59ZbFPES4DQwEjBpWHzrtC")
- * @return Playlist endpoint uri (e. g. "https://api.spotify.com/v1/users/username/playlists/59ZbFPES4DQwEjBpWHzrtC")
+ * @param uri Spotify ressource uri (e. g. "spotify:user:username:playlist:59ZbFPES4DQwEjBpWHzrtC")
+ * @param template Endpoint url (e. g. "https://api.spotify.com/v1/users/username/playlists/%s")
+ * @return Endpoint uri (e. g. "https://api.spotify.com/v1/users/username/playlists/59ZbFPES4DQwEjBpWHzrtC")
  */
-static int
-get_id_from_uri(const char *uri, char **id)
-{
-  char *tmp;
-  tmp = strrchr(uri, ':');
-  if (!tmp)
-    {
-      return -1;
-    }
-  tmp++;
-
-  *id = strdup(tmp);
-
-  return 0;
-}
-
 static char *
-get_playlist_tracks_endpoint_uri(const char *uri)
+create_endpoint_uri(const char *template, const char *uri)
 {
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
+  char *id;
 
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
+  id = strrchr(uri, ':');
+  if (!id || id[0] == '\0')
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting owner and id from playlist uri '%s'\n", uri);
-      goto out;
+      DPRINTF(E_LOG, L_SPOTIFY, "Invalid ressource uri '%s'\n", uri);
+      return NULL;
     }
 
-  endpoint_uri = safe_asprintf(spotify_playlist_tracks_uri, id);
+  id++;
 
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
-get_album_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_album_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
-get_album_tracks_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_album_tracks_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
-get_track_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from track uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_track_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
-get_artist_albums_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_artist_albums_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
-get_episode_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from track uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_episode_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
-get_audiobook_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from audiobook uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_audiobook_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
-get_audiobook_chapters_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from audiobook uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_audiobook_chapters_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
-}
-
-static char *
-get_chapter_endpoint_uri(const char *uri)
-{
-  char *endpoint_uri = NULL;
-  char *id = NULL;
-  int ret;
-
-  ret = get_id_from_uri(uri, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error extracting id from chapter uri '%s'\n", uri);
-      goto out;
-    }
-
-  endpoint_uri = safe_asprintf(spotify_chapter_uri, id);
-
- out:
-  free(id);
-  return endpoint_uri;
+  return safe_asprintf(template, id);
 }
 
 static json_object *
@@ -1310,7 +1123,8 @@ request_chapter(const char *path)
   char *endpoint_uri;
   json_object *response;
 
-  endpoint_uri = get_chapter_endpoint_uri(path);
+  CHECK_NULL(L_SPOTIFY, endpoint_uri = create_endpoint_uri(spotify_chapter_uri, path));
+
   response = request_endpoint_with_token_refresh(endpoint_uri);
   free(endpoint_uri);
 
@@ -1323,7 +1137,8 @@ request_track(const char *path)
   char *endpoint_uri;
   json_object *response;
 
-  endpoint_uri = get_track_endpoint_uri(path);
+  CHECK_NULL(L_SPOTIFY, endpoint_uri = create_endpoint_uri(spotify_track_uri, path));
+
   response = request_endpoint_with_token_refresh(endpoint_uri);
   free(endpoint_uri);
 
@@ -1336,7 +1151,8 @@ request_episode(const char *path)
   char *endpoint_uri;
   json_object *response;
 
-  endpoint_uri = get_episode_endpoint_uri(path);
+  CHECK_NULL(L_SPOTIFY, endpoint_uri = create_endpoint_uri(spotify_episode_uri, path));
+
   response = request_endpoint_with_token_refresh(endpoint_uri);
   free(endpoint_uri);
 
@@ -1522,7 +1338,8 @@ queue_add_album(int *count, int *new_item_id, const char *uri, int position, cha
   struct queue_add_album_param param;
   int ret;
 
-  album_endpoint_uri = get_album_endpoint_uri(uri);
+  CHECK_NULL(L_SPOTIFY, album_endpoint_uri = create_endpoint_uri(spotify_album_uri, uri));
+
   json_album = request_endpoint_with_token_refresh(album_endpoint_uri);
   parse_metadata_album(json_album, &param.album, ART_DEFAULT_WIDTH);
 
@@ -1530,7 +1347,7 @@ queue_add_album(int *count, int *new_item_id, const char *uri, int position, cha
   if (ret < 0)
     goto out;
 
-  endpoint_uri = get_album_tracks_endpoint_uri(uri);
+  CHECK_NULL(L_SPOTIFY, endpoint_uri = create_endpoint_uri(spotify_album_tracks_uri, uri));
 
   ret = request_pagingobject_endpoint(endpoint_uri, queue_add_album_tracks, NULL, NULL, true, SPOTIFY_REQUEST_TYPE_DEFAULT, &param);
 
@@ -1562,7 +1379,8 @@ queue_add_albums(json_object *item, int index, int total, enum spotify_request_t
 
   parse_metadata_album(item, &param_add_album.album, ART_DEFAULT_WIDTH);
 
-  endpoint_uri = get_album_tracks_endpoint_uri(param_add_album.album.uri);
+  CHECK_NULL(L_SPOTIFY, endpoint_uri = create_endpoint_uri(spotify_album_tracks_uri, param_add_album.album.uri));
+
   ret = request_pagingobject_endpoint(endpoint_uri, queue_add_album_tracks, NULL, NULL, true, SPOTIFY_REQUEST_TYPE_DEFAULT, &param_add_album);
 
   *param = param_add_album.queue_add_info;
@@ -1583,7 +1401,8 @@ queue_add_artist(int *count, int *new_item_id, const char *uri, int position, ch
   if (ret < 0)
     goto out;
 
-  endpoint_uri = get_artist_albums_endpoint_uri(uri);
+  CHECK_NULL(L_SPOTIFY, endpoint_uri = create_endpoint_uri(spotify_artist_albums_uri, uri));
+
   ret = request_pagingobject_endpoint(endpoint_uri, queue_add_albums, NULL, NULL, true, SPOTIFY_REQUEST_TYPE_DEFAULT, &queue_add_info);
 
   ret = db_queue_add_end(&queue_add_info, reshuffle, item_id, ret);
@@ -1645,7 +1464,7 @@ queue_add_playlist(int *count, int *new_item_id, const char *uri, int position, 
   if (ret < 0)
     goto out;
 
-  endpoint_uri = get_playlist_tracks_endpoint_uri(uri);
+  CHECK_NULL(L_SPOTIFY, endpoint_uri = create_endpoint_uri(spotify_playlist_tracks_uri, uri));
 
   ret = request_pagingobject_endpoint(endpoint_uri, queue_add_playlist_tracks, NULL, NULL, true, SPOTIFY_REQUEST_TYPE_DEFAULT, &queue_add_info);
 
@@ -1698,7 +1517,8 @@ queue_add_audiobook(int *count, int *new_item_id, const char *uri, int position,
   struct queue_add_album_param param;
   int ret;
 
-  audiobook_endpoint_uri = get_audiobook_endpoint_uri(uri);
+  CHECK_NULL(L_SPOTIFY, audiobook_endpoint_uri = create_endpoint_uri(spotify_audiobook_uri, uri));
+
   json_audiobook = request_endpoint_with_token_refresh(audiobook_endpoint_uri);
   if (!json_audiobook)
     {
@@ -1713,7 +1533,7 @@ queue_add_audiobook(int *count, int *new_item_id, const char *uri, int position,
   if (ret < 0)
     goto out;
 
-  endpoint_uri = get_audiobook_chapters_endpoint_uri(uri);
+  CHECK_NULL(L_SPOTIFY, endpoint_uri = create_endpoint_uri(spotify_audiobook_chapters_uri, uri));
 
   ret = request_pagingobject_endpoint(endpoint_uri, queue_add_audiobook_chapters, NULL, NULL, true, SPOTIFY_REQUEST_TYPE_DEFAULT, &param);
 
