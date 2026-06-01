@@ -2011,6 +2011,7 @@ saved_show_add(json_object *item, int index, int total, enum spotify_request_typ
   json_object *jsonshow;
   struct spotify_album show;
   char *endpoint_uri;
+  int ret;
 
   DPRINTF(E_DBG, L_SPOTIFY, "saved_show_add: %s\n", json_object_to_json_string(item));
 
@@ -2028,13 +2029,13 @@ saved_show_add(json_object *item, int index, int total, enum spotify_request_typ
 
   // Now map the show episodes and insert/update them in the files database
   endpoint_uri = safe_asprintf(spotify_shows_episodes_uri, show.id);
-  request_pagingobject_endpoint(endpoint_uri, saved_episodes_add, transaction_start, transaction_end, true, request_type, &show);
+  ret = request_pagingobject_endpoint(endpoint_uri, saved_episodes_add, transaction_start, transaction_end, true, request_type, &show);
   free(endpoint_uri);
 
   if ((index + 1) >= total || ((index + 1) % 10 == 0))
     DPRINTF(E_LOG, L_SPOTIFY, "Scanned %d of %d saved albums\n", (index + 1), total);
 
-  return 0;
+  return ret;
 }
 
 /*
@@ -2061,7 +2062,10 @@ saved_chapters_add(json_object *item, int index, int total, enum spotify_request
   struct spotify_album *audiobook = arg;
   struct spotify_track chapter;
   char chapter_name[64];
+  const char *chapter_name_cfg;
   int dir_id;
+  int dummy;
+  int pos = 0;
 
   // Map chapter information
   parse_metadata_chapter(item, &chapter, 0);
@@ -2074,18 +2078,12 @@ saved_chapters_add(json_object *item, int index, int total, enum spotify_request
   // name, replace it with "Chapter N" which is more appropriate for audiobooks.
   // Use sscanf to match exactly "Track <number>" so we don't accidentally
   // rename a real chapter title that happens to start with "Track".
-  {
-    int dummy;
-    int pos = 0;
-
-    if (!chapter.name || chapter.name[0] == '\0'
-        || (sscanf(chapter.name, "Track %d%n", &dummy, &pos) == 1
-            && pos == (int)strlen(chapter.name)))
-      {
-        snprintf(chapter_name, sizeof(chapter_name), "Chapter %d", chapter.track_number);
-        chapter.name = chapter_name;
-      }
-  }
+  if (!chapter.name || chapter.name[0] == '\0' || (sscanf(chapter.name, "Track %d%n", &dummy, &pos) == 1 && pos == (int)strlen(chapter.name)))
+    {
+      chapter_name_cfg = cfg_getstr(cfg_getsec(cfg, "library"), "name_chapter");
+      snprintf(chapter_name, sizeof(chapter_name), "%s %d", chapter_name_cfg, chapter.track_number);
+      chapter.name = chapter_name;
+    }
 
   // Get or create the directory structure for this audiobook
   dir_id = prepare_directories(audiobook->artist, audiobook->name);
@@ -2123,8 +2121,7 @@ saved_audiobook_add(json_object *item, int index, int total, enum spotify_reques
   audiobook.added_at = jparse_str_from_obj(item, "added_at");
   audiobook.mtime = jparse_time_from_obj(item, "added_at");
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Processing audiobook %d/%d: '%s' by '%s'\n",
-	  index + 1, total, audiobook.name, audiobook.artist);
+  DPRINTF(E_DBG, L_SPOTIFY, "Processing audiobook %d/%d: '%s' by '%s'\n", index + 1, total, audiobook.name, audiobook.artist);
 
   if (!audiobook.id || !audiobook.uri)
     {
@@ -2140,7 +2137,7 @@ saved_audiobook_add(json_object *item, int index, int total, enum spotify_reques
   if ((index + 1) >= total || ((index + 1) % 10 == 0))
     DPRINTF(E_DBG, L_SPOTIFY, "Scanned %d of %d saved audiobooks\n", (index + 1), total);
 
-  return 0;
+  return ret;
 }
 
 /*

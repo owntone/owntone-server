@@ -101,6 +101,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR("name_podcasts", "Podcasts", CFGF_NONE),
     CFG_STR("name_audiobooks", "Audiobooks", CFGF_NONE),
     CFG_STR("name_radio", "Radio", CFGF_NONE),
+    CFG_STR("name_chapter", "Chapter", CFGF_NONE),
     CFG_STR("name_unknown_title", "Unknown title", CFGF_NONE),
     CFG_STR("name_unknown_artist", "Unknown artist", CFGF_NONE),
     CFG_STR("name_unknown_album", "Unknown album", CFGF_NONE),
