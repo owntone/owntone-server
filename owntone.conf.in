@@ -132,8 +132,7 @@ library {
 	# Note this option is only for DAAP clients (so not the web interface).
 #	radio_playlists = false
 
-	# These are the default playlists. If you want them to have other names,
-	# you can set it here.
+	# Names used by the server e.g. for the default playlists.
 #	name_library    = "Library"
 #	name_music      = "Music"
 #	name_movies     = "Movies"
@@ -141,6 +140,7 @@ library {
 #	name_podcasts   = "Podcasts"
 #	name_audiobooks = "Audiobooks"
 #	name_radio      = "Radio"
+#	name_chapter    = "Chapter"
 
 	# Artwork file names (without file type extension)
 	# OwnTone will look for jpg and png files with these base names

@@ -29,6 +29,7 @@
     "audiobooks": "{count} livre audio|{count} livre audio|{count} livres audio",
     "authors": "{count} auteur|{count} auteur|{count} auteurs",
     "channels": "{count} canal|{count} canaux",
+    "chapters": "{count} chapitre|{count} chapitre|{count} chapitres",
     "composers": "{count} compositeur|{count} compositeur|{count} compositeurs",
     "genres": "{count} genre|{count} genre|{count} genres",
     "kind": {
@@ -186,7 +187,8 @@
       "tabs": {
         "audiobooks": "Livres audio",
         "authors": "Auteurs",
-        "genres": "Genres"
+        "genres": "Genres",
+        "spotify": "Spotify"
       }
     },
     "composers": {
@@ -268,6 +270,9 @@
       }
     },
     "spotify": {
+      "audiobooks": {
+        "saved-audiobooks": "Livres audio enregistrés"
+      },
       "music": {
         "featured-playlists": "Listes de lecture en vedette",
         "followed-artists": "Artistes suivis",
