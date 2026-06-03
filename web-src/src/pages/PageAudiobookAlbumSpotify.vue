@@ -27,7 +27,6 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
 import ContentWithHero from '@/templates/ContentWithHero.vue'
 import ControlImage from '@/components/ControlImage.vue'
 import ListChaptersSpotify from '@/components/ListChaptersSpotify.vue'
@@ -36,6 +35,7 @@ import PaneHero from '@/components/PaneHero.vue'
 import queue from '@/api/queue'
 import services from '@/api/services'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const { t } = useI18n()
