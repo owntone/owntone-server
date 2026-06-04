@@ -29,19 +29,18 @@ import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import services from '@/api/services'
 
 const PAGE_SIZE = 3
-
 const audiobooks = ref([])
 
 onMounted(async () => {
   try {
     const { api } = await services.spotify.get()
-    const savedAudiobooks = await api.currentUser.audiobooks.savedAudiobooks(
-      PAGE_SIZE
+    const savedAudiobooks =
+      await api.currentUser.audiobooks.savedAudiobooks(PAGE_SIZE)
+    audiobooks.value = savedAudiobooks.items.map(
+      (item) => item.audiobook ?? item
     )
-    audiobooks.value = savedAudiobooks.items.map((item) => item.audiobook ?? item)
   } catch {
     audiobooks.value = []
   }
 })
 </script>
-

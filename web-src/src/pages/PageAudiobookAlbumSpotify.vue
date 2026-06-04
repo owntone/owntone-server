@@ -12,10 +12,7 @@
       />
     </template>
     <template #content>
-      <list-chapters-spotify
-        :items="chapters"
-        :context-uri="audiobook.uri"
-      />
+      <list-chapters-spotify :items="chapters" :context-uri="audiobook.uri" />
     </template>
   </content-with-hero>
   <modal-dialog-audiobook-spotify
@@ -79,4 +76,3 @@ onMounted(async () => {
   )
 })
 </script>
-

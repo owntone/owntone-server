@@ -3,10 +3,7 @@
     v-for="(item, index) in items"
     :key="item.id"
     :is-playable="item.is_playable !== false"
-    :lines="[
-      item.name,
-      item.description ? truncate(item.description, 80) : ''
-    ]"
+    :lines="lines(item)"
     @open="open(item, index)"
     @open-details="openDetails(item)"
   >
@@ -42,12 +39,10 @@ const props = defineProps({
   items: { required: true, type: Object },
   load: { default: null, type: Function }
 })
-
 const selectedItem = ref({})
 const showDetailsModal = ref(false)
 
-const truncate = (text, length) =>
-  text.length > length ? `${text.substring(0, length)}…` : text
+const lines = (item) => [item.name, item.description?.substring(0, 80) ?? '']
 
 const open = (item, index) => {
   if (item.is_playable !== false) {
@@ -60,4 +55,3 @@ const openDetails = (item) => {
   showDetailsModal.value = true
 }
 </script>
-

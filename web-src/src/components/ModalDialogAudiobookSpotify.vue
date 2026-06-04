@@ -17,7 +17,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
-
 const router = useRouter()
 
 const openAuthor = () => {
@@ -49,4 +48,3 @@ const playable = computed(() => ({
   uri: props.item.uri
 }))
 </script>
-

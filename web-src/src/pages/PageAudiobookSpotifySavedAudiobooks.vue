@@ -56,14 +56,10 @@ const load = async ({ loaded }) => {
 onMounted(async () => {
   try {
     const { api } = await services.spotify.get()
-    const data = await api.currentUser.audiobooks.savedAudiobooks(
-      PAGE_SIZE,
-      0
-    )
+    const data = await api.currentUser.audiobooks.savedAudiobooks(PAGE_SIZE, 0)
     appendAudiobooks(data)
   } catch {
     // User may not have the required scope
   }
 })
 </script>
-

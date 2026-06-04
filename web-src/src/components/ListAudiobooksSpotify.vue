@@ -31,9 +31,7 @@ defineProps({
 })
 
 const settingsStore = useSettingsStore()
-
 const router = useRouter()
-
 const selectedItem = ref({})
 const showDetailsModal = ref(false)
 
@@ -59,4 +57,3 @@ const openDetails = (item) => {
   showDetailsModal.value = true
 }
 </script>
-
