@@ -40,26 +40,18 @@ const appendAudiobooks = (data) => {
 }
 
 const load = async ({ loaded }) => {
-  try {
-    const { api } = await services.spotify.get()
-    const data = await api.currentUser.audiobooks.savedAudiobooks(
-      PAGE_SIZE,
-      offset.value
-    )
-    appendAudiobooks(data)
-    loaded(data.items.length, PAGE_SIZE)
-  } catch {
-    loaded(0, PAGE_SIZE)
-  }
+  const { api } = await services.spotify.get()
+  const data = await api.currentUser.audiobooks.savedAudiobooks(
+    PAGE_SIZE,
+    offset.value
+  )
+  appendAudiobooks(data)
+  loaded(data.items.length, PAGE_SIZE)
 }
 
 onMounted(async () => {
-  try {
-    const { api } = await services.spotify.get()
-    const data = await api.currentUser.audiobooks.savedAudiobooks(PAGE_SIZE, 0)
-    appendAudiobooks(data)
-  } catch {
-    // User may not have the required scope
-  }
+  const { api } = await services.spotify.get()
+  const data = await api.currentUser.audiobooks.savedAudiobooks(PAGE_SIZE, 0)
+  appendAudiobooks(data)
 })
 </script>

@@ -1,15 +1,13 @@
 <template>
   <tabs-audiobooks />
-  <content-with-heading v-if="audiobooks.length">
+  <content-with-heading>
     <template #heading>
-      <pane-title
-        :content="{ title: $t('page.spotify.audiobooks.saved-audiobooks') }"
-      />
+      <pane-title :content="heading" />
     </template>
     <template #content>
       <list-audiobooks-spotify :items="audiobooks" />
     </template>
-    <template #footer>
+    <template v-if="audiobooks.length" #footer>
       <router-link
         :to="{ name: 'audiobook-spotify-saved' }"
         class="button is-small is-rounded"
@@ -21,26 +19,28 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ListAudiobooksSpotify from '@/components/ListAudiobooksSpotify.vue'
 import PaneTitle from '@/components/PaneTitle.vue'
 import TabsAudiobooks from '@/components/TabsAudiobooks.vue'
 import services from '@/api/services'
+import { useI18n } from 'vue-i18n'
 
 const PAGE_SIZE = 3
 const audiobooks = ref([])
 
+const { t } = useI18n()
+
+const heading = computed(() => ({
+  subtitle: [{ count: audiobooks.value.length, key: 'data.audiobooks' }],
+  title: t('page.spotify.audiobooks.saved-audiobooks')
+}))
+
 onMounted(async () => {
-  try {
-    const { api } = await services.spotify.get()
-    const savedAudiobooks =
-      await api.currentUser.audiobooks.savedAudiobooks(PAGE_SIZE)
-    audiobooks.value = savedAudiobooks.items.map(
-      (item) => item.audiobook ?? item
-    )
-  } catch {
-    audiobooks.value = []
-  }
+  const { api } = await services.spotify.get()
+  const savedAudiobooks =
+    await api.currentUser.audiobooks.savedAudiobooks(PAGE_SIZE)
+  audiobooks.value = savedAudiobooks.items.map((item) => item.audiobook ?? item)
 })
 </script>

@@ -27,6 +27,7 @@ const { t } = useI18n()
 const artists = ref([])
 
 const heading = computed(() => ({
+  subtitle: [{ count: artists.value.length, key: 'data.artists' }],
   title: t('page.spotify.music.followed-artists')
 }))
 

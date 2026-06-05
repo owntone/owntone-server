@@ -26,6 +26,7 @@ const { t } = useI18n()
 const playlists = ref([])
 
 const heading = computed(() => ({
+  subtitle: [{ count: playlists.value.length, key: 'data.playlists' }],
   title: t('page.spotify.music.featured-playlists')
 }))
 

@@ -25,6 +25,7 @@ const albums = ref([])
 
 const { t } = useI18n()
 const heading = computed(() => ({
+  subtitle: [{ count: albums.value.length, key: 'data.albums' }],
   title: t('page.spotify.music.new-releases')
 }))
 
