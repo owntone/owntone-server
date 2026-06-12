@@ -856,7 +856,7 @@ pulse_device_volume_set(struct output_device *device, int callback_id)
   pa_operation* o;
   pa_cvolume cvol;
 
-  if (!ps)
+  if (!ps || !ps->stream)
     return 0;
 
   idx = pa_stream_get_index(ps->stream);

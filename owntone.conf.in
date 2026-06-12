@@ -269,7 +269,7 @@ audio {
 
 	# For pulseaudio output, an optional server hostname or IP can be
 	# specified (e.g. "localhost"). If not set, connection is made via local
-	# socket.
+	# socket. For pipewire-pulse, set to "unix:/run/pipewire/pulse/native".
 #	server = ""
 
 	# Audio PCM device name for local audio output - ALSA only
