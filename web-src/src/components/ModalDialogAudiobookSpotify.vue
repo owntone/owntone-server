@@ -9,41 +9,27 @@
 <script setup>
 import ModalDialogPlayable from '@/components/ModalDialogPlayable.vue'
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-
+import formatters from '@/lib/Formatters'
 const props = defineProps({
   item: { required: true, type: Object },
   show: Boolean
 })
 
-const emit = defineEmits(['close'])
-const router = useRouter()
-
-const openAuthor = () => {
-  emit('close')
-  router.push({
-    name: 'audiobook-spotify-album',
-    params: { id: props.item.id }
-  })
-}
+defineEmits(['close'])
 
 const playable = computed(() => ({
   image: props.item.images?.[0]?.url || '',
   name: props.item.name || '',
   properties: [
     {
-      handler: openAuthor,
       key: 'property.artist',
       value: props.item.authors?.[0]?.name
     },
     {
       key: 'property.release-date',
-      value: props.item.edition
+      value: formatters.toDate(props.item.chapters?.items?.[0]?.release_date)
     },
-    {
-      key: 'property.type',
-      value: 'audiobook'
-    }
+    { key: 'property.type', value: 'audiobook' }
   ],
   uri: props.item.uri
 }))
