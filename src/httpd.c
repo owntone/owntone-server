@@ -1004,6 +1004,36 @@ request_cb(struct httpd_request *hreq, void *arg)
 
 /* ------------------------------- HTTPD API -------------------------------- */
 
+#define RANGEBYTES "bytes="
+static int
+offsets_get(int64_t *start_offset, int64_t *end_offset, const char *range)
+{
+  const char *ptr = range;
+  int ret;
+
+  if (strncmp(ptr, RANGEBYTES, strlen(RANGEBYTES)) != 0)
+    return -1;
+
+  ptr += strlen(RANGEBYTES);
+
+  ret = safe_atoi64(ptr, start_offset);
+  if (ret < 0)
+    return -1;
+
+  *end_offset = 0;
+  ptr = strchr(ptr, '-');
+  if (!ptr)
+    return 0; // Stream to end of file
+
+  ptr += 1;
+  ret = safe_atoi64(ptr, end_offset);
+  if (ret < 0 || *end_offset < *start_offset)
+    return -1;
+
+  return 0;
+}
+#undef RANGEBYTES
+
 void
 httpd_stream_file(struct httpd_request *hreq, int id)
 {
@@ -1012,45 +1042,18 @@ httpd_stream_file(struct httpd_request *hreq, int id)
   enum transcode_profile profile;
   enum transcode_profile spk_profile;
   const char *param;
-  const char *param_end;
   const char *ctype;
   char buf[64];
-  int64_t offset = 0;
+  int64_t start_offset = 0;
   int64_t end_offset = 0;
   int ret;
 
   param = httpd_header_find(hreq->in_headers, "Range");
   if (param)
     {
-      DPRINTF(E_DBG, L_HTTPD, "Found Range header: %s\n", param);
-
-      /* Start offset */
-      ret = safe_atoi64(param + strlen("bytes="), &offset);
+      ret = offsets_get(&start_offset, &end_offset, param);
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_HTTPD, "Invalid start offset, will stream whole file (%s)\n", param);
-	  offset = 0;
-	}
-      /* End offset, if any */
-      else
-	{
-	  param_end = strchr(param, '-');
-	  if (param_end && (strlen(param_end) > 1))
-	    {
-	      ret = safe_atoi64(param_end + 1, &end_offset);
-	      if (ret < 0)
-		{
-		  DPRINTF(E_LOG, L_HTTPD, "Invalid end offset, will stream to end of file (%s)\n", param);
-		  end_offset = 0;
-		}
-
-	      if (end_offset < offset)
-		{
-		  DPRINTF(E_LOG, L_HTTPD, "End offset < start offset, will stream to end of file (%" PRIi64 " < %" PRIi64 ")\n", end_offset, offset);
-		  end_offset = 0;
-		}
-	    }
-	}
+	DPRINTF(E_LOG, L_HTTPD, "Invalid Range header '%s', will stream entire file\n", param);
     }
 
   mfi = db_file_fetch_byid(id);
@@ -1088,7 +1091,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
       if (spk_profile != XCODE_NONE)
 	profile = spk_profile;
 
-      st = stream_new_transcode(mfi, profile, hreq, offset, end_offset, stream_chunk_xcode_cb);
+      st = stream_new_transcode(mfi, profile, hreq, start_offset, end_offset, stream_chunk_xcode_cb);
       if (!st)
 	goto error;
 
@@ -1103,7 +1106,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
     {
       DPRINTF(E_INFO, L_HTTPD, "Preparing to stream %s\n", mfi->path);
 
-      st = stream_new_raw(mfi, hreq, offset, end_offset, stream_chunk_raw_cb);
+      st = stream_new_raw(mfi, hreq, start_offset, end_offset, stream_chunk_raw_cb);
       if (!st)
 	goto error;
 
@@ -1135,7 +1138,7 @@ httpd_stream_file(struct httpd_request *hreq, int id)
 	}
     }
 
-  if ((offset == 0) && (end_offset == 0))
+  if ((start_offset == 0) && (end_offset == 0))
     {
       // If we are not decoding, send the Content-Length. We don't do that if we
       // are decoding because we can only guesstimate the size in this case and
@@ -1153,16 +1156,16 @@ httpd_stream_file(struct httpd_request *hreq, int id)
     }
   else
     {
-      DPRINTF(E_DBG, L_HTTPD, "Stream request with range %" PRIi64 "-%" PRIi64 "\n", offset, end_offset);
+      DPRINTF(E_DBG, L_HTTPD, "Stream request with range %" PRIi64 "-%" PRIi64 "\n", start_offset, end_offset);
 
       ret = snprintf(buf, sizeof(buf), "bytes %" PRIi64 "-%" PRIi64 "/%" PRIi64,
-		     offset, (end_offset) ? end_offset : (int64_t)st->size, (int64_t)st->size);
+		     start_offset, (end_offset) ? end_offset : (int64_t)st->size, (int64_t)st->size);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Range too large for buffer, dropping\n");
       else
 	httpd_header_add(hreq->out_headers, "Content-Range", buf);
 
-      ret = snprintf(buf, sizeof(buf), "%" PRIi64, ((end_offset) ? end_offset + 1 : (int64_t)st->size) - offset);
+      ret = snprintf(buf, sizeof(buf), "%" PRIi64, ((end_offset) ? end_offset + 1 : (int64_t)st->size) - start_offset);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
       else
