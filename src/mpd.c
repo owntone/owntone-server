@@ -1034,6 +1034,7 @@ mpd_command_status(struct mpd_command_output *out, struct mpd_command_input *in,
   int queue_version = 0;
   char *state;
   uint32_t itemid = 0;
+  uint32_t bitrate = 0;
   struct db_queue_item *queue_item;
 
   player_get_status(&status);
@@ -1089,6 +1090,7 @@ mpd_command_status(struct mpd_command_output *out, struct mpd_command_input *in,
 	  queue_item->id);
 
       itemid = queue_item->id;
+      bitrate = queue_item->bitrate;
       free_queue_item(queue_item, 0);
    }
 
@@ -1098,11 +1100,12 @@ mpd_command_status(struct mpd_command_output *out, struct mpd_command_input *in,
 	  "time: %d:%d\n" // Deprecated
 	  "duration: %#.3f\n"
 	  "elapsed: %#.3f\n"
-	  "bitrate: 128\n"
+	  "bitrate: %d\n"
 	  "audio: 44100:16:2\n",
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
 	  (status.len_ms / 1000.0),
-	  (status.pos_ms / 1000.0));
+	  (status.pos_ms / 1000.0),
+	  bitrate);
    }
 
   if (library_is_scanning())
