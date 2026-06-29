@@ -52,6 +52,9 @@ extern struct output_definition output_alsa;
 #ifdef HAVE_LIBPULSE
 extern struct output_definition output_pulse;
 #endif
+#ifdef HAVE_PIPEWIRE
+extern struct output_definition output_pipewire;
+#endif
 #ifdef CHROMECAST
 extern struct output_definition output_cast;
 #endif
@@ -72,6 +75,9 @@ static struct output_definition *outputs[] = {
 #endif
 #ifdef HAVE_LIBPULSE
     &output_pulse,
+#endif
+#ifdef HAVE_PIPEWIRE
+    &output_pipewire,
 #endif
 #ifdef CHROMECAST
     &output_cast,

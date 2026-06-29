@@ -64,6 +64,9 @@ enum output_types
 #ifdef HAVE_LIBPULSE
   OUTPUT_TYPE_PULSE,
 #endif
+#ifdef HAVE_PIPEWIRE
+  OUTPUT_TYPE_PIPEWIRE,
+#endif
 #ifdef CHROMECAST
   OUTPUT_TYPE_CAST,
 #endif
