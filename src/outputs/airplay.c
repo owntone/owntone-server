@@ -3130,16 +3130,17 @@ handle_timingpeerinfo(uint32_t *slave_id, plist_t response, const char *local_v4
   union net_sockaddr naddr;
   char peer_straddress[128];
   char ifname[32];
+  char *response_str;
   int ret;
   int i;
 
   item = plist_dict_get_item(response, "timingPeerInfo");
   if (!item)
-    return -1;
+    goto error;
 
   peer_addresses = plist_dict_get_item(item, "Addresses");
   if (!peer_addresses)
-    return -1;
+    goto error;
 
   // Walk through addresses to get one from the right family
   for (i = 0; (peer_address = plist_array_get_item(peer_addresses, i)); i++)
@@ -3169,6 +3170,10 @@ handle_timingpeerinfo(uint32_t *slave_id, plist_t response, const char *local_v4
 	return 0;
     }
 
+ error:
+  response_str = wplist_to_xml(response);
+  DPRINTF(E_LOG, L_AIRPLAY, "Error reading speaker's timing peer info (%s, %s):\n%s\n", local_v4_address, local_v6_address, response_str);
+  free(response_str);
   return -1;
 }
 
@@ -3232,10 +3237,7 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
     {
       ret = handle_timingpeerinfo(&session->ptpd_slave_id, response, session->local_v4_address, session->local_v6_address);
       if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_AIRPLAY, "Could not add speaker '%s' as PTP peer\n", session->devname);
-	  goto error;
-	}
+	goto error;
     }
 
   plist_free(response);
