@@ -251,16 +251,6 @@ credentials_update_user(const char *user, const char *country)
   CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
 }
 
-static void
-credentials_get_auth_header(char *header, size_t header_size)
-{
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
-
-  snprintf(header, header_size, "Authorization: Bearer %s", spotify_credentials.access_token);
-
-  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
-}
-
 static char *
 credentials_query_param_market(const char *href)
 {
@@ -517,7 +507,9 @@ request_endpoint(const char *uri)
 
   ctx->url = uri;
 
-  credentials_get_auth_header(bearer_token, sizeof(bearer_token));
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_lock(&spotify_credentials_lock));
+  snprintf(bearer_token, sizeof(bearer_token), "Bearer %s", spotify_credentials.access_token);
+  CHECK_ERR(L_SPOTIFY, pthread_mutex_unlock(&spotify_credentials_lock));
   if (keyval_add(ctx->output_headers, "Authorization", bearer_token) < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Add bearer_token to keyval failed for request '%s'\n", uri);
