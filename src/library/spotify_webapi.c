@@ -536,8 +536,13 @@ request_endpoint(const char *uri)
       DPRINTF(E_LOG, L_SPOTIFY, "Request for '%s' failed, response was empty\n", uri);
       goto out;
     }
+  if (ctx->response_code != 200)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Request for '%s' failed with response (code %d):\n%s\n", uri, ctx->response_code, response_body);
+      goto out;
+    }
 
-//  DPRINTF(E_DBG, L_SPOTIFY, "Web api response for '%s'\n%s\n", uri, response_body);
+//  DPRINTF(E_DBG, L_SPOTIFY, "Web api response for '%s' (code %d)\n%s\n", uri, ctx->response_code, response_body);
 
   json_response = json_tokener_parse(response_body);
   if (!json_response)
@@ -557,25 +562,31 @@ request_endpoint(const char *uri)
  * API endpoint: https://api.spotify.com/v1/me
  */
 static int
-request_user_info()
+request_user_info(void)
 {
-  json_object *response;
+  json_object *response = NULL;
   const char *user = NULL;
   const char *user_country = NULL;
 
   response = request_endpoint(spotify_me_uri);
-  if (response)
-    {
-      user = jparse_str_from_obj(response, "id");
-      user_country = jparse_str_from_obj(response, "country");
+  if (!response)
+    goto error;
 
-      DPRINTF(E_DBG, L_SPOTIFY, "User '%s', country '%s'\n", user, user_country);
-      credentials_update_user(user, user_country);
+  user = jparse_str_from_obj(response, "id");
+  if (!user)
+    goto error;
 
-      jparse_free(response);
-    }
+  user_country = jparse_str_from_obj(response, "country");
 
+  DPRINTF(E_DBG, L_SPOTIFY, "User '%s', country '%s'\n", user, user_country);
+  credentials_update_user(user, user_country);
+
+  jparse_free(response);
   return 0;
+
+ error:
+  jparse_free(response);
+  return -1;
 }
 
 /*
@@ -606,10 +617,10 @@ token_get(const char *code, const char **err)
 
   keyval_clear(&kv);
 
-  if (ret == 0)
-    request_user_info();
+  if (ret != 0)
+    return ret;
 
-  return ret;
+  return request_user_info();
 }
 
 /*
@@ -659,7 +670,12 @@ token_refresh(void)
       goto error;
     }
 
-  request_user_info();
+  ret = request_user_info();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error requesting user info");
+      goto error;
+    }
 
   free(refresh_token);
   keyval_clear(&kv);
