@@ -873,6 +873,18 @@ main(int argc, char **argv)
 #ifdef HAVE_SIGNALFD
   /* Set up signal fd */
   sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
+  if (sigfd < 0 && errno == EINVAL)
+    {
+      /* Linux kernels older than 2.6.27 don't support flags in signalfd(),
+       * fall back to setting O_NONBLOCK/FD_CLOEXEC manually.
+       */
+      sigfd = signalfd(-1, &sigs, 0);
+      if (sigfd >= 0)
+	{
+          fcntl(sigfd, F_SETFL, fcntl(sigfd, F_GETFL, 0) | O_NONBLOCK);
+          fcntl(sigfd, F_SETFD, FD_CLOEXEC);
+	}
+    }
   if (sigfd < 0)
     {
       DPRINTF(E_FATAL, L_MAIN, "Could not setup signalfd: %s\n", strerror(errno));
