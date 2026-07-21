@@ -659,21 +659,21 @@ token_refresh(void)
           (keyval_add(&kv, "refresh_token", refresh_token) == 0) );
   if (!ret)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Add parameters to keyval failed");
+      DPRINTF(E_LOG, L_SPOTIFY, "Add parameters to keyval failed\n");
       goto error;
     }
 
   ret = request_access_tokens(&kv, &err);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error requesting access token: %s", err);
+      DPRINTF(E_LOG, L_SPOTIFY, "Error requesting access token: %s\n", err);
       goto error;
     }
 
   ret = request_user_info();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error requesting user info");
+      DPRINTF(E_LOG, L_SPOTIFY, "Error requesting user info\n");
       goto error;
     }
 
