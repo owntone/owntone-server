@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 29.3 - 2026-07-22
+
+- fix: Spotify library missing due to malformed auth header
+- fix: heap-buffer-over-read in httpd
+- fix: Add support for Spotify audiobooks
+- fix: Minor web UI improvements
+
 ## Version 29.2 - 2026-04-28
 
 - same as 29.1.1, only released due to RPi packaging issues with version number
