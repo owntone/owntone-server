@@ -53,7 +53,7 @@ const heading = computed(() => ({
 
 const uris = computed(() => {
   if (playlist.value.random) {
-    return tracks.value.map((item) => item.uri).join()
+    return tracks.value.items.map((item) => item.uri).join()
   }
   return playlist.value.uri
 })
