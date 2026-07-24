@@ -18,28 +18,28 @@
     "axios": "^1.18.1",
     "bulma": "^1.0.4",
     "mdi-vue": "^3.0.13",
-    "pinia": "^3.0.4",
+    "pinia": "^4.0.2",
     "reconnectingwebsocket": "^1.0.0",
-    "vue": "^3.5.39",
-    "vue-i18n": "^11.4.6",
-    "vue-router": "^5.1.0",
+    "vue": "^3.5.40",
+    "vue-i18n": "^11.4.7",
+    "vue-router": "^5.2.0",
     "vue3-lazyload": "^0.4.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@intlify/unplugin-vue-i18n": "^11.2.4",
-    "@vitejs/plugin-vue": "^6.0.7",
-    "eslint": "^10.6.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-vue": "^10.9.2",
+    "eslint-plugin-vue": "^10.10.0",
     "globals": "^17.7.0",
-    "prettier": "^3.9.4",
-    "sass": "^1.101.0",
-    "vite": "^8.1.3"
+    "prettier": "^3.9.6",
+    "sass": "^1.101.7",
+    "vite": "^8.1.5"
   },
   "allowScripts": {
     "esbuild@0.25.12": true,
-    "@parcel/watcher@2.5.6": true,
-    "fsevents@2.3.3": true
+    "fsevents@2.3.3": true,
+    "@parcel/watcher@2.6.0": true
   }
 }
