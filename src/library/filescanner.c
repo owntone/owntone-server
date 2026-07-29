@@ -911,7 +911,14 @@ process_directory(char *path, int parent_id, int flags)
       else if (!(flags & F_SCAN_FAST))
 	{
 	  if (S_ISREG(sb.st_mode) || S_ISFIFO(sb.st_mode))
-	    process_file(resolved_path, &sb, file_type, scan_type, flags, dir_id);
+	    /* Use the path we found the file at, not the dereferenced path. For
+	     * regular files the two are identical, but for symlinks it means the
+	     * file is registered where the user put it, ie below the directory
+	     * we are scanning. Otherwise the file's directory_id and its path
+	     * would disagree, and lookups by path (eg mpd's "add") would not
+	     * find it, even though browsing the directory would show it.
+	     */
+	    process_file(entry, &sb, file_type, scan_type, flags, dir_id);
 	  else
 	    DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", entry);
 	}
