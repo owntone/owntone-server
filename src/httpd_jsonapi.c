@@ -3820,6 +3820,7 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
 {
   const char *param;
   char buf[PATH_MAX+7];
+  char aliased_dir[PATH_MAX];
   char *playlist_name = NULL;
   int ret = 0;
 
@@ -3850,7 +3851,15 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
   }
 
-  snprintf(buf, sizeof(buf), "/file:%s/%s", default_playlist_directory, playlist_name);
+  if (conffile_alias_apply(aliased_dir, sizeof(aliased_dir), default_playlist_directory) < 0)
+    {
+      free(playlist_name);
+
+      DPRINTF(E_LOG, L_WEB, "Playlist save directory '%s' exceeds PATH_MAX\n", default_playlist_directory);
+      return HTTP_INTERNAL;
+    }
+
+  snprintf(buf, sizeof(buf), "/file:%s/%s", aliased_dir, playlist_name);
   free(playlist_name);
 
   ret = library_queue_save(buf);

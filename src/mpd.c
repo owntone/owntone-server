@@ -4314,6 +4314,7 @@ mpd_init(void)
 {
   unsigned short port;
   const char *pl_dir;
+  char aliased_pl_dir[PATH_MAX];
   int ret;
 
   port = cfg_getint(cfg_getsec(cfg, "mpd"), "port");
@@ -4366,8 +4367,8 @@ mpd_init(void)
 
   allow_modifying_stored_playlists = cfg_getbool(cfg_getsec(cfg, "library"), "allow_modifying_stored_playlists");
   pl_dir = cfg_getstr(cfg_getsec(cfg, "library"), "default_playlist_directory");
-  if (pl_dir)
-    default_pl_dir = safe_asprintf("/file:%s", pl_dir);
+  if (pl_dir && conffile_alias_apply(aliased_pl_dir, sizeof(aliased_pl_dir), pl_dir) == 0)
+    default_pl_dir = safe_asprintf("/file:%s", aliased_pl_dir);
 
   mpd_plugin_httpd = cfg_getbool(cfg_getsec(cfg, "mpd"), "enable_httpd_plugin");
 
@@ -4381,9 +4382,10 @@ mpd_init(void)
     {
       DPRINTF(E_LOG, L_MPD, "Found deprecated option 'default_playlist_directory' in section 'mpd', please update configuration file (move option to section 'library').\n");
       free(default_pl_dir);
+      default_pl_dir = NULL;
       pl_dir = cfg_getstr(cfg_getsec(cfg, "mpd"), "default_playlist_directory");
-      if (pl_dir)
-        default_pl_dir = safe_asprintf("/file:%s", pl_dir);
+      if (pl_dir && conffile_alias_apply(aliased_pl_dir, sizeof(aliased_pl_dir), pl_dir) == 0)
+        default_pl_dir = safe_asprintf("/file:%s", aliased_pl_dir);
     }
 
   DPRINTF(E_INFO, L_MPD, "mpd thread init\n");

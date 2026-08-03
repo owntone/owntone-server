@@ -741,7 +741,8 @@ conffile_alias_resolve(const char *vpath)
       if (vpath[1 + len] != '\0' && vpath[1 + len] != '/')
 	continue;
 
-      return safe_asprintf("%s%s", da->path, vpath + 1 + len);
+      /* Dereferenced, because that is what the scanner stores in the database */
+      return safe_asprintf("%s%s", da->real_path ? da->real_path : da->path, vpath + 1 + len);
     }
 
   return NULL;

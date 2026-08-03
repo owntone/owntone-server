@@ -1920,16 +1920,32 @@ queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, 
   return (ret == 0) ? LIBRARY_OK : LIBRARY_PATH_INVALID;
 }
 
-static const char *
+/*
+ * Translates a virtual path to a real path, reversing any directory alias.
+ *
+ * Returns NULL if the virtual path is not a local file path, otherwise a newly
+ * allocated path.
+ */
+static char *
 virtual_path_to_path(const char *virtual_path)
 {
+  const char *path;
+  char *resolved;
+
   if (strncmp(virtual_path, "/file:", strlen("/file:")) == 0)
-    return virtual_path + strlen("/file:");
+    path = virtual_path + strlen("/file:");
+  else if (strncmp(virtual_path, "file:", strlen("file:")) == 0)
+    path = virtual_path + strlen("file:");
+  else
+    return NULL;
 
-  if (strncmp(virtual_path, "file:", strlen("file:")) == 0)
-    return virtual_path + strlen("file:");
+  // A path that does not start with an alias is already a real path. This also
+  // means virtual paths made before an alias was configured keep resolving.
+  resolved = conffile_alias_resolve(path);
+  if (resolved)
+    return resolved;
 
-  return NULL;
+  return strdup(path);
 }
 
 static bool
@@ -1940,6 +1956,7 @@ check_path_in_directories(const char *path)
   int i;
   char *tmp_path;
   char *dir;
+  char *real_dir;
   const char *lib_dir;
   bool ret;
 
@@ -1965,6 +1982,16 @@ check_path_in_directories(const char *path)
 	  ret = true;
 	  break;
 	}
+
+      // The library directory may be a symlink, while dir is a real path
+      real_dir = realpath(lib_dir, NULL);
+      if (real_dir && strncmp(dir, real_dir, strlen(real_dir)) == 0)
+	{
+	  free(real_dir);
+	  ret = true;
+	  break;
+	}
+      free(real_dir);
     }
 
   free(tmp_path);
@@ -1986,7 +2013,7 @@ has_suffix(const char *file, const char *suffix)
 static char *
 playlist_path_create(const char *vp_playlist)
 {
-  const char *path;
+  char *path;
   char *pl_path;
   struct playlist_info *pli;
 
@@ -1998,6 +2025,7 @@ playlist_path_create(const char *vp_playlist)
     }
 
   pl_path = safe_asprintf("%s.m3u", path);
+  free(path);
 
   if (!check_path_in_directories(pl_path))
     {
