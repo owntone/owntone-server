@@ -1733,10 +1733,56 @@ inofd_event_unset(void)
 }
 
 /* Thread: scan */
+/*
+ * Warns if a library directory is in the database under a different virtual
+ * path than the one it would get now, which means an alias was added, changed
+ * or removed since the last scan.
+ *
+ * Aliases are not applied retroactively: the scanner only rewrites files it
+ * finds modified, so without a full rescan the library would end up with files
+ * pointing at directories that no longer exist.
+ */
+static void
+check_alias_changed(void)
+{
+  cfg_t *lib;
+  const char *path;
+  const char *scanned_path;
+  char *deref;
+  char virtual_path[PATH_MAX];
+  int ndirs;
+  int i;
+  int dir_id;
+
+  lib = cfg_getsec(cfg, "library");
+  ndirs = cfg_size(lib, "directories");
+
+  for (i = 0; i < ndirs; i++)
+    {
+      path = cfg_getnstr(lib, "directories", i);
+
+      deref = realpath(path, NULL);
+      scanned_path = deref ? deref : path;
+
+      // Not in the library yet, so there is nothing to compare against
+      dir_id = db_directory_id_bypath(scanned_path);
+      if (dir_id > 0 && virtual_path_make(virtual_path, sizeof(virtual_path), scanned_path) == 0
+	  && dir_id != db_directory_id_byvirtualpath(virtual_path))
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Library directory '%s' is in the database under a different name than '%s'. "
+	    "Its alias was added, changed or removed - trigger a full rescan to update the library.\n", path, virtual_path);
+	}
+
+      free(deref);
+    }
+}
+
 static int
 filescanner_initscan()
 {
   int ret;
+
+  check_alias_changed();
 
   ret = db_watch_clear();
   if (ret < 0)
