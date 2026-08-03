@@ -596,7 +596,13 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
   mfi.time_modified = sb->st_mtime;
   mfi.file_size = sb->st_size;
 
-  snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+  ret = virtual_path_make(virtual_path, sizeof(virtual_path), file);
+  if (ret < 0)
+    {
+      free_mfi(&mfi, 1);
+      return;
+    }
+
   mfi.virtual_path = strdup(virtual_path);
 
   mfi.directory_id = dir_id;
@@ -1053,10 +1059,8 @@ bulk_scan(int flags)
 
 	  db_file_ping_bymatch(path, 1);
 	  db_pl_ping_bymatch(path, 1);
-	  ret = snprintf(virtual_path, sizeof(virtual_path), "/file:%s", path);
-	  if ((ret < 0) || (ret >= sizeof(virtual_path)))
-	    DPRINTF(E_LOG, L_SCAN, "Virtual path exceeds PATH_MAX (/file:%s)\n", path);
-	  else
+	  ret = virtual_path_make(virtual_path, sizeof(virtual_path), path);
+	  if (ret == 0)
 	    db_directory_ping_bymatch(virtual_path);
 
 	  continue;
