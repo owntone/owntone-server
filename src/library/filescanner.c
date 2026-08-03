@@ -184,12 +184,21 @@ strip_extension(const char *path)
 static int
 virtual_path_make(char *virtual_path, int virtual_path_len, const char *path)
 {
+  char aliased[PATH_MAX];
   int ret;
 
-  ret = snprintf(virtual_path, virtual_path_len, "/file:%s", path);
+  // Replaces the library directory with its alias, if it has one
+  ret = conffile_alias_apply(aliased, sizeof(aliased), path);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Path '%s' exceeds PATH_MAX after applying directory alias\n", path);
+      return -1;
+    }
+
+  ret = snprintf(virtual_path, virtual_path_len, "/file:%s", aliased);
   if ((ret < 0) || (ret >= virtual_path_len))
     {
-      DPRINTF(E_LOG, L_SCAN, "Virtual path '/file:%s', virtual_path_len exceeded (%d/%d)\n", path, ret, virtual_path_len);
+      DPRINTF(E_LOG, L_SCAN, "Virtual path '/file:%s', virtual_path_len exceeded (%d/%d)\n", aliased, ret, virtual_path_len);
       return -1;
     }
 
@@ -963,6 +972,11 @@ process_parent_directories(char *path)
   int ret;
 
   dir_id = DIR_FILE;
+
+  // An aliased library directory is presented directly below /file:, so it has
+  // no parents to create
+  if (conffile_alias_get(path))
+    return dir_id;
 
   ptr = path + 1;
   while (ptr && (ptr = strchr(ptr, '/')))
