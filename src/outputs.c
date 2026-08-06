@@ -52,6 +52,10 @@ extern struct output_definition output_alsa;
 #ifdef HAVE_LIBPULSE
 extern struct output_definition output_pulse;
 #endif
+#ifdef HAVE_PIPEWIRE
+extern struct output_definition output_pipewire;
+extern bool pipewire_mixer_is_pwsink(void);
+#endif
 #ifdef CHROMECAST
 extern struct output_definition output_cast;
 #endif
@@ -72,6 +76,9 @@ static struct output_definition *outputs[] = {
 #endif
 #ifdef HAVE_LIBPULSE
     &output_pulse,
+#endif
+#ifdef HAVE_PIPEWIRE
+    &output_pipewire,
 #endif
 #ifdef CHROMECAST
     &output_cast,
@@ -779,6 +786,7 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   struct output_device *device;
   char *keep_name;
   int keep_offset_ms;
+  int keep_volume;
   int ret;
 
   for (device = outputs_device_list; device; device = device->next)
@@ -811,6 +819,7 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 
       keep_name = strdup(device->name);
       keep_offset_ms = device->offset_ms; // For legacy local audio and Chromecast where offset could come from config file
+      keep_volume = device->volume; // Live volume already read by the output backend, currently only meaningful for PipeWire's "pwsink" mode
 
       ret = db_speaker_get(device, device->id);
       if (ret < 0)
@@ -818,6 +827,15 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 	  device->selected = 0;
 	  device->volume = (outputs_master_volume >= 0) ? outputs_master_volume : OUTPUTS_DEFAULT_VOLUME;;
 	}
+#ifdef HAVE_PIPEWIRE
+      else if (device->type == OUTPUT_TYPE_PIPEWIRE && pipewire_mixer_is_pwsink())
+	{
+	  // In "pwsink" mode the sink volume is managed and persisted by
+	  // WirePlumber independently of OwnTone, so our stored value can be
+	  // stale by the time we reconnect. Trust the live reading instead.
+	  device->volume = keep_volume;
+	}
+#endif
 
       free(device->name);
       device->name = keep_name;

@@ -116,6 +116,11 @@ static char *buildopts[] =
 #ifdef HAVE_LIBPULSE
     "Pulseaudio",
 #endif
+#ifdef HAVE_PIPEWIRE
+    "PipeWire",
+#else
+    "Without PipeWire",
+#endif
 #ifdef WEBINTERFACE
     "Webinterface",
 #else
