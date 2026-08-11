@@ -1556,6 +1556,18 @@ open_output(struct encode_ctx *ctx, struct transcode_evbuf_io *evbuf_io, struct 
 	goto error;
     }
 
+  // Propagate tags from the source so DAAP clients like iTunes don't overwrite
+  // their cached metadata with empties after reading tag-less transcoded output.
+  // Format-level tags win; stream-level tags (common for FLAC/Vorbis) merge in
+  // as a fallback.
+  if (src_ctx && src_ctx->ifmt_ctx)
+    {
+      if (src_ctx->ifmt_ctx->metadata)
+	av_dict_copy(&ctx->ofmt_ctx->metadata, src_ctx->ifmt_ctx->metadata, 0);
+      if (src_ctx->audio_stream.stream && src_ctx->audio_stream.stream->metadata)
+	av_dict_copy(&ctx->ofmt_ctx->metadata, src_ctx->audio_stream.stream->metadata, AV_DICT_DONT_OVERWRITE);
+    }
+
   ret = avformat_init_output(ctx->ofmt_ctx, &options);
   if (ret < 0)
     {
