@@ -1562,10 +1562,15 @@ open_output(struct encode_ctx *ctx, struct transcode_evbuf_io *evbuf_io, struct 
   // as a fallback.
   if (src_ctx && src_ctx->ifmt_ctx)
     {
-      if (src_ctx->ifmt_ctx->metadata)
-	av_dict_copy(&ctx->ofmt_ctx->metadata, src_ctx->ifmt_ctx->metadata, 0);
-      if (src_ctx->audio_stream.stream && src_ctx->audio_stream.stream->metadata)
-	av_dict_copy(&ctx->ofmt_ctx->metadata, src_ctx->audio_stream.stream->metadata, AV_DICT_DONT_OVERWRITE);
+      ret = av_dict_copy(&ctx->ofmt_ctx->metadata, src_ctx->ifmt_ctx->metadata, 0);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_XCODE, "Failed to copy format-level tags to output: %s\n", err2str(ret));
+      if (src_ctx->audio_stream.stream)
+	{
+	  ret = av_dict_copy(&ctx->ofmt_ctx->metadata, src_ctx->audio_stream.stream->metadata, AV_DICT_DONT_OVERWRITE);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_XCODE, "Failed to copy stream-level tags to output: %s\n", err2str(ret));
+	}
     }
 
   ret = avformat_init_output(ctx->ofmt_ctx, &options);
@@ -1610,6 +1615,11 @@ open_output(struct encode_ctx *ctx, struct transcode_evbuf_io *evbuf_io, struct 
     }
   else if (ctx->settings.with_mp4_header)
     {
+      if (!src_ctx || !src_ctx->ifmt_ctx)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create MP4 header without source context\n");
+	  goto error;
+	}
       ret = make_mp4_header(&header, src_ctx->ifmt_ctx->url);
       if (ret < 0)
 	{
