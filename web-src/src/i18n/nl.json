@@ -1,0 +1,414 @@
+{
+  "actions": {
+    "add": "Toevoegen",
+    "add-next": "Volgende toevoegen",
+    "add-stream": "Stream toevoegen",
+    "cancel": "Annuleren",
+    "clear": "Wissen",
+    "edit": "Bewerken",
+    "hide-previous": "Vorige verbergen",
+    "login": "Inloggen",
+    "logout": "Uitloggen",
+    "mark-all-played": "Alles Gespeeld markeren",
+    "mark-as-new": "Nieuw markeren",
+    "mark-as-played": "Gespeeld markeren",
+    "pair": "Afstandsbediening koppelen",
+    "play": "Spelen",
+    "play-top-tracks": "Topnummers spelen",
+    "remove": "Verwijderen",
+    "rescan": "Opnieuw scannen",
+    "save": "Opslaan",
+    "show-more": "Meer weergeven",
+    "shuffle": "Husselen",
+    "update": "Bijwerken",
+    "verify": "Verifiëren"
+  },
+  "data": {
+    "albums": "{count} album|{count} album|{count} albums",
+    "artists": "{count} artiest|{count} artiest|{count} artiesten",
+    "audiobooks": "{count} luisterboek|{count} luisterboek|{count} luisterboeken",
+    "authors": "{count} auteur|{count} auteur|{count} auteurs",
+    "channels": "{count} kanaal|{count} kanalen",
+    "chapters": "{count} hoofdstuk|{count} hoofdstuk|{count} hoofdstukken",
+    "composers": "{count} componist|{count} componist|{count} componisten",
+    "genres": "{count} genre|{count} genre|{count} genres",
+    "kind": {
+      "file": "Bestand",
+      "pipe": "Stream",
+      "spotify": "Spotify",
+      "url": "URL"
+    },
+    "playlists": "{count} speellijst|{count} speellijst|{count} speellijsten",
+    "podcasts": "{count} podcast|{count} podcast|{count} podcasts",
+    "stations": "{count} station|{count} station|{count} stations",
+    "tracks": "{count} nummer|{count} nummer|{count} nummers"
+  },
+  "dialog": {
+    "add": {
+      "rss": {
+        "help": "Het toevoegen van een podcast omvat het maken van een RSS-afspeellijst, waarmee OwnTone de podcastabonnement kan beheren.",
+        "placeholder": "https://url-to-rss",
+        "processing": "Verwerken…",
+        "title": "Podcast toevoegen"
+      },
+      "stream": {
+        "loading": "Laden…",
+        "placeholder": "https://url-to-stream",
+        "processing": "Verwerken…",
+        "title": "Stream toevoegen"
+      }
+    },
+    "playlist": {
+      "save": {
+        "playlist-name": "Speellijstnaam",
+        "saving": "Opslaan…",
+        "title": "Wachtrij opslaan als speellijst"
+      }
+    },
+    "podcast": {
+      "remove": {
+        "info": "Deze podcast permanent uit je bibliotheek verwijderen?{separator}(Dit verwijdert ook de RSS-afspeellijst {name})",
+        "title": "Podcast verwijderen"
+      }
+    },
+    "queue-item": {
+      "quality": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s"
+    },
+    "remote-pairing": {
+      "pairing-code": "Koppelingscode",
+      "title": "Afstandsbediening koppelen"
+    },
+    "track": {
+      "quality": "{format} {'|'} {samplerate} Hz {'|'} @:data.channels {'|'} {bitrate} kbit/s",
+      "rating": "{rating} / 10"
+    },
+    "update": {
+      "all": "Alles bijwerken",
+      "feeds": "Alleen RSS feeds bijwerken",
+      "info": "Scannen voor nieuwe, verwijderde and gewijzigde bestanden",
+      "local": "Alleen de lokale bibliotheek bijwerken",
+      "progress": "Bijwerken van bibliotheek…",
+      "rescan-metadata": "Metagegevens van ongewijzigde bestanden opnieuw scannen",
+      "spotify": "Alleen Spotify bijwerken",
+      "title": "Bibliotheek bijwerken"
+    }
+  },
+  "grouped-list": {
+    "last-month": "Afgelopen maand",
+    "last-week": "Afgelopen week",
+    "today": "Vandaag",
+    "undefined": "Ongedefinieerd"
+  },
+  "language": {
+    "de": "German (Deutsch)",
+    "en": "English",
+    "fr": "French (Français)",
+    "nl": "Nederlands",
+    "zh-CN": "Simplified Chinese (簡體中文)",
+    "zh-TW": "Traditional Chinese (繁體中文)"
+  },
+  "list": {
+    "albums": {
+      "info": "Deze podcast permanent uit je bibliotheek verwijderen?{separator}(Dit verwijdert ook de RSS-afspeellijst {name})"
+    },
+    "spotify": {
+      "not-playable-track": "Nummer kan niet worden gespeeld",
+      "restriction-reason": ", reden: {reason}"
+    }
+  },
+  "media": {
+    "kind": {
+      "album": "Album",
+      "audiobook": "Luisterboek",
+      "music": "Muziek",
+      "podcast": "Podcast"
+    }
+  },
+  "navigation": {
+    "about": "Over",
+    "albums": "Albums",
+    "artists": "Artiesten",
+    "audiobooks": "Luisterboeken",
+    "composers": "Componisten",
+    "files": "Bestanden",
+    "genres": "Genres",
+    "music": "Muziek",
+    "outputs": "Uitvoer",
+    "playlists": "Speellijsten",
+    "podcasts": "Podcasts",
+    "radio": "Radio",
+    "search": "Zoeken",
+    "settings": "Instellingen",
+    "spotify": "Spotify",
+    "stream": "HTTP-stream",
+    "update-library": "Bibliotheek bijwerken",
+    "volume": "Volume"
+  },
+  "options": {
+    "filter": {
+      "hide-singles": "Singles verbergen",
+      "hide-singles-help": "Ingeschakeld, verbergt dit singles en alles wat daarmee te maken heeft.",
+      "hide-spotify": "Spotify-inhoud verbergen",
+      "hide-spotify-help": "Ingeschakeld, verbergt dit inhoud van Spotify.",
+      "title": "Filter"
+    },
+    "sort": {
+      "artist-date": "Artiest › Uitgiftedatum",
+      "artist-name": "Artiest › Naam",
+      "name": "Naam",
+      "rating": "Waardering",
+      "recently-added": "Onlangs toegevoegd",
+      "recently-released": "Onlangs uitgegeven",
+      "release-date": "Uitgiftedatum",
+      "title": "Sortering"
+    }
+  },
+  "page": {
+    "about": {
+      "built-with": "Web-interface gemaakt met {bulma}, {mdi}, {vuejs}, {axios} en {others}.",
+      "compiled-with": "Samengesteld met ondersteuning voor {options}.",
+      "library": "Bibliotheek",
+      "more": "meer",
+      "update": "Bijwerken",
+      "version": "Versie {version}"
+    },
+    "albums": {
+      "title": "Albums"
+    },
+    "artists": {
+      "title": "Artiesten"
+    },
+    "audiobooks": {
+      "albums": {
+        "title": "Luisterboeken"
+      },
+      "artists": {
+        "title": "Auteurs"
+      },
+      "tabs": {
+        "audiobooks": "Luisterboeken",
+        "authors": "Auteurs",
+        "genres": "Genres",
+        "spotify": "Spotify"
+      }
+    },
+    "composers": {
+      "title": "Componisten"
+    },
+    "files": {
+      "title": "Bestanden"
+    },
+    "genres": {
+      "title": "Genres"
+    },
+    "music": {
+      "recently-added": {
+        "title": "Onlangs toegevoegd"
+      },
+      "recently-played": {
+        "title": "Onlangs gespeeld"
+      },
+      "tabs": {
+        "albums": "Albums",
+        "artists": "Artiesten",
+        "composers": "Componisten",
+        "genres": "Genres",
+        "history": "Geschiedenis",
+        "spotify": "Spotify"
+      }
+    },
+    "outputs": {
+      "title": "Uitvoer"
+    },
+    "player": {
+      "info": "Voeg enkele nummers toe aan de bibliotheek",
+      "time": "Live|{time}|{time}",
+      "title": "De wachtrij is leeg"
+    },
+    "playlists": {
+      "title": "{name}|Speellijsten"
+    },
+    "podcasts": {
+      "new-episodes": "Nieuwe episodes",
+      "title": "Podcasts"
+    },
+    "queue": {
+      "title": "Wachtrij"
+    },
+    "radio": {
+      "title": "Radio"
+    },
+    "search": {
+      "albums": "Albums",
+      "artists": "Artiesten",
+      "audiobooks": "Luisterboeken",
+      "composers": "Componisten",
+      "expression": "expressie",
+      "help": "Tip: zoek met de slimme speellijst-zoektaal {help} door het volgende voorvoegsel {query}.",
+      "no-results": "Geen resultaten",
+      "placeholder": "Zoeken",
+      "playlists": "Speellijsten",
+      "podcasts": "Podcasts",
+      "show-albums": "Album tonen|Alle {count} albums tonen",
+      "show-artists": "Artiest tonen|Allen {count} artiesten tonen",
+      "show-audiobooks": "Luisterboek tonen|Alle {count} luisterboeken tonen",
+      "show-composers": "Componist tonen|Alle {count} componisten tonen",
+      "show-playlists": "Speellijst tonen|All {count} speellijsten tonen",
+      "show-podcasts": "Podcast tonen|Alle {count} podcasts tonen",
+      "show-tracks": "Nummer tonen|Alle {count} nummers tonen",
+      "tabs": {
+        "library": "Bibliotheek",
+        "spotify": "Spotify"
+      },
+      "tracks": "Nummers"
+    },
+    "settings": {
+      "tabs": {
+        "artwork": "Afbeeldingen",
+        "devices": "Afstandsbedieningen en uitvoer",
+        "online-services": "Online diensten",
+        "webinterface": "Algemeen"
+      }
+    },
+    "spotify": {
+      "audiobooks": {
+        "saved-audiobooks": "Opgeslagen luisterboeken"
+      },
+      "music": {
+        "featured-playlists": "Aanbevolen speellijsten",
+        "followed-artists": "Gevolgde artiesten",
+        "new-releases": "Nieuwe uitgaven"
+      }
+    }
+  },
+  "player": {
+    "button": {
+      "consume": "Geschiedenis wissen",
+      "pause": "Pauzeren",
+      "play": "Spelen",
+      "repeat": "Alle nummers herhalen",
+      "repeat-off": "Nummers een keer spelen",
+      "repeat-once": "Huidige nummer herhalen",
+      "seek-backward": "Terugzoeken in nummer",
+      "seek-forward": "Vooruitzoeken in nummer",
+      "shuffle": "Nummers husselen",
+      "shuffle-disabled": "Nummers op volgorde spelen",
+      "skip-backward": "Overslaan naar vorige",
+      "skip-forward": "Overslaan naar volgende",
+      "stop": "Stoppen",
+      "toggle-lyrics": "Teksten aan/uit"
+    }
+  },
+  "playlist": {
+    "type": {
+      "folder": "Map",
+      "plain": "Normaal",
+      "smart": "Slim"
+    }
+  },
+  "property": {
+    "added-on": "Toegevoegd op",
+    "album": "Album",
+    "album-artist": "Album-artiest",
+    "albums": "Albums",
+    "artist": "Artiest",
+    "artists": "Artiesten",
+    "comment": "Opmerking",
+    "composer": "Componist",
+    "duration": "Duur",
+    "folders": "mappen",
+    "genre": "Genre",
+    "genres": "Genres",
+    "name": "Naam",
+    "owner": "Eigenaar",
+    "path": "Pad",
+    "playlists": "Speellijst",
+    "playtime": "Speeltijd",
+    "popularity": "Popularieit / Volgers",
+    "position": "Schijf / Nummer",
+    "quality": "Kwaliteit",
+    "rating": "Waardering",
+    "release-date": "Uitgiftedatum",
+    "tracks": "Nummers",
+    "type": "Type",
+    "updated": "Bijgewerkt",
+    "uptime": "Uptime",
+    "year": "Jaar"
+  },
+  "server": {
+    "appended-tracks": "{count} nummer aan wachtrij toegevoegd|{count} nummers aan wachtrij toegevoegd",
+    "connection-failed": "Verbinding met OwnTone-server is mislukt",
+    "queue-saved": "Wachtrij opgeslagen als speellijst {name}",
+    "request-failed": "Aanvraag is mislukt (status: {status} {cause} {url})"
+  },
+  "settings": {
+    "appearance": {
+      "auto": "Autom.",
+      "dark": "Donker",
+      "light": "Licht",
+      "title": "Uiterlijk"
+    },
+    "artwork": {
+      "explanation-1": "OwnTone ondersteunt PNG- en JPEG-afbeeldingen die ofwel als aparte afbeeldingsbestanden in de bibliotheek staan, in de mediabestanden zijn ingebed of online beschikbaar worden gesteld door radiostations.",
+      "explanation-2": "Daarbovenop kan het afbeeldingen ophalen van afbeeldingen van de volgende artwork-aanbieders:",
+      "show-cover-artwork-in-album-lists": "Omslagafbeelding tonen in albumlijst",
+      "streamurl-ignore": "Afbeeldingen van radiostations negeren",
+      "title": "Afbeeldingen",
+      "use-artwork-source-coverartarchive": "Cover Art Archive",
+      "use-artwork-source-discogs": "Discogs",
+      "use-artwork-source-spotify": "Spotify"
+    },
+    "devices": {
+      "no-active-pairing": "Geen koppelingsverzoek actief.",
+      "pairing": "Afstandsbediening koppelen",
+      "pairing-code": "Koppelingscode",
+      "pairing-request": "Afstandsbediening koppelen van ",
+      "speaker-pairing": "Luidspreker koppelen en apparaatverificatie",
+      "speaker-pairing-info": "Als e luidspreker koppelingsvereisten heeft, voer dan de weergegeven verificatiecode in. Stel evt. een offsetcompensatie (±2000 ms) in om de weergave tussen meerdere speakers te synchroniseren. Start de stream opnieuw om de offset toe te passen.",
+      "verification-code": "Verificatiecode"
+    },
+    "services": {
+      "authorise": "Geef toestemming voor toegang tot de service {service}",
+      "authorised": "Toegang verleend voor {user}",
+      "lastfm": {
+        "info": "Schakel Last.fm in om muziek luisteren bij te houden. Log in met de Last.fm-gebruikersnaam en wachtwoord. Het wachtwoord wordt niet opgeslagen: alleen een sessietoken wordt bewaard, en dat verloopt nooit.",
+        "title": "Last.fm"
+      },
+      "listenbrainz": {
+        "info": "Schakel ListenBrainz in om muziek luisteren bij te houden. Geef de ListenBrainz-gebruikerscode op, die te vinden is in de instellingen op de ListenBrainz-website.",
+        "title": "ListenBrainz",
+        "token-required": "Het ListenBrainz-gebruikers-token is nodig om de ListenBrainz-integratie in te schakelen."
+      },
+      "no-support": "De optie {service} wordt niet ondersteund.",
+      "password": "Wachtwoord",
+      "spotify": {
+        "info": "Schakel toegang tot Spotify in om naar nummers op je account te luisteren via OwnTone. Dit vereist een Spotify Premium-account. Vereiste machtigingen: {scopes}.",
+        "reauthorize": "Verleen opnieuw toestemming voor API-toegang om OwnTone de volgende extra machtigingen te geven: {scopes}.",
+        "title": "Spotify"
+      },
+      "username": "Gebruikersnaam",
+      "user-token": "Gebruikerstoken"
+    },
+    "webinterface": {
+      "genres": "Genres",
+      "language": "Taal",
+      "navigation-item-selection": "Selecteer de menu-items in de bovenste navigatiebalk",
+      "navigation-item-selection-info": "Op het scherm van een mobiel apparaat wordt alleen het hamburgermenu weergegeven.",
+      "navigation-items": "Navigatiebalk",
+      "player-page": "Speler-pagina",
+      "recently-added-limit": "Het aantal weergegeven albums beperken",
+      "recently-added-page": "Onlangs toegevoeg-pagina",
+      "show-composer-for-genre": "Componist alleen tonen voor vermelde genres",
+      "show-composer-genres-help": "Door komma's gescheiden lijst van genres waarvoor de componist moet worden weergegeven.{0}Laat leeg om de componist altijd weer te geven.{0}Het genrelabel van het huidige nummer wordt gecontroleerd door te kijken of een van de gedefinieerde genres is opgenomen. Door bijvoorbeeld in te stellen op \"klassiek, soundtrack\" wordt de componist weergegeven voor nummers met een genrelabel van \"Modern klassiek\"",
+      "show-composer-now-playing": "Componist tonen",
+      "show-filepath-now-playing": "Bestandspad tonen",
+      "show-menu-item-audiobooks": "Luisterboeken",
+      "show-menu-item-files": "Bestanden",
+      "show-menu-item-music": "Muziek",
+      "show-menu-item-playlists": "Speellijsten",
+      "show-menu-item-podcasts": "Podcasts",
+      "show-menu-item-radio": "Radio",
+      "show-menu-item-search": "Zoeken"
+    }
+  }
+}
