@@ -250,6 +250,40 @@ body_find(uint8_t **body, size_t *body_len, uint8_t *in, size_t in_len)
   return -1;
 }
 
+// Returns 1 if the RTSP message is not fully received yet (headers or body
+// still incomplete), 0 if it is complete or has no Content-Length, -1 if the
+// buffer is implausibly large and should be discarded
+static int
+rtsp_incomplete(uint8_t *in, size_t in_len)
+{
+  const char *hdr_end;
+  const char *cl;
+  size_t hdr_len;
+  size_t content_length;
+
+  if (in_len > 65536)
+    return -1;
+
+  hdr_end = memmem(in, in_len, "\r\n\r\n", 4);
+  if (!hdr_end)
+    return 1;
+
+  hdr_len = hdr_end + 4 - (const char *)in;
+
+  cl = memmem(in, hdr_len, "Content-Length:", 15);
+  if (!cl)
+    return 0;
+
+  // The header region always ends with "\r\n\r\n", so strtoul will stop
+  // before the end of the buffer
+  content_length = strtoul(cl + 15, NULL, 10);
+
+  if (in_len < hdr_len + content_length)
+    return 1;
+
+  return 0;
+}
+
 static int
 rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
 {
@@ -262,6 +296,18 @@ rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
   int ret;
 
   DHEXDUMP(E_DBG, L_AIRPLAY, in, in_len, "Incoming event\n");
+
+  ret = rtsp_incomplete(in, in_len);
+  if (ret > 0)
+    {
+      DPRINTF(E_DBG, L_AIRPLAY, "Incomplete AirPlay event (%zu bytes so far), waiting for more data\n", in_len);
+      return 1;
+    }
+  else if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_AIRPLAY, "Discarding oversized AirPlay event (%zu bytes)\n", in_len);
+      return -1;
+    }
 
   ret = body_find(&body, &body_len, in, in_len);
   if (ret < 0)
