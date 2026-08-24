@@ -603,7 +603,7 @@ fetch_album(bool *notfound, const char *album_id)
 
   query_params.type = Q_GROUP_ALBUMS;
   query_params.sort = S_ALBUM;
-  query_params.filter = db_mprintf("(f.songalbumid = %s)", album_id);
+  query_params.filter = db_mprintf("(f.songalbumid = %q)", album_id);
 
   ret = db_query_start(&query_params);
   if (ret < 0)
