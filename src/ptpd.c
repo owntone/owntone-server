@@ -60,7 +60,16 @@ ptpd_clock_id_get(void)
 int
 ptpd_slave_add(uint32_t *slave_id, const char *addr)
 {
-  return airptp_peer_add(slave_id, addr, ptpd_hdl);
+  int ret;
+
+  ret = airptp_peer_add(slave_id, addr, ptpd_hdl);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_AIRPLAY, "%s\n", airptp_errmsg_get());
+      return ret;
+    }
+
+  return 0;
 }
 
 void
