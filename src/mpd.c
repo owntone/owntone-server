@@ -3025,7 +3025,7 @@ mpd_sticker_find(struct mpd_command_output *out, struct mpd_command_input *in, c
       rating_arg = 0;
     }
 
-  qp.filter = db_mprintf("(f.virtual_path LIKE '%s%%' AND f.rating > 0 AND f.rating %s %d)", virtual_path, operator, rating_arg);
+  qp.filter = db_mprintf("(f.virtual_path LIKE '%q%%' AND f.rating > 0 AND f.rating %s %d)", virtual_path, operator, rating_arg);
 
   ret = db_query_start(&qp);
   if (ret < 0)
