@@ -32,6 +32,7 @@ build-stamp
 ylwrap
 owntone.spec
 owntone.conf
+owntone.sysusers
 owntone.service
 owntone@.service
 

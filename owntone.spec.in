@@ -16,9 +16,10 @@ Release: 1%{?dist}
 License: GPLv2+
 Group: Applications/Multimedia
 Url: https://github.com/owntone/owntone-server
-Source0: https://github.com/owntone/%{name}/archive/%{version}/%{name}-%{version}.tar.xz
+Source0: %{url}/releases/download/%{version}/%{name}-%{version}.tar.xz
 %{?systemd_ordering}
-BuildRequires: gcc, make, bison, flex, systemd, pkgconfig, libunistring-devel
+BuildRequires: gcc, make, bison, flex, pkgconfig, libunistring-devel
+BuildRequires: systemd-rpm-macros
 BuildRequires: pkgconfig(zlib), pkgconfig(libconfuse), pkgconfig(libxml-2.0)
 BuildRequires: pkgconfig(sqlite3) >= 3.5.0, pkgconfig(libevent) >= 2.0.0
 BuildRequires: pkgconfig(json-c), libgcrypt-devel >= 1.2.0
@@ -31,7 +32,12 @@ BuildRequires: pkgconfig(libsodium), pkgconfig(avahi-client) >= 0.6.24
 BuildRequires: pkgconfig(libprotobuf-c)
 # pkgconfig(libplist) not used universally, so require libplist-devel instead
 BuildRequires: libplist-devel >= 0.16
+# Fedora 42+ handles packaged sysusers.d declarations natively. EL and older
+# Fedora releases need the legacy scriptlet; keep it inline because the
+# generated sysusers file is inside Source0 and unavailable while parsing this spec.
+%if 0%{?fedora} < 42
 Requires(pre): shadow-utils
+%endif
 %if %{with alsa}
 BuildRequires: pkgconfig(alsa)
 %endif
@@ -76,13 +82,16 @@ mkdir -p %{buildroot}%{homedir}
 mkdir -p %{buildroot}%{_localstatedir}/log
 touch %{buildroot}%{_localstatedir}/log/%{name}.log
 rm -f %{buildroot}%{_libdir}/%{name}/*.la
+install -Dpm 0644 %{name}.sysusers %{buildroot}%{_sysusersdir}/%{name}.conf
 
+%if 0%{?fedora} < 42
 %pre
 getent group %{groupname} >/dev/null || groupadd -r %{groupname}
 getent passwd %{username} >/dev/null || \
     useradd -r -g %{groupname} -d %{homedir} -s /sbin/nologin \
     -c '%{name} User' %{username}
 exit 0
+%endif
 
 %post
 %systemd_post %{name}.service
@@ -103,6 +112,7 @@ exit 0
 %{_datarootdir}/%{name}/
 %{_unitdir}/%{name}.service
 %{_unitdir}/%{name}@.service
+%{_sysusersdir}/%{name}.conf
 %attr(0750,%{username},%{groupname}) %{_localstatedir}/cache/%{name}
 %attr(0750,%{username},%{groupname}) %{homedir}
 %ghost %{_localstatedir}/log/%{name}.log
