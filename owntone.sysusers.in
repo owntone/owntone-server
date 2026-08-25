@@ -1,0 +1,3 @@
+# Type Name ID GECOS Home directory Shell
+g @OWNTONE_GROUP@ -
+u @OWNTONE_USER@ -:@OWNTONE_GROUP@ "@PACKAGE@ User" @localstatedir@/lib/@PACKAGE@ /sbin/nologin
