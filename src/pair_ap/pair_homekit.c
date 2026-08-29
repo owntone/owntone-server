@@ -75,6 +75,8 @@ enum pair_keys
   PAIR_CONTROL_READ,
   PAIR_EVENTS_WRITE,
   PAIR_EVENTS_READ,
+  PAIR_DATA_WRITE,
+  PAIR_DATA_READ,
 };
 
 struct pair_keys_map
@@ -110,6 +112,10 @@ static struct pair_keys_map pair_keys_map[] =
   // Encryption/decryption of event channel
   { 0, "Events-Salt", "Events-Write-Encryption-Key", "" },
   { 0, "Events-Salt", "Events-Read-Encryption-Key", "" },
+
+  // Encryption/decryption of data channel
+  { 0, "DataStream-Salt", "DataStream-Output-Encryption-Key", "" },
+  { 0, "DataStream-Salt", "DataStream-Input-Encryption-Key", "" },
 };
 
 enum pair_method {
@@ -812,7 +818,7 @@ static void
 hexread(uint8_t *out, size_t out_len, const char *in)
 {
   char hex[] = { 0, 0, 0 };
-  int i;
+  unsigned int i;
 
   for (i = 0; i < out_len; i++, in+=2)
     {
@@ -850,7 +856,9 @@ message_process(const uint8_t *data, size_t data_len, const char **errmsg)
   error = pair_tlv_get_value(response, TLVType_Error);
   if (error)
     {
-      if (error->value[0] == TLVError_Authentication)
+      if (error->size == 0)
+	*errmsg = "Device returned an empty error";
+      else if (error->value[0] == TLVError_Authentication)
 	*errmsg = "Device returned an authentication failure";
       else if (error->value[0] == TLVError_Backoff)
 	*errmsg = "Device told us to back off pairing attempts\n";
@@ -879,7 +887,7 @@ message_process(const uint8_t *data, size_t data_len, const char **errmsg)
    hkdfExpand(SHA512, prk, SHA512_LEN, info, info_len, okm, okm_len);
 */
 static int
-hkdf_extract_expand(uint8_t *okm, size_t okm_len, const uint8_t *ikm, size_t ikm_len, enum pair_keys pair_key)
+hkdf_extract_expand(uint8_t *okm, size_t okm_len, const uint8_t *ikm, size_t ikm_len, const char *salt, const char *info)
 {
 #ifdef CONFIG_OPENSSL
 #include <openssl/kdf.h>
@@ -893,11 +901,11 @@ hkdf_extract_expand(uint8_t *okm, size_t okm_len, const uint8_t *ikm, size_t ikm
     goto error;
   if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha512()) <= 0)
     goto error;
-  if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, (const unsigned char *)pair_keys_map[pair_key].salt, strlen(pair_keys_map[pair_key].salt)) <= 0)
+  if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, (const unsigned char *)salt, strlen(salt)) <= 0)
     goto error;
   if (EVP_PKEY_CTX_set1_hkdf_key(pctx, ikm, ikm_len) <= 0)
     goto error;
-  if (EVP_PKEY_CTX_add1_hkdf_info(pctx, (const unsigned char *)pair_keys_map[pair_key].info, strlen(pair_keys_map[pair_key].info)) <= 0)
+  if (EVP_PKEY_CTX_add1_hkdf_info(pctx, (const unsigned char *)info, strlen(info)) <= 0)
     goto error;
   if (EVP_PKEY_derive(pctx, okm, &okm_len) <= 0)
     goto error;
@@ -916,7 +924,7 @@ hkdf_extract_expand(uint8_t *okm, size_t okm_len, const uint8_t *ikm, size_t ikm
     return -1; // Below calculation not valid if output is larger than hash size
   if (gcry_md_open(&hmac_handle, GCRY_MD_SHA512, GCRY_MD_FLAG_HMAC) != GPG_ERR_NO_ERROR)
     return -1;
-  if (gcry_md_setkey(hmac_handle, (const unsigned char *)pair_keys_map[pair_key].salt, strlen(pair_keys_map[pair_key].salt)) != GPG_ERR_NO_ERROR)
+  if (gcry_md_setkey(hmac_handle, (const unsigned char *)salt, strlen(salt)) != GPG_ERR_NO_ERROR)
     goto error;
   gcry_md_write(hmac_handle, ikm, ikm_len);
   memcpy(prk, gcry_md_read(hmac_handle, 0), sizeof(prk));
@@ -925,7 +933,7 @@ hkdf_extract_expand(uint8_t *okm, size_t okm_len, const uint8_t *ikm, size_t ikm
 
   if (gcry_md_setkey(hmac_handle, prk, sizeof(prk)) != GPG_ERR_NO_ERROR)
     goto error;
-  gcry_md_write(hmac_handle, (const unsigned char *)pair_keys_map[pair_key].info, strlen(pair_keys_map[pair_key].info));
+  gcry_md_write(hmac_handle, (const unsigned char *)info, strlen(info));
   gcry_md_putc(hmac_handle, 1);
 
   memcpy(okm, gcry_md_read(hmac_handle, 0), okm_len);
@@ -1325,6 +1333,8 @@ client_setup_request3(size_t *len, struct pair_setup_context *handle)
   size_t data_len;
   const unsigned char *session_key;
   int session_key_len;
+  const char *salt;
+  const char *info;
   uint8_t device_x[32];
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
@@ -1346,7 +1356,10 @@ client_setup_request3(size_t *len, struct pair_setup_context *handle)
       goto error;
     }
 
-  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_CONTROLLER_SIGN);
+  salt = pair_keys_map[PAIR_SETUP_CONTROLLER_SIGN].salt;
+  info = pair_keys_map[PAIR_SETUP_CONTROLLER_SIGN].info;
+
+  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, salt, info);
   if (ret < 0)
     {
       handle->errmsg = "Setup request 3: hkdf error getting device_x";
@@ -1360,7 +1373,10 @@ client_setup_request3(size_t *len, struct pair_setup_context *handle)
       goto error;
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, PAIR_SETUP_MSG05);
+  salt = pair_keys_map[PAIR_SETUP_MSG05].salt;
+  info = pair_keys_map[PAIR_SETUP_MSG05].info;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, salt, info);
   if (ret < 0)
     {
       handle->errmsg = "Setup request 3: hkdf error getting derived_key";
@@ -1537,6 +1553,8 @@ client_setup_response3(struct pair_setup_context *handle, const uint8_t *data, s
   uint8_t *decrypted_data = NULL;
   const uint8_t *session_key;
   int session_key_len;
+  const char *salt;
+  const char *info;
   uint8_t device_x[32];
   int ret;
 
@@ -1560,7 +1578,10 @@ client_setup_response3(struct pair_setup_context *handle, const uint8_t *data, s
       goto error;
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, PAIR_SETUP_MSG06);
+  salt = pair_keys_map[PAIR_SETUP_MSG06].salt;
+  info = pair_keys_map[PAIR_SETUP_MSG06].info;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, salt, info);
   if (ret < 0)
     {
       handle->errmsg = "Setup response 3: hkdf error getting derived_key";
@@ -1594,7 +1615,10 @@ client_setup_response3(struct pair_setup_context *handle, const uint8_t *data, s
       goto error;
     }
 
-  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_ACCESSORY_SIGN);
+  salt = pair_keys_map[PAIR_SETUP_ACCESSORY_SIGN].salt;
+  info = pair_keys_map[PAIR_SETUP_ACCESSORY_SIGN].info;
+
+  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, salt, info);
   if (ret < 0)
     {
       handle->errmsg = "Setup response 3: hkdf error getting device_x";
@@ -1645,7 +1669,7 @@ static int
 client_setup_result(struct pair_setup_context *handle)
 {
   char *ptr;
-  int i;
+  unsigned int i;
 
   assert(sizeof(handle->result_str) >= 2 * sizeof(handle->result.client_private_key) + 2 * sizeof(handle->result.server_public_key) + 1);
 
@@ -1663,7 +1687,7 @@ client_setup_result(struct pair_setup_context *handle)
 }
 
 static int
-client_verify_new(struct pair_verify_context *handle, const char *client_setup_keys, pair_cb cb, void *cb_arg, const char *device_id)
+client_verify_new(struct pair_verify_context *handle, const char *client_setup_keys, __attribute__((unused)) pair_cb cb, __attribute__((unused)) void *cb_arg, const char *device_id)
 {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   size_t hexkey_len;
@@ -1754,6 +1778,8 @@ client_verify_request2(size_t *len, struct pair_verify_context *handle)
   size_t data_len;
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
+  const char *salt;
+  const char *info;
   uint8_t derived_key[32];
   uint8_t *encrypted_data = NULL;
   size_t encrypted_data_len;
@@ -1771,7 +1797,10 @@ client_verify_request2(size_t *len, struct pair_verify_context *handle)
       goto error;
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), PAIR_VERIFY_MSG03);
+  salt = pair_keys_map[PAIR_VERIFY_MSG03].salt;
+  info = pair_keys_map[PAIR_VERIFY_MSG03].info;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), salt, info);
   if (ret < 0)
     {
       handle->errmsg = "Verify request 2: hkdf error getting derived_key";
@@ -1827,6 +1856,8 @@ client_verify_response1(struct pair_verify_context *handle, const uint8_t *data,
   pair_tlv_t *signature;
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
+  const char *salt;
+  const char *info;
   uint8_t derived_key[32];
   size_t encrypted_len;
   uint8_t *decrypted_data = NULL;
@@ -1860,7 +1891,10 @@ client_verify_response1(struct pair_verify_context *handle, const uint8_t *data,
       goto error;
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), PAIR_VERIFY_MSG02);
+  salt = pair_keys_map[PAIR_VERIFY_MSG02].salt;
+  info = pair_keys_map[PAIR_VERIFY_MSG02].info;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), salt, info);
   if (ret < 0)
     {
       handle->errmsg = "Verify response 1: hkdf error getting derived_key";
@@ -2152,6 +2186,8 @@ server_setup_request3(struct pair_setup_context *handle, const uint8_t *data, si
   pair_tlv_t *signature;
   const uint8_t *session_key;
   int session_key_len;
+  const char *salt;
+  const char *info;
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
   uint8_t derived_key[32];
@@ -2172,7 +2208,10 @@ server_setup_request3(struct pair_setup_context *handle, const uint8_t *data, si
       RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: No valid session key");
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, msg_state);
+  salt = pair_keys_map[msg_state].salt;
+  info = pair_keys_map[msg_state].info;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, salt, info);
   if (ret < 0)
     {
       RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: hkdf error getting derived_key");
@@ -2209,7 +2248,10 @@ server_setup_request3(struct pair_setup_context *handle, const uint8_t *data, si
       RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
     }
 
-  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_CONTROLLER_SIGN);
+  salt = pair_keys_map[PAIR_SETUP_CONTROLLER_SIGN].salt;
+  info = pair_keys_map[PAIR_SETUP_CONTROLLER_SIGN].info;
+
+  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, salt, info);
   if (ret < 0)
     {
       RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 3: hkdf error getting device_x");
@@ -2344,6 +2386,8 @@ server_setup_response3(size_t *len, struct pair_setup_context *handle)
   enum pair_keys msg_state = PAIR_SETUP_MSG06;
   const uint8_t *session_key;
   int session_key_len;
+  const char *salt;
+  const char *info;
   pair_tlv_values_t *response;
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
@@ -2370,7 +2414,10 @@ server_setup_response3(size_t *len, struct pair_setup_context *handle)
       RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: No valid session key");
     }
 
-  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, PAIR_SETUP_ACCESSORY_SIGN);
+  salt = pair_keys_map[PAIR_SETUP_ACCESSORY_SIGN].salt;
+  info = pair_keys_map[PAIR_SETUP_ACCESSORY_SIGN].info;
+
+  ret = hkdf_extract_expand(device_x, sizeof(device_x), session_key, session_key_len, salt, info);
   if (ret < 0)
     {
       RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: hkdf error getting device_x");
@@ -2394,7 +2441,10 @@ server_setup_response3(size_t *len, struct pair_setup_context *handle)
     }
   data_len += append_len;
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, msg_state);
+  salt = pair_keys_map[msg_state].salt;
+  info = pair_keys_map[msg_state].info;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), session_key, session_key_len, salt, info);
   if (ret < 0)
     {
       RETURN_ERROR(PAIR_STATUS_INVALID, "Setup response 3: hkdf error getting derived_key");
@@ -2509,6 +2559,8 @@ server_verify_request2(struct pair_verify_context *handle, const uint8_t *data, 
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
   uint8_t derived_key[32];
+  const char *salt;
+  const char *info;
   size_t encrypted_len;
   uint8_t *decrypted_data = NULL;
   char id_str[PAIR_AP_DEVICE_ID_LEN_MAX] = { 0 };
@@ -2521,7 +2573,10 @@ server_verify_request2(struct pair_verify_context *handle, const uint8_t *data, 
       RETURN_ERROR(PAIR_STATUS_INVALID, handle->errmsg);
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), msg_state);
+  salt = pair_keys_map[msg_state].salt;
+  info = pair_keys_map[msg_state].info;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), salt, info);
   if (ret < 0)
     {
       RETURN_ERROR(PAIR_STATUS_INVALID, "Verify request 2: hkdf error getting derived_key");
@@ -2610,6 +2665,8 @@ server_verify_response1(size_t *len, struct pair_verify_context *handle)
   uint8_t nonce[NONCE_LENGTH] = { 0 };
   uint8_t tag[AUTHTAG_LENGTH];
   uint8_t derived_key[32];
+  const char *salt;
+  const char *info;
   uint8_t *encrypted_data = NULL;
   size_t encrypted_data_len;
   uint8_t *data;
@@ -2638,7 +2695,10 @@ server_verify_response1(size_t *len, struct pair_verify_context *handle)
       RETURN_ERROR(PAIR_STATUS_INVALID, "Verify response 1: Error creating device info");
     }
 
-  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), msg_state);
+  salt = pair_keys_map[msg_state].salt;
+  info = pair_keys_map[msg_state].info;
+
+  ret = hkdf_extract_expand(derived_key, sizeof(derived_key), vctx->shared_secret, sizeof(vctx->shared_secret), salt, info);
   if (ret < 0)
     {
       RETURN_ERROR(PAIR_STATUS_INVALID, "Verify response 1: hkdf error getting derived_key");
@@ -2865,7 +2925,7 @@ server_list_response(size_t *len, pair_list_cb cb, void *cb_arg)
 }
 
 static int
-server_list(uint8_t **out, size_t *out_len, pair_list_cb cb, void *cb_arg, const uint8_t *in, size_t in_len)
+server_list(uint8_t **out, size_t *out_len, pair_list_cb cb, void *cb_arg, __attribute__((unused)) const uint8_t *in, __attribute__((unused)) size_t in_len)
 {
   // Skip reading the request, it just has state = 1 and pair method =
   // PairingMethodListPairings
@@ -2890,35 +2950,47 @@ cipher_free(struct pair_cipher_context *cctx)
 }
 
 static struct pair_cipher_context *
-cipher_new(struct pair_definition *type, int channel, const uint8_t *shared_secret, size_t shared_secret_len)
+cipher_new(struct pair_definition *type, enum pair_channel channel, const uint8_t *shared_secret, size_t shared_secret_len, const char *salt_suffix)
 {
-  struct pair_cipher_context *cctx;
-  enum pair_keys write_key;
-  enum pair_keys read_key;
+  struct pair_cipher_context *cctx = NULL;
+  bool is_client;
+  enum pair_keys key_encrypt;
+  enum pair_keys key_decrypt;
+  char salt_encrypt[256];
+  char salt_decrypt[256];
+  const char *info_encrypt;
+  const char *info_decrypt;
   int ret;
+
+  is_client = (type == &pair_client_homekit_normal || type == &pair_client_homekit_transient);
 
   // Note that events is opposite, probably because it is a reverse connection
   switch (channel)
     {
-      case 0:
-	write_key = PAIR_CONTROL_WRITE;
-	read_key = PAIR_CONTROL_READ;
+      case PAIR_CHANNEL_CONTROL:
+	key_encrypt = is_client ? PAIR_CONTROL_WRITE : PAIR_CONTROL_READ;
+	key_decrypt = is_client ? PAIR_CONTROL_READ : PAIR_CONTROL_WRITE;
 	break;
-      case 1:
-	write_key = PAIR_EVENTS_READ;
-	read_key = PAIR_EVENTS_WRITE;
+      case PAIR_CHANNEL_EVENTS:
+	key_encrypt = is_client ? PAIR_EVENTS_READ : PAIR_EVENTS_WRITE;
+	key_decrypt = is_client ? PAIR_EVENTS_WRITE : PAIR_EVENTS_READ;
 	break;
-      case 2:
-	write_key = PAIR_CONTROL_READ;
-	read_key = PAIR_CONTROL_WRITE;
+      case PAIR_CHANNEL_DATA:
+	key_encrypt = is_client ? PAIR_DATA_WRITE : PAIR_DATA_READ;
+	key_decrypt = is_client ? PAIR_DATA_READ : PAIR_DATA_WRITE;
 	break;
-      case 3:
-	write_key = PAIR_EVENTS_WRITE;
-	read_key = PAIR_EVENTS_READ;
-	break;
-      default:
-	return NULL;
     }
+
+  ret = snprintf(salt_encrypt, sizeof(salt_encrypt), "%s%s", pair_keys_map[key_encrypt].salt, salt_suffix ? salt_suffix : "");
+  if (ret < 0 || ret >= sizeof(salt_encrypt))
+    goto error;
+
+  ret = snprintf(salt_decrypt, sizeof(salt_decrypt), "%s%s", pair_keys_map[key_decrypt].salt, salt_suffix ? salt_suffix : "");
+  if (ret < 0 || ret >= sizeof(salt_decrypt))
+    goto error;
+
+  info_encrypt = pair_keys_map[key_encrypt].info;
+  info_decrypt = pair_keys_map[key_decrypt].info;
 
   cctx = calloc(1, sizeof(struct pair_cipher_context));
   if (!cctx)
@@ -2926,18 +2998,18 @@ cipher_new(struct pair_definition *type, int channel, const uint8_t *shared_secr
 
   cctx->type = type;
 
-  ret = hkdf_extract_expand(cctx->encryption_key, sizeof(cctx->encryption_key), shared_secret, shared_secret_len, write_key);
+  ret = hkdf_extract_expand(cctx->encryption_key, sizeof(cctx->encryption_key), shared_secret, shared_secret_len, salt_encrypt, info_encrypt);
   if (ret < 0)
     goto error;
 
-  ret = hkdf_extract_expand(cctx->decryption_key, sizeof(cctx->decryption_key), shared_secret, shared_secret_len, read_key);
+  ret = hkdf_extract_expand(cctx->decryption_key, sizeof(cctx->decryption_key), shared_secret, shared_secret_len, salt_decrypt, info_decrypt);
   if (ret < 0)
     goto error;
 
   return cctx;
 
  error:
-  pair_cipher_free(cctx);
+  cipher_free(cctx);
   return NULL;
 }
 

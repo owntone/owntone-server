@@ -72,16 +72,24 @@ int
 hash_init(enum hash_alg alg, HashCTX *c)
 {
 #if CONFIG_OPENSSL
+  c->evp = EVP_MD_CTX_new();
+  int ret;
+
   switch (alg)
     {
-      case HASH_SHA1  : return SHA1_Init(&c->sha);
-      case HASH_SHA224: return SHA224_Init(&c->sha256);
-      case HASH_SHA256: return SHA256_Init(&c->sha256);
-      case HASH_SHA384: return SHA384_Init(&c->sha512);
-      case HASH_SHA512: return SHA512_Init(&c->sha512);
+      case HASH_SHA1  : ret = EVP_DigestInit_ex(c->evp, EVP_sha1(), NULL); break;
+      case HASH_SHA224: ret = EVP_DigestInit_ex(c->evp, EVP_sha224(), NULL); break;
+      case HASH_SHA256: ret = EVP_DigestInit_ex(c->evp, EVP_sha256(), NULL); break;
+      case HASH_SHA384: ret = EVP_DigestInit_ex(c->evp, EVP_sha384(), NULL); break;
+      case HASH_SHA512: ret = EVP_DigestInit_ex(c->evp, EVP_sha512(), NULL); break;
       default:
-        return -1;
+        ret = -1;
     };
+
+  if (ret != 1)
+    return -1;
+
+  return 0;
 #elif CONFIG_GCRYPT
   gcry_error_t err;
 
@@ -98,16 +106,11 @@ int
 hash_update(enum hash_alg alg, HashCTX *c, const void *data, size_t len)
 {
 #if CONFIG_OPENSSL
-  switch (alg)
-    {
-      case HASH_SHA1  : return SHA1_Update(&c->sha, data, len);
-      case HASH_SHA224: return SHA224_Update(&c->sha256, data, len);
-      case HASH_SHA256: return SHA256_Update(&c->sha256, data, len);
-      case HASH_SHA384: return SHA384_Update(&c->sha512, data, len);
-      case HASH_SHA512: return SHA512_Update(&c->sha512, data, len);
-      default:
-        return -1;
-    };
+  int ret = EVP_DigestUpdate(c->evp, data, len);
+  if (ret != 1)
+    return -1;
+
+  return 0;
 #elif CONFIG_GCRYPT
   gcry_md_write(*c, data, len);
   return 0;
@@ -118,16 +121,12 @@ int
 hash_final(enum hash_alg alg, HashCTX *c, unsigned char *md)
 {
 #if CONFIG_OPENSSL
-  switch (alg)
-    {
-      case HASH_SHA1  : return SHA1_Final(md, &c->sha);
-      case HASH_SHA224: return SHA224_Final(md, &c->sha256);
-      case HASH_SHA256: return SHA256_Final(md, &c->sha256);
-      case HASH_SHA384: return SHA384_Final(md, &c->sha512);
-      case HASH_SHA512: return SHA512_Final(md, &c->sha512);
-      default:
-        return -1;
-    };
+  unsigned int md_len;
+  int ret = EVP_DigestFinal(c->evp, md, &md_len);
+  if (ret != 1)
+    return -1;
+
+  return 0;
 #elif CONFIG_GCRYPT
   unsigned char *buf = gcry_md_read(*c, alg);
   if (!buf)
@@ -165,11 +164,11 @@ hash_length(enum hash_alg alg)
 #if CONFIG_OPENSSL
   switch (alg)
     {
-      case HASH_SHA1  : return SHA_DIGEST_LENGTH;
-      case HASH_SHA224: return SHA224_DIGEST_LENGTH;
-      case HASH_SHA256: return SHA256_DIGEST_LENGTH;
-      case HASH_SHA384: return SHA384_DIGEST_LENGTH;
-      case HASH_SHA512: return SHA512_DIGEST_LENGTH;
+      case HASH_SHA1  : return EVP_MD_size(EVP_sha1());
+      case HASH_SHA224: return EVP_MD_size(EVP_sha224());
+      case HASH_SHA256: return EVP_MD_size(EVP_sha256());
+      case HASH_SHA384: return EVP_MD_size(EVP_sha384());
+      case HASH_SHA512: return EVP_MD_size(EVP_sha512());
       default:
         return -1;
     };
@@ -687,12 +686,12 @@ pair_verify_result(struct pair_result **result, struct pair_verify_context *vctx
 }
 
 struct pair_cipher_context *
-pair_cipher_new(enum pair_type type, int channel, const uint8_t *shared_secret, size_t shared_secret_len)
+pair_cipher_new(enum pair_type type, enum pair_channel channel, const uint8_t *shared_secret, size_t shared_secret_len, const char *salt_suffix)
 {
   if (!pair[type]->pair_cipher_new)
     return NULL;
 
-  return pair[type]->pair_cipher_new(pair[type], channel, shared_secret, shared_secret_len);
+  return pair[type]->pair_cipher_new(pair[type], channel, shared_secret, shared_secret_len, salt_suffix);
 }
 
 void

@@ -1450,7 +1450,7 @@ session_cipher_setup(struct airplay_session *session, const uint8_t *key, size_t
   session->shared_secret_len = key_len;
   memcpy(session->shared_secret, key, key_len);
 
-  control_cipher_ctx = pair_cipher_new(session->pair_type, 0, key, key_len);
+  control_cipher_ctx = pair_cipher_new(session->pair_type, PAIR_CHANNEL_CONTROL, key, key_len, NULL);
   if (!control_cipher_ctx)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not create control ciphering context\n");
