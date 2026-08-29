@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define PAIR_AP_VERSION_MAJOR 0
-#define PAIR_AP_VERSION_MINOR 14
+#define PAIR_AP_VERSION_MAJOR 1
+#define PAIR_AP_VERSION_MINOR 0
 
 #define PAIR_AP_DEVICE_ID_LEN_MAX 64
 
@@ -20,16 +20,23 @@ enum pair_type
   // This is the pairing type required for Apple TV device verification, which
   // became mandatory with tvOS 10.2.
   PAIR_CLIENT_FRUIT,
-  // This is the Homekit type required for AirPlay 2 with both PIN setup and
-  // verification
+  // This is the Homekit type required for AirPlay 2 with both PIN/password
+  // setup and verification
   PAIR_CLIENT_HOMEKIT_NORMAL,
   // Same as normal except PIN is fixed to 3939 and stops after setup step 2,
   // when session key is established
   PAIR_CLIENT_HOMEKIT_TRANSIENT,
   // Server side implementation supporting both transient and normal mode,
-  // letting client choose mode. If a PIN is with pair_setup_new() then only
-  // normal mode will be possible.
+  // letting client choose mode. If a PIN/password is set with pair_setup_new()
+  // then only normal mode will be possible.
   PAIR_SERVER_HOMEKIT,
+};
+
+enum pair_channel
+{
+  PAIR_CHANNEL_CONTROL,
+  PAIR_CHANNEL_EVENTS,
+  PAIR_CHANNEL_DATA,
 };
 
 /* This struct stores the various forms of pairing results. The shared secret
@@ -77,7 +84,7 @@ typedef void (*pair_list_cb)(pair_cb list_cb, void *list_cb_arg, void *cb_arg);
 /* ------------------------------- pair setup ------------------------------- */
 
 /* Client
- * When you have the pin-code (must be 4 chars), create a new context with this
+ * When you have the PIN or password, create a new context with this
  * function and then call pair_setup() or pair_setup_request1(). device_id is
  * only required for Homekit pairing. If the client previously paired
  * (non-transient) and has saved credentials, it should instead skip setup and
@@ -89,9 +96,9 @@ typedef void (*pair_list_cb)(pair_cb list_cb, void *list_cb_arg, void *cb_arg);
  * Server
  * The client will make a connection and then at some point make a /pair-setup
  * or a /pair-verify. The server should:
- *   - new /pair-setup: create a setup context with a pin-code (or NULL to allow
- *     transient pairing), and then call pair_setup() to process request and
- *     construct reply (also for subsequent /pair-setup requests)
+ *   - new /pair-setup: create a setup context with a PIN/password (or NULL to
+ *     allow transient pairing), and then call pair_setup() to process request
+ *     and construct reply (also for subsequent /pair-setup requests)
  *   - new /pair_verify: create a verify context and then call pair_verify()
  *     to process request and construct reply (also for subsequent /pair-verify
  *     requests)
@@ -202,9 +209,15 @@ pair_verify_response2(struct pair_verify_context *vctx, const uint8_t *in, size_
  * pair_verify_result() - or, in case of transient pairing, from
  * pair_setup_result(). Give the shared secret as input to this function to
  * create a ciphering context.
+ *
+ * The salt_suffix is for data channels (used for Media Remote Protocol). It's
+ * the seed (64 bit) from the response to SETUP. It shall always be treated as
+ * an unsigned integer (%llu), so -3431997079003895594 would be salt_suffix =
+ * "15014746994705656022". If you provide this, the salt will become
+ * "DataStream-Salt15014746994705656022".
  */
 struct pair_cipher_context *
-pair_cipher_new(enum pair_type type, int channel, const uint8_t *shared_secret, size_t shared_secret_len);
+pair_cipher_new(enum pair_type type, enum pair_channel channel, const uint8_t *shared_secret, size_t shared_secret_len, const char *salt_suffix);
 void
 pair_cipher_free(struct pair_cipher_context *cctx);
 

@@ -147,7 +147,7 @@ client_add(const char *name, int fd, const uint8_t *key, size_t key_len)
       goto error;
     }
 
-  client->cipher_ctx = pair_cipher_new(PAIR_CLIENT_HOMEKIT_NORMAL, 1, key, key_len);
+  client->cipher_ctx = pair_cipher_new(PAIR_CLIENT_HOMEKIT_NORMAL, PAIR_CHANNEL_EVENTS, key, key_len, NULL);
   if (!client->cipher_ctx)
     {
       DPRINTF(E_LOG, L_AIRPLAY, "Could not listen for AirPlay events from '%s': Could not create ciphering context\n", name);
