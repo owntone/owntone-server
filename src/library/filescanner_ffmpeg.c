@@ -301,6 +301,7 @@ static const struct metadata_map md_map_vorbis[] =
  * + added some tags used for grouping
  * Update 20200114: Removed TDA, TDAT, TYE, TYER, TDR since the they are
  * well supported by ffmpeg, and the server was parsing TDA/TDAT incorrectly
+ * Update 20260916: Added TBPM, used by Mixed In Key
  *
  */
 static const struct metadata_map md_map_id3[] =
@@ -319,6 +320,7 @@ static const struct metadata_map md_map_id3[] =
     { "ALBUMARTISTSORT",     0, mfi_offsetof(album_artist_sort),     NULL },              /* ID3v2.x */
     { "TSC",                 0, mfi_offsetof(composer_sort),         NULL },              /* ID3v2.2 */
     { "TSOC",                0, mfi_offsetof(composer_sort),         NULL },              /* ID3v2.3 */
+    { "TBPM",                1, mfi_offsetof(bpm),                   NULL },              /* ID3v2.4 */
 
     { NULL,                  0, 0,                                   NULL }
   };
