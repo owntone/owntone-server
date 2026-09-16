@@ -13,6 +13,7 @@ platforms. These can save you some work and make it easier to stay up to date:
 |OpenWrt               | Run `opkg install libwebsockets-full owntone`
 |Docker / Podman       | See [official image](https://github.com/owntone/owntone-container)
 |FreeBSD               | Run `pkg install owntone` (See: [FreeBSD ports](https://cgit.freebsd.org/ports/tree/audio/owntone))
+|Easypanel              | One-click [Easypanel](https://easypanel.io) template: [easypanel.io/templates/daapd](https://easypanel.io/templates/daapd)
 
 OwnTone is not in the official Debian repositories due to lack of Debian
 maintainer and Debian policy difficulties concerning the web UI, see
