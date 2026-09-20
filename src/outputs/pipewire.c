@@ -44,13 +44,13 @@
  *
  * Volume
  * ------
- * Volume handling is selected via the "mixer" key in the [audio] section
- * ("sink" or "stream") when the "type" is "pipewire"; see pipewire_mixer_mode
- * below and the block comment above the pwsink_* functions for how "sink" mode
- * finds and drives the actual sink/device volume, as opposed to merely attenuating
+ * Volume handling is selected via the "pipewire_mixer" key in the [audio] section
+ * ("pwsink" or "pwstream"); see pipewire_mixer_mode below and the block
+ * comment above the pwsink_* functions for how "pwsink" mode finds and
+ * drives the actual sink/device volume, as opposed to merely attenuating
  * OwnTone's own stream.
  *
- * "sink" mode opens its own independent PipeWire connection (its own
+ * "pwsink" mode opens its own independent PipeWire connection (its own
  * pw_thread_loop/pw_context/pw_core, held in pwsinkctx below), separate
  * from the connection used for the audio stream. Sink discovery and volume
  * round-trips therefore never contend with the real-time streaming
@@ -108,6 +108,7 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/iter.h>
+#include <pthread.h>
 
 #define PIPEWIRE_LOG_MAX 10
 
@@ -155,7 +156,7 @@ struct pipewire_ctx
 static struct pipewire_ctx pwctx;
 
 /*
- * Separate PipeWire connection used only for "sink" volume control: its
+ * Separate PipeWire connection used only for "pwsink" volume control: its
  * own pw_thread_loop/pw_context/pw_core, independent of pwctx above (which
  * carries the audio stream). Registry/metadata lookups and Device/Route
  * writes for sink-volume control run entirely on this connection, so they
@@ -175,39 +176,25 @@ struct pipewire_sinkctx
   /* Pending sync seq so we know when a round-trip is done */
   int                    last_done_seq;
 
-  /*
-   * Set from the core's .error callback; checked by sink-resolution
-   * round-trips so a core error unblocks a pw_thread_loop_wait() promptly
-   * instead of spinning until the retry budget silently runs out. 0 = no
-   * error pending. Cleared at the start of each (re)connect.
-   */
+  /* Set from the core's .error callback */
   int                    core_error;
 
   /*
    * Registry and metadata: used to resolve the target Audio/Sink node
    * (either the configured sink_target name, or whatever
    * "default.audio.sink" currently names) and drive its volume natively
-   * via the PipeWire API -- no shelling out to wpctl.
    *
    * Two objects end up bound once resolution completes:
    *
    *   sink_proxy   -- the Audio/Sink Node itself. Its own SPA_PROP_Props
-   *                   (channelVolumes) is a real but largely inert
-   *                   software gain stage for hardware-routed sinks; for
-   *                   sinks with no owning Device (virtual/software-only
-   *                   sinks) it's the *only* volume path, so we always
+   *                   (channelVolumes) is a software gain stage for 
+   *                   hardware-routed sinks; for sinks with no owning 
+   *                   Device it's the *only* volume path, so we always
    *                   keep it in sync as a fallback.
    *
    *   device_proxy -- the parent Device that owns the sink's active
-   *                   hardware Route (if the sink has a device.id at
-   *                   all). This is what actually moves the ALSA mixer
-   *                   control on hardware-routed sinks; the Node's own
-   *                   Props does not. Volume is applied here by writing
-   *                   SPA_PARAM_Route with the route's index/device/
-   *                   direction echoed back unchanged and an updated
-   *                   embedded Props(channelVolumes), plus
-   *                   SPA_PARAM_ROUTE_save=true so WirePlumber persists
-   *                   it the same way `wpctl set-volume` would.
+   *                   hardware Route This is what actually moves the 
+   *                   ALSA mixer control on hardware-routed sinks
    */
   struct pw_registry     *registry;
   struct spa_hook         registry_listener;
@@ -284,13 +271,33 @@ struct pipewire_sinkctx
    * -1 = unknown, ask PipeWire's last-read-back state instead.
    */
   int                     cached_volume_pct;
-
+  /*
+   * True once the one-shot boot/reconnect forced-resync has run for the
+   * current connection. WirePlumber can report a restored volume that does
+   * not match what's actually latched into the hardware mixer register yet
+   * The only way to force the real write is a value that genuinely
+   * differs from WirePlumber's cache, so this flag gates a single forced
+   * nudge-away-and-back at the point sink/route resolution completes,
+   * before any interactive volume_set() call. Reset in pwsink_reset_state()
+   * so both cold boot and reconnect-after-sleep each get exactly one.
+   */
+  bool                    boot_resync_done;
   /*
    * Sleep/wake reconnection timer, separate from pwctx's -- the two
    * connections can fail and recover independently.
    */
   struct event           *reconnect_ev;
+  /* One-shot timer used to defer the initial player_volume_setabs_speaker()
+   * call until after pipewire_init() has returned and the player thread's
+   * normal event loop is pumping -- calling it synchronously from inside
+   * pipewire_init() deadlocks, since that runs on the player thread itself
+   * before its command queue is being serviced. */
   bool                    reconnect_pending;
+  /* The output_device id this sink-volume connection belongs to, so a
+   * reconnect can re-apply the live-read volume through the same player
+   * volume-set path used at initial startup. Set once in pipewire_init(),
+   * never changed afterward. */
+  uint64_t                device_id;
 };
 
 static struct pipewire_sinkctx pwsinkctx;
@@ -300,18 +307,15 @@ static struct pipewire_sinkctx pwsinkctx;
  * section:
  *
  *   mixer = "sink" -- drive the actual PipeWire/WirePlumber SINK volume
- *     (Device Route when the sink has a hardware mixer control, Node Props
- *     as fallback for routeless/virtual sinks), shared system-wide with
- *     every other PipeWire client. The stream itself is pinned to unity
- *     gain (1.0) whenever this mode is active, so there is exactly one
- *     gain stage in effect, at the sink.
+ *     shared system-wide with every other PipeWire client. The stream itself is
+ *     pinned to unity gain (1.0) whenever this mode is active, so there is exactly one
+ *     gain stage in effect
  *
  *   mixer = "stream" -- drive OwnTone's own STREAM volume via
  *     SPA_PROP_channelVolumes. Always software, never hardware-backed, and
- *     not shared with other PipeWire clients -- but doesn't depend on the
- *     sink having a usable hardware volume route at all.
+ *     not shared with other PipeWire clients.
  *
- *   (unset / not "sink" or "stream") -- no PipeWire-specific volume
+ *   (unset / not "pwsink" or "pwstream") -- no PipeWire-specific volume
  *     handling of any kind: device_volume_set() is a no-op, and the stream
  *     is left at whatever PipeWire's own default is.
  */
@@ -324,11 +328,12 @@ enum pipewire_mixer_mode
 static enum pipewire_mixer_mode pipewire_mixer_mode = PIPEWIRE_MIXER_PWSTREAM;
 
 /*
- * Volume curve used for sink mode, selected via "sink_volume_curve" in
+ * Volume curve used for pwsink mode, selected via "sink_volume_curve" in
  * [audio] ("cubic", the default, or "linear").
  *
  * WirePlumber/wpctl display and set volume on a cubic scale rather than
- * linear PCM gain.
+ * linear PCM gain "linear" bypasses that and writes the percentage straight
+ * into channelVolumes.
  */
 enum pipewire_volume_curve
 {
@@ -378,11 +383,7 @@ struct pipewire_session
   /*
    * Last volume set via pipewire_device_volume_set(), as a 0.0-1.0 linear
    * fraction. Only meaningful in PIPEWIRE_MIXER_PWSTREAM mode, where it is
-   * re-applied every time the stream (re)connects -- otherwise a reconnect
-   * (e.g. on a quality change via playback_restart()) would leave the new
-   * stream instance at PipeWire's own default volume until the next
-   * explicit volume() call.  Defaults to 1.0 (unity) so a stream that's
-   * never had an explicit volume command starts at full scale.
+   * re-applied every time the stream (re)connects 
    */
   float    stream_volume;
 
@@ -393,7 +394,7 @@ struct pipewire_session
   /*
    * Ring buffer of audio bytes, owned by the session.
    *
-   * OwnTone's player thread calls playback_write() roughly every ~10ms with
+   * The player thread calls playback_write() roughly every ~10ms with
    * small chunks (~1764 bytes at 44100/16/2), while PipeWire's data-loop
    * thread calls on_process() at its own period (observed: 2048 samples,
    * i.e. ~43ms @ 48kHz, wanting ~49152 bytes of F32 after conversion). The
@@ -452,8 +453,8 @@ build_format_param(struct spa_pod_builder *b, const struct media_quality *q)
 }
 
 /*
- * Build a Props pod to set per-stream volume. Only used in "stream" mixer
- * mode, and for pinning the stream to unity gain in "sink" mode -- in the
+ * Build a Props pod to set per-stream volume. Only used in "pwstream" mixer
+ * mode, and for pinning the stream to unity gain in "pwsink" mode -- in the
  * unset/default mode neither this nor any PipeWire sink call is ever made.
  */
 static const struct spa_pod *
@@ -477,9 +478,16 @@ build_stream_volume_param(struct spa_pod_builder *b, float vol, uint32_t channel
 
 /* ------------------- PWSINK: DEVICE/ROUTE VOLUME CONTROL ------------------
  *
- * The functions in this section implement "sink" mixer mode: driving the
+ * The functions in this section implement "pwsink" mixer mode: driving the
  * system's actual sink/device volume over PipeWire's native protocol,
  * rather than merely attenuating OwnTone's own stream.
+ *
+ * Why Device/Route and not just Node Props
+ * -----------------------------------------
+ * A PipeWire stream or node's own SPA_PROP_channelVolumes is a real
+ * parameter, and setting it does change what that object reports WirePlumber 
+ * listens for SPA_PARAM_Route writes with an embedded Props(channelVolumes) 
+ * and pushes that down to the ALSA mixer element itself.
  *
  * For sinks with no owning Device at all (device.id absent -- typically a
  * virtual/software-only sink, e.g. a null-sink or a Bluetooth profile
@@ -510,9 +518,7 @@ build_stream_volume_param(struct spa_pod_builder *b, float vol, uint32_t channel
  * All of this runs on pwsinkctx's own connection (its own pw_thread_loop,
  * pw_context, and pw_core), independent of pwctx which carries the audio
  * stream. Every function below must be called with pwsinkctx.thread_loop's
- * lock held, exactly as pwctx.thread_loop's lock guards access to streaming
- * objects elsewhere in this file -- the two locks are never held at once
- * and never need to be, since the two connections don't share any object.
+ * lock held.
  */
 
 static void pwsink_reset_state(void);
@@ -603,10 +609,7 @@ pwsink_maybe_bind(void)
                           0, SPA_PARAM_Props, 0, UINT32_MAX, NULL);
 
       /*
-       * The Node's own Props (above) reflects real-but-largely-inert
-       * software state for a hardware-routed sink; the object that
-       * actually drives the audible/ALSA mixer-control volume is the
-       * parent Device's active Route, so bind that too when available.
+       * The Node's own Props reflect software state for a hardware-routed sink
        */
       if (s->device_id != SPA_ID_INVALID)
         {
@@ -641,13 +644,10 @@ pwsink_maybe_bind(void)
 
 /*
  * Write channelVolumes to the sink Node's own Props. Always kept in sync as
- * a fallback / for routeless sinks; on hardware-routed sinks this is largely
- * inert (see the big comment above) but harmless to also set.
- *
- * Must be called with pwsinkctx.thread_loop locked.
+ * a fallback / for routeless sinks Must be called with pwsinkctx.thread_loop locked.
  */
 static void
-pwsink_apply_node_volume(bool assert_unmuted)
+pwsink_apply_node_volume(void)
 {
   uint8_t buf[512];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -666,11 +666,9 @@ pwsink_apply_node_volume(bool assert_unmuted)
   for (i = 0; i < n; i++)
     spa_pod_builder_float(&b, pwsinkctx.node_volumes[i]);
   spa_pod_builder_pop(&b, &array_frame);
-  if (assert_unmuted)
-    {
-      spa_pod_builder_prop(&b, SPA_PROP_mute, 0);
-      spa_pod_builder_bool(&b, false);
-    }
+  /* Explicitly assert unmuted every time we write a volume. */
+  spa_pod_builder_prop(&b, SPA_PROP_mute, 0);
+  spa_pod_builder_bool(&b, false);
   param = spa_pod_builder_pop(&b, &obj_frame);
 
   pw_node_set_param((struct pw_node *)pwsinkctx.sink_proxy, SPA_PARAM_Props, 0, param);
@@ -678,19 +676,12 @@ pwsink_apply_node_volume(bool assert_unmuted)
 
 /*
  * Write the Device's active Route back with updated channelVolumes and
- * ROUTE_save=true, so WirePlumber both applies it to the real hardware
- * mixer control and persists it exactly as `wpctl set-volume` would.
- * index/device/direction are echoed back unchanged, as required.
- *
- * assert_unmuted: see pwsink_apply_node_volume() -- same reasoning, this is
- * the write that actually drives the ALSA mixer control on hardware-routed
- * sinks, so it's the one that matters for both the stuck-mute fix and the
- * click regression if it's asserted unconditionally.
+ * ROUTE_save=true
  *
  * Must be called with pwsinkctx.thread_loop locked.
  */
 static void
-pwsink_apply_route_volume(bool assert_unmuted)
+pwsink_apply_route_volume(void)
 {
   uint8_t buf[1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -718,11 +709,11 @@ pwsink_apply_route_volume(bool assert_unmuted)
   for (i = 0; i < n; i++)
     spa_pod_builder_float(&b, pwsinkctx.node_volumes[i]);
   spa_pod_builder_pop(&b, &array_frame);
-  if (assert_unmuted)
-    {
-      spa_pod_builder_prop(&b, SPA_PROP_mute, 0);
-      spa_pod_builder_bool(&b, false);
-    }
+  /* assert unmuted on every write of the Route. This is the object
+   * that actually drives the ALSA mixer control on hardware-routed
+   * sinks */
+  spa_pod_builder_prop(&b, SPA_PROP_mute, 0);
+  spa_pod_builder_bool(&b, false);
   spa_pod_builder_pop(&b, &props_frame);
 
   spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_save, 0);
@@ -733,14 +724,71 @@ pwsink_apply_route_volume(bool assert_unmuted)
   pw_device_set_param((struct pw_device *)pwsinkctx.device_proxy, SPA_PARAM_Route, 0, param);
 }
 
+/* Smaller than one percentage-point step on the cubic curve (0.01^3 =
+ * 0.000001, but even on the linear curve 1% = 0.01), so this reliably
+ * distinguishes "WirePlumber's cached value" from "a value we actually
+ * mean to change to" without false-triggering on ordinary volume steps. */
+#define PIPEWIRE_VOLUME_EPSILON 0.004f
+
+/*
+ * WirePlumber (like `wpctl set-volume`) silently skips the underlying
+ * ALSA hardware write when an incoming Route/Props volume matches its
+ * already-cached value -- there's no delta to apply, so nothing downstream
+ * of the write ever runs. If the very first volume we write after
+ * (re)connecting happens to equal whatever value survived from before,
+ * that first write is a no-op: WirePlumber never touches the ALSA mixer 
+ * control, and whatever mute state the hardware happens to be in is never
+ * cleared either, since nothing runs to clear it.
+ *
+ * If the target we're about to write matches what we last read back
+ * (route volume preferred, node volume as fallback) within
+ * PIPEWIRE_VOLUME_EPSILON, force a real delta through first: write a
+ * nudged-away value, round-trip, then let the caller's real write proceed
+ * immediately after. This guarantees a genuine ALSA write happens.
+ *
+ * Must be called with pwsinkctx.thread_loop locked.
+ */
+static void
+pwsink_force_resync_if_unchanged(float vol)
+{
+  float current;
+  float nudge;
+  uint32_t n, i;
+
+  if (pwsinkctx.have_route && pwsinkctx.n_route_volumes > 0)
+    current = pwsinkctx.route_volumes[0];
+  else if (pwsinkctx.have_node_volume)
+    current = pwsinkctx.node_volumes[0];
+  else
+    return; /* nothing read back yet to compare against; let the normal write proceed */
+
+  if (fabsf(current - vol) > PIPEWIRE_VOLUME_EPSILON)
+    return; /* already a real change, no nudge needed */
+
+  nudge = (vol >= 0.5f) ? (vol - 0.05f) : (vol + 0.05f);
+  if (nudge < 0.0f) nudge = 0.0f;
+  if (nudge > 1.0f) nudge = 1.0f;
+
+  DPRINTF(E_DBG, L_LAUDIO,
+    "PipeWire: target volume %.4f matches current %.4f -- nudging to %.4f first "
+    "to force a real hardware write\n",
+    (double)vol, (double)current, (double)nudge);
+
+  n = (pwsinkctx.n_node_volumes > 0) ? pwsinkctx.n_node_volumes : 2;
+  n = (n < PIPEWIRE_MAX_CHANNELS) ? n : PIPEWIRE_MAX_CHANNELS;
+  for (i = 0; i < n; i++)
+    pwsinkctx.node_volumes[i] = nudge;
+  pwsinkctx.n_node_volumes = n;
+
+  pwsink_apply_node_volume();
+  pwsink_apply_route_volume();
+  pwsink_roundtrip();
+}
+
 /*
  * Set the resolved sink's volume to vol (0.0-1.0 linear), applying both the
  * Node Props write (fallback/always) and the Device Route write (the one
  * that actually matters for hardware-routed sinks, when available).
- *
- * Must be called with pwsinkctx.thread_loop locked. Returns 0 on success
- * (writes queued; a round-trip is issued to detect a core error promptly),
- * -1 if the sink isn't resolved yet.
  */
 static int
 pwsink_set_volume(float vol)
@@ -763,12 +811,10 @@ pwsink_set_volume(float vol)
     pwsinkctx.node_volumes[i] = vol;
   pwsinkctx.n_node_volumes = n;
 
-  pwsink_apply_node_volume(false);
-  pwsink_apply_route_volume(false);
+  pwsink_apply_node_volume();
+  pwsink_apply_route_volume();
 
-  /* Best-effort: confirm the writes didn't race a core error. Not fatal if
-   * this particular round-trip fails; the next volume/status call will
-   * surface a persistent problem. */
+  /* Best-effort: confirm the writes didn't race a core error*/
   pwsink_roundtrip();
 
   pwsinkctx.cached_volume_pct = volume_to_pct(vol, pipewire_volume_curve);
@@ -780,11 +826,7 @@ pwsink_set_volume(float vol)
 }
 
 /*
- * Best-effort read of the sink's current volume as a 0-100 percentage,
- * using the curve configured via sink_volume_curve. Prefers the Route's
- * volumes (the "true" hardware-reflecting value) over the Node's Props,
- * and falls back to the last value OwnTone itself set if nothing has been
- * read back from PipeWire yet.
+ * Best-effort read of the sink's current volume as a 0-100 percentage
  */
 static int
 pwsink_get_volume_pct(void)
@@ -801,9 +843,54 @@ pwsink_get_volume_pct(void)
   return -1;
 }
 
+/*
+ * Run exactly once per connection and before the player-path volume push.
+ * Forces a real hardware write even though the target volume
+ * 
+ * Must be called with pwsinkctx.thread_loop locked.
+ */
+static void
+pwsink_do_boot_resync(void)
+{
+  float vol;
+
+  if (pwsinkctx.boot_resync_done)
+    return;
+
+  if (!pwsink_is_ready())
+    return;
+
+  vol = (pwsinkctx.have_route && pwsinkctx.n_route_volumes > 0) ? pwsinkctx.route_volumes[0]
+      : (pwsinkctx.have_node_volume) ? pwsinkctx.node_volumes[0]
+      : -1.0f;
+
+  if (vol < 0.0f)
+    {
+      DPRINTF(E_DBG, L_LAUDIO,
+        "PipeWire: boot resync skipped, no volume read back yet\n");
+      return;
+    }
+
+  DPRINTF(E_LOG, L_LAUDIO,
+    "PipeWire: forcing one-time boot/reconnect volume resync (current=%.4f) "
+    "to work around WirePlumber same-value no-op on restored volume\n",
+    (double)vol);
+
+  /*
+   * pwsink_force_resync_if_unchanged() only performs the nudge-away half of
+   * the dance -- it deliberately does not write the real value back
+   * afterward.
+   */
+  pwsink_force_resync_if_unchanged(vol);
+  pwsink_set_volume(vol);
+
+  pwsinkctx.boot_resync_done = true;
+}
+
 /* Frees known_sinks and clears all resolution state, but does not touch the
  * connection itself (thread_loop/context/core) or destroy any bound
- * proxies */
+ * proxies -- callers do that separately, in the order required by
+ * PipeWire's proxy lifetime rules, before calling this. */
 static void
 pwsink_reset_state(void)
 {
@@ -826,6 +913,7 @@ pwsink_reset_state(void)
   pwsinkctx.target_name[0]    = '\0';
   pwsinkctx.core_error        = 0;
   pwsinkctx.cached_volume_pct = -1;
+  pwsinkctx.boot_resync_done  = false;
 }
 
 /* ----------------------------- SESSION HANDLING --------------------------- */
@@ -1004,18 +1092,11 @@ on_stream_state_changed(void *userdata, enum pw_stream_state old,
       case PW_STREAM_STATE_PAUSED:
         /*
          * PAUSED is the first state entered after a successful connect
-         * (before the stream goes to STREAMING once we call
-         * pw_stream_set_active). We use it as the "ready" signal -- send
-         * status back to the player -- and also (re-)assert the correct
-         * stream-level volume for the active mixer mode, since a fresh
-         * pw_stream connection always starts at PipeWire's own default
-         * volume regardless of what was set on a previous stream instance
-         * for this same session (e.g. after playback_restart() on a
-         * quality change).
+         * We use it as the "ready" signal.
          *
-         *   - sink mode: pin the stream to unity (1.0) so the sink/
+         *   - pwsink mode: pin the stream to unity (1.0) so the sink/
          *     device volume is the only gain stage in effect.
-         *   - stream mode: re-apply the last volume OwnTone asked for,
+         *   - pwstream mode: re-apply the last volume OwnTone asked for,
          *     so a reconnect doesn't silently reset to full scale (or
          *     whatever PipeWire's default is) until the next explicit
          *     volume() call.
@@ -1043,6 +1124,16 @@ on_stream_state_changed(void *userdata, enum pw_stream_state old,
 
 /*
  * PipeWire calls this on its RT data thread whenever it wants more audio.
+ * PipeWire holds the thread loop lock while calling us, so access to the
+ * ring buffer is serialised with playback_write() which also takes that lock.
+ *
+ * pwbuf->requested tells us how many samples PipeWire actually wants to fill
+ * this period (NOT sbuf->datas[0].maxsize, which is the buffer's allocated
+ * capacity and can be much larger than what's needed per cycle). If
+ * requested is 0 (some drivers don't set it), we fall back to maxsize.
+ *
+ * We drain up to that many bytes from the ring; if the ring has less than
+ * requested, we drain what we have and pad the remainder with silence.
  */
 static void
 on_process(void *userdata)
@@ -1125,6 +1216,12 @@ static const struct pw_stream_events stream_events = {
 /*
  * Parse the "name" field from a JSON object string like:
  *   { "name": "alsa_output.platform-soc_sound.stereo-fallback" }
+ *
+ * Writes the name into out (up to out_len bytes, null-terminated).
+ * Returns true on success, false if the JSON couldn't be parsed.
+ *
+ * We use SPA's own spa_json parser (the same library PipeWire and WirePlumber
+ * use internally) rather than any external JSON dependency.
  */
 static bool
 parse_default_sink_name(const char *json, char *out, size_t out_len)
@@ -1326,9 +1423,8 @@ on_registry_global_remove(void *data, uint32_t id)
 
   if (id == pwsinkctx.sink_global_id)
     {
-      /* The sink we were bound to disappeared (unplugged, etc.). Drop it;
-       * volume_set() will report failure until resolution completes again
-       * (either from a later registry event, or after a reconnect). */
+      /* The sink we were bound to disappeared (unplugged, etc.). Drop it.
+       */
       DPRINTF(E_DBG, L_LAUDIO,
         "PipeWire: bound sink node %u removed, awaiting new default\n", id);
 
@@ -1533,11 +1629,17 @@ static const struct pw_core_events core_events;
  * connection (typically caused by the system going to sleep and PipeWire's
  * server being suspended/killed).
  *
- * Called on the player thread via the libevent timer set up in on_core_error.
- * We hold no PW locks here; we take the thread loop lock for the short window
- * where we touch PW objects, matching the pattern used throughout this file.
+ * This only concerns the audio-streaming connection (pwctx); the pwsink
+ * volume-control connection (pwsinkctx) is entirely separate and recovers
+ * independently via pwsink_core_reconnect() below.
  *
- * This only concerns the audio-streaming connection (pwctx).
+ * Recovery sequence:
+ *  1. Tear down the stale pw_core (socket is already dead, so we just clean
+ *     up our end -- no need to send a disconnect message).
+ *  2. Re-connect pw_core via pw_context_connect() (the pw_context itself
+ *     is purely a local C object and survives sleep/wake intact).
+ *  3. For any active sessions, close their stale pw_stream objects and
+ *     re-open fresh ones against the new core connection.
  */
 static void
 pipewire_core_reconnect(void)
@@ -1584,11 +1686,7 @@ pipewire_core_reconnect(void)
 
   DPRINTF(E_LOG, L_LAUDIO, "PipeWire: stream reconnected to daemon\n");
 
-  /* Re-open streams for all active sessions.  Each session's stale pw_stream
-   * was already destroyed by the PW_STREAM_STATE_ERROR path in
-   * on_stream_state_changed, which sets ps->stream = NULL.  We just need to
-   * re-open fresh ones.  Sessions whose quality is zeroed (never had a
-   * stream opened yet) are skipped -- playback_restart() will open them
+  /* Re-open streams for all active sessions. playback_restart() will open them
    * when audio first arrives. */
   for (ps = sessions; ps; ps = ps->next)
     {
@@ -1622,6 +1720,70 @@ pipewire_reconnect_cb(int fd, short what, void *arg)
   pipewire_core_reconnect();
 }
 
+/*
+ * Argument struct for the one-shot detached thread below. Allocated on the
+ * heap since the calling context (a libevent callback on evbase_player)
+ * returns immediately after starting the thread; the thread frees it.
+ */
+struct pwsink_initial_volume_args
+{
+  uint64_t device_id;
+  int      pct;
+};
+
+/*
+ * Runs on its own throwaway pthread, NOT on evbase_player. This is required:
+ * player_volume_setabs_speaker() calls commands_exec_sync(), which blocks
+ * the calling thread until the player's command-processing loop (which runs
+ * on evbase_player) has serviced the command and signalled completion.
+ */
+static void *
+pwsink_initial_volume_thread(void *arg)
+{
+  struct pwsink_initial_volume_args *args = arg;
+
+  player_volume_setabs_speaker(args->device_id, args->pct);
+
+  free(args);
+  return NULL;
+}
+
+/*
+ * Kick off the one-shot volume-push thread. Safe to call from any thread,
+ * including evbase_player callbacks -- it only ever starts a new, separate
+ * thread and returns immediately; it never blocks the caller.
+ */
+static void
+pwsink_push_initial_volume_async(uint64_t device_id, int pct)
+{
+  struct pwsink_initial_volume_args *args;
+  pthread_t tid;
+  pthread_attr_t attr;
+  int ret;
+
+  args = malloc(sizeof(*args));
+  if (!args)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "PipeWire: out of memory starting initial-volume thread\n");
+      return;
+    }
+  args->device_id = device_id;
+  args->pct       = pct;
+
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+  ret = pthread_create(&tid, &attr, pwsink_initial_volume_thread, args);
+  pthread_attr_destroy(&attr);
+
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "PipeWire: could not start initial-volume thread: %s\n",
+        strerror(ret));
+      free(args);
+    }
+}
+
 static void
 on_core_error(void *userdata, uint32_t id, int seq, int res, const char *message)
 {
@@ -1633,9 +1795,13 @@ on_core_error(void *userdata, uint32_t id, int seq, int res, const char *message
       /*
        * The streaming core connection dropped -- most likely a sleep/wake
        * event killed PipeWire's server process. Shut down all active
-       * sessions (marking them failed so the player knows audio stopped)
-       * and schedule a reconnect attempt after a short delay to give
-       * PipeWire time to restart.
+       * sessions.
+       *
+       * We signal the thread loop so any in-progress pw_thread_loop_wait()
+       * (e.g. during pipewire_init's initial sync) can unblock cleanly.
+       *
+       * This only affects the streaming connection; the separate pwsink
+       * connection (if any) is unaffected and recovers independently.
        */
       pipewire_session_shutdown_all(PW_STREAM_STATE_ERROR);
       pw_thread_loop_signal(pwctx.thread_loop, false);
@@ -1663,8 +1829,9 @@ static const struct pw_core_events core_events = {
 /* ------------------- PWSINK CORE CALLBACKS (PWSINK THREAD) ----------------
  *
  * Mirror of the streaming core callbacks above, but for pwsinkctx's own
- * connection. Kept as a fully separate set of functions/timer/state since 
- * the two connection types have different teardown needs
+ * connection. Kept as a fully separate set of functions/timer/state rather
+ * than parameterizing the ones above, since the two connections have
+ * different teardown needs.
  */
 
 static void
@@ -1772,13 +1939,20 @@ pwsink_core_reconnect(void)
     pwsink_maybe_bind();
 
   /* Sync, then give sink/device/route resolution a bounded budget to
-   * complete.
-   */
+   * complete -- mirrors the same bounded wait done in pipewire_init(). */
   pw_core_sync(pwsinkctx.core, PW_ID_CORE, 0);
   pw_thread_loop_wait(pwsinkctx.thread_loop);
   pwsink_wait_ready();
 
+  pwsink_do_boot_resync();
+
   pw_thread_loop_unlock(pwsinkctx.thread_loop);
+
+  {
+    int pct = pwsink_get_volume_pct();
+    if (pct >= 0)
+      pwsink_push_initial_volume_async(pwsinkctx.device_id, pct);
+  }
 
   DPRINTF(E_LOG, L_LAUDIO, "PipeWire: pwsink reconnected to daemon\n");
 
@@ -1786,9 +1960,8 @@ pwsink_core_reconnect(void)
 }
 
 /*
- * libevent timer callback: fired PIPEWIRE_RECONNECT_MS after a sink core
+ * libevent timer callback: fired PIPEWIRE_RECONNECT_MS after a pwsink core
  * disconnect to give PipeWire's daemon time to restart after a sleep/wake.
- * Runs on the player thread (evbase_player).
  */
 static void
 pwsink_reconnect_cb(int fd, short what, void *arg)
@@ -1805,8 +1978,10 @@ pwsink_on_core_error(void *userdata, uint32_t id, int seq, int res, const char *
   if (id == PW_ID_CORE)
     {
       /*
-       * The sink connection dropped. Record the error so any blocked
-       * sink-resolution round-trip (pwsink_roundtrip) and schedule a
+       * The pwsink connection dropped -- most likely a sleep/wake event
+       * killed PipeWire's server process. Record the error so any blocked
+       * sink-resolution round-trip (pwsink_roundtrip) fails fast instead of
+       * spinning until its retry budget silently expires, and schedule a
        * reconnect attempt after a short delay to give PipeWire time to
        * restart.
        */
@@ -1880,9 +2055,10 @@ pipewire_free(void)
 /*
  * Tear down pwsinkctx's connection: stop its thread loop, destroy any
  * bound proxies (metadata/sink/device/registry) before disconnecting the
- * core then disconnect the core and destroy the context/thread loop.
- * Entirely independent of pipewire_free() above -- called whenever sink
- * mode isn't in use, and during pipewire_deinit().
+ * core (which would otherwise invalidate them out from under us), then
+ * disconnect the core and destroy the context/thread loop themselves.
+ * Entirely independent of pipewire_free() above -- called whenever pwsink
+ * mode isn't (or is no longer) in use, and during pipewire_deinit().
  */
 static void
 pwsink_free(void)
@@ -1893,7 +2069,6 @@ pwsink_free(void)
       event_free(pwsinkctx.reconnect_ev);
       pwsinkctx.reconnect_ev = NULL;
     }
-
   if (pwsinkctx.thread_loop)
     pw_thread_loop_stop(pwsinkctx.thread_loop);
 
@@ -1983,9 +2158,8 @@ stream_open(struct pipewire_session *ps, const struct media_quality *quality)
   /*
    * Do NOT set PW_KEY_NODE_LATENCY here.  outputs_buffer_duration_ms_get()
    * returns OwnTone's internal scheduling lookahead (~2250ms), which is not
-   * a meaningful PipeWire hardware quantum.  Setting it caused PipeWire to
-   * request 99225-sample buffers while OwnTone delivers 441-sample chunks,
-   * so on_process only fired once per ~225 writes -- producing short bursts.
+   * a meaningful PipeWire hardware quantum.
+   *
    * Let PipeWire negotiate its own quantum with the graph (typically 1024
    * samples at the graph rate, ~21ms), which matches OwnTone's delivery cadence.
    */
@@ -2004,7 +2178,8 @@ stream_open(struct pipewire_session *ps, const struct media_quality *quality)
 
   /*
    * Connect with PW_ID_ANY -- no explicit target node.  WirePlumber will
-   * link this stream to the session-manager's default audio sink automatically.
+   * link this stream to the session-manager's default audio sink
+   * automatically.
    */
   ret = pw_stream_connect(ps->stream,
     PW_DIRECTION_OUTPUT,
@@ -2026,7 +2201,9 @@ stream_open(struct pipewire_session *ps, const struct media_quality *quality)
   ps->state   = PW_STREAM_STATE_CONNECTING;
 
   /*
-   * (Re)allocate the ring buffer sized for this quality.
+   * (Re)allocate the ring buffer sized for this quality. Done here, not in
+   * pipewire_session_make(), since we don't know the real quality until the
+   * first write/restart determines it.
    */
   {
     size_t bytes_per_sec = (size_t)quality->sample_rate
@@ -2107,8 +2284,6 @@ playback_restart(struct pipewire_session *ps, struct output_buffer *obuf)
 
 /*
  * Push a chunk of audio into the session's ring buffer (FIFO, byte-oriented).
- * Called from the player thread. If the ring doesn't have room, we drop the
- * OLDEST buffered bytes to make room.
  */
 static void
 ring_push(struct pipewire_session *ps, const uint8_t *src, size_t len)
@@ -2194,8 +2369,9 @@ playback_resume(struct pipewire_session *ps)
 
 /*
  * outputs_device_start() refuses to start a device if device_probe is NULL,
- * so we must provide one. Make a temporary session, report STOPPED (= probe ok,
- * not streaming), and clean up.
+ * so we must provide one.  Since the PipeWire core connection was already
+ * verified in pipewire_init(), a probe is trivially successful: make a
+ * temporary session, report STOPPED (= probe ok, not streaming), and clean up.
  */
 static int
 pipewire_device_probe(struct output_device *device, int callback_id)
@@ -2295,6 +2471,10 @@ pipewire_device_volume_set(struct output_device *device, int callback_id)
   float vol;
   int ret;
 
+  DPRINTF(E_LOG, L_LAUDIO,
+    "PipeWire: pipewire_device_volume_set() called, device->volume=%d mixer_mode=%d\n",
+    device->volume, (int)pipewire_mixer_mode);
+    
   if (!ps)
     return 0;
 
@@ -2317,7 +2497,9 @@ pipewire_device_volume_set(struct output_device *device, int callback_id)
       case PIPEWIRE_MIXER_PWSTREAM:
         /*
          * Drive our own stream's software gain directly via
-         * SPA_PROP_channelVolumes. 
+         * SPA_PROP_channelVolumes.
+         *
+         * pwstream mode intentionally always uses a plain linear curve:
          */
         vol = pct_to_volume(device->volume, PIPEWIRE_CURVE_LINEAR);
 
@@ -2341,11 +2523,12 @@ pipewire_device_volume_set(struct output_device *device, int callback_id)
       default:
         /*
          * No "pipewire_mixer" setting configured: no PipeWire-specific volume
-         * handling at all. Leave OwnTone's own upstream default volume behavior
-         *as it is; just acknowledge the callback so the player doesn't hang.
+         * handling at all. Leave whatever OwnTone's own upstream default
+         * volume behaviour is; just acknowledge the callback so the
+         * player doesn't hang.
          */
         DPRINTF(E_DBG, L_LAUDIO,
-          "PipeWire: mixer not configured ('sink'/'stream'), ignoring volume change\n");
+          "PipeWire: mixer not configured ('pwsink'/'pwstream'), ignoring volume change\n");
         break;
     }
 
@@ -2388,58 +2571,15 @@ pipewire_write(struct output_buffer *obuf)
 /* ----------------------------- INIT / DEINIT ------------------------------ */
 
 /*
- * Force a genuine, guaranteed-real volume write through at connect time,
- * once, so any mute/gain state the physical hardware lost across an ALSA
- * suspend/resume power cycle gets corrected -- without needing (or causing)
- * a click on any later ordinary volume adjustment.
- */
-static void
-pwsink_reassert_unmuted_locked(void)
-{
-  float current, nudge;
-  uint32_t n, i;
-
-  if (pwsinkctx.have_route && pwsinkctx.n_route_volumes > 0)
-    current = pwsinkctx.route_volumes[0];
-  else if (pwsinkctx.have_node_volume)
-    current = pwsinkctx.node_volumes[0];
-  else
-    current = 0.5f; /* nothing cached yet; any nudge target works */
-
-  nudge = (current >= 0.5f) ? (current - 0.05f) : (current + 0.05f);
-  if (nudge < 0.0f) nudge = 0.0f;
-  if (nudge > 1.0f) nudge = 1.0f;
-
-  n = (pwsinkctx.n_node_volumes > 0) ? pwsinkctx.n_node_volumes : 2;
-  n = (n < PIPEWIRE_MAX_CHANNELS) ? n : PIPEWIRE_MAX_CHANNELS;
-
-  DPRINTF(E_DBG, L_LAUDIO,
-    "PipeWire: connect-time resync -- nudging %.4f -> %.4f -> %.4f to force "
-    "a real hardware write\n",
-    (double)current, (double)nudge, (double)current);
-
-  /* Step 1: a genuinely different value, forcing a real write. */
-  for (i = 0; i < n; i++)
-    pwsinkctx.node_volumes[i] = nudge;
-  pwsinkctx.n_node_volumes = n;
-  pwsink_apply_node_volume(true);
-  pwsink_apply_route_volume(true);
-  pwsink_roundtrip();
-
-  /* Step 2: settle back to the real value -- also a genuine delta from
-   * what step 1 just wrote, so this applies for real too. */
-  for (i = 0; i < n; i++)
-    pwsinkctx.node_volumes[i] = current;
-  pwsink_apply_node_volume(true);
-  pwsink_apply_route_volume(true);
-  pwsink_roundtrip();
-}
-
-/*
  * Open pwsinkctx's own PipeWire connection and, if possible, resolve the
  * target sink/device/route before returning. Called once from
  * pipewire_init() when pipewire_mixer_mode == PIPEWIRE_MIXER_PWSINK; a
  * no-op call site in any other mode (pwsinkctx stays entirely unused).
+ *
+ * Failure here is logged but not fatal to the output as a whole: streaming
+ * still works via pwctx regardless of whether pwsink resolved successfully,
+ * volume_set() will just report failure until/unless resolution completes
+ * in the background.
  */
 static int
 pwsink_init(void)
@@ -2449,31 +2589,33 @@ pwsink_init(void)
   pwsinkctx.thread_loop = pw_thread_loop_new("pipewire-pwsink", NULL);
   if (!pwsinkctx.thread_loop)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not create PipeWire sink thread loop\n");
+      DPRINTF(E_LOG, L_LAUDIO, "Could not create PipeWire pwsink thread loop\n");
       return -1;
     }
 
   /*
    * Create the libevent timer used by pwsink_on_core_error() to schedule a
-   * reconnect after sleep/wake events. pwsink_core_reconnect() re-adds the event
-   * itself if it fails.
+   * reconnect after sleep/wake events. Fires on evbase_player, same as the
+   * streaming reconnect timer, so it's safe to call into pwsinkctx's thread
+   * loop from the callback. EV_PERSIST is NOT set -- one-shot per attempt;
+   * pwsink_core_reconnect() re-adds the event itself if it fails.
    */
   pwsinkctx.reconnect_ev = event_new(evbase_player, -1, 0,
                                      pwsink_reconnect_cb, NULL);
   if (!pwsinkctx.reconnect_ev)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not create PipeWire sink reconnect timer\n");
+      DPRINTF(E_LOG, L_LAUDIO, "Could not create PipeWire pwsink reconnect timer\n");
       pwsink_free();
       return -1;
     }
   pwsinkctx.reconnect_pending = false;
-
+    
   struct pw_properties *ctx_props;
 
   ctx_props = pw_properties_new(PW_KEY_APP_NAME, "owntone-pwsink-mixer", NULL);
   if (!ctx_props)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "PipeWire could not allocate sink context properties\n");
+      DPRINTF(E_LOG, L_LAUDIO, "PipeWire could not allocate pwsink context properties\n");
       pwsink_free();
       return -1;
     }
@@ -2481,7 +2623,7 @@ pwsink_init(void)
   pwsinkctx.context = pw_context_new(pw_thread_loop_get_loop(pwsinkctx.thread_loop), ctx_props, 0);
   if (!pwsinkctx.context)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not create PipeWire sink context\n");
+      DPRINTF(E_LOG, L_LAUDIO, "Could not create PipeWire pwsink context\n");
       pwsink_free();
       return -1;
     }
@@ -2489,7 +2631,7 @@ pwsink_init(void)
   ret = pw_thread_loop_start(pwsinkctx.thread_loop);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not start PipeWire sink thread loop: %s\n", spa_strerror(ret));
+      DPRINTF(E_LOG, L_LAUDIO, "Could not start PipeWire pwsink thread loop: %s\n", spa_strerror(ret));
       pwsink_free();
       return -1;
     }
@@ -2499,7 +2641,7 @@ pwsink_init(void)
   pwsinkctx.core = pw_context_connect(pwsinkctx.context, NULL, 0);
   if (!pwsinkctx.core)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not connect PipeWire sink: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_LAUDIO, "Could not connect PipeWire pwsink: %s\n", strerror(errno));
       pw_thread_loop_unlock(pwsinkctx.thread_loop);
       pwsink_free();
       return -1;
@@ -2515,12 +2657,18 @@ pwsink_init(void)
   /*
    * Subscribe to the registry so we can discover the target Audio/Sink
    * node (and its owning Device, for Route-level volume) plus the
-   * WirePlumber "default" metadata object.
+   * WirePlumber "default" metadata object. Registry events arrive
+   * asynchronously; pwsink_wait_ready() below gives resolution a bounded
+   * budget to complete before we return, but this is best-effort --
+   * resolution keeps running in the background via the registry/metadata
+   * listeners either way, and the first volume_set() call (which happens
+   * well after init, only once the user changes volume) will simply
+   * report failure if it's still pending.
    */
   pwsinkctx.registry = pw_core_get_registry(pwsinkctx.core, PW_VERSION_REGISTRY, 0);
   if (!pwsinkctx.registry)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not get PipeWire sink registry\n");
+      DPRINTF(E_LOG, L_LAUDIO, "Could not get PipeWire pwsink registry\n");
       pw_thread_loop_unlock(pwsinkctx.thread_loop);
       pwsink_free();
       return -1;
@@ -2535,7 +2683,7 @@ pwsink_init(void)
   if (pwsinkctx.configured_target[0])
     pwsink_maybe_bind();
 
-  DPRINTF(E_DBG, L_LAUDIO, "PipeWire: sink registry active, watching for target Audio/Sink\n");
+  DPRINTF(E_DBG, L_LAUDIO, "PipeWire: pwsink registry active, watching for target Audio/Sink\n");
 
   /* Sync: wait for the initial core round-trip to complete. */
   pw_core_sync(pwsinkctx.core, PW_ID_CORE, 0);
@@ -2562,13 +2710,6 @@ pwsink_init(void)
       /* Not fatal: registry/metadata listeners remain active and may still
        * resolve the target later; volume_set() just reports failure until
        * then. */
-    }
-  else
-    {
-      /* One-time only: the physical DAC/codec may have lost its unmute or
-       * gain state across an ALSA suspend/resume power cycle since we last
-       * connected, in a way WirePlumber's own Props cache never reflects*/
-      pwsink_reassert_unmuted_locked();
     }
 
   pw_thread_loop_unlock(pwsinkctx.thread_loop);
@@ -2616,7 +2757,7 @@ pipewire_init(void)
   /*
    * sink_target: literal node.name to pin sink-volume control to,
    * bypassing "default.audio.sink" resolution entirely. Unset/"default"
-   * means follow the system default sink. Only meaningful in sink mode.
+   * means follow the system default sink. Only meaningful in pwsink mode.
    */
   pwsinkctx.configured_target[0] = '\0';
   target = cfg_getstr(cfg_audio, "sink_target");
@@ -2625,7 +2766,7 @@ pipewire_init(void)
 
   /*
    * sink_volume_curve: "cubic" (default, matches wpctl/WirePlumber's own
-   * perceptual scale) or "linear". Only meaningful in sink mode.
+   * perceptual scale) or "linear". Only meaningful in pwsink mode.
    */
   curve = cfg_getstr(cfg_audio, "sink_volume_curve");
   if (!curve || strcasecmp(curve, "cubic") == 0)
@@ -2711,19 +2852,19 @@ pipewire_init(void)
   pw_thread_loop_unlock(pwctx.thread_loop);
 
   /*
-   * In sink volume mode, bring up pwsinkctx's own independent connection
+   * In pwsink volume mode, bring up pwsinkctx's own independent connection
    * for sink-volume control. Not fatal if this fails -- streaming via pwctx
    * above is unaffected either way; only volume_set() calls are impacted.
    */
   if (pipewire_mixer_mode == PIPEWIRE_MIXER_PWSINK && pwsink_init() < 0)
     DPRINTF(E_LOG, L_LAUDIO,
-      "PipeWire: sink connection failed to initialise -- volume control "
+      "PipeWire: pwsink connection failed to initialise -- volume control "
       "will not work until this is resolved\n");
 
   /*
    * Register the single PipeWire output device.  WirePlumber will route our
    * stream to the default sink; OwnTone does not enumerate sinks itself for
-   * streaming (independent of sink volume-control resolution above).
+   * streaming (independent of pwsink volume-control resolution above).
    */
   nickname = cfg_getstr(cfg_audio, "nickname");
   if (!nickname || nickname[0] == '\0')
@@ -2754,9 +2895,28 @@ pipewire_init(void)
         }
       else
         DPRINTF(E_WARN, L_LAUDIO,
-          "PipeWire: sink volume not resolved at startup, using stored/default volume instead\n");
+          "PipeWire: pwsink volume not resolved at startup, using stored/default volume instead\n");
     }
+
   player_device_add(device);
+  pwsinkctx.device_id = device->id;
+
+  /*
+   * WirePlumber can report a restored volume that does not match what's
+   * actually latched into the hardware mixer register yet. Explicitly
+   * re-apply whatever volume we just read back through that path instead
+   * of leaving it as a passive device->volume assignment.
+   */
+  if (pipewire_mixer_mode == PIPEWIRE_MIXER_PWSINK)
+    {
+      pw_thread_loop_lock(pwsinkctx.thread_loop);
+      pwsink_do_boot_resync();
+      pw_thread_loop_unlock(pwsinkctx.thread_loop);
+
+      int pct = pwsink_get_volume_pct();
+      if (pct >= 0)
+        pwsink_push_initial_volume_async(device->id, pct);
+    }
 
   DPRINTF(E_LOG, L_LAUDIO, "PipeWire output initialised\n");
 
