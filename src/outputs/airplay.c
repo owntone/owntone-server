@@ -4307,7 +4307,7 @@ airplay_init(void)
 
   CHECK_NULL(L_AIRPLAY, keep_alive_timer = evtimer_new(evbase_player, airplay_keep_alive_timer_cb, NULL));
 
-  airplay_user_agent = cfg_getstr(cfg_getsec(cfg, "general"), "user_agent");
+  airplay_user_agent = cfg_getstr(cfg_getsec(cfg, "airplay_shared"), "user_agent");
   airplay_client_name = cfg_getstr(cfg_getsec(cfg, "library"), "name");
 
   timing_port = cfg_getint(cfg_getsec(cfg, "airplay_shared"), "timing_port");
