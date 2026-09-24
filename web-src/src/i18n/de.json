@@ -28,7 +28,7 @@
     "artists": "{count} Künstler",
     "audiobooks": "{count} Hörbuch|{count} Hörbuch|{count} Hörbücher",
     "authors": "{count} Autor|{count} Autor|{count} Autoren",
-    "channels": "{count} canal|{count} canaux",
+    "channels": "{count} Kanal|{count} Kanäle",
     "chapters": "{count} Kapitel|{count} Kapitel|{count} Kapitel",
     "composers": "{count} Komponist|{count} Komponist|{count} Komponisten",
     "genres": "{count} Genre|{count} Genre|{count} Genres",
