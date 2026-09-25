@@ -52,6 +52,9 @@ extern struct output_definition output_alsa;
 #ifdef HAVE_LIBPULSE
 extern struct output_definition output_pulse;
 #endif
+#ifdef HAVE_PIPEWIRE
+extern struct output_definition output_pipewire;
+#endif
 #ifdef CHROMECAST
 extern struct output_definition output_cast;
 #endif
@@ -72,6 +75,9 @@ static struct output_definition *outputs[] = {
 #endif
 #ifdef HAVE_LIBPULSE
     &output_pulse,
+#endif
+#ifdef HAVE_PIPEWIRE
+    &output_pipewire,
 #endif
 #ifdef CHROMECAST
     &output_cast,
@@ -779,7 +785,11 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   struct output_device *device;
   char *keep_name;
   int keep_offset_ms;
+  int keep_volume;  // Live volume as read by the backend before this call
   int ret;
+  
+ DPRINTF(E_LOG, L_PLAYER, "outputs_device_add: id=%" PRIu64 " name='%s' volume=%d volume_is_external=%d\n",
+    add->id, add->name ? add->name : "(null)", add->volume, add->volume_is_external);
 
   for (device = outputs_device_list; device; device = device->next)
     {
@@ -811,14 +821,28 @@ outputs_device_add(struct output_device *add, bool new_deselect)
 
       keep_name = strdup(device->name);
       keep_offset_ms = device->offset_ms; // For legacy local audio and Chromecast where offset could come from config file
-
+      // Live volume as read by the backend (e.g. pwsink mode's initial
+      // PipeWire read-back), carried on the incoming `add` struct -- NOT
+      // `device`, the already-registered entry we're about to overwrite
+      // from the DB below. Using `device` here just re-reads its own
+      // previous (possibly stale) value and defeats volume_is_external.
+      keep_volume = add->volume;
       ret = db_speaker_get(device, device->id);
       if (ret < 0)
 	{
 	  device->selected = 0;
 	  device->volume = (outputs_master_volume >= 0) ? outputs_master_volume : OUTPUTS_DEFAULT_VOLUME;;
 	}
-
+      //Same reasoning as above: volume_is_external was set on `add` by
+      // the backend (pipewire_init(), in pwsink mode), not on the
+      // persisted `device` object, which has never had this bit set.
+      else if (add->volume_is_external)
+	{
+	  // This backend's volume can be changed by something other than
+	  // OwnTone, so the DB's stored value may already be stale. Trust
+	  // the live reading the backend gave us instead.
+	  device->volume = keep_volume;
+	}
       free(device->name);
       device->name = keep_name;
 
