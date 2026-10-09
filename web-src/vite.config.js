@@ -32,7 +32,7 @@ export default defineConfig({
   plugins: [
     vue(),
     i18n({
-      include: path.resolve(__dirname, './src/i18n/**.json')
+      include: path.resolve(import.meta.dirname, './src/i18n/**.json')
     })
   ],
   resolve: { alias: { '@': '/src' } },
