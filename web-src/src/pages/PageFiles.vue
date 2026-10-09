@@ -25,7 +25,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import ContentWithHeading from '@/templates/ContentWithHeading.vue'
 import ControlButton from '@/components/ControlButton.vue'
 import { GroupedList } from '@/lib/GroupedList'
@@ -85,31 +85,18 @@ const transform = (path) => ({
   path
 })
 
-const fetchData = async (to) => {
-  if (to.query.directory) {
-    const data = await library.files(to.query.directory)
-    if (data) {
-      directories.value = data.directories.map((directory) =>
-        transform(directory.path)
-      )
-      playlists.value = new GroupedList(data.playlists)
-      tracks.value = new GroupedList(data.tracks)
-    }
+const fetchData = async ({ directory }) => {
+  if (directory) {
+    const data = await library.files(directory)
+    directories.value = data.directories.map((item) => transform(item.path))
+    playlists.value = new GroupedList(data.playlists)
+    tracks.value = new GroupedList(data.tracks)
   } else {
-    directories.value = configurationStore.directories.map((path) =>
-      transform(path)
-    )
+    directories.value = configurationStore.directories.map(transform)
     playlists.value = new GroupedList()
     tracks.value = new GroupedList()
   }
 }
 
-watch(
-  () => route.query.directory,
-  () => fetchData(route)
-)
-
-onMounted(() => {
-  fetchData(route)
-})
+watchEffect(() => fetchData(route.query))
 </script>
