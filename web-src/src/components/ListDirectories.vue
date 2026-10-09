@@ -72,7 +72,7 @@ const openDetails = (item) => {
 }
 
 const openParent = () => {
-  const parent = directories.value.slice(-1).pop()
+  const parent = directories.value.at(-1)
   if (parent) {
     open(parent)
   }
