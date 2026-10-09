@@ -117,8 +117,8 @@ pair_tlv_format(const pair_tlv_values_t *values, uint8_t *buffer, size_t *size) 
     size_t required_size = 0;
     pair_tlv_t *t = values->head;
     while (t) {
-        required_size += t->size + 2 * ((t->size + 254) / 255);
-        t = t->next;
+        size_t chunks = t->size ? (t->size + 254) / 255 : 1;
+        required_size += t->size + 2 * chunks;
     }
 
     if (*size < required_size) {

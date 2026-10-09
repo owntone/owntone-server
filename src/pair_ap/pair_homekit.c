@@ -2979,6 +2979,8 @@ cipher_new(struct pair_definition *type, enum pair_channel channel, const uint8_
 	key_encrypt = is_client ? PAIR_DATA_WRITE : PAIR_DATA_READ;
 	key_decrypt = is_client ? PAIR_DATA_READ : PAIR_DATA_WRITE;
 	break;
+      default:
+	goto error;
     }
 
   ret = snprintf(salt_encrypt, sizeof(salt_encrypt), "%s%s", pair_keys_map[key_encrypt].salt, salt_suffix ? salt_suffix : "");
