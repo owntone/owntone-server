@@ -536,6 +536,19 @@ pwsink_maybe_bind(void)
     }
 }
 
+static int
+pwsink_apply_device_volume(struct output_device *device)
+{
+  float vol = pct_to_volume(device->volume, pipewire_volume_curve);
+  int ret;
+
+  pw_thread_loop_lock(pwsinkctx.thread_loop);
+  ret = pwsink_set_volume(vol);
+  pw_thread_loop_unlock(pwsinkctx.thread_loop);
+
+  return ret;
+}
+
 /* Write channelVolumes to the sink Node's Props. Fallback for routeless
  * sinks; largely inert on hardware-routed ones. Needs thread_loop locked. */
 static void
@@ -682,8 +695,6 @@ pwsink_set_volume(float vol)
       return -1;
     }
 
-  // pwsink_force_resync_if_unchanged(vol); // commented to diagnose clicks
-
   if (pwsinkctx.session_resync_pending)
     {
       /* First write after a session connect: force a real hardware write
@@ -696,17 +707,17 @@ pwsink_set_volume(float vol)
   n = (n < PIPEWIRE_MAX_CHANNELS) ? n : PIPEWIRE_MAX_CHANNELS;
   for (i = 0; i < n; i++)
     pwsinkctx.node_volumes[i] = vol;
-  pwsinkctx.n_node_volumes = n;
+    pwsinkctx.n_node_volumes = n;
 
-  pwsink_apply_node_volume();
-  pwsink_apply_route_volume();
+    pwsink_apply_node_volume();
+    pwsink_apply_route_volume();
 
   /* Best-effort: confirm the writes didn't race a core error. Not fatal if
    * this particular round-trip fails; the next volume/status call will
    * surface a persistent problem. */
-  pwsink_roundtrip();
+    pwsink_roundtrip();
 
-  pwsinkctx.cached_volume_pct = volume_to_pct(vol, pipewire_volume_curve);
+    pwsinkctx.cached_volume_pct = volume_to_pct(vol, pipewire_volume_curve);
 
   DPRINTF(E_DBG, L_LAUDIO, "PipeWire: set sink volume to %.4f (%d%%)\n",
     (double)vol, pwsinkctx.cached_volume_pct);
@@ -865,7 +876,7 @@ pipewire_session_make(struct output_device *device, int callback_id)
   ps->state       = PW_STREAM_STATE_UNCONNECTED;
   ps->device_id   = device->id;
   ps->callback_id = callback_id;
-  ps->stream_volume = 1.0f;
+  ps->stream_volume = pct_to_volume(device->volume, PIPEWIRE_CURVE_LINEAR);
 
   /* delay_ms = base buffer duration + offset_ms. Sum is done in signed
    * 64-bit so a negative offset can't wrap; if it would go below zero the
@@ -881,7 +892,7 @@ pipewire_session_make(struct output_device *device, int callback_id)
       ps->delay_ms = (uint64_t)total;
   }
 
-  DPRINTF(E_LOG, L_LAUDIO,
+  DPRINTF(E_DBG, L_LAUDIO,
     "PipeWire: session start for '%s': device->offset_ms=%d, base_buffer_ms=%" PRIu64 ", resulting delay_ms=%" PRIu64 "\n",
     device->name, device->offset_ms, outputs_buffer_duration_ms_get(), ps->delay_ms);
 
@@ -1631,39 +1642,6 @@ pwsink_initial_volume_thread(void *arg)
   return NULL;
 }
 
-/* Start the one-shot volume-push thread. Safe from any thread; returns
- * immediately. */
-static void
-pwsink_push_initial_volume_async(uint64_t device_id, int pct)
-{
-  struct pwsink_initial_volume_args *args;
-  pthread_t tid;
-  pthread_attr_t attr;
-  int ret;
-
-  args = malloc(sizeof(*args));
-  if (!args)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "PipeWire: out of memory starting initial-volume thread\n");
-      return;
-    }
-  args->device_id = device_id;
-  args->pct       = pct;
-
-  pthread_attr_init(&attr);
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-  ret = pthread_create(&tid, &attr, pwsink_initial_volume_thread, args);
-  pthread_attr_destroy(&attr);
-
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_LAUDIO, "PipeWire: could not start initial-volume thread: %s\n",
-        strerror(ret));
-      free(args);
-    }
-}
-
 static void
 on_core_error(void *userdata, uint32_t id, int seq, int res, const char *message)
 {
@@ -1809,14 +1787,6 @@ pwsink_core_reconnect(void)
   pwsink_wait_ready();
 
   pwsink_do_boot_resync();
-
-  pw_thread_loop_unlock(pwsinkctx.thread_loop);
-
-  {
-    int pct = pwsink_get_volume_pct();
-    if (pct >= 0)
-      pwsink_push_initial_volume_async(pwsinkctx.device_id, pct);
-  }
 
   DPRINTF(E_LOG, L_LAUDIO, "PipeWire: pwsink reconnected to daemon\n");
 
@@ -2241,7 +2211,15 @@ pipewire_device_start(struct output_device *device, int callback_id)
   ps = pipewire_session_make(device, callback_id);
   if (!ps)
     return -1;
-
+    
+  /* The player may have stored a volume while the device had no session, in which
+   * case outputs_device_volume_set() skipped us. Apply device->volume now. */
+  if (pipewire_mixer_mode == PIPEWIRE_MIXER_PWSINK
+      && pwsink_apply_device_volume(device) < 0)
+    {  
+    DPRINTF(E_WARN, L_LAUDIO, "PipeWire: could not apply volume at start\n");
+    }
+    
   /* The stream opens on the first write (playback_restart); report
    * CONNECTED so the player can proceed. */
   pipewire_status(ps);
@@ -2311,7 +2289,7 @@ pipewire_device_volume_set(struct output_device *device, int callback_id)
   float vol;
   int ret;
 
-  DPRINTF(E_LOG, L_LAUDIO,
+  DPRINTF(E_DBG, L_LAUDIO,
     "PipeWire: pipewire_device_volume_set() called, device->volume=%d mixer_mode=%d\n",
     device->volume, (int)pipewire_mixer_mode);
     
@@ -2323,12 +2301,7 @@ pipewire_device_volume_set(struct output_device *device, int callback_id)
   switch (pipewire_mixer_mode)
     {
       case PIPEWIRE_MIXER_PWSINK:
-        vol = pct_to_volume(device->volume, pipewire_volume_curve);
-
-        pw_thread_loop_lock(pwsinkctx.thread_loop);
-        ret = pwsink_set_volume(vol);
-        pw_thread_loop_unlock(pwsinkctx.thread_loop);
-
+        ret = pwsink_apply_device_volume(device);
         if (ret < 0)
           DPRINTF(E_LOG, L_LAUDIO,
             "PipeWire: failed to set sink volume (sink not yet resolved?)\n");

@@ -1697,7 +1697,6 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
   uint64_t output_id;
   json_object *request = NULL;
   bool selected;
-  bool has_selected;
   int volume;
   int offset_ms;
   const char *pin;
@@ -1718,92 +1717,43 @@ jsonapi_reply_outputs_put_byid(struct httpd_request *hreq)
       goto error;
     }
 
-  has_selected = jparse_contains_key(request, "selected", json_type_boolean);
-  if (has_selected)
-    selected = jparse_bool_from_obj(request, "selected");
-
-  /*
-   * offset_ms is only ever read by an output backend at session-start time
-   * (see outputs.h) -- never applied to a live session -- so it must be
-   * written to device->offset_ms BEFORE a "selected: true" in the same
-   * request creates a fresh session, or that session starts with whatever
-   * the PREVIOUS request set, one apply behind. Safe to do unconditionally
-   * since it never touches device->session either way.
-   */
-  if (jparse_contains_key(request, "offset_ms", json_type_int))
+  if (jparse_contains_key(request, "selected", json_type_boolean))
     {
-      offset_ms = jparse_int_from_obj(request, "offset_ms");
-      ret = player_speaker_offset_ms_set(output_id, offset_ms);
-      if (ret < 0)
-	goto error;
-    }
-
-  /*
-   * volume and pin both require a live device->session to actually take
-   * effect (e.g. pipewire_device_volume_set() silently no-ops if the
-   * session doesn't exist yet) -- unlike offset_ms, so they can't move
-   * unconditionally. Which side of "selected" they need to land on
-   * depends on which direction selected is going:
-   *
-   *  - selected:false in this request: the OLD session is still live right
-   *    now, but won't be once player_speaker_disable() runs -- so apply
-   *    volume/pin first, or e.g. a "volume: 0" sent alongside
-   *    "selected: false" is silently dropped instead of reaching the
-   *    output.
-   *  - selected:true, or "selected" absent (session already exists, or
-   *    doesn't change here): the live session either already exists or is
-   *    only created further down by player_speaker_enable() -- so apply
-   *    volume/pin AFTER that point.
-   */
-  if (has_selected && !selected)
-    {
-      if (jparse_contains_key(request, "volume", json_type_int))
-	{
-	  volume = jparse_int_from_obj(request, "volume");
-	  ret = player_volume_setabs_speaker(output_id, volume);
-	  if (ret < 0)
-	    goto error;
-	}
-
-      if (jparse_contains_key(request, "pin", json_type_string))
-	{
-	  pin = jparse_str_from_obj(request, "pin");
-	  ret = pin ? player_speaker_authorize(output_id, pin) : 0;
-	  if (ret < 0)
-	    goto error;
-	}
-    }
-
-  if (has_selected)
-    {
+      selected = jparse_bool_from_obj(request, "selected");
       ret = selected ? player_speaker_enable(output_id) : player_speaker_disable(output_id);
       if (ret < 0)
 	goto error;
     }
 
-  if (!has_selected || selected)
+  if (jparse_contains_key(request, "volume", json_type_int))
     {
-      if (jparse_contains_key(request, "volume", json_type_int))
-	{
-	  volume = jparse_int_from_obj(request, "volume");
-	  ret = player_volume_setabs_speaker(output_id, volume);
-	  if (ret < 0)
-	    goto error;
-	}
+      volume = jparse_int_from_obj(request, "volume");
+      ret = player_volume_setabs_speaker(output_id, volume);
+      if (ret < 0)
+	goto error;
+    }
 
-      if (jparse_contains_key(request, "pin", json_type_string))
-	{
-	  pin = jparse_str_from_obj(request, "pin");
-	  ret = pin ? player_speaker_authorize(output_id, pin) : 0;
-	  if (ret < 0)
-	    goto error;
-	}
+  if (jparse_contains_key(request, "pin", json_type_string))
+    {
+      pin = jparse_str_from_obj(request, "pin");
+      ret = pin ? player_speaker_authorize(output_id, pin) : 0;
+      if (ret < 0)
+	goto error;
+
     }
 
   if (jparse_contains_key(request, "format", json_type_string))
     {
       format = jparse_str_from_obj(request, "format");
       ret = format ? player_speaker_format_set(output_id, media_format_from_string(format)) : 0;
+      if (ret < 0)
+	goto error;
+    }
+
+  if (jparse_contains_key(request, "offset_ms", json_type_int))
+    {
+      offset_ms = jparse_int_from_obj(request, "offset_ms");
+      ret = player_speaker_offset_ms_set(output_id, offset_ms);
       if (ret < 0)
 	goto error;
     }
