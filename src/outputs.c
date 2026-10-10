@@ -789,7 +789,7 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   int keep_external;
   int ret;
   
- DPRINTF(E_LOG, L_PLAYER, "outputs_device_add: id=%" PRIu64 " name='%s' volume=%d volume_is_external=%d\n",
+ DPRINTF(E_DBG, L_PLAYER, "outputs_device_add: id=%" PRIu64 " name='%s' volume=%d volume_is_external=%d\n",
     add->id, add->name ? add->name : "(null)", add->volume, add->volume_is_external);
 
   for (device = outputs_device_list; device; device = device->next)
@@ -839,7 +839,6 @@ outputs_device_add(struct output_device *add, bool new_deselect)
       if (keep_external)
 	{
 	  device->volume = keep_volume;
-	  device->volume_is_external = 1;
 	}
       free(device->name);
       device->name = keep_name;

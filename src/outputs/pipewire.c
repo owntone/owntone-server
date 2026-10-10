@@ -775,7 +775,7 @@ pwsink_do_boot_resync(void)
       return;
     }
 
-  DPRINTF(E_LOG, L_LAUDIO,
+  DPRINTF(E_DBG, L_LAUDIO,
     "PipeWire: forcing one-time boot/reconnect volume resync (current=%.4f) "
     "to work around WirePlumber same-value no-op on restored volume\n",
     (double)vol);
@@ -889,7 +889,7 @@ pipewire_session_make(struct output_device *device, int callback_id)
     int64_t total = (int64_t)ps->delay_ms + (int64_t)device->offset_ms;
 
     if (total < 0)
-      DPRINTF(E_LOG, L_LAUDIO, "'%s' configured with invalid start time (delay=%" PRIu64 ", offset=%d), ignoring offset\n",
+      DPRINTF(E_DBG, L_LAUDIO, "'%s' configured with invalid start time (delay=%" PRIu64 ", offset=%d), ignoring offset\n",
         device->name, ps->delay_ms, device->offset_ms);
     else
       ps->delay_ms = (uint64_t)total;
@@ -2019,7 +2019,7 @@ stream_open(struct pipewire_session *ps, const struct media_quality *quality)
     ps->prebuf_target = (bytes_per_sec * (size_t)ps->delay_ms) / 1000;
     ps->armed = (ps->prebuf_target == 0); /* delay_ms==0 (e.g. via offset_ms): play immediately */
 
-    DPRINTF(E_LOG, L_LAUDIO,
+    DPRINTF(E_DBG, L_LAUDIO,
       "PipeWire: stream_open sizing: delay_ms=%" PRIu64 ", bytes_per_sec=%zu, ring_capacity=%zu, prebuf_target=%zu, armed=%d\n",
       ps->delay_ms, bytes_per_sec, ps->ring_capacity, ps->prebuf_target, (int)ps->armed);
   }
