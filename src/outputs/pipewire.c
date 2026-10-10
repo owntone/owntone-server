@@ -536,6 +536,8 @@ pwsink_maybe_bind(void)
     }
 }
 
+static int pwsink_set_volume(float vol);
+
 static int
 pwsink_apply_device_volume(struct output_device *device)
 {
@@ -706,11 +708,12 @@ pwsink_set_volume(float vol)
   n = (pwsinkctx.n_node_volumes > 0) ? pwsinkctx.n_node_volumes : 2;
   n = (n < PIPEWIRE_MAX_CHANNELS) ? n : PIPEWIRE_MAX_CHANNELS;
   for (i = 0; i < n; i++)
-    pwsinkctx.node_volumes[i] = vol;
-    pwsinkctx.n_node_volumes = n;
-
-    pwsink_apply_node_volume();
-    pwsink_apply_route_volume();
+    {
+      pwsinkctx.node_volumes[i] = vol;
+    }
+  pwsinkctx.n_node_volumes = n;
+  pwsink_apply_node_volume();
+  pwsink_apply_route_volume();
 
   /* Best-effort: confirm the writes didn't race a core error. Not fatal if
    * this particular round-trip fails; the next volume/status call will
@@ -1615,31 +1618,6 @@ static void
 pipewire_reconnect_cb(int fd, short what, void *arg)
 {
   pipewire_core_reconnect();
-}
-
-/* Argument for the one-shot volume-push thread; heap-allocated, freed by the
- * thread. */
-struct pwsink_initial_volume_args
-{
-  uint64_t device_id;
-  int      pct;
-};
-
-/*
- * Runs on its own throwaway pthread, not evbase_player:
- * player_volume_setabs_speaker() uses commands_exec_sync(), which would
- * deadlock the player's command loop if called from a callback on
- * evbase_player.
- */
-static void *
-pwsink_initial_volume_thread(void *arg)
-{
-  struct pwsink_initial_volume_args *args = arg;
-
-  player_volume_setabs_speaker(args->device_id, args->pct);
-
-  free(args);
-  return NULL;
 }
 
 static void
@@ -2679,10 +2657,6 @@ pipewire_init(void)
       pw_thread_loop_lock(pwsinkctx.thread_loop);
       pwsink_do_boot_resync();
       pw_thread_loop_unlock(pwsinkctx.thread_loop);
-
-      int pct = pwsink_get_volume_pct();
-      if (pct >= 0)
-        pwsink_push_initial_volume_async(device->id, pct);
     }
 
   DPRINTF(E_LOG, L_LAUDIO, "PipeWire output initialised\n");
