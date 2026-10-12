@@ -1429,6 +1429,10 @@ open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *
 
       CHECK_NULL(L_XCODE, ctx->avio = avio_evbuffer_open(evbuf_io, 0));
 
+      // Re-enabled below, when probing is done
+      if (evbuf_io->no_seek_while_probing)
+	ctx->avio->seekable = 0;
+
       ctx->ifmt_ctx->pb = ctx->avio;
       ret = avformat_open_input(&ctx->ifmt_ctx, NULL, ifmt, &options);
     }
@@ -1460,6 +1464,9 @@ open_input(struct decode_ctx *ctx, const char *path, struct transcode_evbuf_io *
       DPRINTF(E_LOG, L_XCODE, "Cannot find stream information: %s\n", err2str(ret));
       goto out_fail;
     }
+
+  if (evbuf_io && evbuf_io->no_seek_while_probing)
+    ctx->avio->seekable = (evbuf_io->seekfn ? AVIO_SEEKABLE_NORMAL : 0);
 
   if (ctx->ifmt_ctx->nb_streams > MAX_STREAMS)
     {
