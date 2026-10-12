@@ -24,6 +24,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <ctype.h>
 
 #include <sys/types.h>
 #include <sys/utsname.h>
@@ -40,6 +42,13 @@
 
 /* Forward */
 static int cb_loglevel(cfg_t *cfg, cfg_opt_t *opt, const char *value, void *result);
+
+/* library directory alias section structure */
+static cfg_opt_t sec_directory[] =
+  {
+    CFG_STR("alias", NULL, CFGF_NONE),
+    CFG_END()
+  };
 
 /* general section structure */
 static cfg_opt_t sec_general[] =
@@ -87,6 +96,7 @@ static cfg_opt_t sec_library[] =
     CFG_INT("port", 3689, CFGF_NONE),
     CFG_STR("password", NULL, CFGF_NONE),
     CFG_STR_LIST("directories", NULL, CFGF_NONE),
+    CFG_SEC("directory", sec_directory, CFGF_MULTI | CFGF_TITLE),
     CFG_BOOL("follow_symlinks", cfg_true, CFGF_NONE),
     CFG_STR_LIST("podcasts", NULL, CFGF_NONE),
     CFG_STR_LIST("audiobooks", NULL, CFGF_NONE),
@@ -305,6 +315,22 @@ uint64_t libhash;
 uid_t runas_uid;
 gid_t runas_gid;
 
+/* Aliases configured via the library "directory" sections. The scanner keys on
+ * both the path as written in the config file and its dereferenced version,
+ * because bulk_scan() uses the former for the parent directories and the
+ * latter for everything below it.
+ */
+struct dir_alias
+{
+  char *path;
+  char *real_path;
+  char *alias;
+
+  struct dir_alias *next;
+};
+
+static struct dir_alias *dir_aliases;
+
 
 static void
 logger_confuse(cfg_t *config, const char *format, va_list args)
@@ -482,6 +508,262 @@ conffile_expand_libname(cfg_t *lib)
   return 0;
 }
 
+/* Returns the length of prefix within path if prefix is path itself or one of
+ * its parent directories, otherwise 0. A trailing slash on prefix is ignored,
+ * the config file may or may not have one.
+ */
+static size_t
+path_prefix_len(const char *path, const char *prefix)
+{
+  size_t len;
+
+  if (!prefix)
+    return 0;
+
+  len = strlen(prefix);
+  while (len > 1 && prefix[len - 1] == '/')
+    len--;
+
+  if (len == 0 || strncmp(path, prefix, len) != 0)
+    return 0;
+
+  if (path[len] != '\0' && path[len] != '/')
+    return 0;
+
+  return len;
+}
+
+/* Returns the length of the first path component of path, e.g. 3 for "/usr" or
+ * "/usr/share". Used to detect aliases that would collide with a library
+ * directory that has no alias of its own.
+ */
+static size_t
+path_first_component_len(const char *path)
+{
+  const char *sep;
+
+  while (*path == '/')
+    path++;
+
+  sep = strchr(path, '/');
+
+  return sep ? (size_t)(sep - path) : strlen(path);
+}
+
+static int
+alias_validate(cfg_t *lib, const char *path, const char *alias)
+{
+  const char *dir;
+  const char *component;
+  size_t i;
+  size_t ndirs;
+  bool found;
+
+  if (!alias || alias[0] == '\0')
+    {
+      DPRINTF(E_FATAL, L_CONF, "Empty alias for library directory '%s'\n", path);
+      return -1;
+    }
+
+  if (strchr(alias, '/'))
+    {
+      DPRINTF(E_FATAL, L_CONF, "Alias '%s' for library directory '%s' must not contain '/'\n", alias, path);
+      return -1;
+    }
+
+  if (strcmp(alias, ".") == 0 || strcmp(alias, "..") == 0)
+    {
+      DPRINTF(E_FATAL, L_CONF, "Alias '%s' for library directory '%s' is not a valid name\n", alias, path);
+      return -1;
+    }
+
+  if (isspace((unsigned char)alias[0]) || isspace((unsigned char)alias[strlen(alias) - 1]))
+    {
+      DPRINTF(E_FATAL, L_CONF, "Alias '%s' for library directory '%s' has leading or trailing whitespace\n", alias, path);
+      return -1;
+    }
+
+  /* The alias must belong to a directory we actually scan, otherwise a typo
+   * would silently do nothing.
+   */
+  ndirs = cfg_size(lib, "directories");
+  found = false;
+  for (i = 0; i < ndirs && !found; i++)
+    {
+      if (strcmp(cfg_getnstr(lib, "directories", i), path) == 0)
+	found = true;
+    }
+
+  if (!found)
+    {
+      DPRINTF(E_FATAL, L_CONF, "Alias configured for '%s', which is not one of the library directories\n", path);
+      return -1;
+    }
+
+  /* An alias sits directly below /file:, so it can collide with the first path
+   * component of a library directory that is not aliased.
+   */
+  for (i = 0; i < ndirs; i++)
+    {
+      dir = cfg_getnstr(lib, "directories", i);
+      if (strcmp(dir, path) == 0 || cfg_gettsec(lib, "directory", dir))
+	continue;
+
+      component = dir + strspn(dir, "/");
+      if (strlen(alias) == path_first_component_len(dir) && strncmp(alias, component, strlen(alias)) == 0)
+	{
+	  DPRINTF(E_FATAL, L_CONF, "Alias '%s' collides with library directory '%s'\n", alias, dir);
+	  return -1;
+	}
+    }
+
+  return 0;
+}
+
+static void
+alias_free(void)
+{
+  struct dir_alias *da;
+
+  while (dir_aliases)
+    {
+      da = dir_aliases;
+      dir_aliases = da->next;
+
+      free(da->path);
+      free(da->real_path);
+      free(da->alias);
+      free(da);
+    }
+}
+
+static int
+alias_init(cfg_t *lib)
+{
+  cfg_t *sec;
+  struct dir_alias *da;
+  const char *path;
+  const char *alias;
+  size_t i;
+  size_t nsecs;
+
+  nsecs = cfg_size(lib, "directory");
+  for (i = 0; i < nsecs; i++)
+    {
+      sec = cfg_getnsec(lib, "directory", i);
+      path = cfg_title(sec);
+      alias = cfg_getstr(sec, "alias");
+
+      if (alias_validate(lib, path, alias) < 0)
+	goto error;
+
+      for (da = dir_aliases; da; da = da->next)
+	{
+	  if (strcmp(da->path, path) == 0)
+	    {
+	      DPRINTF(E_FATAL, L_CONF, "Multiple 'directory' sections for '%s'\n", path);
+	      goto error;
+	    }
+
+	  if (strcmp(da->alias, alias) == 0)
+	    {
+	      DPRINTF(E_FATAL, L_CONF, "Alias '%s' is used for both '%s' and '%s'\n", alias, da->path, path);
+	      goto error;
+	    }
+
+	  /* Nested aliases would make the mapping ambiguous. Listing a library
+	   * directory inside another one is pointless anyway.
+	   */
+	  if (path_prefix_len(path, da->path) || path_prefix_len(da->path, path))
+	    {
+	      DPRINTF(E_FATAL, L_CONF, "Aliased library directories '%s' and '%s' are nested\n", da->path, path);
+	      goto error;
+	    }
+	}
+
+      CHECK_NULL(L_CONF, da = calloc(1, sizeof(struct dir_alias)));
+      CHECK_NULL(L_CONF, da->path = strdup(path));
+      CHECK_NULL(L_CONF, da->alias = strdup(alias));
+
+      /* May legitimately fail if the directory is not mounted yet */
+      da->real_path = realpath(path, NULL);
+
+      da->next = dir_aliases;
+      dir_aliases = da;
+    }
+
+  return 0;
+
+ error:
+  alias_free();
+
+  return -1;
+}
+
+int
+conffile_alias_apply(char *buf, size_t buflen, const char *path)
+{
+  struct dir_alias *da;
+  size_t len;
+  int ret;
+
+  for (da = dir_aliases; da; da = da->next)
+    {
+      len = path_prefix_len(path, da->path);
+      if (len == 0)
+	len = path_prefix_len(path, da->real_path);
+
+      if (len > 0)
+	{
+	  ret = snprintf(buf, buflen, "/%s%s", da->alias, path + len);
+	  return ((ret < 0) || ((size_t)ret >= buflen)) ? -1 : 0;
+	}
+    }
+
+  ret = snprintf(buf, buflen, "%s", path);
+
+  return ((ret < 0) || ((size_t)ret >= buflen)) ? -1 : 0;
+}
+
+char *
+conffile_alias_resolve(const char *vpath)
+{
+  struct dir_alias *da;
+  size_t len;
+
+  if (vpath[0] != '/')
+    return NULL;
+
+  for (da = dir_aliases; da; da = da->next)
+    {
+      len = strlen(da->alias);
+
+      if (strncmp(vpath + 1, da->alias, len) != 0)
+	continue;
+      if (vpath[1 + len] != '\0' && vpath[1 + len] != '/')
+	continue;
+
+      /* Dereferenced, because that is what the scanner stores in the database */
+      return safe_asprintf("%s%s", da->real_path ? da->real_path : da->path, vpath + 1 + len);
+    }
+
+  return NULL;
+}
+
+const char *
+conffile_alias_get(const char *path)
+{
+  struct dir_alias *da;
+
+  for (da = dir_aliases; da; da = da->next)
+    {
+      if (strcmp(da->path, path) == 0)
+	return da->alias;
+    }
+
+  return NULL;
+}
+
 int
 conffile_load(char *file)
 {
@@ -539,6 +821,14 @@ conffile_load(char *file)
       goto out_fail;
     }
 
+  ret = alias_init(lib);
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_CONF, "Invalid configuration of library directory aliases\n");
+
+      goto out_fail;
+    }
+
   /* Do keyword expansion on library names */
   ret = conffile_expand_libname(lib);
   if (ret != 0)
@@ -559,5 +849,7 @@ conffile_load(char *file)
 void
 conffile_unload(void)
 {
+  alias_free();
+
   cfg_free(cfg);
 }

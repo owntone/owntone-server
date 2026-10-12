@@ -444,6 +444,8 @@ directory_to_json(struct directory_info *directory_info)
 
   item = json_object_new_object();
   safe_json_add_string(item, "path", directory_info->path);
+  // Has the library directory alias applied, if there is one
+  safe_json_add_string(item, "virtual_path", directory_info->virtual_path);
 //  json_object_object_add(item, "id", json_object_new_int(directory_info->id));
 //  json_object_object_add(item, "parent_id", json_object_new_int(directory_info->parent_id));
 
@@ -807,7 +809,9 @@ jsonapi_reply_config(struct httpd_request *hreq)
   int ndirs;
   char *path;
   char *deref;
+  const char *alias;
   json_object *directories;
+  json_object *aliases;
   int i;
 
   CHECK_NULL(L_WEB, jreply = json_object_new_object());
@@ -842,6 +846,7 @@ jsonapi_reply_config(struct httpd_request *hreq)
   lib = cfg_getsec(cfg, "library");
   ndirs = cfg_size(lib, "directories");
   directories = json_object_new_array();
+  aliases = json_object_new_object();
   for (i = 0; i < ndirs; i++)
     {
       path = cfg_getnstr(lib, "directories", i);
@@ -851,6 +856,11 @@ jsonapi_reply_config(struct httpd_request *hreq)
       if (deref)
         {
 	  json_object_array_add(directories, json_object_new_string(deref));
+
+	  alias = conffile_alias_get(path);
+	  if (alias)
+	    json_object_object_add(aliases, deref, json_object_new_string(alias));
+
 	  free(deref);
 	}
       else
@@ -859,6 +869,8 @@ jsonapi_reply_config(struct httpd_request *hreq)
 	}
     }
   json_object_object_add(jreply, "directories", directories);
+  // Maps a library directory to its alias, only present for directories that have one
+  json_object_object_add(jreply, "directory_aliases", aliases);
   json_object_object_add(jreply, "radio_playlists", json_object_new_boolean(cfg_getbool(lib, "radio_playlists")));
 
   // Config for creating/modifying stored playlists
@@ -3820,6 +3832,7 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
 {
   const char *param;
   char buf[PATH_MAX+7];
+  char aliased_dir[PATH_MAX];
   char *playlist_name = NULL;
   int ret = 0;
 
@@ -3850,7 +3863,15 @@ jsonapi_reply_queue_save(struct httpd_request *hreq)
       return HTTP_BADREQUEST;
   }
 
-  snprintf(buf, sizeof(buf), "/file:%s/%s", default_playlist_directory, playlist_name);
+  if (conffile_alias_apply(aliased_dir, sizeof(aliased_dir), default_playlist_directory) < 0)
+    {
+      free(playlist_name);
+
+      DPRINTF(E_LOG, L_WEB, "Playlist save directory '%s' exceeds PATH_MAX\n", default_playlist_directory);
+      return HTTP_INTERNAL;
+    }
+
+  snprintf(buf, sizeof(buf), "/file:%s/%s", aliased_dir, playlist_name);
   free(playlist_name);
 
   ret = library_queue_save(buf);
