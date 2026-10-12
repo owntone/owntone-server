@@ -63,6 +63,13 @@ struct transcode_evbuf_io
   // Set to null if no seek support required
   transcode_seekfn seekfn;
   void *seekfn_arg;
+
+  // If true, ffmpeg is told the input is not seekable while it is being opened
+  // and probed, so e.g. the ogg demuxer won't seek to the end to find the
+  // duration. Use if seeking is expensive and ffmpeg's duration isn't needed
+  // (it will be estimated from the bitrate). Only for formats that can be
+  // probed linearly (not e.g. mp4 with moov at the end).
+  bool no_seek_while_probing;
 };
 
 struct transcode_decode_setup_args

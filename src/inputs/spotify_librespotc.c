@@ -372,6 +372,10 @@ download_xcode_setup(struct download_ctx *download)
   xcode_evbuf_io.evbuf = download->read_buf;
   xcode_evbuf_io.seekfn = download_seek;
   xcode_evbuf_io.seekfn_arg = download;
+  // Each seek means requesting a new chunk from Spotify, and ffmpeg's duration
+  // isn't used (len_ms comes from the Spotify metadata), so don't let ffmpeg
+  // seek to the end of the file to find it
+  xcode_evbuf_io.no_seek_while_probing = true;
   decode_args.evbuf_io = &xcode_evbuf_io;
 
   xcode = transcode_setup(decode_args, encode_args);
