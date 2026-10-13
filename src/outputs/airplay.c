@@ -3737,7 +3737,7 @@ response_handler_setup_session(struct evrtsp_request *req, struct airplay_sessio
     }
 
   // Reverse connection, used to receive playback events from device
-  ret = airplay_events_listen(session->devname, session->address, session->events_port, session->shared_secret, session->shared_secret_len);
+  ret = airplay_events_listen(session->devname, session->device_id, session->address, session->events_port, session->shared_secret, session->shared_secret_len);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_AIRPLAY, "Could not connect to '%s' events port %u, proceeding anyway\n", session->devname, session->events_port);

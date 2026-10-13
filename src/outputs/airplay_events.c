@@ -50,11 +50,13 @@ enum airplay_events
   AIRPLAY_EVENT_NEXT,
   AIRPLAY_EVENT_PREV,
   AIRPLAY_EVENT_TOGGLE,
+  AIRPLAY_EVENT_VOLUME,
 };
 
 struct airplay_events_client
 {
   char *name;
+  uint64_t device_id;
   int fd;
   struct event *listener;
   struct pair_cipher_context *cipher_ctx;
@@ -130,7 +132,7 @@ client_remove(struct airplay_events_client *client)
 }
 
 static int
-client_add(const char *name, int fd, const uint8_t *key, size_t key_len)
+client_add(const char *name, uint64_t device_id, int fd, const uint8_t *key, size_t key_len)
 {
   struct airplay_events_client *client;
 
@@ -140,6 +142,7 @@ client_add(const char *name, int fd, const uint8_t *key, size_t key_len)
   CHECK_NULL(L_AIRPLAY, client->pending = evbuffer_new());
 
   client->fd = fd;
+  client->device_id = device_id;
 
   client->listener = event_new(evbase, fd, EV_READ | EV_PERSIST, incoming_cb, client);
   if (!client->listener)
@@ -285,8 +288,43 @@ rtsp_incomplete(uint8_t *in, size_t in_len)
   return 0;
 }
 
+// The volume of a dvlc event (0 to 1), at the top level or in params
 static int
-rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
+event_volume_get(double *volume, plist_t request)
+{
+  plist_t item;
+  plist_t params;
+  uint64_t uval;
+
+  item = plist_dict_get_item(request, "volume");
+  if (!item)
+    {
+      params = plist_dict_get_item(request, "params");
+      if (params && plist_get_node_type(params) == PLIST_DICT)
+	item = plist_dict_get_item(params, "volume");
+    }
+
+  if (!item)
+    return -1;
+
+  if (plist_get_node_type(item) == PLIST_REAL)
+    plist_get_real_val(item, volume);
+  else if (plist_get_node_type(item) == PLIST_UINT) // e.g. 0 or 1
+    {
+      plist_get_uint_val(item, &uval);
+      *volume = uval;
+    }
+  else
+    return -1;
+
+  if (*volume < 0.0 || *volume > 1.0)
+    return -1;
+
+  return 0;
+}
+
+static int
+rtsp_parse(enum airplay_events *event, double *volume, uint8_t *in, size_t in_len)
 {
   uint8_t *body;
   size_t body_len;
@@ -359,6 +397,8 @@ rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
     *event = AIRPLAY_EVENT_PREV;
   else if (strcmp(value, "plps") == 0)
     *event = AIRPLAY_EVENT_TOGGLE;
+  else if (strcmp(value, "dvlc") == 0 && event_volume_get(volume, request) == 0)
+    *event = AIRPLAY_EVENT_VOLUME; // The device changed its volume (Siri, buttons)
   else
     *event = AIRPLAY_EVENT_UNKNOWN;
 
@@ -378,9 +418,10 @@ rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
 /* --------------------------- Message handling ----------------------------- */
 
 static void
-handle_event(enum airplay_events event)
+handle_event(struct airplay_events_client *client, enum airplay_events event, double volume)
 {
   struct player_status status;
+  char volstr[32];
 
   switch (event)
     {
@@ -412,6 +453,17 @@ handle_event(enum airplay_events event)
       case AIRPLAY_EVENT_PREV:
 	if (player_playback_prev() == 0)
 	  player_playback_start();
+	break;
+      // The device already applied it, we just follow. Given in AirPlay dB
+      // (-30 to 0), like DACP's device-volume, so max_volume is taken into
+      // account in the conversion to percent.
+      case AIRPLAY_EVENT_VOLUME:
+	if (volume > 0.9999995) // So "%.6f" can't give "-0.000000"
+	  snprintf(volstr, sizeof(volstr), "0.000000");
+	else
+	  snprintf(volstr, sizeof(volstr), "%.6f", volume * 30.0 - 30.0);
+	DPRINTF(E_DBG, L_AIRPLAY, "'%s' changed its volume to %.3f\n", client->name, volume);
+	player_volume_setraw_speaker(client->device_id, volstr);
 	break;
       default:
 	return;
@@ -464,6 +516,7 @@ incoming_cb(int fd, short what, void *arg)
 {
   struct airplay_events_client *client = arg;
   enum airplay_events event;
+  double volume = 0.0;
   uint8_t *plain;
   size_t plain_len;
   int ret;
@@ -492,7 +545,7 @@ incoming_cb(int fd, short what, void *arg)
   plain = evbuffer_pullup(client->pending, -1);
   plain_len = evbuffer_get_length(client->pending);
 
-  ret = rtsp_parse(&event, plain, plain_len);
+  ret = rtsp_parse(&event, &volume, plain, plain_len);
   if (ret < 0) // A message type we don't know about, so ignore, but answer
     {
       evbuffer_drain(client->pending, -1);
@@ -506,7 +559,7 @@ incoming_cb(int fd, short what, void *arg)
 
   evbuffer_drain(client->pending, -1);
 
-  handle_event(event);
+  handle_event(client, event, volume);
 
  respond:
   // Like an Apple sender, answer every event, so the device doesn't consider
@@ -542,7 +595,7 @@ airplay_events(void *arg)
 /* ------------------------------- Interface -------------------------------- */
 
 int
-airplay_events_listen(const char *name, const char *address, unsigned short port, const uint8_t *key, size_t key_len)
+airplay_events_listen(const char *name, uint64_t device_id, const char *address, unsigned short port, const uint8_t *key, size_t key_len)
 {
   int fd;
   int ret;
@@ -553,7 +606,7 @@ airplay_events_listen(const char *name, const char *address, unsigned short port
       return -1;
     }
 
-  ret = client_add(name, fd, key, key_len);
+  ret = client_add(name, device_id, fd, key, key_len);
   if (ret < 0)
     {
       close(fd);
