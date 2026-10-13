@@ -172,6 +172,8 @@ enum airplay_seq_type
   AIRPLAY_SEQ_PAIR_VERIFY,
   AIRPLAY_SEQ_PAIR_TRANSIENT,
   AIRPLAY_SEQ_FEEDBACK,
+  AIRPLAY_SEQ_MRP_NOWPLAYING,
+  AIRPLAY_SEQ_MRP_PLAYBACKSTATE,
   AIRPLAY_SEQ_CONTINUE, // Must be last element
 };
 
@@ -205,6 +207,7 @@ struct airplay_extra
   uint16_t wanted_metadata;
   bool supports_auth_setup;
   bool supports_encryption;
+  bool supports_mrp;
   bool use_ptp;
 };
 
@@ -309,6 +312,13 @@ struct airplay_session
 
   uint32_t ptpd_slave_id;
 
+  // MediaRemote now playing info, owned by the session so it outlives the
+  // output_metadata it was made from. mrp_next waits while mrp is being sent.
+  struct airplay_mrp_nowplaying *mrp;
+  struct airplay_mrp_nowplaying *mrp_next;
+  bool mrp_in_flight;
+  bool mrp_unsupported;
+
   struct airplay_session *next;
 };
 
@@ -317,6 +327,32 @@ struct airplay_metadata
   struct evbuffer *metadata;
   struct evbuffer *artwork;
   int artwork_fmt;
+
+  char *title;
+  char *artist;
+  char *album;
+};
+
+// MediaRemote playback states (MRPlaybackState)
+enum airplay_mrp_playback_state
+{
+  AIRPLAY_MRP_PLAYING = 1,
+  AIRPLAY_MRP_PAUSED = 2,
+  AIRPLAY_MRP_STOPPED = 3,
+};
+
+struct airplay_mrp_nowplaying
+{
+  char *title;
+  char *artist;
+  char *album;
+  uint32_t item_id;
+  uint32_t pos_ms;   // Position at pts
+  uint32_t len_ms;
+  struct timespec pts;
+  uint8_t *artwork; // JPEG only
+  size_t artwork_len;
+  enum airplay_mrp_playback_state state;
 };
 
 struct airplay_service
@@ -491,6 +527,8 @@ static void
 sequence_start(enum airplay_seq_type seq_type, struct airplay_session *session, void *arg, const char *log_caller);
 static void
 sequence_continue(struct airplay_seq_ctx *seq_ctx);
+static void
+mrp_nowplaying_free(struct airplay_mrp_nowplaying *np);
 
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
@@ -1250,6 +1288,9 @@ session_free(struct airplay_session *session)
   pair_verify_free(session->pair_verify_ctx);
   pair_cipher_free(session->control_cipher_ctx);
 
+  mrp_nowplaying_free(session->mrp);
+  mrp_nowplaying_free(session->mrp_next);
+
   free(session->local_v4_address);
   free(session->local_v6_address);
   free(session->realm);
@@ -1611,6 +1652,7 @@ session_make(struct output_device *device, int callback_id)
   session->supports_auth_setup = extra->supports_auth_setup;
   session->wanted_metadata = extra->wanted_metadata;
   session->supports_encryption = extra->supports_encryption;
+  session->mrp_unsupported = !extra->supports_mrp;
 
   session->next_seq = AIRPLAY_SEQ_CONTINUE;
   session->timing_svc = &airplay_timing_svc;
@@ -1647,6 +1689,461 @@ session_make(struct output_device *device, int callback_id)
 }
 
 
+/* ------------------------- MediaRemote now playing ------------------------ */
+
+/* An Apple receiver (HomePod, Apple TV) shows what an AirPlay 2 sender plays
+ * on the iPhones and iPads of the home (Control Center, lock screen) if the
+ * sender describes it the way an iPhone does: with MediaRemote messages sent
+ * with POST /command on the control channel. The receiver then relays the
+ * commands of those remotes (play, pause, next...) on the event channel, if
+ * the session SETUP said "senderSupportsRelay".
+ *
+ * The message shapes follow what an iPhone sends, as captured by Music
+ * Assistant's cliairplay, with field numbers from pyatv's protobuf files.
+ * It is only sent to receivers that announce it (MetadataFeatures_3), and one
+ * that refuses the now playing info anyway isn't asked again.
+ */
+
+// Seconds between 1970-01-01 and 2001-01-01 (CFAbsoluteTime epoch)
+#define MRP_CF_EPOCH_OFFSET 978307200
+
+// Older than this, the position of the metadata is that of an earlier moment
+#define MRP_NOWPLAYING_STALE_SECS 5.0
+
+// ProtocolMessage type and the field of its DeviceInfoMessage extension
+#define MRP_DEVICE_INFO_MESSAGE 15
+#define MRP_DEVICE_INFO_FIELD   20
+
+static void
+mrp_nowplaying_free(struct airplay_mrp_nowplaying *np)
+{
+  if (!np)
+    return;
+
+  free(np->title);
+  free(np->artist);
+  free(np->album);
+  free(np->artwork);
+  free(np);
+}
+
+// Protobuf writers (proto2 wire format: key = field << 3 | wire type)
+static void
+pb_varint(struct evbuffer *evbuf, uint64_t val)
+{
+  uint8_t byte;
+
+  do
+    {
+      byte = val & 0x7f;
+      val >>= 7;
+      if (val)
+	byte |= 0x80;
+      evbuffer_add(evbuf, &byte, 1);
+    }
+  while (val);
+}
+
+static void
+pb_uint(struct evbuffer *evbuf, uint32_t field, uint64_t val)
+{
+  pb_varint(evbuf, (uint64_t)field << 3);
+  pb_varint(evbuf, val);
+}
+
+static void
+pb_bytes(struct evbuffer *evbuf, uint32_t field, const void *data, size_t len)
+{
+  pb_varint(evbuf, ((uint64_t)field << 3) | 2);
+  pb_varint(evbuf, len);
+  if (len > 0)
+    evbuffer_add(evbuf, data, len);
+}
+
+static void
+pb_string(struct evbuffer *evbuf, uint32_t field, const char *str)
+{
+  if (!str)
+    str = "";
+
+  pb_bytes(evbuf, field, str, strlen(str));
+}
+
+static void
+pb_message(struct evbuffer *evbuf, uint32_t field, struct evbuffer *msg)
+{
+  size_t len = evbuffer_get_length(msg);
+
+  pb_bytes(evbuf, field, len ? evbuffer_pullup(msg, -1) : NULL, len);
+}
+
+static plist_t
+mrp_plist_date(time_t unix_sec)
+{
+#if HAVE_DECL_PLIST_GET_UNIX_DATE_VAL
+  return plist_new_unix_date((int64_t)unix_sec);
+#else
+  return plist_new_date((int32_t)(unix_sec - MRP_CF_EPOCH_OFFSET), 0);
+#endif
+}
+
+// Serializes root (and frees it) into the request body
+static int
+mrp_body_add(struct evrtsp_request *req, plist_t root)
+{
+  uint8_t *data;
+  size_t len;
+  int ret;
+
+  ret = wplist_to_bin(&data, &len, root);
+  plist_free(root);
+  if (ret < 0)
+    return -1;
+
+  evbuffer_add(req->output_buffer, data, len);
+  free(data);
+  return 0;
+}
+
+// A ProtocolMessage with a DeviceInfoMessage, sent as {params: {data: ...}}
+// where data is the message with a varint length prefix
+static int
+payload_make_mrp_deviceinfo(struct evrtsp_request *req, struct airplay_session *session, void *arg)
+{
+  struct evbuffer *info;
+  struct evbuffer *msg;
+  struct evbuffer *blob;
+  char uid[32];
+  char uuid[37];
+  char msg_uuid[37];
+  plist_t params;
+  plist_t root;
+
+  CHECK_NULL(L_AIRPLAY, info = evbuffer_new());
+  CHECK_NULL(L_AIRPLAY, msg = evbuffer_new());
+  CHECK_NULL(L_AIRPLAY, blob = evbuffer_new());
+
+  // Same value as the DACP-ID header
+  snprintf(uid, sizeof(uid), "%" PRIX64, libhash);
+  // A UUID that stays the same for this server, made from the library hash
+  snprintf(uuid, sizeof(uuid), "%08" PRIX32 "-%04" PRIX32 "-4%03" PRIX32 "-8%03" PRIX32 "-%012" PRIX64,
+    (uint32_t)(libhash >> 32), (uint32_t)(libhash >> 16) & 0xffff, (uint32_t)libhash & 0xfff,
+    (uint32_t)(libhash >> 52) & 0xfff, (uint64_t)(libhash & 0xffffffffffffULL));
+  uuid_make(msg_uuid);
+
+  pb_string(info, 1, uuid);                   // uniqueIdentifier
+  pb_string(info, 2, airplay_client_name);    // name
+  pb_string(info, 3, PACKAGE_NAME);           // localizedModelName
+  pb_string(info, 4, VERSION);                // systemBuildVersion
+  pb_string(info, 5, "com.apple.Music");      // applicationBundleIdentifier
+  pb_uint(info, 7, 1);                        // protocolVersion
+  pb_uint(info, 8, 139);                      // lastSupportedMessageType
+  pb_uint(info, 9, 1);                        // supportsSystemPairing
+  pb_uint(info, 10, 1);                       // allowsPairing
+  pb_string(info, 12, "com.apple.Music");     // systemMediaApplication
+  pb_uint(info, 13, 1);                       // supportsACL
+  pb_uint(info, 14, 1);                       // supportsSharedQueue
+  pb_uint(info, 17, 2);                       // sharedQueueVersion
+  pb_string(info, 19, uid);                   // deviceUID
+  pb_uint(info, 22, 1);                       // logicalDeviceCount
+  pb_string(info, 41, session->session_uuid); // routingContextID
+  pb_string(info, 42, session->group_uuid);   // airPlayGroupID
+
+  pb_uint(msg, 1, MRP_DEVICE_INFO_MESSAGE);      // type
+  pb_message(msg, MRP_DEVICE_INFO_FIELD, info);
+  pb_string(msg, 85, msg_uuid);                  // uniqueIdentifier
+
+  pb_varint(blob, evbuffer_get_length(msg));
+  evbuffer_add_buffer(blob, msg);
+
+  params = plist_new_dict();
+  wplist_dict_add_data(params, "data", evbuffer_pullup(blob, -1), evbuffer_get_length(blob));
+  root = plist_new_dict();
+  plist_dict_set_item(root, "params", params);
+
+  evbuffer_free(info);
+  evbuffer_free(msg);
+  evbuffer_free(blob);
+
+  return mrp_body_add(req, root);
+}
+
+static int
+payload_make_mrp_nowplayinginfo(struct evrtsp_request *req, struct airplay_session *session, void *arg)
+{
+  struct airplay_mrp_nowplaying *np = session->mrp;
+  struct timespec now;
+  struct timespec mono;
+  double age;
+  char artwork_id[17];
+  double elapsed;
+  plist_t info;
+  plist_t params;
+  plist_t root;
+
+  if (!np)
+    return -1;
+
+  // The timestamp is a whole second, so give the position at that second.
+  // Metadata sent again to a speaker that joins later has the position of when
+  // the track started (at pts, player clock), so add the time since then.
+  clock_gettime(CLOCK_MONOTONIC, &mono);
+  clock_gettime(CLOCK_REALTIME, &now);
+  elapsed = np->pos_ms / 1000.0 - now.tv_nsec / 1000000000.0;
+  age = (double)(mono.tv_sec - np->pts.tv_sec) + (mono.tv_nsec - np->pts.tv_nsec) / 1000000000.0;
+  if (np->pts.tv_sec && age > MRP_NOWPLAYING_STALE_SECS)
+    elapsed += age;
+  if (elapsed < 0)
+    elapsed = 0;
+
+  info = plist_new_dict();
+  wplist_dict_add_string(info, "kMRMediaRemoteNowPlayingInfoTitle", np->title ? np->title : "");
+  wplist_dict_add_string(info, "kMRMediaRemoteNowPlayingInfoArtist", np->artist ? np->artist : "");
+  wplist_dict_add_string(info, "kMRMediaRemoteNowPlayingInfoAlbum", np->album ? np->album : "");
+  if (np->len_ms > 0)
+    plist_dict_set_item(info, "kMRMediaRemoteNowPlayingInfoDuration", plist_new_real(np->len_ms / 1000.0));
+  plist_dict_set_item(info, "kMRMediaRemoteNowPlayingInfoElapsedTime", plist_new_real(elapsed));
+  plist_dict_set_item(info, "kMRMediaRemoteNowPlayingInfoPlaybackRate", plist_new_real(np->state == AIRPLAY_MRP_PLAYING ? 1.0 : 0.0));
+  plist_dict_set_item(info, "kMRMediaRemoteNowPlayingInfoDefaultPlaybackRate", plist_new_real(1.0));
+  plist_dict_set_item(info, "kMRMediaRemoteNowPlayingInfoTimestamp", mrp_plist_date(now.tv_sec));
+  wplist_dict_add_string(info, "kMRMediaRemoteNowPlayingInfoMediaType", "MRMediaRemoteMediaTypeMusic");
+  wplist_dict_add_int(info, "kMRMediaRemoteNowPlayingInfoUniqueIdentifier", np->item_id);
+
+  if (np->artwork)
+    {
+      snprintf(artwork_id, sizeof(artwork_id), "%016" PRIx64, (uint64_t)np->item_id);
+      wplist_dict_add_string(info, "kMRMediaRemoteNowPlayingInfoArtworkIdentifier", artwork_id);
+      wplist_dict_add_string(info, "kMRMediaRemoteNowPlayingInfoArtworkMIMEType", "image/jpeg");
+      wplist_dict_add_data(info, "kMRMediaRemoteNowPlayingInfoArtworkData", np->artwork, np->artwork_len);
+    }
+
+  params = plist_new_dict();
+  wplist_dict_add_string(params, "type", "npi-text");
+  wplist_dict_add_string(params, "mergePolicy", "replace");
+  plist_dict_set_item(params, "params", info);
+  root = plist_new_dict();
+  wplist_dict_add_string(root, "type", "updateMRNowPlayingInfo");
+  plist_dict_set_item(root, "params", params);
+
+  return mrp_body_add(req, root);
+}
+
+// One command info, itself serialized as a binary plist
+static void
+mrp_command_info_append(plist_t array, int command, bool enabled, plist_t options)
+{
+  plist_t dict;
+  uint8_t *data;
+  size_t len;
+  int ret;
+
+  dict = plist_new_dict();
+  wplist_dict_add_int(dict, "kCommandInfoCommandKey", command);
+  wplist_dict_add_bool(dict, "kCommandInfoEnabledKey", enabled);
+  if (options)
+    plist_dict_set_item(dict, "kCommandInfoOptionsKey", options);
+
+  ret = wplist_to_bin(&data, &len, dict);
+  plist_free(dict);
+  if (ret < 0)
+    return;
+
+  plist_array_append_item(array, plist_new_data((const char *)data, len));
+  free(data);
+}
+
+// The commands we handle on the event channel, with MRMediaRemoteCommand
+// numbers: 0 play, 1 pause, 2 toggle play/pause, 4 next, 5 previous
+static int
+payload_make_mrp_supportedcommands(struct evrtsp_request *req, struct airplay_session *session, void *arg)
+{
+  static const int supported[] = { 5, 4, 2, 1, 0 };
+  plist_t commands;
+  plist_t params;
+  plist_t root;
+  int i;
+
+  commands = plist_new_array();
+  for (i = 0; i < ARRAY_SIZE(supported); i++)
+    mrp_command_info_append(commands, supported[i], true, NULL);
+
+  params = plist_new_dict();
+  plist_dict_set_item(params, "mrSupportedCommandsFromSender", commands);
+  root = plist_new_dict();
+  wplist_dict_add_string(root, "type", "updateMRSupportedCommands");
+  plist_dict_set_item(root, "params", params);
+
+  return mrp_body_add(req, root);
+}
+
+static int
+payload_make_mrp_playbackstate(struct evrtsp_request *req, struct airplay_session *session, void *arg)
+{
+  plist_t params;
+  plist_t root;
+
+  if (!session->mrp)
+    return -1;
+
+  params = plist_new_dict();
+  wplist_dict_add_int(params, "mrPlaybackState", session->mrp->state);
+  root = plist_new_dict();
+  wplist_dict_add_string(root, "type", "updateMRPlaybackState");
+  plist_dict_set_item(root, "params", params);
+
+  return mrp_body_add(req, root);
+}
+
+// NowPlayingClient protobuf on its own (no ProtocolMessage, no length prefix)
+static int
+payload_make_mrp_nowplayingclient(struct evrtsp_request *req, struct airplay_session *session, void *arg)
+{
+  struct evbuffer *client;
+  plist_t params;
+  plist_t root;
+
+  CHECK_NULL(L_AIRPLAY, client = evbuffer_new());
+
+  pb_uint(client, 1, (uint64_t)getpid());       // processIdentifier
+  pb_string(client, 2, "com.apple.Music");      // bundleIdentifier
+  pb_string(client, 7, airplay_client_name);    // displayName
+
+  params = plist_new_dict();
+  wplist_dict_add_data(params, "mrNowPlayingClient", evbuffer_pullup(client, -1), evbuffer_get_length(client));
+  root = plist_new_dict();
+  wplist_dict_add_string(root, "type", "updateMRNowPlayingClient");
+  plist_dict_set_item(root, "params", params);
+
+  evbuffer_free(client);
+
+  return mrp_body_add(req, root);
+}
+
+// A receiver that doesn't take the now playing info won't take the rest either
+static enum airplay_seq_type
+response_handler_mrp_nowplayinginfo(struct evrtsp_request *req, struct airplay_session *session)
+{
+  if (req->response_code == RTSP_OK)
+    return AIRPLAY_SEQ_CONTINUE;
+
+  DPRINTF(E_DBG, L_AIRPLAY, "'%s' doesn't take MediaRemote now playing info (%d), not sending it again\n", session->devname, req->response_code);
+  session->mrp_unsupported = true;
+  return AIRPLAY_SEQ_ABORT;
+}
+
+// Says that we take the commands the receiver relays from remotes on the event
+// channel (only for receivers we send now playing info to)
+static void
+mrp_setup_session_keys(plist_t root, struct airplay_session *session)
+{
+  if (session->mrp_unsupported)
+    return;
+
+  wplist_dict_add_bool(root, "isMultiSelectAirPlay", true);
+  wplist_dict_add_bool(root, "senderSupportsRelay", true);
+}
+
+static void
+mrp_nowplaying_done(struct airplay_session *session)
+{
+  session->mrp_in_flight = false;
+
+  if (session->mrp_unsupported || !(session->state & AIRPLAY_STATE_F_CONNECTED))
+    {
+      mrp_nowplaying_free(session->mrp_next);
+      session->mrp_next = NULL;
+      return;
+    }
+
+  // The track changed while we were sending, so send the new one now
+  if (session->mrp_next)
+    {
+      mrp_nowplaying_free(session->mrp);
+      session->mrp = session->mrp_next;
+      session->mrp_next = NULL;
+      session->mrp_in_flight = true;
+
+      sequence_start(AIRPLAY_SEQ_MRP_NOWPLAYING, session, NULL, "MediaRemote now playing");
+    }
+}
+
+// A refusal of the now playing info only stops the sequence (see
+// response_handler_mrp_nowplayinginfo), other errors are real session errors
+static void
+mrp_nowplaying_failure(struct airplay_session *session)
+{
+  if (!session->mrp_unsupported)
+    {
+      session_failure(session);
+      return;
+    }
+
+  mrp_nowplaying_done(session);
+}
+
+static void
+mrp_playbackstate_failure(struct airplay_session *session)
+{
+  if (!session->mrp_unsupported)
+    session_failure(session);
+}
+
+static void
+mrp_nowplaying_send(struct airplay_session *session, struct output_metadata *metadata)
+{
+  struct airplay_metadata *rmd = metadata->priv;
+  struct airplay_mrp_nowplaying *np;
+
+  if (!rmd || session->mrp_unsupported)
+    return;
+
+  CHECK_NULL(L_AIRPLAY, np = calloc(1, sizeof(struct airplay_mrp_nowplaying)));
+
+  np->title = safe_strdup(rmd->title);
+  np->artist = safe_strdup(rmd->artist);
+  np->album = safe_strdup(rmd->album);
+  np->item_id = metadata->item_id;
+  np->pos_ms = metadata->pos_ms;
+  np->len_ms = metadata->len_ms;
+  np->pts = metadata->pts;
+  np->state = AIRPLAY_MRP_PLAYING;
+
+  if (rmd->artwork && rmd->artwork_fmt == ART_FMT_JPEG)
+    {
+      np->artwork_len = evbuffer_get_length(rmd->artwork);
+      CHECK_NULL(L_AIRPLAY, np->artwork = malloc(np->artwork_len));
+      evbuffer_copyout(rmd->artwork, np->artwork, np->artwork_len);
+    }
+
+  // The sequence reads session->mrp, so it can't be replaced while it runs
+  if (session->mrp_in_flight)
+    {
+      mrp_nowplaying_free(session->mrp_next);
+      session->mrp_next = np;
+      return;
+    }
+
+  mrp_nowplaying_free(session->mrp);
+  session->mrp = np;
+  session->mrp_in_flight = true;
+
+  sequence_start(AIRPLAY_SEQ_MRP_NOWPLAYING, session, NULL, "MediaRemote now playing");
+}
+
+static void
+mrp_playbackstate_send(struct airplay_session *session, enum airplay_mrp_playback_state state)
+{
+  if (!session->mrp || session->mrp_unsupported)
+    return;
+
+  session->mrp->state = state;
+  if (session->mrp_next)
+    session->mrp_next->state = state;
+
+  sequence_start(AIRPLAY_SEQ_MRP_PLAYBACKSTATE, session, NULL, "MediaRemote playback state");
+}
+
+
 /* ----------------------------- Metadata handling -------------------------- */
 
 static void
@@ -1659,6 +2156,10 @@ airplay_metadata_free(struct airplay_metadata *rmd)
     evbuffer_free(rmd->metadata);
   if (rmd->artwork)
     evbuffer_free(rmd->artwork);
+
+  free(rmd->title);
+  free(rmd->artist);
+  free(rmd->album);
 
   free(rmd);
 }
@@ -1694,6 +2195,10 @@ airplay_metadata_prepare(struct output_metadata *metadata)
   CHECK_NULL(L_AIRPLAY, rmd->artwork = evbuffer_new());
   CHECK_NULL(L_AIRPLAY, rmd->metadata = evbuffer_new());
   CHECK_NULL(L_AIRPLAY, tmp = evbuffer_new());
+
+  rmd->title = safe_strdup(queue_item->title);
+  rmd->artist = safe_strdup(queue_item->artist);
+  rmd->album = safe_strdup(queue_item->album);
 
   ret = artwork_get_by_queue_item_id(rmd->artwork, queue_item->id, ART_DEFAULT_WIDTH, ART_DEFAULT_HEIGHT, 0);
   if (ret < 0)
@@ -1731,6 +2236,9 @@ airplay_metadata_send_generic(struct airplay_session *session, struct output_met
 
   if (!only_progress && (session->wanted_metadata & AIRPLAY_MD_WANTS_ARTWORK) && rmd->artwork)
     sequence_start(AIRPLAY_SEQ_SEND_ARTWORK, session, metadata, "SET_PARAMETER (artwork)");
+
+  if (!only_progress)
+    mrp_nowplaying_send(session, metadata);
 
   return 0;
 }
@@ -2703,6 +3211,7 @@ payload_make_setup_session_ntp(struct evrtsp_request *req, struct airplay_sessio
   wplist_dict_add_string(root, "sessionUUID", session->session_uuid);
   wplist_dict_add_uint(root, "timingPort", session->timing_svc->port);
   wplist_dict_add_string(root, "timingProtocol", "NTP"); // If set to "None" then an ATV4 will not respond to stream SETUP request
+  mrp_setup_session_keys(root, session);
 
   ret = wplist_to_bin(&data, &len, root);
   plist_free(root);
@@ -2754,6 +3263,7 @@ payload_make_setup_session_ptp(struct evrtsp_request *req, struct airplay_sessio
 
   wplist_dict_add_string(root, "groupUUID", session->group_uuid);
   wplist_dict_add_bool(root, "groupContainsGroupLeader", false); // iOS Music app sets this to false, let's roll with that
+  mrp_setup_session_keys(root, session);
 
   plist_dict_set_item(root, "timingPeerInfo", timingpeerinfo);
   plist_dict_set_item(root, "timingPeerList", timingpeerlist);
@@ -3633,6 +4143,8 @@ static struct airplay_seq_definition airplay_seq_definition[] =
   { AIRPLAY_SEQ_PAIR_VERIFY, session_pair_success, session_failure },
   { AIRPLAY_SEQ_PAIR_TRANSIENT, session_pair_success, session_failure },
   { AIRPLAY_SEQ_FEEDBACK, NULL, session_failure },
+  { AIRPLAY_SEQ_MRP_NOWPLAYING, mrp_nowplaying_done, mrp_nowplaying_failure },
+  { AIRPLAY_SEQ_MRP_PLAYBACKSTATE, NULL, mrp_playbackstate_failure },
 };
 
 // The size of the second array dimension MUST at least be the size of largest
@@ -3699,6 +4211,16 @@ static struct airplay_seq_request airplay_seq_request[][7] =
   },
   {
     { AIRPLAY_SEQ_FEEDBACK, "POST /feedback", EVRTSP_REQ_POST, NULL, NULL, NULL, "/feedback", true },
+  },
+  {
+    { AIRPLAY_SEQ_MRP_NOWPLAYING, "POST /command (DEVICE_INFO)", EVRTSP_REQ_POST, payload_make_mrp_deviceinfo, NULL, "application/x-apple-binary-plist", "/command", true },
+    { AIRPLAY_SEQ_MRP_NOWPLAYING, "POST /command (updateMRNowPlayingInfo)", EVRTSP_REQ_POST, payload_make_mrp_nowplayinginfo, response_handler_mrp_nowplayinginfo, "application/x-apple-binary-plist", "/command", true },
+    { AIRPLAY_SEQ_MRP_NOWPLAYING, "POST /command (updateMRSupportedCommands)", EVRTSP_REQ_POST, payload_make_mrp_supportedcommands, NULL, "application/x-apple-binary-plist", "/command", true },
+    { AIRPLAY_SEQ_MRP_NOWPLAYING, "POST /command (updateMRPlaybackState)", EVRTSP_REQ_POST, payload_make_mrp_playbackstate, NULL, "application/x-apple-binary-plist", "/command", true },
+    { AIRPLAY_SEQ_MRP_NOWPLAYING, "POST /command (updateMRNowPlayingClient)", EVRTSP_REQ_POST, payload_make_mrp_nowplayingclient, NULL, "application/x-apple-binary-plist", "/command", true },
+  },
+  {
+    { AIRPLAY_SEQ_MRP_PLAYBACKSTATE, "POST /command (updateMRPlaybackState)", EVRTSP_REQ_POST, payload_make_mrp_playbackstate, NULL, "application/x-apple-binary-plist", "/command", true },
   },
 };
 
@@ -4065,6 +4587,8 @@ airplay_device_cb(const char *name, const char *type, const char *domain, const 
     extra->wanted_metadata |= AIRPLAY_MD_WANTS_PROGRESS;
   if (keyval_get(&features_kv, "MetadataFeatures_2"))
     extra->wanted_metadata |= AIRPLAY_MD_WANTS_TEXT;
+  if (keyval_get(&features_kv, "MetadataFeatures_3"))
+    extra->supports_mrp = 1;
   if (keyval_get(&features_kv, "Authentication_8"))
     extra->supports_auth_setup = 1;
   if (keyval_get(&features_kv, "SupportsPTP") && !(devcfg && cfg_getbool(devcfg, "ptp_disable")) && !airplay_ptp_is_disabled)
@@ -4198,6 +4722,8 @@ airplay_device_flush(struct output_device *device, int callback_id)
   session->callback_id = callback_id;
 
   sequence_start(AIRPLAY_SEQ_FLUSH, session, NULL, "flush");
+
+  mrp_playbackstate_send(session, AIRPLAY_MRP_PAUSED);
 
   return 1;
 }
