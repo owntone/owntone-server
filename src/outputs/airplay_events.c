@@ -49,6 +49,7 @@ enum airplay_events
   AIRPLAY_EVENT_PAUSE,
   AIRPLAY_EVENT_NEXT,
   AIRPLAY_EVENT_PREV,
+  AIRPLAY_EVENT_TOGGLE,
 };
 
 struct airplay_events_client
@@ -356,6 +357,8 @@ rtsp_parse(enum airplay_events *event, uint8_t *in, size_t in_len)
     *event = AIRPLAY_EVENT_NEXT;
   else if (strcmp(value, "pitm") == 0)
     *event = AIRPLAY_EVENT_PREV;
+  else if (strcmp(value, "plps") == 0)
+    *event = AIRPLAY_EVENT_TOGGLE;
   else
     *event = AIRPLAY_EVENT_UNKNOWN;
 
@@ -379,22 +382,36 @@ handle_event(enum airplay_events event)
 {
   struct player_status status;
 
-  player_get_status(&status);
-
   switch (event)
     {
+      // With senderSupportsRelay, these also come from the remotes of the
+      // home, so only the toggle toggles
       case AIRPLAY_EVENT_PLAY:
+	player_get_status(&status);
+	if (status.status != PLAY_PLAYING)
+	  player_playback_start();
+	break;
       case AIRPLAY_EVENT_PAUSE:
+	player_get_status(&status);
+	if (status.status == PLAY_PLAYING)
+	  player_playback_pause();
+	break;
+      case AIRPLAY_EVENT_TOGGLE:
+	player_get_status(&status);
 	if (status.status == PLAY_PLAYING)
 	  player_playback_pause();
 	else
 	  player_playback_start();
 	break;
+      // Like for DACP and the JSON API, next/prev leave the player paused on
+      // the new item, so playback must be started
       case AIRPLAY_EVENT_NEXT:
-	player_playback_next();
+	if (player_playback_next() == 0)
+	  player_playback_start();
 	break;
       case AIRPLAY_EVENT_PREV:
-	player_playback_prev();
+	if (player_playback_prev() == 0)
+	  player_playback_start();
 	break;
       default:
 	return;
@@ -476,10 +493,10 @@ incoming_cb(int fd, short what, void *arg)
   plain_len = evbuffer_get_length(client->pending);
 
   ret = rtsp_parse(&event, plain, plain_len);
-  if (ret < 0) // A message type we don't know about, so ignore
+  if (ret < 0) // A message type we don't know about, so ignore, but answer
     {
       evbuffer_drain(client->pending, -1);
-      return;
+      goto respond;
     }
   else if (ret == 1)
     {
@@ -491,6 +508,9 @@ incoming_cb(int fd, short what, void *arg)
 
   handle_event(event);
 
+ respond:
+  // Like an Apple sender, answer every event, so the device doesn't consider
+  // the channel dead (it also sends events we don't use, e.g. updateInfo)
   ret = respond(client);
   if (ret < 0)
     {
