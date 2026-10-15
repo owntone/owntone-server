@@ -37,6 +37,10 @@ if COND_PULSEAUDIO
 PULSEAUDIO_SRC=outputs/pulse.c
 endif
 
+if COND_PIPEWIRE
+PIPEWIRE_SRC=outputs/pipewire.c
+endif
+
 if COND_AVAHI
 MDNS_SRC=mdns_avahi.c
 else
@@ -123,7 +127,7 @@ owntone_SOURCES = main.c \
 	outputs/airplay_events.c outputs/airplay_events.h \
 	outputs/streaming.c \
 	outputs/dummy.c outputs/fifo.c outputs/rcp.c \
-	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(CHROMECAST_SRC) \
+	$(ALSA_SRC) $(PULSEAUDIO_SRC) $(PIPEWIRE_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtsp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	evthr.c evthr.h \
 	$(SPOTIFY_SRC) \

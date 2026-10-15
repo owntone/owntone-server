@@ -295,6 +295,11 @@ OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [Pulseaudio support], [pulseaudio], [LIBP
 	[AC_CHECK_FUNCS([pa_threaded_mainloop_set_name])])
 AM_CONDITIONAL([COND_PULSEAUDIO], [[test "x$with_pulseaudio" = "xyes"]])
 
+dnl PIPEWIRE
+OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [Pipewire support], [pipewire], [PIPEWIRE],
+        [libpipewire-0.3], [pw_stream_new], [pipewire/pipewire.h])
+AM_CONDITIONAL([COND_PIPEWIRE], [[test "x$with_pipewire" = "xyes"]])
+
 dnl Build with libwebsockets
 OWNTONE_ARG_WITH_CHECK([OWNTONE_OPTS], [libwebsockets support], [libwebsockets], [LIBWEBSOCKETS],
 	[libwebsockets >= 2.0.2])

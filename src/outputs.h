@@ -64,6 +64,9 @@ enum output_types
 #ifdef HAVE_LIBPULSE
   OUTPUT_TYPE_PULSE,
 #endif
+#ifdef HAVE_PIPEWIRE
+  OUTPUT_TYPE_PIPEWIRE,
+#endif
 #ifdef CHROMECAST
   OUTPUT_TYPE_CAST,
 #endif
@@ -116,7 +119,11 @@ struct output_device
   unsigned prevent_playback:1;
   unsigned busy:1;
   unsigned resurrect:1;
-
+  // Set by the backend if this device's volume can be changed by something
+  // other than OwnTone (e.g. an external session/policy manager) and should
+  // therefore be re-read live rather than trusted from storage or from the
+  // previous in-memory value. Backend-agnostic: any output type can set it.
+  unsigned volume_is_external:1;
   // Credentials if relevant
   const char *password;
   char *auth_key;
