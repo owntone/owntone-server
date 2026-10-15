@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/socket.h>
 
 #include "librespot-c-internal.h"
 
@@ -102,6 +103,23 @@ channel_free_all(struct sp_session *session)
     channel_free(&session->channels[i]);
 }
 
+// A whole chunk must fit in the audio socket buffer, see channel_new(). The
+// default is only 8 KiB on FreeBSD and macOS, so raise it if needed. Linux
+// defaults are usually much larger, and then nothing is changed.
+static void
+audio_fd_bufsize_ensure(int fd, int optname, int min)
+{
+  socklen_t len = sizeof(int);
+  int val;
+
+  if (getsockopt(fd, SOL_SOCKET, optname, &val, &len) == 0 && val >= min)
+    return;
+
+  val = min;
+  if (setsockopt(fd, SOL_SOCKET, optname, &val, sizeof(val)) < 0)
+    sp_cb.logmsg("Could not set audio socket buffer size to %d: %s\n", min, strerror(errno));
+}
+
 int
 channel_new(struct sp_channel **new_channel, struct sp_session *session, const char *path, struct event_base *evbase, event_callback_fn write_cb)
 {
@@ -118,10 +136,17 @@ channel_new(struct sp_channel **new_channel, struct sp_session *session, const c
   channel->file.path = strdup(path);
   path_to_media_id_and_type(&channel->file);
 
-  // Set up the audio I/O
-  ret = pipe(channel->audio_fd);
+  // Set up the audio I/O. A socket pair is used instead of a pipe because the
+  // first chunk must fit before media_open() can return (the reader only starts
+  // reading after that). A pipe may be a single page if the real uid has
+  // reached fs.pipe-user-pages-soft, e.g. root on a NAS, and then we deadlock.
+  // Socket buffers are not subject to that limit.
+  ret = socketpair(AF_UNIX, SOCK_STREAM, 0, channel->audio_fd);
   if (ret < 0)
     goto error;
+
+  audio_fd_bufsize_ensure(channel->audio_fd[1], SO_SNDBUF, 2 * SP_CHUNK_LEN);
+  audio_fd_bufsize_ensure(channel->audio_fd[0], SO_RCVBUF, 2 * SP_CHUNK_LEN);
 
   if (fcntl(channel->audio_fd[0], F_SETFL, FD_CLOEXEC | O_NONBLOCK) < 0)
     goto error;
