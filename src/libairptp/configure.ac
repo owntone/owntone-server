@@ -1,4 +1,4 @@
-AC_INIT([libairptp], [0.4])
+AC_INIT([libairptp], [0.6])
 AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign subdir-objects])

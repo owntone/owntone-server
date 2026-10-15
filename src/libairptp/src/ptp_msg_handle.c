@@ -708,7 +708,9 @@ tlv_handle_org_subtype_peer_add(struct airptp_daemon *daemon, const char *org, s
   ptr += sizeof(addr_len);
 
   if (len < (ptr - data) + addr_len)
-    goto error;
+    goto error; // Overread
+  if (addr_len == 0 || addr_len > sizeof(peer.naddr))
+    goto error; // Invalid length
 
   memcpy(&peer.naddr, ptr, addr_len);
   peer.id = be32toh(be32_peer_id);
