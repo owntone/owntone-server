@@ -39,10 +39,6 @@
  * new data arrives.
  */
 
-#ifndef HAVE_PIPEWIRE
-#define HAVE_PIPEWIRE 1
-#endif
-
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
@@ -205,14 +201,18 @@ struct pipewire_sinkctx
   float                   route_volumes[PIPEWIRE_MAX_CHANNELS];
   uint32_t                n_route_volumes;
 
+  /* The next three fields are touched by the player thread and by the
+   * pwsink thread loop callbacks. Every access must hold thread_loop's lock. */
+
   /* Cached 0-100 value last set; -1 = unknown. */
   int                     cached_volume_pct;
   /* True once the one-shot boot/reconnect forced resync has run for this
    * connection (see pwsink_do_boot_resync()). Reset in pwsink_reset_state(). */
   bool                    boot_resync_done;
-  /* Set on every fresh session connect (pipewire_session_make());
-   * consumed once by the next pwsink_set_volume() call, forcing a real
-   * write via pwsink_force_resync_if_unchanged() even if the value looks
+  /* Set on every session start (pipewire_device_start(), via
+   * pwsink_apply_device_volume()); consumed once by the next
+   * pwsink_set_volume() call, forcing a real write via
+   * pwsink_force_resync_if_unchanged() even if the value looks
    * unchanged. Same underlying issue as boot_resync_done, but scoped per
    * session-connect rather than per daemon-connect, so it self-clears on
    * every use instead of being a one-shot. */
@@ -538,13 +538,18 @@ pwsink_maybe_bind(void)
 
 static int pwsink_set_volume(float vol);
 
+/* force_resync: make the write go through even if the value looks unchanged
+ * (set on session start). The flag is set under the same lock that
+ * pwsink_set_volume() consumes it under, so there is no cross-thread race. */
 static int
-pwsink_apply_device_volume(struct output_device *device)
+pwsink_apply_device_volume(struct output_device *device, bool force_resync)
 {
   float vol = pct_to_volume(device->volume, pipewire_volume_curve);
   int ret;
 
   pw_thread_loop_lock(pwsinkctx.thread_loop);
+  if (force_resync)
+    pwsinkctx.session_resync_pending = true;
   ret = pwsink_set_volume(vol);
   pw_thread_loop_unlock(pwsinkctx.thread_loop);
 
@@ -729,7 +734,8 @@ pwsink_set_volume(float vol)
 }
 
 /* Best-effort sink volume as 0-100 using the configured curve: Route volumes
- * preferred, then Node Props, then the last value we set. */
+ * preferred, then Node Props, then the last value we set. Needs thread_loop
+ * locked. */
 static int
 pwsink_get_volume_pct(void)
 {
@@ -903,9 +909,6 @@ pipewire_session_make(struct output_device *device, int callback_id)
   sessions = ps;
 
   outputs_device_session_add(device->id, ps);
-
-  /* Next sink volume write must be forced through (only used in PWSINK mode) */
-  pwsinkctx.session_resync_pending = true;
 
   return ps;
 }
@@ -1766,9 +1769,11 @@ pwsink_core_reconnect(void)
 
   pwsink_do_boot_resync();
 
-  DPRINTF(E_LOG, L_LAUDIO, "PipeWire: pwsink reconnected to daemon\n");
-
   pwsinkctx.reconnect_pending = false;
+
+  pw_thread_loop_unlock(pwsinkctx.thread_loop);
+
+  DPRINTF(E_LOG, L_LAUDIO, "PipeWire: pwsink reconnected to daemon\n");
 }
 
 /* Timer callback, PIPEWIRE_RECONNECT_MS after a pwsink core disconnect.
@@ -2193,7 +2198,7 @@ pipewire_device_start(struct output_device *device, int callback_id)
   /* The player may have stored a volume while the device had no session, in which
    * case outputs_device_volume_set() skipped us. Apply device->volume now. */
   if (pipewire_mixer_mode == PIPEWIRE_MIXER_PWSINK
-      && pwsink_apply_device_volume(device) < 0)
+      && pwsink_apply_device_volume(device, true) < 0)
     {  
     DPRINTF(E_WARN, L_LAUDIO, "PipeWire: could not apply volume at start\n");
     }
@@ -2279,7 +2284,7 @@ pipewire_device_volume_set(struct output_device *device, int callback_id)
   switch (pipewire_mixer_mode)
     {
       case PIPEWIRE_MIXER_PWSINK:
-        ret = pwsink_apply_device_volume(device);
+        ret = pwsink_apply_device_volume(device, false);
         if (ret < 0)
           DPRINTF(E_LOG, L_LAUDIO,
             "PipeWire: failed to set sink volume (sink not yet resolved?)\n");
@@ -2634,7 +2639,16 @@ pipewire_init(void)
   device->offset_ms        = offset_ms;
   if (pipewire_mixer_mode == PIPEWIRE_MIXER_PWSINK)
     {
-      int pct = pwsink_get_volume_pct();
+      int pct = -1;
+
+      /* thread_loop is NULL if pwsink_init() failed above */
+      if (pwsinkctx.thread_loop)
+        {
+          pw_thread_loop_lock(pwsinkctx.thread_loop);
+          pct = pwsink_get_volume_pct();
+          pw_thread_loop_unlock(pwsinkctx.thread_loop);
+        }
+
       if (pct >= 0)
         {
           device->volume = pct;
