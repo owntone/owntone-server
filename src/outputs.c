@@ -788,9 +788,6 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   int keep_volume;  // Live volume as read by the backend before this call
   int keep_external;
   int ret;
-  
- DPRINTF(E_DBG, L_PLAYER, "outputs_device_add: id=%" PRIu64 " name='%s' volume=%d volume_is_external=%d\n",
-    add->id, add->name ? add->name : "(null)", add->volume, add->volume_is_external);
 
   for (device = outputs_device_list; device; device = device->next)
     {
