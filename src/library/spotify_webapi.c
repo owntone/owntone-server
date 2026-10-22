@@ -2051,6 +2051,15 @@ scan_playlist_tracks(const char *playlist_tracks_endpoint_uri, struct playlist_i
   return ret;
 }
 
+static int
+saved_playlist_track_count(json_object *item, int index, int total, enum spotify_request_type request_type, void *arg)
+{
+  int *count = arg;
+
+  (*count)++;
+  return 0;
+}
+
 static void
 map_playlist_to_pli(struct playlist_info *pli, struct spotify_playlist *playlist)
 {
@@ -2078,17 +2087,32 @@ saved_playlist_add(json_object *item, int index, int total, enum spotify_request
 {
   struct spotify_playlist playlist;
   struct playlist_info pli;
+  int track_count = 0;
   int pl_id;
+  int ret;
 
   // Map playlist information
   parse_metadata_playlist(item, &playlist);
 
   DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
 
-  if (!playlist.uri || !playlist.name || playlist.tracks_count == 0)
+  if (!playlist.uri || !playlist.name || !playlist.tracks_href)
     {
       DPRINTF(E_INFO, L_SPOTIFY, "Ignoring playlist '%s' with %d tracks (%s)\n", playlist.name, playlist.tracks_count, playlist.uri);
       return 0; // Ignore
+    }
+
+  if (playlist.tracks_count == 0)
+    {
+      ret = request_pagingobject_endpoint(playlist.tracks_href, saved_playlist_track_count, NULL, NULL, true, request_type, &track_count);
+      if (ret < 0)
+        return ret;
+
+      if (track_count == 0)
+        {
+          DPRINTF(E_INFO, L_SPOTIFY, "Ignoring empty playlist '%s' (%s)\n", playlist.name, playlist.uri);
+          return 0;
+        }
     }
 
   map_playlist_to_pli(&pli, &playlist);
