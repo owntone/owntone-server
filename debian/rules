@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- --sysconfdir=/etc --localstatedir=/var \
+	  --with-alsa --with-pulseaudio --with-libwebsockets --with-avahi \
+	  --enable-chromecast --disable-install-systemd \
+	  --with-systemddir=/usr/lib/systemd/system
+
+override_dh_auto_install:
+	dh_auto_install
+	install -Dm644 owntone.service debian/owntone/usr/lib/systemd/system/owntone.service
+	install -Dm644 owntone@.service debian/owntone/usr/lib/systemd/system/owntone@.service
+	install -Dm644 owntone.sysusers debian/owntone/usr/lib/sysusers.d/owntone.conf
+	rm -f debian/owntone/usr/lib/*/owntone/*.la
+
+override_dh_installsystemd:
+	dh_installsystemd --name=owntone
+
+override_dh_auto_test:

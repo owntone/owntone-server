@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    getent group owntone >/dev/null || addgroup --system owntone
+    getent passwd owntone >/dev/null || adduser --system --ingroup owntone \
+        --home /var/lib/owntone --no-create-home --gecos "OwnTone User" owntone
+    chown owntone:owntone /var/lib/owntone /var/cache/owntone
+    chmod 750 /var/lib/owntone /var/cache/owntone
+fi
+#DEBHELPER#
