@@ -1,0 +1,62 @@
+name: Debian
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - 'htdocs/**'
+      - 'web-src/**'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - 'htdocs/**'
+      - 'web-src/**'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    container: debian:trixie
+
+    steps:
+    - name: Install packaging tools
+      run: |
+        apt-get update
+        apt-get install -yq --no-install-recommends git ca-certificates build-essential devscripts equivs lintian fakeroot
+
+    - uses: actions/checkout@v7
+
+    - name: Install build dependencies
+      run: |
+        mk-build-deps --install --remove --root-cmd "" \
+          --tool "apt-get -o Debug::pkgProblemResolver=yes -yq --no-install-recommends" debian/control
+
+    - name: Build package
+      run: |
+        dpkg-buildpackage -us -uc -b
+        mkdir -p artifacts
+        mv ../*.deb ../*.changes ../*.buildinfo artifacts/
+
+    - name: Lint package
+      run: lintian --no-tag-display-limit --fail-on error artifacts/owntone_*.deb
+
+    - name: Install package
+      run: |
+        apt-get install -yq ./artifacts/owntone_*.deb
+        test -x /usr/sbin/owntone
+        getent passwd owntone
+
+    - name: Test run
+      run: |
+        /usr/sbin/owntone -v
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: debian-trixie-package
+        path: artifacts/*.deb
