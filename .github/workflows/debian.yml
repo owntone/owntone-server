@@ -43,6 +43,12 @@ jobs:
         mkdir -p artifacts
         mv ../*.deb ../*.changes ../*.buildinfo artifacts/
 
+    - name: Determine artifact name
+      id: name
+      run: |
+        . /etc/os-release
+        echo "artifact=owntone_$(dpkg-parsechangelog -S Version)_${VERSION_CODENAME}_$(dpkg --print-architecture)" >> "$GITHUB_OUTPUT"
+
     - name: Lint package
       run: lintian --no-tag-display-limit --fail-on error artifacts/owntone_*.deb
 
@@ -58,5 +64,5 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: debian-trixie-package
+        name: ${{ steps.name.outputs.artifact }}
         path: artifacts/*.deb
