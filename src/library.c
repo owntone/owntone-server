@@ -300,6 +300,14 @@ handle_deferred_update_notifications(void)
 static void
 purge_cruft(time_t start, enum scan_kind scan_kind)
 {
+  // A scan cut short by shutdown hasn't seen most files, so purging now would
+  // delete everything it didn't get to from the library
+  if (library_is_exiting())
+    {
+      DPRINTF(E_LOG, L_LIB, "Library scan interrupted, not purging old library content\n");
+      return;
+    }
+
   DPRINTF(E_DBG, L_LIB, "Purging old library content\n");
   if (scan_kind > 0)
     db_purge_cruft_bysource(start, scan_kind);
