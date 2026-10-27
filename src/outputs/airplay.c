@@ -3818,7 +3818,11 @@ sequence_continue(struct airplay_seq_ctx *seq_ctx)
 
   ret = evrtsp_make_request(session->ctrl, req, cur_request->rtsp_type, uri);
   if (ret < 0)
-    goto error;
+    {
+      // req is now queued on session->ctrl and will be freed with it
+      req = NULL;
+      goto error;
+    }
 
   evrtsp_connection_set_closecb(session->ctrl, NULL, NULL);
 
