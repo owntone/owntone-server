@@ -245,6 +245,17 @@ static cfg_opt_t sec_spotify[] =
     CFG_END()
   };
 
+static cfg_opt_t sec_lastfm[] =
+  {
+    // The API key and secret (not so secret being open source) is specific to
+    // us, and is used to identify client and to sign requests.
+    CFG_STR("api_key", "579593f2ed3f49673c7364fd1c9c829b", CFGF_NONE),
+    CFG_STR("api_secret", "ce45a1d275c10b3edf0ecfa27791cb2b", CFGF_NONE),
+    CFG_STR("auth_url", "https://ws.audioscrobbler.com/2.0/", CFGF_NONE),
+    CFG_STR("api_url", "https://ws.audioscrobbler.com/2.0/", CFGF_NONE),
+    CFG_END()
+  };
+
 /* SQLite section structure */
 static cfg_opt_t sec_sqlite[] =
   {
@@ -294,6 +305,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("fifo", sec_fifo, CFGF_NONE),
     CFG_SEC("rcp", sec_rcp, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("spotify", sec_spotify, CFGF_NONE),
+    CFG_SEC("lastfm", sec_lastfm, CFGF_NONE),
     CFG_SEC("sqlite", sec_sqlite, CFGF_NONE),
     CFG_SEC("mpd", sec_mpd, CFGF_NONE),
     CFG_SEC("streaming", sec_streaming, CFGF_NONE),

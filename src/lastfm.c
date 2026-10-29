@@ -47,15 +47,11 @@
 // but can't (probably no session key in db because user does not use LastFM)
 static bool lastfm_disabled = false;
 
-/**
- * The API key and secret (not so secret being open source) is specific to us,
- * and is used to identify client and to sign requests.
- */
-static const char *lastfm_api_key = "579593f2ed3f49673c7364fd1c9c829b";
-static const char *lastfm_secret = "ce45a1d275c10b3edf0ecfa27791cb2b";
+static const char *lastfm_api_key;
+static const char *lastfm_secret;
 
-static const char *api_url = "http://ws.audioscrobbler.com/2.0/";
-static const char *auth_url = "https://ws.audioscrobbler.com/2.0/";
+static const char *lastfm_api_url;
+static const char *lastfm_auth_url;
 
 // Session key
 static char *lastfm_session_key = NULL;
@@ -331,7 +327,7 @@ scrobble(int id)
 
   DPRINTF(E_INFO, L_SCROBBLE, "lastfm: Scrobbling '%s' by '%s'\n", keyval_get(kv, "track"), keyval_get(kv, "artist"));
 
-  ret = request_post(api_url, kv, NULL);
+  ret = request_post(lastfm_api_url, kv, NULL);
 
   keyval_clear(kv);
   free(kv);
@@ -388,7 +384,7 @@ lastfm_login_user(const char *user, const char *password, char **errmsg)
     goto out_free_kv;
 
   // Send the login request
-  ret = request_post(auth_url, kv, errmsg);
+  ret = request_post(lastfm_auth_url, kv, errmsg);
 
  out_free_kv:
   keyval_clear(kv);
@@ -441,6 +437,13 @@ int
 lastfm_init(void)
 {
   int ret;
+  cfg_t *lastfm_cfg = cfg_getsec(cfg, "lastfm");
+
+  lastfm_api_key = cfg_getstr(lastfm_cfg, "api_key");
+  lastfm_secret = cfg_getstr(lastfm_cfg, "api_secret");
+
+  lastfm_api_url = cfg_getstr(lastfm_cfg, "api_url");
+  lastfm_auth_url = cfg_getstr(lastfm_cfg, "auth_url");
 
   ret = db_admin_get(&lastfm_session_key, DB_ADMIN_LASTFM_SESSION_KEY);
   if (ret < 0)
