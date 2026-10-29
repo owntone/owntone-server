@@ -52,7 +52,7 @@ const tracks = ref(new GroupedList())
 const current = computed(() => route.query?.directory || '/')
 
 const expression = computed(
-  () => `path starts with "${current.value}" order by path asc`
+  () => `path starts with "${current.value.replace(/\/?$/u, '/')}" order by path asc`
 )
 
 const name = computed(() => {
