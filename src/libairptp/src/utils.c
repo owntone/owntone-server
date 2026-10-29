@@ -140,13 +140,12 @@ utils_net_sockaddr_get(union utils_net_sockaddr *naddr, const char *addr, unsign
   snprintf(strport, sizeof(strport), "%hu", port);
   ret = getaddrinfo(addr, strport, &hints, &servinfo);
   if (ret != 0)
-    goto error;
+    return -1;
 
   memcpy(&naddr->sa, servinfo->ai_addr, servinfo->ai_addrlen);
 
- error:
   freeaddrinfo(servinfo);
-  return (ret < 0) ? -1 : 0;
+  return 0;
 }
 
 int
