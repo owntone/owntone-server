@@ -18,7 +18,7 @@ const props = defineProps({
 defineEmits(['close'])
 
 const playable = computed(() => ({
-  expression: `path starts with "${props.item}" order by path asc`,
+  expression: `path starts with "${props.item.replace(/\/?$/u, '/')}" order by path asc`,
   name: props.item
 }))
 </script>
