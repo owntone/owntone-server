@@ -2243,10 +2243,19 @@ airplay_metadata_send_generic(struct airplay_session *session, struct output_met
   return 0;
 }
 
+// A receiver that supports MediaRemote gets the now playing info even if it
+// doesn't want any of the SET_PARAMETER metadata, e.g. shairport-sync 5.6,
+// which announces MetadataFeatures_3 without MetadataFeatures_0/1/2
+static bool
+airplay_metadata_is_wanted(struct airplay_session *session)
+{
+  return session->wanted_metadata || !session->mrp_unsupported;
+}
+
 static int
 airplay_metadata_startup_send(struct airplay_session *session)
 {
-  if (!session->wanted_metadata || !airplay_cur_metadata)
+  if (!airplay_metadata_is_wanted(session) || !airplay_cur_metadata)
     return 0;
 
   airplay_cur_metadata->startup = true;
@@ -2271,7 +2280,7 @@ airplay_metadata_send(struct output_metadata *metadata)
     {
       next = session->next;
 
-      if (!(session->state & AIRPLAY_STATE_F_CONNECTED) || !session->wanted_metadata)
+      if (!(session->state & AIRPLAY_STATE_F_CONNECTED) || !airplay_metadata_is_wanted(session))
 	continue;
 
       ret = airplay_metadata_send_generic(session, metadata, false);
