@@ -1652,7 +1652,9 @@ session_make(struct output_device *device, int callback_id)
   session->supports_auth_setup = extra->supports_auth_setup;
   session->wanted_metadata = extra->wanted_metadata;
   session->supports_encryption = extra->supports_encryption;
-  session->mrp_unsupported = !extra->supports_mrp;
+  // MediaRemote can be turned off in the config, e.g. so that the receivers
+  // don't show their own now playing tile on Apple devices
+  session->mrp_unsupported = !extra->supports_mrp || !cfg_getbool(cfg_getsec(cfg, "airplay_shared"), "mediaremote");
 
   session->next_seq = AIRPLAY_SEQ_CONTINUE;
   session->timing_svc = &airplay_timing_svc;
