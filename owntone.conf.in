@@ -332,6 +332,13 @@ audio {
 	# Switch Airplay 1 streams to uncompressed ALAC (as opposed to regular,
 	# compressed ALAC). Reduces CPU use at the cost of network bandwidth.
 #	uncompressed_alac = false
+
+	# Send now playing info (title, artwork, progress) to receivers that
+	# support MediaRemote, like HomePods. Apple devices nearby then show the
+	# receiver's own now playing tile, and the receiver relays the commands
+	# made from that tile. Set to false if you don't want that. Commands made
+	# on the receiver itself (touch, Siri) and its volume changes still work.
+#	mediaremote = true
 #}
 
 # AirPlay per device settings

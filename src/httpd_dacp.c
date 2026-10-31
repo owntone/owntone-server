@@ -548,12 +548,21 @@ speaker_get(struct player_speaker_info *speaker_info, struct httpd_request *hreq
     }
 
   ret = player_speaker_get_byactiveremote(speaker_info, active_remote);
+  if (ret == 0)
+    return 0;
+
+  // A receiver may relay a request with the Active-Remote of another sender,
+  // e.g. a HomePod whose volume is set by a remote control app (pyatv) sends
+  // device-volume with that app's Active-Remote. If the request comes from a
+  // speaker we know, it's still about that speaker.
+  ret = player_speaker_get_byaddress(speaker_info, hreq->peer_address);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "'%s' request from '%s' has unknown Active-Remote: '%s'\n", req_name, hreq->peer_address, remote);
       return -1;
     }
 
+  DPRINTF(E_DBG, L_DACP, "'%s' request from '%s' has unknown Active-Remote '%s', using the speaker with that address\n", req_name, hreq->peer_address, remote);
   return 0;
 }
 
