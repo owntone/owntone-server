@@ -2070,6 +2070,50 @@ map_playlist_to_pli(struct playlist_info *pli, struct spotify_playlist *playlist
     pli->virtual_path = safe_asprintf("/spotify:/%s", playlist->name);
 }
 
+// Unfortunately Spotify's tracks_count of 0 isn't always to be trusted, so we
+// have to check a bit more extensively whether the playlist is actually empty.
+// See issue #2054.
+static bool
+playlist_is_invalid(struct spotify_playlist *playlist)
+{
+  char *next_href = NULL;
+  json_object *response = NULL;
+  json_object *items;
+
+  if (!playlist->uri || !playlist->name || !playlist->tracks_href)
+    goto invalid;
+
+  if (playlist->tracks_count > 0)
+    return false;
+
+  next_href = credentials_query_param_market(playlist->tracks_href);
+  if (!next_href)
+    goto invalid;
+
+  response = request_endpoint_with_token_refresh(next_href);
+  if (!response)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Unexpected JSON: no response for paging endpoint (API endpoint: '%s')\n", next_href);
+      goto invalid;
+    }
+
+  if (jparse_array_from_obj(response, "items", &items) != 0)
+    goto invalid;
+
+  if (json_object_array_length(items) == 0)
+    goto invalid;
+
+  free(next_href);
+  jparse_free(response);
+
+  return false;
+
+ invalid:
+  free(next_href);
+  jparse_free(response);
+  return true;
+}
+
 /*
  * Add a saved playlist to the library
  */
@@ -2085,7 +2129,7 @@ saved_playlist_add(json_object *item, int index, int total, enum spotify_request
 
   DPRINTF(E_DBG, L_SPOTIFY, "Got playlist: '%s' with %d tracks (%s) \n", playlist.name, playlist.tracks_count, playlist.uri);
 
-  if (!playlist.uri || !playlist.name || playlist.tracks_count == 0)
+  if (playlist_is_invalid(&playlist))
     {
       DPRINTF(E_INFO, L_SPOTIFY, "Ignoring playlist '%s' with %d tracks (%s)\n", playlist.name, playlist.tracks_count, playlist.uri);
       return 0; // Ignore
