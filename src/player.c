@@ -2495,6 +2495,14 @@ playback_pause(void *arg, int *retval)
   return COMMAND_END;
 }
 
+// Flush requested by an input, e.g. the "pfls" metadata event that
+// Shairport-sync sends when the AirPlay sender pauses, seeks or starts a new
+// track (with AirPlay 2 senders also right after playback starts). We discard
+// the buffered audio and suspend playback in the same way as when a source
+// underruns, so playback resumes by itself as soon as the input buffer has
+// filled up again. Without the auto-resume the player would stay paused until
+// someone pressed play, because the pipe watcher is inactive while the pipe is
+// the current source.
 static enum command_state
 playback_flush(void *arg, int *retval)
 {
@@ -2512,9 +2520,21 @@ playback_flush(void *arg, int *retval)
 
   input_flush(NULL);
 
-  *retval = outputs_flush(device_flush_cb);
+  player_flush_pending = pb_suspend();
+  if (player_flush_pending < 0)
+    {
+      *retval = -1;
+      return COMMAND_END;
+    }
+
   outputs_metadata_purge();
 
+  // No devices to wait for, just set the restart cb right away. Otherwise the
+  // trigger will be set by device_flush_cb.
+  if (player_flush_pending == 0)
+    input_buffer_full_cb(player_playback_start);
+
+  *retval = player_flush_pending;
   if (*retval > 0)
     return COMMAND_PENDING; // async
 
