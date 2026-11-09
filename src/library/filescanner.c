@@ -184,12 +184,21 @@ strip_extension(const char *path)
 static int
 virtual_path_make(char *virtual_path, int virtual_path_len, const char *path)
 {
+  char aliased[PATH_MAX];
   int ret;
 
-  ret = snprintf(virtual_path, virtual_path_len, "/file:%s", path);
+  // Replaces the library directory with its alias, if it has one
+  ret = conffile_alias_apply(aliased, sizeof(aliased), path);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Path '%s' exceeds PATH_MAX after applying directory alias\n", path);
+      return -1;
+    }
+
+  ret = snprintf(virtual_path, virtual_path_len, "/file:%s", aliased);
   if ((ret < 0) || (ret >= virtual_path_len))
     {
-      DPRINTF(E_LOG, L_SCAN, "Virtual path '/file:%s', virtual_path_len exceeded (%d/%d)\n", path, ret, virtual_path_len);
+      DPRINTF(E_LOG, L_SCAN, "Virtual path '/file:%s', virtual_path_len exceeded (%d/%d)\n", aliased, ret, virtual_path_len);
       return -1;
     }
 
@@ -596,7 +605,13 @@ process_regular_file(const char *file, struct stat *sb, int type, int flags, int
   mfi.time_modified = sb->st_mtime;
   mfi.file_size = sb->st_size;
 
-  snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+  ret = virtual_path_make(virtual_path, sizeof(virtual_path), file);
+  if (ret < 0)
+    {
+      free_mfi(&mfi, 1);
+      return;
+    }
+
   mfi.virtual_path = strdup(virtual_path);
 
   mfi.directory_id = dir_id;
@@ -958,6 +973,11 @@ process_parent_directories(char *path)
 
   dir_id = DIR_FILE;
 
+  // An aliased library directory is presented directly below /file:, so it has
+  // no parents to create
+  if (conffile_alias_get(path))
+    return dir_id;
+
   ptr = path + 1;
   while (ptr && (ptr = strchr(ptr, '/')))
     {
@@ -1053,10 +1073,8 @@ bulk_scan(int flags)
 
 	  db_file_ping_bymatch(path, 1);
 	  db_pl_ping_bymatch(path, 1);
-	  ret = snprintf(virtual_path, sizeof(virtual_path), "/file:%s", path);
-	  if ((ret < 0) || (ret >= sizeof(virtual_path)))
-	    DPRINTF(E_LOG, L_SCAN, "Virtual path exceeds PATH_MAX (/file:%s)\n", path);
-	  else
+	  ret = virtual_path_make(virtual_path, sizeof(virtual_path), path);
+	  if (ret == 0)
 	    db_directory_ping_bymatch(virtual_path);
 
 	  continue;
@@ -1715,10 +1733,56 @@ inofd_event_unset(void)
 }
 
 /* Thread: scan */
+/*
+ * Warns if a library directory is in the database under a different virtual
+ * path than the one it would get now, which means an alias was added, changed
+ * or removed since the last scan.
+ *
+ * Aliases are not applied retroactively: the scanner only rewrites files it
+ * finds modified, so without a full rescan the library would end up with files
+ * pointing at directories that no longer exist.
+ */
+static void
+check_alias_changed(void)
+{
+  cfg_t *lib;
+  const char *path;
+  const char *scanned_path;
+  char *deref;
+  char virtual_path[PATH_MAX];
+  int ndirs;
+  int i;
+  int dir_id;
+
+  lib = cfg_getsec(cfg, "library");
+  ndirs = cfg_size(lib, "directories");
+
+  for (i = 0; i < ndirs; i++)
+    {
+      path = cfg_getnstr(lib, "directories", i);
+
+      deref = realpath(path, NULL);
+      scanned_path = deref ? deref : path;
+
+      // Not in the library yet, so there is nothing to compare against
+      dir_id = db_directory_id_bypath(scanned_path);
+      if (dir_id > 0 && virtual_path_make(virtual_path, sizeof(virtual_path), scanned_path) == 0
+	  && dir_id != db_directory_id_byvirtualpath(virtual_path))
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Library directory '%s' is in the database under a different name than '%s'. "
+	    "Its alias was added, changed or removed - trigger a full rescan to update the library.\n", path, virtual_path);
+	}
+
+      free(deref);
+    }
+}
+
 static int
 filescanner_initscan()
 {
   int ret;
+
+  check_alias_changed();
 
   ret = db_watch_clear();
   if (ret < 0)
@@ -1902,16 +1966,32 @@ queue_item_add(const char *uri, int position, char reshuffle, uint32_t item_id, 
   return (ret == 0) ? LIBRARY_OK : LIBRARY_PATH_INVALID;
 }
 
-static const char *
+/*
+ * Translates a virtual path to a real path, reversing any directory alias.
+ *
+ * Returns NULL if the virtual path is not a local file path, otherwise a newly
+ * allocated path.
+ */
+static char *
 virtual_path_to_path(const char *virtual_path)
 {
+  const char *path;
+  char *resolved;
+
   if (strncmp(virtual_path, "/file:", strlen("/file:")) == 0)
-    return virtual_path + strlen("/file:");
+    path = virtual_path + strlen("/file:");
+  else if (strncmp(virtual_path, "file:", strlen("file:")) == 0)
+    path = virtual_path + strlen("file:");
+  else
+    return NULL;
 
-  if (strncmp(virtual_path, "file:", strlen("file:")) == 0)
-    return virtual_path + strlen("file:");
+  // A path that does not start with an alias is already a real path. This also
+  // means virtual paths made before an alias was configured keep resolving.
+  resolved = conffile_alias_resolve(path);
+  if (resolved)
+    return resolved;
 
-  return NULL;
+  return strdup(path);
 }
 
 static bool
@@ -1922,6 +2002,7 @@ check_path_in_directories(const char *path)
   int i;
   char *tmp_path;
   char *dir;
+  char *real_dir;
   const char *lib_dir;
   bool ret;
 
@@ -1947,6 +2028,16 @@ check_path_in_directories(const char *path)
 	  ret = true;
 	  break;
 	}
+
+      // The library directory may be a symlink, while dir is a real path
+      real_dir = realpath(lib_dir, NULL);
+      if (real_dir && strncmp(dir, real_dir, strlen(real_dir)) == 0)
+	{
+	  free(real_dir);
+	  ret = true;
+	  break;
+	}
+      free(real_dir);
     }
 
   free(tmp_path);
@@ -1968,7 +2059,7 @@ has_suffix(const char *file, const char *suffix)
 static char *
 playlist_path_create(const char *vp_playlist)
 {
-  const char *path;
+  char *path;
   char *pl_path;
   struct playlist_info *pli;
 
@@ -1980,6 +2071,7 @@ playlist_path_create(const char *vp_playlist)
     }
 
   pl_path = safe_asprintf("%s.m3u", path);
+  free(path);
 
   if (!check_path_in_directories(pl_path))
     {

@@ -86,6 +86,16 @@ library {
 	# Directories to index
 	directories = { "/srv/music" }
 
+	# Optional display name for an indexed directory. Clients then see the
+	# library below this name instead of below the full path, so browsing by
+	# folder does not require clicking through e.g. srv -> music first. This
+	# mostly matters for MPD clients, which show the entire path.
+	# Directories without an alias are presented as before, under their path.
+	# The alias must be a single name (no "/"), two directories cannot share
+	# one, and indexed directories that have an alias cannot be nested.
+	# (changing this setting only takes effect after a full rescan)
+#	directory "/srv/music" { alias = "Music" }
+
 	# Follow symlinks. Default: true.
 #	follow_symlinks = true
 
