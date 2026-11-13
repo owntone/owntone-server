@@ -568,6 +568,7 @@ struct db_queue_add_info
 {
   int queue_version;
   int start_pos;
+  bool append;
   int pos;
   int shuffle_pos;
   int count;
