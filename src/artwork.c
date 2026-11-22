@@ -2285,7 +2285,7 @@ artwork_file_is_artwork(const char *filename)
 bool
 artwork_extension_is_artwork(const char *path)
 {
-  char *ext;
+  const char *ext;
   int len;
   int i;
 
