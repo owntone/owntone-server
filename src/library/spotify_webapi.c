@@ -1111,7 +1111,7 @@ parse_metadata_chapter(json_object *jsonchapter, struct spotify_track *chapter, 
 static char *
 create_endpoint_uri(const char *template, const char *uri)
 {
-  char *id;
+  const char *id;
 
   id = strrchr(uri, ':');
   if (!id || id[0] == '\0')

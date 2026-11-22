@@ -50,7 +50,7 @@ enum playlist_type
 static enum playlist_type
 playlist_type(const char *path)
 {
-  char *ptr;
+  const char *ptr;
 
   ptr = strrchr(path, '.');
   if (!ptr)
@@ -73,7 +73,7 @@ extinf_read(char **artist, char **title, const char *tag)
 {
   char *ptr;
 
-  ptr = strchr(tag, ',');
+  ptr = (char *)strchr(tag, ',');
   if (!ptr || strlen(ptr) < 2)
     return -1;
 
@@ -93,7 +93,7 @@ extinf_read(char **artist, char **title, const char *tag)
 static int
 extval_read(char **val, const char *tag)
 {
-  char *ptr;
+  const char *ptr;
 
   ptr = strchr(tag, ':');
   if (!ptr || strlen(ptr) < 2)
@@ -146,7 +146,7 @@ exttag_read(struct media_file_info *mfi, const char *tag)
 void
 scan_metadata_stream(struct media_file_info *mfi, const char *path)
 {
-  char *pos;
+  const char *pos;
   int ret;
 
   mfi->path = strdup(path);

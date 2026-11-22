@@ -933,9 +933,9 @@ file_copy_to_tmp(char *dst, size_t dst_size, const char *src)
   return 0;
 
  error:
-  if (fd_src != -1)
+  if (fd_src >= 0)
     close(fd_src);
-  if (fd_dst != -1)
+  if (fd_dst >= 0)
     close(fd_dst);
   return -1;
 }
