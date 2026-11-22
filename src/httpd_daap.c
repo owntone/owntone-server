@@ -552,7 +552,7 @@ static void
 query_params_set(struct query_params *qp, int *sort_headers, struct httpd_request *hreq, enum query_type type)
 {
   const char *param;
-  char *ptr;
+  const char *ptr;
   int low;
   int high;
   int ret;
