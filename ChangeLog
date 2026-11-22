@@ -1,5 +1,21 @@
 # Changelog
 
+## Version 29.4 - 2026-11-22
+- fix: Fix AirPlay to HomePod OS 27 not working
+- fix: Better support for AirPlay MediaRemote commands (used by e.g. HomePod)
+- fix: Better compability with shairport-sync pause/resume
+- fix: Check if Spotify playlists actually have zero tracks
+- fix: Misc security related fixes
+- fix: Better handling of symlinks
+- fix: Propagate source tags to output so iTunes keeps DAAP metadata
+- new: Faster playback start of Spotify
+- new: Pipewire local audio support
+- new: Add support for idv3 TPBM tag
+- web UI:
+    - Fix directory playback matching sibling folders
+    - Fix for random playlists
+    - Dutch translation
+
 ## Version 29.3 - 2026-07-22
 
 - fix: Spotify library missing due to malformed auth header
