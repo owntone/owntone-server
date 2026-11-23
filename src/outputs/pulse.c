@@ -92,7 +92,7 @@ static struct media_quality pulse_fallback_quality = { 44100, 16, 2, 0 };
 
 // Converts from 0 - 100 to Pulseaudio's scale
 static inline pa_volume_t
-pulse_from_device_volume(int device_volume)
+pulse_from_device_volume(float device_volume)
 {
   return (PA_VOLUME_MUTED + (device_volume * (PA_VOLUME_NORM - PA_VOLUME_MUTED)) / 100);
 }
@@ -864,7 +864,7 @@ pulse_device_volume_set(struct output_device *device, int callback_id)
   ps->volume = pulse_from_device_volume(device->volume);
   pa_cvolume_set(&cvol, 2, ps->volume);
 
-  DPRINTF(E_DBG, L_LAUDIO, "Setting Pulseaudio volume for stream %" PRIu32 " to %d (%d)\n", idx, (int)ps->volume, device->volume);
+  DPRINTF(E_DBG, L_LAUDIO, "Setting Pulseaudio volume for stream %" PRIu32 " to %d (%.2f)\n", idx, (int)ps->volume, device->volume);
 
   pa_threaded_mainloop_lock(pulse.mainloop);
 

@@ -129,9 +129,9 @@ struct output_device
   char *auth_key;
 
   // Device volume
-  int volume;
-  int relvol;
-  int max_volume;
+  float volume;
+  float relvol;
+  float max_volume;
 
   // Quality of audio output
   struct media_quality quality;
@@ -249,7 +249,7 @@ struct output_definition
   int (*device_volume_set)(struct output_device *device, int callback_id);
 
   // Convert device internal representation of volume to our pct scale
-  int (*device_volume_to_pct)(struct output_device *device, const char *volume);
+  float (*device_volume_to_pct)(struct output_device *device, const char *volume);
 
   // Request a change of quality from the device
   int (*device_quality_set)(struct output_device *device, struct media_quality *quality, int callback_id);
@@ -327,7 +327,7 @@ void
 outputs_device_remove(struct output_device *remove);
 
 void
-outputs_device_select(struct output_device *device, int max_volume);
+outputs_device_select(struct output_device *device, float max_volume);
 
 void
 outputs_device_deselect(struct output_device *device);
@@ -345,12 +345,12 @@ int
 outputs_device_flush(struct output_device *device, output_status_cb cb);
 
 void
-outputs_device_volume_register(struct output_device *device, int absvol, int relvol);
+outputs_device_volume_register(struct output_device *device, float absvol, float relvol);
 
 int
 outputs_device_volume_set(struct output_device *device, output_status_cb cb);
 
-int
+float
 outputs_device_volume_to_pct(struct output_device *device, const char *value);
 
 int
@@ -374,11 +374,11 @@ outputs_stop(output_status_cb cb);
 int
 outputs_flush(output_status_cb cb);
 
-int
+float
 outputs_volume_get(void);
 
 int
-outputs_volume_set(int volume, output_status_cb cb);
+outputs_volume_set(float volume, output_status_cb cb);
 
 int
 outputs_stop_delayed_cancel(void);

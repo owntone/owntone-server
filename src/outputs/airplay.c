@@ -280,7 +280,7 @@ struct airplay_session
 
   union net_sockaddr naddr;
 
-  int volume;
+  float volume;
 
   // device->offset_ms in samples (user config for correction of static
   // amplifier or DSP delays)
@@ -2301,7 +2301,7 @@ airplay_metadata_send(struct output_metadata *metadata)
 
 /* ------------------------------ Volume handling --------------------------- */
 
-static int
+static float
 volume_max_get(const char *name)
 {
   int max_volume = AIRPLAY_CONFIG_MAX_VOLUME;
@@ -2321,10 +2321,10 @@ volume_max_get(const char *name)
 }
 
 static float
-airplay_volume_from_pct(int volume, const char *name)
+airplay_volume_from_pct(float volume, const char *name)
 {
   float airplay_volume;
-  int max_volume;
+  float max_volume;
 
   max_volume = volume_max_get(name);
 
@@ -2333,19 +2333,19 @@ airplay_volume_from_pct(int volume, const char *name)
    *  0 - 100 maps to -30.0 - 0 (if no max_volume set)
    */
   if (volume >= 0 && volume <= 100)
-    airplay_volume = -30.0 + ((float)max_volume * (float)volume * 30.0) / (100.0 * AIRPLAY_CONFIG_MAX_VOLUME);
+    airplay_volume = -30.0 + (max_volume * volume * 30.0) / (100.0 * AIRPLAY_CONFIG_MAX_VOLUME);
   else
     airplay_volume = -144.0;
 
   return airplay_volume;
 }
 
-static int
+static float
 airplay_volume_to_pct(struct output_device *device, const char *volstr)
 {
   float airplay_volume;
   float volume;
-  int max_volume;
+  float max_volume;
 
   airplay_volume = atof(volstr);
 
@@ -2385,8 +2385,8 @@ airplay_volume_to_pct(struct output_device *device, const char *volstr)
 
 */
   // RAOP volume: -144.0 is off, -30.0 - 0 scaled by max_volume maps to 0 - 100
-  volume = (100.0 * (airplay_volume / 30.0 + 1.0) * AIRPLAY_CONFIG_MAX_VOLUME / (float)max_volume);
-  return MAX(0, MIN(100, (int)volume));
+  volume = (100.0 * (airplay_volume / 30.0 + 1.0) * AIRPLAY_CONFIG_MAX_VOLUME / max_volume);
+  return MAX(0, MIN(100, volume));
 }
 
 /* Volume in [0 - 100] */

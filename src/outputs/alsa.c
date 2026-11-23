@@ -370,7 +370,7 @@ volume_normalized_set(snd_mixer_elem_t *elem, double volume, int dir)
 }
 
 static int
-volume_set(struct alsa_mixer *mixer, int volume)
+volume_set(struct alsa_mixer *mixer, float volume)
 {
   int ret;
 
@@ -379,12 +379,12 @@ volume_set(struct alsa_mixer *mixer, int volume)
   if (!snd_mixer_selem_is_active(mixer->vol_elem))
     return -1;
 
-  DPRINTF(E_DBG, L_LAUDIO, "Setting ALSA volume to %d\n", volume);
+  DPRINTF(E_DBG, L_LAUDIO, "Setting ALSA volume to %.2f\n", volume);
 
   ret = volume_normalized_set(mixer->vol_elem, volume >= 0 && volume <= 100 ? volume/100.0 : 0.75, 0);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Failed to set ALSA volume to %d\n: %s", volume, snd_strerror(ret));
+      DPRINTF(E_LOG, L_LAUDIO, "Failed to set ALSA volume to %.2f\n: %s", volume, snd_strerror(ret));
       return -1;
     }
 

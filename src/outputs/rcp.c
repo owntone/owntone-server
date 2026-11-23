@@ -583,7 +583,7 @@ rcp_state_transition(struct rcp_session *s)
 	break;
 
       case RCP_STATE_SETUP_SERVER_CONNECT:
-	snprintf(buf, sizeof(buf), "%d", s->device->volume);
+	snprintf(buf, sizeof(buf), "%d", (int)s->device->volume);
 	rcp_send(s, RCP_STATE_SETUP_VOL_SET, buf);
 	break;
 
@@ -1242,7 +1242,7 @@ rcp_device_volume_set(struct output_device *device, int callback_id)
 
   s->callback_id = callback_id;
 
-  ret = snprintf(cmd, sizeof(cmd), "%d", device->volume);
+  ret = snprintf(cmd, sizeof(cmd), "%d", (int)device->volume);
   if (ret < 0) {
     return 0;
   }

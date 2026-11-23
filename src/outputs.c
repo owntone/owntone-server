@@ -120,7 +120,7 @@ struct output_quality_subscription
 static struct output_buffer output_buffer;
 
 static struct output_device *outputs_device_list;
-static int outputs_master_volume;
+static float outputs_master_volume;
 static uint64_t outputs_buffer_duration_ms;
 
 static bool outputs_exclusive_mode;
@@ -548,38 +548,38 @@ metadata_send(enum output_types type, uint32_t item_id, bool startup, output_met
 
 /* ----------------------------- Volume helpers ----------------------------- */
 
-static int
-rel_to_vol(int relvol, int master_volume)
+static float
+rel_to_vol(float relvol, float master_volume)
 {
   float vol;
 
-  if (relvol == 100)
+  if (round(relvol) == 100.0)
     return master_volume;
 
-  vol = ((float)relvol * (float)master_volume) / 100.0;
+  vol = (relvol * master_volume) / 100.0;
 
-  return (int)vol;
+  return vol;
 }
 
-static int
-vol_to_rel(int volume, int master_volume)
+static float
+vol_to_rel(float volume, float master_volume)
 {
   float rel;
 
   if (volume == master_volume)
-    return 100;
+    return 100.0;
 
-  rel = ((float)volume / (float)master_volume) * 100.0;
+  rel = (volume / master_volume) * 100.0;
 
-  return (int)rel;
+  return rel;
 }
 
 static void
 vol_adjust(void)
 {
   struct output_device *device;
-  int selected_highest = -1;
-  int all_highest = -1;
+  float selected_highest = -1;
+  float all_highest = -1;
 
   for (device = outputs_device_list; device; device = device->next)
     {
@@ -598,11 +598,11 @@ vol_adjust(void)
     }
 
 #ifdef DEBUG_VOLUME
-  DPRINTF(E_DBG, L_PLAYER, "*** Master: %d\n", outputs_master_volume);
+  DPRINTF(E_DBG, L_PLAYER, "*** Master: %.2f\n", outputs_master_volume);
 
   for (device = outputs_device_list; device; device = device->next)
     {
-      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d selected %d\n", device->name, device->volume, device->relvol, OUTPUTS_DEVICE_DISPLAY_SELECTED(device));
+      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %.2f rel %.2f selected %d\n", device->name, device->volume, device->relvol, OUTPUTS_DEVICE_DISPLAY_SELECTED(device));
     }
 #endif
 }
@@ -785,7 +785,7 @@ outputs_device_add(struct output_device *add, bool new_deselect)
   struct output_device *device;
   char *keep_name;
   int keep_offset_ms;
-  int keep_volume;  // Live volume as read by the backend before this call
+  float keep_volume;  // Live volume as read by the backend before this call
   int keep_external;
   int ret;
 
@@ -936,7 +936,7 @@ outputs_device_remove(struct output_device *remove)
 }
 
 void
-outputs_device_select(struct output_device *device, int max_volume)
+outputs_device_select(struct output_device *device, float max_volume)
 {
   device->selected = 1;
   device->prevent_playback = 0;
@@ -1032,7 +1032,7 @@ outputs_device_flush(struct output_device *device, output_status_cb cb)
 }
 
 void
-outputs_device_volume_register(struct output_device *device, int absvol, int relvol)
+outputs_device_volume_register(struct output_device *device, float absvol, float relvol)
 {
   if (absvol > -1)
     device->volume = absvol;
@@ -1058,7 +1058,7 @@ outputs_device_volume_set(struct output_device *device, output_status_cb cb)
   return ret; // We don't change device state just because of a failed volume change
 }
 
-int
+float
 outputs_device_volume_to_pct(struct output_device *device, const char *volume)
 {
   if (outputs[device->type]->disabled || !outputs[device->type]->device_volume_to_pct)
@@ -1217,14 +1217,14 @@ outputs_flush(output_status_cb cb)
   return pending;
 }
 
-int
+float
 outputs_volume_get(void)
 {
   return outputs_master_volume;
 }
 
 int
-outputs_volume_set(int volume, output_status_cb cb)
+outputs_volume_set(float volume, output_status_cb cb)
 {
   struct output_device *device;
   int pending = 0;

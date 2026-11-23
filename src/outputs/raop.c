@@ -221,7 +221,7 @@ struct raop_session
 
   union net_sockaddr naddr;
 
-  int volume;
+  float volume;
 
   // device->offset_ms in samples (user config for correction of static
   // amplifier or DSP delays)
@@ -2618,7 +2618,7 @@ raop_metadata_send(struct output_metadata *metadata)
 /* ------------------------------ Volume handling --------------------------- */
 
 static float
-raop_volume_from_pct(int volume, struct output_device *device)
+raop_volume_from_pct(float volume, struct output_device *device)
 {
   float raop_volume;
 
@@ -2627,14 +2627,14 @@ raop_volume_from_pct(int volume, struct output_device *device)
    *  0 - 100 maps to -30.0 - 0 (if no max_volume set)
    */
   if (volume >= 0 && volume <= 100)
-    raop_volume = -30.0 + ((float)device->max_volume * (float)volume * 30.0) / (100.0 * RAOP_CONFIG_MAX_VOLUME);
+    raop_volume = -30.0 + (device->max_volume * volume * 30.0) / (100.0 * RAOP_CONFIG_MAX_VOLUME);
   else
     raop_volume = -144.0;
 
   return raop_volume;
 }
 
-static int
+static float
 raop_volume_to_pct(struct output_device *device, const char *volstr)
 {
   float raop_volume;
@@ -2654,12 +2654,12 @@ raop_volume_to_pct(struct output_device *device, const char *volstr)
     }
 
   // RAOP volume: -144.0 is off, -30.0 - 0 scaled by max_volume maps to 0 - 100
-  volume = (100.0 * (raop_volume / 30.0 + 1.0) * RAOP_CONFIG_MAX_VOLUME / (float)device->max_volume);
-  return MAX(0, MIN(100, (int)volume));
+  volume = (100.0 * (raop_volume / 30.0 + 1.0) * RAOP_CONFIG_MAX_VOLUME / device->max_volume);
+  return MAX(0, MIN(100, volume));
 }
 
 static int
-raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
+raop_set_volume_internal(struct raop_session *rs, float volume, evrtsp_req_cb cb)
 {
   struct output_device *device;
   struct evbuffer *evbuf;
@@ -4382,7 +4382,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   rd->max_volume = devcfg ? cfg_getint(devcfg, "max_volume") : RAOP_CONFIG_MAX_VOLUME;
   if ((rd->max_volume < 1) || (rd->max_volume > RAOP_CONFIG_MAX_VOLUME))
     {
-      DPRINTF(E_LOG, L_RAOP, "Config has bad max_volume (%d) for device '%s', using default instead\n", rd->max_volume, device_name);
+      DPRINTF(E_LOG, L_RAOP, "Config has bad max_volume (%d) for device '%s', using default instead\n", (int)rd->max_volume, device_name);
       rd->max_volume = RAOP_CONFIG_MAX_VOLUME;
     }
 

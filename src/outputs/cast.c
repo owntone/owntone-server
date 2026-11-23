@@ -1808,7 +1808,7 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
   device->max_volume = devcfg ? cfg_getint(devcfg, "max_volume") : CAST_CONFIG_MAX_VOLUME;
   if ((device->max_volume < 1) || (device->max_volume > CAST_CONFIG_MAX_VOLUME))
     {
-      DPRINTF(E_LOG, L_CAST, "Config has bad max_volume (%d) for device '%s', using default instead\n", device->max_volume, name);
+      DPRINTF(E_LOG, L_CAST, "Config has bad max_volume (%d) for device '%s', using default instead\n", (int)device->max_volume, name);
       device->max_volume = CAST_CONFIG_MAX_VOLUME;
     }
 
@@ -2202,7 +2202,7 @@ cast_device_volume_set(struct output_device *device, int callback_id)
   if (!cs || !(cs->state & CAST_STATE_F_APP_READY))
     return 0;
 
-  cs->volume = ((float)device->max_volume * (float)device->volume * 1.0) / (100.0 * CAST_CONFIG_MAX_VOLUME);
+  cs->volume = (device->max_volume * device->volume * 1.0) / (100.0 * CAST_CONFIG_MAX_VOLUME);
 
   ret = cast_msg_send(cs, SET_VOLUME, cast_cb_volume);
   if (ret < 0)
