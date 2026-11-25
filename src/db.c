@@ -5107,9 +5107,15 @@ db_queue_add_start(struct db_queue_add_info *queue_add_info, int pos)
 
   queue_add_info->pos = queue_count;
   queue_add_info->shuffle_pos = queue_count;
+  queue_add_info->append = (pos < 0 || pos > queue_count);
 
+  // Insert at the same position in the normal and the shuffled queue, like
+  // db_queue_add_by_query()
   if (pos >= 0 && pos < queue_count)
-    queue_add_info->pos = pos;
+    {
+      queue_add_info->pos = pos;
+      queue_add_info->shuffle_pos = pos;
+    }
 
   queue_add_info->start_pos = queue_add_info->pos;
 
@@ -5124,15 +5130,24 @@ db_queue_add_end(struct db_queue_add_info *queue_add_info, char reshuffle, uint3
   if (ret < 0)
     goto end;
 
-  // Update pos for all items from the given position
-  query = sqlite3_mprintf("UPDATE queue SET pos = pos + %d, queue_version = %d WHERE pos >= %d AND queue_version < %d;",
-                          queue_add_info->count, queue_add_info->queue_version, queue_add_info->start_pos, queue_add_info->queue_version);
+  // Make room for the new items: update pos and shuffle_pos of the existing
+  // items from the given position
+  query = sqlite3_mprintf("UPDATE queue SET"
+                          " pos = pos + CASE WHEN pos >= %d THEN %d ELSE 0 END,"
+                          " shuffle_pos = shuffle_pos + CASE WHEN shuffle_pos >= %d THEN %d ELSE 0 END,"
+                          " queue_version = %d"
+                          " WHERE (pos >= %d OR shuffle_pos >= %d) AND queue_version < %d;",
+                          queue_add_info->start_pos, queue_add_info->count,
+                          queue_add_info->start_pos, queue_add_info->count,
+                          queue_add_info->queue_version,
+                          queue_add_info->start_pos, queue_add_info->start_pos, queue_add_info->queue_version);
   ret = db_query_run(query, 1, 0);
   if (ret < 0)
     goto end;
 
-  // Reshuffle after adding new items
-  if (reshuffle)
+  // Reshuffle only when appending; reshuffling would move items added at a
+  // given position (e.g. 'add next'), see db_queue_add_by_query()
+  if (reshuffle && queue_add_info->append)
     ret = queue_reshuffle(item_id, queue_add_info->queue_version);
 
  end:
