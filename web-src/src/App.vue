@@ -140,6 +140,7 @@ const connect = async () => {
 }
 
 onMounted(() => {
+  settingsStore.setAppearance(settingsStore.appearance)
   connect()
   window.addEventListener('focus', focusHandler)
   document.addEventListener('visibilitychange', visibilityHandler)

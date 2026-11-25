@@ -2,6 +2,16 @@ import { defineStore } from 'pinia'
 import i18n from '@/i18n'
 import settings from '@/api/settings'
 
+const APPEARANCE_KEY = 'owntone.appearance'
+
+const loadAppearance = () => {
+  try {
+    return localStorage.getItem(APPEARANCE_KEY) ?? 'auto'
+  } catch {
+    return 'auto'
+  }
+}
+
 const { t, availableLocales } = i18n.global
 
 export const useSettingsStore = defineStore('SettingsStore', {
@@ -41,6 +51,11 @@ export const useSettingsStore = defineStore('SettingsStore', {
     },
     setAppearance(appearance) {
       this.$state.appearance = appearance
+      try {
+        localStorage.setItem(APPEARANCE_KEY, appearance)
+      } catch {
+        // Storage unavailable, keep the choice for this session only
+      }
       const element = document.documentElement
       if (appearance === 'auto') {
         element.removeAttribute('data-theme')
@@ -116,5 +131,5 @@ export const useSettingsStore = defineStore('SettingsStore', {
     showMenuItemSearch: (state) =>
       state.get('webinterface', 'show_menu_item_search')?.value ?? false
   },
-  state: () => ({ appearance: 'auto', categories: [] })
+  state: () => ({ appearance: loadAppearance(), categories: [] })
 })
